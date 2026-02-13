@@ -1,0 +1,5 @@
+# lazy-tmux integration snippet
+run-shell -b 'lazy-tmux daemon --interval 5m >/tmp/lazy-tmux.log 2>&1'
+run-shell -b 'lazy-tmux bootstrap --session last >/tmp/lazy-tmux-bootstrap.log 2>&1'
+bind-key s run-shell 'lazy-tmux save --all'
+bind-key f display-popup -E 'lazy-tmux picker'
