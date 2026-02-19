@@ -1,0 +1,19 @@
+name: fmt-check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  fmt-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Format Check
+        run: make fmt-check
