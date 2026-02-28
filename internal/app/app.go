@@ -89,14 +89,30 @@ func (a *App) ListRecords() ([]snapshot.Record, error) {
 	return a.store.ListRecords()
 }
 
-func (a *App) SelectWithFZF() (string, error) {
+func (a *App) pickerRecords() ([]snapshot.Record, error) {
 	records, err := a.store.ListRecords()
+	if err != nil {
+		return nil, err
+	}
+	if len(records) == 0 {
+		return nil, fmt.Errorf("no saved sessions found")
+	}
+	sort.Slice(records, func(i, j int) bool { return records[i].CapturedAt.After(records[j].CapturedAt) })
+	return records, nil
+}
+
+func (a *App) SelectWithTUI() (string, error) {
+	records, err := a.pickerRecords()
 	if err != nil {
 		return "", err
 	}
-	if len(records) == 0 {
-		return "", fmt.Errorf("no saved sessions found")
-	}
-	sort.Slice(records, func(i, j int) bool { return records[i].CapturedAt.After(records[j].CapturedAt) })
 	return chooseSession(records)
+}
+
+func (a *App) SelectWithFZF() (string, error) {
+	records, err := a.pickerRecords()
+	if err != nil {
+		return "", err
+	}
+	return chooseSessionFZF(records)
 }
