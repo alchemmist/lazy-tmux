@@ -55,7 +55,7 @@ func TestPickerRecordsSortedByCapturedAt(t *testing.T) {
 }
 
 func TestChooseSessionFZFSuccess(t *testing.T) {
-	t.Setenv("PATH", withFakeFZF(t, "#!/bin/sh\nprintf 'beta\t2026-02-28 10:00:00\t2w/3p\n'\n")+":"+os.Getenv("PATH"))
+	t.Setenv("PATH", withFakeFZF(t, "#!/bin/sh\nprintf 'beta\t2026-02-28 10:00:00\t2w\n'\n")+":"+os.Getenv("PATH"))
 
 	records := []snapshot.Record{
 		{SessionName: "alpha", CapturedAt: time.Now().UTC(), Windows: 1, Panes: 1},

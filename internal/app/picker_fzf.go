@@ -12,7 +12,7 @@ import (
 func chooseSessionFZF(records []snapshot.Record) (string, error) {
 	var input bytes.Buffer
 	for _, r := range records {
-		line := fmt.Sprintf("%s\t%s\t%dw/%dp\n", r.SessionName, r.CapturedAt.Local().Format("2006-01-02 15:04:05"), r.Windows, r.Panes)
+		line := fmt.Sprintf("%s\t%s\t%dw\n", r.SessionName, r.CapturedAt.Local().Format("2006-01-02 15:04:05"), r.Windows)
 		input.WriteString(line)
 	}
 

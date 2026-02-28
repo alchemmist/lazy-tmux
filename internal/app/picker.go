@@ -30,14 +30,13 @@ type pickerModel struct {
 func newPickerModel(records []snapshot.Record) pickerModel {
 	input := textinput.New()
 	input.Placeholder = "fuzzy search"
-	input.Prompt = "query> "
+	input.Prompt = "> "
 	input.Focus()
 
 	cols := []table.Column{
 		{Title: "SESSION", Width: 32},
 		{Title: "CAPTURED", Width: 19},
 		{Title: "WINS", Width: 6},
-		{Title: "PANES", Width: 6},
 	}
 
 	tbl := table.New(
@@ -103,8 +102,6 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m pickerModel) View() string {
 	var b strings.Builder
-	b.WriteString("lazy-tmux picker\n")
-	b.WriteString("enter: restore  esc/q/ctrl-c: cancel  up/down or j/k: move\n\n")
 	b.WriteString(m.queryInput.View())
 	b.WriteString("\n\n")
 	if len(m.visible) == 0 {
@@ -119,12 +116,12 @@ func (m *pickerModel) resize() {
 	if m.width <= 0 {
 		return
 	}
-	sessionW := m.width - 45
+	sessionW := m.width - 37
 	if sessionW < 16 {
 		sessionW = 16
 	}
 	cols := m.table.Columns()
-	if len(cols) == 4 {
+	if len(cols) == 3 {
 		cols[0].Width = sessionW
 		m.table.SetColumns(cols)
 	}
@@ -141,7 +138,7 @@ func (m *pickerModel) applyFilter() {
 	rows := make([]pickerRow, 0, len(m.allRows))
 
 	for _, row := range m.allRows {
-		target := strings.ToLower(fmt.Sprintf("%s %s %dw %dp", row.record.SessionName, row.record.CapturedAt.Local().Format("2006-01-02 15:04:05"), row.record.Windows, row.record.Panes))
+		target := strings.ToLower(fmt.Sprintf("%s %s %dw", row.record.SessionName, row.record.CapturedAt.Local().Format("2006-01-02 15:04:05"), row.record.Windows))
 		score, ok := fuzzyScore(query, target)
 		if !ok {
 			continue
@@ -164,7 +161,6 @@ func (m *pickerModel) applyFilter() {
 			trim(row.record.SessionName, 80),
 			row.record.CapturedAt.Local().Format("2006-01-02 15:04:05"),
 			fmt.Sprintf("%d", row.record.Windows),
-			fmt.Sprintf("%d", row.record.Panes),
 		})
 	}
 	m.table.SetRows(tableRows)
