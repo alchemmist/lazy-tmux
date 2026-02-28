@@ -88,6 +88,7 @@ func runRestore(base config.Config, args []string) {
 
 func runPicker(base config.Config, args []string) {
 	fs := flag.NewFlagSet("picker", flag.ExitOnError)
+	fzfEngine := fs.Bool("fzf-engine", false, "use fzf engine instead of built-in TUI")
 	dataDir := fs.String("data-dir", base.DataDir, "snapshot directory")
 	tmuxBin := fs.String("tmux-bin", base.TmuxBin, "tmux binary")
 	_ = fs.Parse(args)
@@ -97,7 +98,15 @@ func runPicker(base config.Config, args []string) {
 	cfg.TmuxBin = *tmuxBin
 	a := app.New(cfg)
 
-	session, err := a.SelectWithFZF()
+	var (
+		session string
+		err     error
+	)
+	if *fzfEngine {
+		session, err = a.SelectWithFZF()
+	} else {
+		session, err = a.SelectWithTUI()
+	}
 	if err != nil {
 		fatalErr(err)
 	}
@@ -165,10 +174,13 @@ Usage:
 Commands:
   save       Save current or selected sessions
   restore    Restore one session from disk
-  picker     Open fzf-based selection flow and restore selected session
+  picker     Open session picker and restore selected session (default: TUI)
   bootstrap  Restore one session at tmux startup (default: last)
   daemon     Periodically save all sessions
   list       List saved sessions
+
+Picker flags:
+  --fzf-engine  Use fzf backend instead of built-in TUI
 `)
 }
 

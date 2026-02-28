@@ -12,7 +12,8 @@
 
 - `save` current session, specific session, or all sessions.
 - `daemon` mode for periodic autosave (single-instance lock per tmux socket).
-- `picker` with `fzf` for fast session search in a tmux popup.
+- `picker` with built-in TUI table and fuzzy search in a tmux popup (default).
+- Optional `fzf` picker backend via `--fzf-engine`.
 - `restore` exactly one selected session from disk.
 - `bootstrap` on tmux startup to restore latest or named session.
 
@@ -59,7 +60,7 @@ bind-key f display-popup -E 'lazy-tmux picker'
 After reloading tmux config (`tmux source-file ~/.tmux.conf`):
 
 - `prefix + s` saves snapshots.
-- `prefix + f` opens `fzf` picker from saved sessions.
+- `prefix + f` opens TUI picker from saved sessions (`--fzf-engine` for `fzf` backend).
 - selected session is restored only when selected.
 
 ## CLI
@@ -67,7 +68,7 @@ After reloading tmux config (`tmux source-file ~/.tmux.conf`):
 ```bash
 lazy-tmux save [--all] [--session NAME] [--data-dir DIR]
 lazy-tmux restore --session NAME [--switch=true]
-lazy-tmux picker
+lazy-tmux picker [--fzf-engine]
 lazy-tmux bootstrap [--session last|NAME]
 lazy-tmux daemon [--interval 5m]
 lazy-tmux list
