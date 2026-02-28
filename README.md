@@ -95,8 +95,10 @@ Override via:
 
 ```bash
 make fmt
+make lint
 make test
 make build
+make check
 ```
 
 ## Release
