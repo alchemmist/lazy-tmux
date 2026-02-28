@@ -4,7 +4,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 	"time"
@@ -14,54 +13,39 @@ import (
 )
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
-}
+	if len(os.Args) < 2 {
+		usage()
+		os.Exit(2)
+	}
 
-func run(args []string, stdout, stderr io.Writer) int {
 	cfg := config.Default()
-	if len(args) < 1 {
-		usage(stdout)
-		return 2
-	}
-
-	var err error
-	switch args[0] {
+	switch os.Args[1] {
 	case "save":
-		err = runSave(cfg, args[1:])
+		runSave(cfg, os.Args[2:])
 	case "restore":
-		err = runRestore(cfg, args[1:])
+		runRestore(cfg, os.Args[2:])
 	case "picker":
-		err = runPicker(cfg, args[1:])
+		runPicker(cfg, os.Args[2:])
 	case "bootstrap":
-		err = runBootstrap(cfg, args[1:])
+		runBootstrap(cfg, os.Args[2:])
 	case "daemon":
-		err = runDaemon(cfg, args[1:])
+		runDaemon(cfg, os.Args[2:])
 	case "list":
-		err = runList(cfg, args[1:], stdout)
+		runList(cfg, os.Args[2:])
 	case "help", "-h", "--help":
-		usage(stdout)
-		return 0
+		usage()
 	default:
-		fmt.Fprintf(stderr, "lazy-tmux: unknown command: %s\n", args[0])
-		return 1
+		fatalf("unknown command: %s", os.Args[1])
 	}
-	if err != nil {
-		fmt.Fprintf(stderr, "lazy-tmux: %s\n", formatError(err))
-		return 1
-	}
-	return 0
 }
 
-func runSave(base config.Config, args []string) error {
-	fs := flag.NewFlagSet("save", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
+func runSave(base config.Config, args []string) {
+	fs := flag.NewFlagSet("save", flag.ExitOnError)
 	all := fs.Bool("all", false, "save all sessions")
 	session := fs.String("session", "", "save specific session")
 	dataDir := fs.String("data-dir", base.DataDir, "snapshot directory")
 	tmuxBin := fs.String("tmux-bin", base.TmuxBin, "tmux binary")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
+	_ = fs.Parse(args)
 
 	cfg := base
 	cfg.DataDir = *dataDir
@@ -77,109 +61,112 @@ func runSave(base config.Config, args []string) error {
 	default:
 		err = a.SaveCurrent()
 	}
-	return err
+	if err != nil {
+		fatalErr(err)
+	}
 }
 
-func runRestore(base config.Config, args []string) error {
-	fs := flag.NewFlagSet("restore", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
+func runRestore(base config.Config, args []string) {
+	fs := flag.NewFlagSet("restore", flag.ExitOnError)
 	session := fs.String("session", "", "session to restore")
 	switchClient := fs.Bool("switch", true, "switch active client to restored session")
 	dataDir := fs.String("data-dir", base.DataDir, "snapshot directory")
 	tmuxBin := fs.String("tmux-bin", base.TmuxBin, "tmux binary")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
+	_ = fs.Parse(args)
 	if strings.TrimSpace(*session) == "" {
-		return errors.New("restore requires --session")
+		fatalf("restore requires --session")
 	}
 
 	cfg := base
 	cfg.DataDir = *dataDir
 	cfg.TmuxBin = *tmuxBin
 	a := app.New(cfg)
-	return a.Restore(strings.TrimSpace(*session), *switchClient)
+	if err := a.Restore(strings.TrimSpace(*session), *switchClient); err != nil {
+		fatalErr(err)
+	}
 }
 
-func runPicker(base config.Config, args []string) error {
-	fs := flag.NewFlagSet("picker", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
+func runPicker(base config.Config, args []string) {
+	fs := flag.NewFlagSet("picker", flag.ExitOnError)
+	fzfEngine := fs.Bool("fzf-engine", false, "use fzf engine instead of built-in TUI")
 	dataDir := fs.String("data-dir", base.DataDir, "snapshot directory")
 	tmuxBin := fs.String("tmux-bin", base.TmuxBin, "tmux binary")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
+	_ = fs.Parse(args)
 
 	cfg := base
 	cfg.DataDir = *dataDir
 	cfg.TmuxBin = *tmuxBin
 	a := app.New(cfg)
 
-	session, err := a.SelectWithFZF()
-	if err != nil {
-		return err
+	var (
+		session string
+		err     error
+	)
+	if *fzfEngine {
+		session, err = a.SelectWithFZF()
+	} else {
+		session, err = a.SelectWithTUI()
 	}
-	return a.Restore(session, true)
+	if err != nil {
+		fatalErr(err)
+	}
+	if err := a.Restore(session, true); err != nil {
+		fatalErr(err)
+	}
 }
 
-func runBootstrap(base config.Config, args []string) error {
-	fs := flag.NewFlagSet("bootstrap", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
+func runBootstrap(base config.Config, args []string) {
+	fs := flag.NewFlagSet("bootstrap", flag.ExitOnError)
 	session := fs.String("session", "last", "session name or 'last'")
 	dataDir := fs.String("data-dir", base.DataDir, "snapshot directory")
 	tmuxBin := fs.String("tmux-bin", base.TmuxBin, "tmux binary")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
+	_ = fs.Parse(args)
 
 	cfg := base
 	cfg.DataDir = *dataDir
 	cfg.TmuxBin = *tmuxBin
 	a := app.New(cfg)
-	return a.Bootstrap(*session)
+	if err := a.Bootstrap(*session); err != nil {
+		fatalErr(err)
+	}
 }
 
-func runDaemon(base config.Config, args []string) error {
-	fs := flag.NewFlagSet("daemon", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
+func runDaemon(base config.Config, args []string) {
+	fs := flag.NewFlagSet("daemon", flag.ExitOnError)
 	interval := fs.Duration("interval", base.SaveInterval, "autosave interval")
 	dataDir := fs.String("data-dir", base.DataDir, "snapshot directory")
 	tmuxBin := fs.String("tmux-bin", base.TmuxBin, "tmux binary")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
+	_ = fs.Parse(args)
 
 	cfg := base
 	cfg.DataDir = *dataDir
 	cfg.TmuxBin = *tmuxBin
 	cfg.SaveInterval = *interval
 	a := app.New(cfg)
-	return a.RunDaemon(*interval)
+	if err := a.RunDaemon(*interval); err != nil {
+		fatalErr(err)
+	}
 }
 
-func runList(base config.Config, args []string, out io.Writer) error {
-	fs := flag.NewFlagSet("list", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
+func runList(base config.Config, args []string) {
+	fs := flag.NewFlagSet("list", flag.ExitOnError)
 	dataDir := fs.String("data-dir", base.DataDir, "snapshot directory")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
+	_ = fs.Parse(args)
 
 	cfg := base
 	cfg.DataDir = *dataDir
 	a := app.New(cfg)
 	recs, err := a.ListRecords()
 	if err != nil {
-		return err
+		fatalErr(err)
 	}
 	for _, r := range recs {
-		fmt.Fprintf(out, "%s\t%s\t%dw/%dp\n", r.SessionName, r.CapturedAt.Local().Format(time.RFC3339), r.Windows, r.Panes)
+		fmt.Printf("%s\t%s\t%dw/%dp\n", r.SessionName, r.CapturedAt.Local().Format(time.RFC3339), r.Windows, r.Panes)
 	}
-	return nil
 }
 
-func usage(out io.Writer) {
-	fmt.Fprint(out, `lazy-tmux - tmux session snapshots with lazy restore
+func usage() {
+	fmt.Print(`lazy-tmux - tmux session snapshots with lazy restore
 
 Usage:
   lazy-tmux <command> [flags]
@@ -187,16 +174,24 @@ Usage:
 Commands:
   save       Save current or selected sessions
   restore    Restore one session from disk
-  picker     Open fzf-based selection flow and restore selected session
+  picker     Open session picker and restore selected session (default: TUI)
   bootstrap  Restore one session at tmux startup (default: last)
   daemon     Periodically save all sessions
   list       List saved sessions
+
+Picker flags:
+  --fzf-engine  Use fzf backend instead of built-in TUI
 `)
 }
 
-func formatError(err error) string {
+func fatalErr(err error) {
 	if errors.Is(err, os.ErrNotExist) {
-		return fmt.Sprintf("not found: %v", err)
+		fatalf("not found: %v", err)
 	}
-	return err.Error()
+	fatalf("%v", err)
+}
+
+func fatalf(format string, args ...any) {
+	fmt.Fprintf(os.Stderr, "lazy-tmux: "+format+"\n", args...)
+	os.Exit(1)
 }
