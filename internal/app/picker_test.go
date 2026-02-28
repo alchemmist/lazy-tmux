@@ -10,6 +10,7 @@ import (
 
 	"github.com/alchemmist/lazy-tmux/internal/config"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+	"github.com/charmbracelet/bubbles/table"
 )
 
 func TestPickerRecordsEmpty(t *testing.T) {
@@ -92,6 +93,77 @@ func TestChooseSessionFZFCommandFailure(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "fzf selection canceled or failed") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestFilteredTreeRowsByWindowNameKeepsSessionParent(t *testing.T) {
+	base := time.Date(2026, 2, 28, 10, 0, 0, 0, time.UTC)
+	sessions := []pickerSession{
+		{
+			Record: snapshot.Record{
+				SessionName: "work",
+				CapturedAt:  base,
+				Windows:     2,
+			},
+			Windows: []snapshot.Window{
+				{Index: 0, Name: "editor"},
+				{Index: 1, Name: "logs"},
+			},
+		},
+	}
+
+	rows := filteredTreeRows(sessions, "log")
+	if len(rows) != 2 {
+		t.Fatalf("expected 2 rows (session + matched window), got %d", len(rows))
+	}
+	if rows[0].target.SessionName != "work" || rows[0].target.WindowIndex != nil {
+		t.Fatalf("unexpected parent row target: %+v", rows[0].target)
+	}
+	if rows[0].selectable {
+		t.Fatalf("session row must be non-selectable")
+	}
+	if rows[1].target.WindowIndex == nil || *rows[1].target.WindowIndex != 1 {
+		t.Fatalf("expected selected window index 1, got %+v", rows[1].target)
+	}
+	if !rows[1].selectable {
+		t.Fatalf("window row must be selectable")
+	}
+}
+
+func TestMoveSkipsSessionHeaders(t *testing.T) {
+	m := pickerModel{
+		visible: []pickerRow{
+			{item: "session-a", selectable: false},
+			{item: "  ├─ [0] editor", selectable: true},
+			{item: "  ╰─ [1] logs", selectable: true},
+			{item: "session-b", selectable: false},
+			{item: "  ╰─ [0] shell", selectable: true},
+		},
+	}
+	m.table = table.New(
+		table.WithColumns([]table.Column{
+			{Title: "ITEM", Width: 20},
+			{Title: "CAPTURED", Width: 19},
+			{Title: "WINS", Width: 6},
+		}),
+		table.WithRows([]table.Row{
+			{"session-a", "", ""},
+			{"  ├─ [0] editor", "", ""},
+			{"  ╰─ [1] logs", "", ""},
+			{"session-b", "", ""},
+			{"  ╰─ [0] shell", "", ""},
+		}),
+	)
+	m.table.SetCursor(2)
+
+	m.moveNextSelectable()
+	if got := m.table.Cursor(); got != 4 {
+		t.Fatalf("expected jump to first window of next session, got cursor=%d", got)
+	}
+
+	m.movePrevSelectable()
+	if got := m.table.Cursor(); got != 2 {
+		t.Fatalf("expected jump back to previous selectable row, got cursor=%d", got)
 	}
 }
 
