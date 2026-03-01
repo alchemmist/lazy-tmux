@@ -27,6 +27,7 @@ type Pane struct {
 	CurrentPath  string `json:"current_path"`
 	CurrentCmd   string `json:"current_cmd"`
 	StartCommand string `json:"start_command"`
+	RestoreCmd   string `json:"restore_cmd,omitempty"`
 	IsActive     bool   `json:"is_active"`
 }
 
