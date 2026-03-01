@@ -1,10 +1,12 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/config"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
@@ -89,7 +91,12 @@ func (a *App) RestoreTarget(target PickerTarget, switchClient bool) error {
 		if target.WindowIndex != nil {
 			switchTarget = fmt.Sprintf("%s:%d", session, *target.WindowIndex)
 		}
-		return a.tmux.SwitchClient(switchTarget)
+		if err := a.tmux.SwitchClient(switchTarget); err != nil {
+			return err
+		}
+	}
+	if err := a.store.MarkSessionAccessed(session, time.Now().UTC()); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
 	}
 	return nil
 }
@@ -121,7 +128,15 @@ func (a *App) pickerRecords() ([]snapshot.Record, error) {
 	if len(records) == 0 {
 		return nil, fmt.Errorf("no saved sessions found")
 	}
-	sort.Slice(records, func(i, j int) bool { return records[i].CapturedAt.After(records[j].CapturedAt) })
+	sort.Slice(records, func(i, j int) bool {
+		if !records[i].LastAccessed.Equal(records[j].LastAccessed) {
+			return records[i].LastAccessed.After(records[j].LastAccessed)
+		}
+		if !records[i].CapturedAt.Equal(records[j].CapturedAt) {
+			return records[i].CapturedAt.After(records[j].CapturedAt)
+		}
+		return records[i].SessionName < records[j].SessionName
+	})
 	return records, nil
 }
 

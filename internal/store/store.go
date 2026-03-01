@@ -70,11 +70,12 @@ func (s *Store) SaveSession(ss snapshot.SessionSnapshot) error {
 		panes += len(w.Panes)
 	}
 	idx.Sessions[ss.SessionName] = snapshot.Record{
-		SessionName: ss.SessionName,
-		File:        path,
-		CapturedAt:  ss.CapturedAt.UTC(),
-		Windows:     len(ss.Windows),
-		Panes:       panes,
+		SessionName:  ss.SessionName,
+		File:         path,
+		CapturedAt:   ss.CapturedAt.UTC(),
+		LastAccessed: idx.Sessions[ss.SessionName].LastAccessed,
+		Windows:      len(ss.Windows),
+		Panes:        panes,
 	}
 	idx.Updated = time.Now().UTC()
 	return writeJSONAtomic(s.indexPath(), idx)
@@ -127,6 +128,32 @@ func (s *Store) LatestRecord() (snapshot.Record, error) {
 		return snapshot.Record{}, os.ErrNotExist
 	}
 	return recs[0], nil
+}
+
+func (s *Store) MarkSessionAccessed(name string, at time.Time) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return errors.New("empty session name")
+	}
+	if at.IsZero() {
+		at = time.Now().UTC()
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	idx, err := s.loadIndexUnlocked()
+	if err != nil {
+		return err
+	}
+	rec, ok := idx.Sessions[name]
+	if !ok {
+		return os.ErrNotExist
+	}
+	rec.LastAccessed = at.UTC()
+	idx.Sessions[name] = rec
+	idx.Updated = time.Now().UTC()
+	return writeJSONAtomic(s.indexPath(), idx)
 }
 
 func (s *Store) ensureLayout() error {
