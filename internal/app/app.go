@@ -24,8 +24,9 @@ type PickerTarget struct {
 }
 
 type pickerSession struct {
-	Record  snapshot.Record
-	Windows []snapshot.Window
+	Record   snapshot.Record
+	Windows  []snapshot.Window
+	Restored bool
 }
 
 func New(cfg config.Config) *App {
@@ -129,6 +130,14 @@ func (a *App) pickerSessions() ([]pickerSession, error) {
 	if err != nil {
 		return nil, err
 	}
+	liveSessions, err := a.tmux.ListSessions()
+	if err != nil {
+		return nil, err
+	}
+	live := make(map[string]struct{}, len(liveSessions))
+	for _, name := range liveSessions {
+		live[name] = struct{}{}
+	}
 
 	sessions := make([]pickerSession, 0, len(records))
 	for _, rec := range records {
@@ -136,9 +145,11 @@ func (a *App) pickerSessions() ([]pickerSession, error) {
 		if err != nil {
 			return nil, err
 		}
+		_, restored := live[rec.SessionName]
 		sessions = append(sessions, pickerSession{
-			Record:  rec,
-			Windows: snap.Windows,
+			Record:   rec,
+			Windows:  snap.Windows,
+			Restored: restored,
 		})
 	}
 	return sessions, nil

@@ -19,6 +19,7 @@ type pickerRow struct {
 	item       string
 	captured   string
 	wins       string
+	state      string
 	selectable bool
 }
 
@@ -109,7 +110,7 @@ func (m pickerModel) View() string {
 	b.WriteString("\n")
 	itemW := m.itemWidth()
 	b.WriteString("  ")
-	b.WriteString(fmt.Sprintf("%-*s %-19s %4s\n", itemW, "ITEM", "CAPTURED", "WINS"))
+	b.WriteString(fmt.Sprintf("%-*s %-19s %4s %5s\n", itemW, "ITEM", "CAPTURED", "WINS", "STATE"))
 	if len(m.visible) == 0 {
 		b.WriteString("No sessions or windows match query\n")
 		return b.String()
@@ -152,7 +153,7 @@ func (m *pickerModel) renderViewport() {
 		if i == m.cursor && row.selectable {
 			pointer = "> "
 		}
-		line := pointer + fmt.Sprintf("%-*s %-19s %4s", itemW, trim(row.item, itemW), row.captured, row.wins)
+		line := pointer + fmt.Sprintf("%-*s %-19s %4s %5s", itemW, trim(row.item, itemW), row.captured, row.wins, row.state)
 		if i == m.cursor && row.selectable {
 			line = m.selectedStyle.Render(line)
 		}
@@ -162,7 +163,7 @@ func (m *pickerModel) renderViewport() {
 }
 
 func (m *pickerModel) itemWidth() int {
-	return max(16, m.viewport.Width-28)
+	return max(16, m.viewport.Width-34)
 }
 
 func (m *pickerModel) ensureCursorVisible() {
@@ -218,6 +219,7 @@ func filteredTreeRows(sessions []pickerSession, query string) []pickerRow {
 			item:       s.Record.SessionName,
 			captured:   s.Record.CapturedAt.Local().Format("2006-01-02 15:04:05"),
 			wins:       fmt.Sprintf("%d", s.Record.Windows),
+			state:      sessionStateIcon(s.Restored),
 			selectable: false,
 		})
 
@@ -230,11 +232,21 @@ func filteredTreeRows(sessions []pickerSession, query string) []pickerRow {
 			rows = append(rows, pickerRow{
 				target:     PickerTarget{SessionName: s.Record.SessionName, WindowIndex: &wi},
 				item:       fmt.Sprintf("  %s [%d] %s", branch, w.Index, w.Name),
+				captured:   "",
+				wins:       "",
+				state:      "",
 				selectable: true,
 			})
 		}
 	}
 	return rows
+}
+
+func sessionStateIcon(restored bool) string {
+	if restored {
+		return "✓"
+	}
+	return "💤"
 }
 
 func fuzzyMatch(query, target string) bool {
