@@ -68,7 +68,7 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "esc", "q":
+		case "ctrl+c", "ctrl+q", "esc":
 			m.cancelled = true
 			return m, tea.Quit
 		case "ctrl+k":
@@ -107,6 +107,9 @@ func (m pickerModel) View() string {
 	var b strings.Builder
 	b.WriteString(m.queryInput.View())
 	b.WriteString("\n")
+	itemW := m.itemWidth()
+	b.WriteString("  ")
+	b.WriteString(fmt.Sprintf("%-*s %-19s %4s\n", itemW, "ITEM", "CAPTURED", "WINS"))
 	if len(m.visible) == 0 {
 		b.WriteString("No sessions or windows match query\n")
 		return b.String()
@@ -142,7 +145,7 @@ func (m *pickerModel) renderViewport() {
 		m.viewport.SetContent("")
 		return
 	}
-	itemW := max(16, m.viewport.Width-28)
+	itemW := m.itemWidth()
 	lines := make([]string, 0, len(m.visible))
 	for i, row := range m.visible {
 		pointer := "  "
@@ -156,6 +159,10 @@ func (m *pickerModel) renderViewport() {
 		lines = append(lines, line)
 	}
 	m.viewport.SetContent(strings.Join(lines, "\n"))
+}
+
+func (m *pickerModel) itemWidth() int {
+	return max(16, m.viewport.Width-28)
 }
 
 func (m *pickerModel) ensureCursorVisible() {
