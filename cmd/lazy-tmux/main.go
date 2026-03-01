@@ -99,18 +99,20 @@ func runPicker(base config.Config, args []string) {
 	a := app.New(cfg)
 
 	var (
-		session string
-		err     error
+		target app.PickerTarget
+		err    error
 	)
 	if *fzfEngine {
-		session, err = a.SelectWithFZF()
+		session, selErr := a.SelectWithFZF()
+		err = selErr
+		target = app.PickerTarget{SessionName: session}
 	} else {
-		session, err = a.SelectWithTUI()
+		target, err = a.SelectTargetWithTUI()
 	}
 	if err != nil {
 		fatalErr(err)
 	}
-	if err := a.Restore(session, true); err != nil {
+	if err := a.RestoreTarget(target, true); err != nil {
 		fatalErr(err)
 	}
 }
