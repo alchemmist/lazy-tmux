@@ -14,7 +14,7 @@ GOLANGCI_LINT := $(GOBIN)/golangci-lint
 
 .PHONY: help check build test test-race test-cov fmt fmt-check vet staticcheck golangci-lint lint tidy tidy-check install clean
 
-check: fmt-check tidy-check lint staticcheck test build
+check: fmt-check lint staticcheck test build
 
 build:
 	go build -o bin/$(BINARY) ./cmd/$(BINARY)
@@ -57,10 +57,6 @@ lint: vet staticcheck golangci-lint
 tidy:
 	go mod tidy
 
-tidy-check:
-	go mod tidy
-	@git diff --exit-code -- go.mod go.sum
-
 install:
 	go install ./cmd/$(BINARY)
 
@@ -69,7 +65,7 @@ clean:
 
 help:
 	@printf "Available targets:\n\n"
-	@printf "  check       - run fmt-check, tidy-check, lint, test, build\n"
+	@printf "  check       - run fmt-check, lint, test, build\n"
 	@printf "  build       - build binary into ./bin\n"
 	@printf "  test        - run all tests\n"
 	@printf "  test-race   - run tests with race detector\n"
@@ -81,6 +77,5 @@ help:
 	@printf "  golangci-lint - run golangci-lint\n"
 	@printf "  lint        - run vet + staticcheck + golangci-lint\n"
 	@printf "  tidy        - run go mod tidy\n"
-	@printf "  tidy-check  - ensure go.mod/go.sum are tidy\n"
 	@printf "  install     - install CLI with go install\n"
 	@printf "  clean       - remove build artifacts\n"

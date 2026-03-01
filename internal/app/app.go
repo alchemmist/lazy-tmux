@@ -18,6 +18,16 @@ type App struct {
 	tmux  *tmux.Client
 }
 
+type PickerTarget struct {
+	SessionName string
+	WindowIndex *int
+}
+
+type pickerSession struct {
+	Record  snapshot.Record
+	Windows []snapshot.Window
+}
+
 func New(cfg config.Config) *App {
 	return &App{
 		cfg:   cfg,
@@ -56,6 +66,15 @@ func (a *App) SaveCurrent() error {
 }
 
 func (a *App) Restore(session string, switchClient bool) error {
+	return a.RestoreTarget(PickerTarget{SessionName: session}, switchClient)
+}
+
+func (a *App) RestoreTarget(target PickerTarget, switchClient bool) error {
+	session := strings.TrimSpace(target.SessionName)
+	if session == "" {
+		return fmt.Errorf("empty session name")
+	}
+
 	snap, err := a.store.LoadSession(session)
 	if err != nil {
 		return err
@@ -65,7 +84,11 @@ func (a *App) Restore(session string, switchClient bool) error {
 		return err
 	}
 	if switchClient {
-		return a.tmux.SwitchClient(session)
+		switchTarget := session
+		if target.WindowIndex != nil {
+			switchTarget = fmt.Sprintf("%s:%d", session, *target.WindowIndex)
+		}
+		return a.tmux.SwitchClient(switchTarget)
 	}
 	return nil
 }
@@ -101,12 +124,40 @@ func (a *App) pickerRecords() ([]snapshot.Record, error) {
 	return records, nil
 }
 
-func (a *App) SelectWithTUI() (string, error) {
+func (a *App) pickerSessions() ([]pickerSession, error) {
 	records, err := a.pickerRecords()
+	if err != nil {
+		return nil, err
+	}
+
+	sessions := make([]pickerSession, 0, len(records))
+	for _, rec := range records {
+		snap, err := a.store.LoadSession(rec.SessionName)
+		if err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, pickerSession{
+			Record:  rec,
+			Windows: snap.Windows,
+		})
+	}
+	return sessions, nil
+}
+
+func (a *App) SelectTargetWithTUI() (PickerTarget, error) {
+	sessions, err := a.pickerSessions()
+	if err != nil {
+		return PickerTarget{}, err
+	}
+	return chooseTarget(sessions)
+}
+
+func (a *App) SelectWithTUI() (string, error) {
+	target, err := a.SelectTargetWithTUI()
 	if err != nil {
 		return "", err
 	}
-	return chooseSession(records)
+	return target.SessionName, nil
 }
 
 func (a *App) SelectWithFZF() (string, error) {

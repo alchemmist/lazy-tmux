@@ -6,54 +6,49 @@ import (
 	"strings"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
-	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
+const scrollMargin = 2
+
 type pickerRow struct {
-	record snapshot.Record
-	score  int
+	target     PickerTarget
+	item       string
+	captured   string
+	wins       string
+	selectable bool
 }
 
 type pickerModel struct {
-	allRows    []pickerRow
-	visible    []pickerRow
-	queryInput textinput.Model
-	table      table.Model
-	selected   string
-	cancelled  bool
-	width      int
-	height     int
+	sessions      []pickerSession
+	visible       []pickerRow
+	queryInput    textinput.Model
+	viewport      viewport.Model
+	selectedStyle lipgloss.Style
+	selected      PickerTarget
+	cancelled     bool
+	cursor        int
+	width         int
+	height        int
 }
 
-func newPickerModel(records []snapshot.Record) pickerModel {
+func newPickerModel(sessions []pickerSession) pickerModel {
 	input := textinput.New()
-	input.Placeholder = "fuzzy search"
+	input.Placeholder = "fuzzy search by session/window"
 	input.Prompt = "> "
 	input.Focus()
 
-	cols := []table.Column{
-		{Title: "SESSION", Width: 32},
-		{Title: "CAPTURED", Width: 19},
-		{Title: "WINS", Width: 6},
-	}
-
-	tbl := table.New(
-		table.WithColumns(cols),
-		table.WithRows(nil),
-		table.WithFocused(true),
-		table.WithHeight(16),
-	)
+	vp := viewport.New(0, 0)
 
 	m := pickerModel{
-		queryInput: input,
-		table:      tbl,
-		allRows:    make([]pickerRow, 0, len(records)),
-	}
-
-	for _, r := range records {
-		m.allRows = append(m.allRows, pickerRow{record: r, score: 0})
+		sessions:      sessions,
+		queryInput:    input,
+		viewport:      vp,
+		selectedStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Bold(true),
+		cursor:        0,
 	}
 	m.applyFilter()
 	return m
@@ -69,131 +64,244 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.resize()
+		m.renderViewport()
 		return m, nil
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "esc", "q":
+		case "ctrl+c", "ctrl+q", "esc":
 			m.cancelled = true
 			return m, tea.Quit
+		case "ctrl+k":
+			m.movePrevSelectable()
+			m.ensureCursorVisible()
+			m.renderViewport()
+			return m, nil
+		case "ctrl+j":
+			m.moveNextSelectable()
+			m.ensureCursorVisible()
+			m.renderViewport()
+			return m, nil
 		case "enter":
 			if len(m.visible) == 0 {
 				return m, nil
 			}
-			idx := m.table.Cursor()
-			if idx >= 0 && idx < len(m.visible) {
-				m.selected = m.visible[idx].record.SessionName
+			if m.cursor >= 0 && m.cursor < len(m.visible) && m.visible[m.cursor].selectable {
+				m.selected = m.visible[m.cursor].target
 				return m, tea.Quit
 			}
 		}
 	}
 
 	prevQuery := m.queryInput.Value()
-	var cmdInput tea.Cmd
-	m.queryInput, cmdInput = m.queryInput.Update(msg)
+	var cmd tea.Cmd
+	m.queryInput, cmd = m.queryInput.Update(msg)
 	if prevQuery != m.queryInput.Value() {
 		m.applyFilter()
+		m.ensureCursorVisible()
+		m.renderViewport()
 	}
-
-	var cmdTable tea.Cmd
-	m.table, cmdTable = m.table.Update(msg)
-
-	return m, tea.Batch(cmdInput, cmdTable)
+	return m, cmd
 }
 
 func (m pickerModel) View() string {
 	var b strings.Builder
 	b.WriteString(m.queryInput.View())
-	b.WriteString("\n\n")
+	b.WriteString("\n")
+	itemW := m.itemWidth()
+	b.WriteString("  ")
+	b.WriteString(fmt.Sprintf("%-*s %-19s %4s\n", itemW, "ITEM", "CAPTURED", "WINS"))
 	if len(m.visible) == 0 {
-		b.WriteString("No sessions match query\n")
+		b.WriteString("No sessions or windows match query\n")
 		return b.String()
 	}
-	b.WriteString(m.table.View())
+	b.WriteString(m.viewport.View())
 	return b.String()
 }
 
 func (m *pickerModel) resize() {
-	if m.width <= 0 {
+	if m.width <= 0 || m.height <= 0 {
 		return
 	}
-	sessionW := m.width - 37
-	if sessionW < 16 {
-		sessionW = 16
-	}
-	cols := m.table.Columns()
-	if len(cols) == 3 {
-		cols[0].Width = sessionW
-		m.table.SetColumns(cols)
-	}
-
-	tableHeight := m.height - 7
-	if tableHeight < 5 {
-		tableHeight = 5
-	}
-	m.table.SetHeight(tableHeight)
+	m.viewport.Width = max(1, m.width-1)
+	reserved := lipgloss.Height(m.queryInput.View()) + 1
+	m.viewport.Height = max(1, m.height-reserved)
 }
 
 func (m *pickerModel) applyFilter() {
 	query := strings.TrimSpace(strings.ToLower(m.queryInput.Value()))
-	rows := make([]pickerRow, 0, len(m.allRows))
-
-	for _, row := range m.allRows {
-		target := strings.ToLower(fmt.Sprintf("%s %s %dw", row.record.SessionName, row.record.CapturedAt.Local().Format("2006-01-02 15:04:05"), row.record.Windows))
-		score, ok := fuzzyScore(query, target)
-		if !ok {
-			continue
-		}
-		row.score = score
-		rows = append(rows, row)
-	}
-
-	sort.Slice(rows, func(i, j int) bool {
-		if rows[i].score == rows[j].score {
-			return rows[i].record.CapturedAt.After(rows[j].record.CapturedAt)
-		}
-		return rows[i].score > rows[j].score
-	})
-
-	m.visible = rows
-	tableRows := make([]table.Row, 0, len(rows))
-	for _, row := range rows {
-		tableRows = append(tableRows, table.Row{
-			trim(row.record.SessionName, 80),
-			row.record.CapturedAt.Local().Format("2006-01-02 15:04:05"),
-			fmt.Sprintf("%d", row.record.Windows),
-		})
-	}
-	m.table.SetRows(tableRows)
-
-	if len(tableRows) == 0 {
-		m.table.SetCursor(0)
+	m.visible = filteredTreeRows(m.sessions, query)
+	if len(m.visible) == 0 {
+		m.cursor = 0
+		m.viewport.SetContent("")
 		return
 	}
-	if m.table.Cursor() >= len(tableRows) {
-		m.table.SetCursor(len(tableRows) - 1)
+	if m.cursor < 0 || m.cursor >= len(m.visible) || !m.visible[m.cursor].selectable {
+		m.cursor = firstSelectableRow(m.visible)
 	}
 }
 
-func fuzzyScore(query, target string) (int, bool) {
-	if query == "" {
-		return 1, true
+func (m *pickerModel) renderViewport() {
+	if len(m.visible) == 0 {
+		m.viewport.SetContent("")
+		return
 	}
-	qi := 0
-	score := 0
-	streak := 0
-	for i := 0; i < len(target) && qi < len(query); i++ {
-		if target[i] == query[qi] {
-			score += 10 + streak*3
-			streak++
-			qi++
-		} else {
-			streak = 0
+	itemW := m.itemWidth()
+	lines := make([]string, 0, len(m.visible))
+	for i, row := range m.visible {
+		pointer := "  "
+		if i == m.cursor && row.selectable {
+			pointer = "> "
+		}
+		line := pointer + fmt.Sprintf("%-*s %-19s %4s", itemW, trim(row.item, itemW), row.captured, row.wins)
+		if i == m.cursor && row.selectable {
+			line = m.selectedStyle.Render(line)
+		}
+		lines = append(lines, line)
+	}
+	m.viewport.SetContent(strings.Join(lines, "\n"))
+}
+
+func (m *pickerModel) itemWidth() int {
+	return max(16, m.viewport.Width-28)
+}
+
+func (m *pickerModel) ensureCursorVisible() {
+	if len(m.visible) == 0 || m.viewport.Height <= 0 {
+		return
+	}
+	maxOffset := max(0, len(m.visible)-m.viewport.Height)
+	top := m.viewport.YOffset
+	bottom := top + m.viewport.Height - 1
+
+	if m.cursor < top+scrollMargin {
+		newTop := m.cursor - scrollMargin
+		if newTop < 0 {
+			newTop = 0
+		}
+		m.viewport.YOffset = newTop
+		return
+	}
+	if m.cursor > bottom-scrollMargin {
+		newTop := m.cursor - (m.viewport.Height - 1 - scrollMargin)
+		if newTop < 0 {
+			newTop = 0
+		}
+		if newTop > maxOffset {
+			newTop = maxOffset
+		}
+		m.viewport.YOffset = newTop
+	}
+}
+
+func filteredTreeRows(sessions []pickerSession, query string) []pickerRow {
+	rows := make([]pickerRow, 0)
+	for _, s := range sessions {
+		windows := make([]snapshot.Window, len(s.Windows))
+		copy(windows, s.Windows)
+		sort.Slice(windows, func(i, j int) bool { return windows[i].Index < windows[j].Index })
+
+		sessionMatch := query == "" || fuzzyMatch(query, strings.ToLower(s.Record.SessionName))
+		matchedWindows := make([]snapshot.Window, 0, len(windows))
+		for _, w := range windows {
+			target := strings.ToLower(s.Record.SessionName + " " + w.Name)
+			if query == "" || sessionMatch || fuzzyMatch(query, target) {
+				matchedWindows = append(matchedWindows, w)
+			}
+		}
+
+		if !sessionMatch && len(matchedWindows) == 0 {
+			continue
+		}
+
+		rows = append(rows, pickerRow{
+			target:     PickerTarget{SessionName: s.Record.SessionName},
+			item:       s.Record.SessionName,
+			captured:   s.Record.CapturedAt.Local().Format("2006-01-02 15:04:05"),
+			wins:       fmt.Sprintf("%d", s.Record.Windows),
+			selectable: false,
+		})
+
+		for i, w := range matchedWindows {
+			branch := "├─"
+			if i == len(matchedWindows)-1 {
+				branch = "╰─"
+			}
+			wi := w.Index
+			rows = append(rows, pickerRow{
+				target:     PickerTarget{SessionName: s.Record.SessionName, WindowIndex: &wi},
+				item:       fmt.Sprintf("  %s [%d] %s", branch, w.Index, w.Name),
+				selectable: true,
+			})
 		}
 	}
-	if qi != len(query) {
-		return 0, false
+	return rows
+}
+
+func fuzzyMatch(query, target string) bool {
+	if query == "" {
+		return true
 	}
-	return score, true
+	qi := 0
+	for i := 0; i < len(target) && qi < len(query); i++ {
+		if target[i] == query[qi] {
+			qi++
+		}
+	}
+	return qi == len(query)
+}
+
+func chooseTarget(sessions []pickerSession) (PickerTarget, error) {
+	m := newPickerModel(sessions)
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	finalModel, err := p.Run()
+	if err != nil {
+		return PickerTarget{}, err
+	}
+
+	result, ok := finalModel.(pickerModel)
+	if !ok {
+		return PickerTarget{}, fmt.Errorf("unexpected picker model type")
+	}
+	if result.cancelled {
+		return PickerTarget{}, fmt.Errorf("selection canceled")
+	}
+	if strings.TrimSpace(result.selected.SessionName) == "" {
+		return PickerTarget{}, fmt.Errorf("no session selected")
+	}
+	return result.selected, nil
+}
+
+func firstSelectableRow(rows []pickerRow) int {
+	for i := range rows {
+		if rows[i].selectable {
+			return i
+		}
+	}
+	return 0
+}
+
+func (m *pickerModel) moveNextSelectable() {
+	if len(m.visible) == 0 {
+		return
+	}
+	for i := m.cursor + 1; i < len(m.visible); i++ {
+		if m.visible[i].selectable {
+			m.cursor = i
+			return
+		}
+	}
+}
+
+func (m *pickerModel) movePrevSelectable() {
+	if len(m.visible) == 0 {
+		return
+	}
+	for i := m.cursor - 1; i >= 0; i-- {
+		if m.visible[i].selectable {
+			m.cursor = i
+			return
+		}
+	}
 }
 
 func trim(s string, n int) string {
@@ -207,23 +315,9 @@ func trim(s string, n int) string {
 	return string(r[:n-3]) + "..."
 }
 
-func chooseSession(records []snapshot.Record) (string, error) {
-	m := newPickerModel(records)
-	p := tea.NewProgram(m, tea.WithAltScreen())
-	finalModel, err := p.Run()
-	if err != nil {
-		return "", err
+func max(a, b int) int {
+	if a > b {
+		return a
 	}
-
-	result, ok := finalModel.(pickerModel)
-	if !ok {
-		return "", fmt.Errorf("unexpected picker model type")
-	}
-	if result.cancelled {
-		return "", fmt.Errorf("selection canceled")
-	}
-	if strings.TrimSpace(result.selected) == "" {
-		return "", fmt.Errorf("no session selected")
-	}
-	return result.selected, nil
+	return b
 }
