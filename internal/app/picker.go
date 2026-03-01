@@ -6,10 +6,13 @@ import (
 	"strings"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
-	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
+
+const scrollMargin = 2
 
 type pickerRow struct {
 	target     PickerTarget
@@ -20,14 +23,16 @@ type pickerRow struct {
 }
 
 type pickerModel struct {
-	sessions   []pickerSession
-	visible    []pickerRow
-	queryInput textinput.Model
-	table      table.Model
-	selected   PickerTarget
-	cancelled  bool
-	width      int
-	height     int
+	sessions      []pickerSession
+	visible       []pickerRow
+	queryInput    textinput.Model
+	viewport      viewport.Model
+	selectedStyle lipgloss.Style
+	selected      PickerTarget
+	cancelled     bool
+	cursor        int
+	width         int
+	height        int
 }
 
 func newPickerModel(sessions []pickerSession) pickerModel {
@@ -36,23 +41,14 @@ func newPickerModel(sessions []pickerSession) pickerModel {
 	input.Prompt = "> "
 	input.Focus()
 
-	cols := []table.Column{
-		{Title: "ITEM", Width: 42},
-		{Title: "CAPTURED", Width: 19},
-		{Title: "WINS", Width: 6},
-	}
-
-	tbl := table.New(
-		table.WithColumns(cols),
-		table.WithRows(nil),
-		table.WithFocused(true),
-		table.WithHeight(16),
-	)
+	vp := viewport.New(0, 0)
 
 	m := pickerModel{
-		sessions:   sessions,
-		queryInput: input,
-		table:      tbl,
+		sessions:      sessions,
+		queryInput:    input,
+		viewport:      vp,
+		selectedStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Bold(true),
+		cursor:        0,
 	}
 	m.applyFilter()
 	return m
@@ -68,6 +64,7 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.resize()
+		m.renderViewport()
 		return m, nil
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -76,29 +73,34 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "ctrl+k":
 			m.movePrevSelectable()
+			m.ensureCursorVisible()
+			m.renderViewport()
 			return m, nil
 		case "ctrl+j":
 			m.moveNextSelectable()
+			m.ensureCursorVisible()
+			m.renderViewport()
 			return m, nil
 		case "enter":
 			if len(m.visible) == 0 {
 				return m, nil
 			}
-			idx := m.table.Cursor()
-			if idx >= 0 && idx < len(m.visible) && m.visible[idx].selectable {
-				m.selected = m.visible[idx].target
+			if m.cursor >= 0 && m.cursor < len(m.visible) && m.visible[m.cursor].selectable {
+				m.selected = m.visible[m.cursor].target
 				return m, tea.Quit
 			}
 		}
 	}
 
 	prevQuery := m.queryInput.Value()
-	var cmdInput tea.Cmd
-	m.queryInput, cmdInput = m.queryInput.Update(msg)
+	var cmd tea.Cmd
+	m.queryInput, cmd = m.queryInput.Update(msg)
 	if prevQuery != m.queryInput.Value() {
 		m.applyFilter()
+		m.ensureCursorVisible()
+		m.renderViewport()
 	}
-	return m, cmdInput
+	return m, cmd
 }
 
 func (m pickerModel) View() string {
@@ -109,52 +111,79 @@ func (m pickerModel) View() string {
 		b.WriteString("No sessions or windows match query\n")
 		return b.String()
 	}
-	b.WriteString(m.table.View())
+	b.WriteString(m.viewport.View())
 	return b.String()
 }
 
 func (m *pickerModel) resize() {
-	if m.width <= 0 {
+	if m.width <= 0 || m.height <= 0 {
 		return
 	}
-	itemW := m.width - 34
-	if itemW < 16 {
-		itemW = 16
-	}
-	cols := m.table.Columns()
-	if len(cols) == 3 {
-		cols[0].Width = itemW
-		m.table.SetColumns(cols)
-	}
-
-	tableHeight := m.height - 1
-	if tableHeight < 5 {
-		tableHeight = 5
-	}
-	m.table.SetHeight(tableHeight)
+	m.viewport.Width = max(1, m.width-1)
+	reserved := lipgloss.Height(m.queryInput.View()) + 1
+	m.viewport.Height = max(1, m.height-reserved)
 }
 
 func (m *pickerModel) applyFilter() {
 	query := strings.TrimSpace(strings.ToLower(m.queryInput.Value()))
-	rows := filteredTreeRows(m.sessions, query)
-	m.visible = rows
-
-	tableRows := make([]table.Row, 0, len(rows))
-	for _, row := range rows {
-		tableRows = append(tableRows, table.Row{row.item, row.captured, row.wins})
-	}
-	m.table.SetRows(tableRows)
-
-	if len(tableRows) == 0 {
-		m.table.SetCursor(0)
+	m.visible = filteredTreeRows(m.sessions, query)
+	if len(m.visible) == 0 {
+		m.cursor = 0
+		m.viewport.SetContent("")
 		return
 	}
-	cur := m.table.Cursor()
-	if cur < 0 || cur >= len(tableRows) || !rows[cur].selectable {
-		m.table.SetCursor(firstSelectableRow(rows))
+	if m.cursor < 0 || m.cursor >= len(m.visible) || !m.visible[m.cursor].selectable {
+		m.cursor = firstSelectableRow(m.visible)
+	}
+}
+
+func (m *pickerModel) renderViewport() {
+	if len(m.visible) == 0 {
+		m.viewport.SetContent("")
 		return
 	}
-	m.table.SetCursor(cur)
+	itemW := max(16, m.viewport.Width-28)
+	lines := make([]string, 0, len(m.visible))
+	for i, row := range m.visible {
+		pointer := "  "
+		if i == m.cursor && row.selectable {
+			pointer = "> "
+		}
+		line := pointer + fmt.Sprintf("%-*s %-19s %4s", itemW, trim(row.item, itemW), row.captured, row.wins)
+		if i == m.cursor && row.selectable {
+			line = m.selectedStyle.Render(line)
+		}
+		lines = append(lines, line)
+	}
+	m.viewport.SetContent(strings.Join(lines, "\n"))
+}
+
+func (m *pickerModel) ensureCursorVisible() {
+	if len(m.visible) == 0 || m.viewport.Height <= 0 {
+		return
+	}
+	maxOffset := max(0, len(m.visible)-m.viewport.Height)
+	top := m.viewport.YOffset
+	bottom := top + m.viewport.Height - 1
+
+	if m.cursor < top+scrollMargin {
+		newTop := m.cursor - scrollMargin
+		if newTop < 0 {
+			newTop = 0
+		}
+		m.viewport.YOffset = newTop
+		return
+	}
+	if m.cursor > bottom-scrollMargin {
+		newTop := m.cursor - (m.viewport.Height - 1 - scrollMargin)
+		if newTop < 0 {
+			newTop = 0
+		}
+		if newTop > maxOffset {
+			newTop = maxOffset
+		}
+		m.viewport.YOffset = newTop
+	}
 }
 
 func filteredTreeRows(sessions []pickerSession, query string) []pickerRow {
@@ -248,10 +277,9 @@ func (m *pickerModel) moveNextSelectable() {
 	if len(m.visible) == 0 {
 		return
 	}
-	cur := m.table.Cursor()
-	for i := cur + 1; i < len(m.visible); i++ {
+	for i := m.cursor + 1; i < len(m.visible); i++ {
 		if m.visible[i].selectable {
-			m.table.SetCursor(i)
+			m.cursor = i
 			return
 		}
 	}
@@ -261,11 +289,28 @@ func (m *pickerModel) movePrevSelectable() {
 	if len(m.visible) == 0 {
 		return
 	}
-	cur := m.table.Cursor()
-	for i := cur - 1; i >= 0; i-- {
+	for i := m.cursor - 1; i >= 0; i-- {
 		if m.visible[i].selectable {
-			m.table.SetCursor(i)
+			m.cursor = i
 			return
 		}
 	}
+}
+
+func trim(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	if n <= 3 {
+		return string(r[:n])
+	}
+	return string(r[:n-3]) + "..."
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
