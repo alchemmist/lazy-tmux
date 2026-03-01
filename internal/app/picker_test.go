@@ -10,7 +10,6 @@ import (
 
 	"github.com/alchemmist/lazy-tmux/internal/config"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
-	"github.com/charmbracelet/bubbles/table"
 )
 
 func TestPickerRecordsEmpty(t *testing.T) {
@@ -139,30 +138,16 @@ func TestMoveSkipsSessionHeaders(t *testing.T) {
 			{item: "session-b", selectable: false},
 			{item: "  ╰─ [0] shell", selectable: true},
 		},
+		cursor: 2,
 	}
-	m.table = table.New(
-		table.WithColumns([]table.Column{
-			{Title: "ITEM", Width: 20},
-			{Title: "CAPTURED", Width: 19},
-			{Title: "WINS", Width: 6},
-		}),
-		table.WithRows([]table.Row{
-			{"session-a", "", ""},
-			{"  ├─ [0] editor", "", ""},
-			{"  ╰─ [1] logs", "", ""},
-			{"session-b", "", ""},
-			{"  ╰─ [0] shell", "", ""},
-		}),
-	)
-	m.table.SetCursor(2)
 
 	m.moveNextSelectable()
-	if got := m.table.Cursor(); got != 4 {
+	if got := m.cursor; got != 4 {
 		t.Fatalf("expected jump to first window of next session, got cursor=%d", got)
 	}
 
 	m.movePrevSelectable()
-	if got := m.table.Cursor(); got != 2 {
+	if got := m.cursor; got != 2 {
 		t.Fatalf("expected jump back to previous selectable row, got cursor=%d", got)
 	}
 }
