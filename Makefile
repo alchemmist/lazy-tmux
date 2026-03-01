@@ -8,11 +8,11 @@ MAKEFLAGS += --no-builtin-rules
 BINARY := lazy-tmux
 GO_PACKAGES := ./...
 GOFMT_PATHS := ./cmd ./internal
-GO_BIN := $(shell go env GOPATH)/bin
-STATICCHECK := $(GO_BIN)/staticcheck
-GOLANGCI_LINT := $(GO_BIN)/golangci-lint
+GOBIN := $(shell go env GOPATH)/bin
+STATICCHECK := $(GOBIN)/staticcheck
+GOLANGCI_LINT := $(GOBIN)/golangci-lint
 
-.PHONY: help check build test test-race cover fmt fmt-check vet staticcheck golangci-lint lint tidy install clean
+.PHONY: help check build test test-race test-cov fmt fmt-check vet staticcheck golangci-lint lint tidy tidy-check install clean
 
 check: fmt-check lint staticcheck test build
 
@@ -25,8 +25,10 @@ test:
 test-race:
 	go test -race $(GO_PACKAGES)
 
-cover:
-	go test -coverprofile=coverage.out $(GO_PACKAGES)
+test-cov: 
+	go install github.com/vladopajic/go-test-coverage/v2@latest
+	go test ./... -coverprofile=./cover.out -covermode=atomic -coverpkg=./...
+	${GOBIN}/go-test-coverage --config=./.testcoverage.yml
 
 fmt:
 	gofmt -w $(GOFMT_PATHS)
