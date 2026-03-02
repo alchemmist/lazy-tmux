@@ -20,6 +20,7 @@ type pickerRow struct {
 	captured   string
 	wins       string
 	state      string
+	cmd        string
 	selectable bool
 }
 
@@ -110,7 +111,7 @@ func (m pickerModel) View() string {
 	b.WriteString("\n")
 	itemW := m.itemWidth()
 	b.WriteString("  ")
-	b.WriteString(fmt.Sprintf("%-*s %-19s %4s %5s\n", itemW, "ITEM", "CAPTURED", "WINS", "STATE"))
+	b.WriteString(fmt.Sprintf("%-*s %-19s %4s %5s   %-20s\n", itemW, "ITEM", "CAPTURED", "WINS", "STATE", "CMD"))
 	if len(m.visible) == 0 {
 		b.WriteString("No sessions or windows match query\n")
 		return b.String()
@@ -153,7 +154,7 @@ func (m *pickerModel) renderViewport() {
 		if i == m.cursor && row.selectable {
 			pointer = "> "
 		}
-		line := pointer + fmt.Sprintf("%-*s %-19s %4s %5s", itemW, trim(row.item, itemW), row.captured, row.wins, row.state)
+		line := pointer + fmt.Sprintf("%-*s %-19s %4s %5s   %-20s", itemW, trim(row.item, itemW), row.captured, row.wins, row.state, row.cmd)
 		if i == m.cursor && row.selectable {
 			line = m.selectedStyle.Render(line)
 		}
@@ -163,7 +164,8 @@ func (m *pickerModel) renderViewport() {
 }
 
 func (m *pickerModel) itemWidth() int {
-	return max(16, m.viewport.Width-34)
+	return 25
+	// return max(16, m.viewport.Width-34)
 }
 
 func (m *pickerModel) ensureCursorVisible() {
@@ -229,12 +231,21 @@ func filteredTreeRows(sessions []pickerSession, query string) []pickerRow {
 				branch = "╰─"
 			}
 			wi := w.Index
+			cmd := ""
+			if len(w.Panes) > 0 {
+				if w.Panes[w.ActivePane-1].RestoreCmd != "" {
+					cmd = w.Panes[w.ActivePane-1].RestoreCmd
+				} else if w.Panes[w.ActivePane-1].CurrentCmd != "" {
+					cmd = w.Panes[w.ActivePane-1].CurrentCmd
+				}
+			}
 			rows = append(rows, pickerRow{
 				target:     PickerTarget{SessionName: s.Record.SessionName, WindowIndex: &wi},
 				item:       fmt.Sprintf("  %s [%d] %s", branch, w.Index, w.Name),
 				captured:   "",
 				wins:       "",
 				state:      "",
+				cmd:        cmd,
 				selectable: true,
 			})
 		}
@@ -325,11 +336,4 @@ func trim(s string, n int) string {
 		return string(r[:n])
 	}
 	return string(r[:n-3]) + "..."
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
