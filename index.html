@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>lazy-tmux</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #070707;
+      --panel: #0d0d0d;
+      --text: #f2f2f2;
+      --muted: #a0a0a0;
+      --line: #202020;
+      --accent: #ffffff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: monospace, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+      background: radial-gradient(circle at 20% 0%, #121212 0%, #070707 45%, #050505 100%);
+      color: var(--text);
+      line-height: 1.35;
+      min-height: 100vh;
+    }
+
+    .grid {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.16;
+      background-image:
+        linear-gradient(var(--line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--line) 1px, transparent 1px);
+      background-size: 28px 28px;
+      mask-image: linear-gradient(to bottom, rgba(0,0,0,.5), rgba(0,0,0,.1));
+    }
+
+    .container {
+      width: min(980px, 92vw);
+      margin: 0 auto;
+      padding: 52px 0 64px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0));
+      padding: 26px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(34px, 8vw, 68px);
+      line-height: 1;
+      letter-spacing: 1px;
+      font-family: "Pixelify Sans", monospace;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: clamp(16px, 2.5vw, 21px);
+      margin: 0;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .btn {
+      display: inline-block;
+      border: 1px solid var(--text);
+      color: var(--bg);
+      background: var(--accent);
+      padding: 8px 13px;
+      text-decoration: none;
+      font-size: 16px;
+    }
+
+    .btn.alt {
+      background: transparent;
+      color: var(--text);
+      border-color: var(--line);
+    }
+
+    .section {
+      margin-top: 16px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      padding: 18px;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 24px;
+      letter-spacing: .4px;
+      font-family: "Pixelify Sans", monospace;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    li { margin: 6px 0; }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    pre {
+      margin: 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      background: #060606;
+      overflow-x: auto;
+      color: #ececec;
+      font-size: 15px;
+    }
+
+    .muted { color: var(--muted); }
+
+    footer {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 14px;
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
+    }
+
+    code {
+      color: #fff;
+      background: #121212;
+      border: 1px solid var(--line);
+      padding: 1px 5px;
+    }
+
+    @media (max-width: 760px) {
+      .split { grid-template-columns: 1fr; }
+      .container { padding-top: 28px; }
+      .hero, .section { padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="grid" aria-hidden="true"></div>
+  <main class="container">
+    <section class="hero">
+      <h1>lazy-tmux</h1>
+      <p class="subtitle">Minimal tmux session snapshots with lazy restore.</p>
+      <div class="actions">
+        <a class="btn" href="https://github.com/alchemmist/lazy-tmux" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a class="btn alt" href="#install">Install</a>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Features</h2>
+      <ul>
+        <li>Save current session, one session, or all sessions: <code>save</code>.</li>
+        <li>Lazy restore only what you pick: <code>restore</code> / <code>picker</code>.</li>
+        <li>Built-in TUI tree picker: <code>session -&gt; windows</code> + fuzzy search.</li>
+        <li>Optional picker backend with <code>--fzf-engine</code>.</li>
+        <li>Daemon autosave mode with single-instance lock per tmux socket.</li>
+        <li>Bootstrap restore at tmux startup: latest or named session.</li>
+        <li>Snapshot includes window/pane structure and command replay on restore.</li>
+      </ul>
+    </section>
+
+    <section class="section" id="install">
+      <h2>Install</h2>
+      <div class="split">
+        <pre><code>make install
+# or
+go install ./cmd/lazy-tmux</code></pre>
+        <pre><code># local build
+make build
+# binary: bin/lazy-tmux</code></pre>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Quick tmux setup</h2>
+      <pre><code>run-shell -b 'lazy-tmux daemon --interval 5m &gt;/tmp/lazy-tmux.log 2&gt;&amp;1'
+run-shell -b 'lazy-tmux bootstrap --session last &gt;/tmp/lazy-tmux-bootstrap.log 2&gt;&amp;1'
+bind-key s run-shell 'lazy-tmux save --all'
+bind-key f display-popup -E -w 100% -h 100% 'lazy-tmux picker'</code></pre>
+    </section>
+
+    <section class="section">
+      <h2>CLI</h2>
+      <pre><code>lazy-tmux save [--all] [--session NAME] [--data-dir DIR]
+lazy-tmux restore --session NAME [--switch=true]
+lazy-tmux picker [--fzf-engine]
+lazy-tmux bootstrap [--session last|NAME]
+lazy-tmux daemon [--interval 5m]
+lazy-tmux list</code></pre>
+    </section>
+
+    <footer>
+      <span class="muted">Storage:</span> <code>~/.local/share/lazy-tmux/index.json</code> and <code>~/.local/share/lazy-tmux/sessions/*.json</code>
+    </footer>
+  </main>
+</body>
+</html>
