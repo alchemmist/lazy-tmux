@@ -57,7 +57,7 @@ lint: vet staticcheck golangci-lint
 tidy:
 	go mod tidy
 
-install:
+install: build
 	go install ./cmd/$(BINARY)
 
 clean:
