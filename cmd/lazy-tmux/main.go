@@ -12,6 +12,11 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/config"
 )
 
+type sharedFlags struct {
+	dataDir *string
+	tmuxBin *string
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		usage()
@@ -43,14 +48,10 @@ func runSave(base config.Config, args []string) {
 	fs := flag.NewFlagSet("save", flag.ExitOnError)
 	all := fs.Bool("all", false, "save all sessions")
 	session := fs.String("session", "", "save specific session")
-	dataDir := fs.String("data-dir", base.DataDir, "snapshot directory")
-	tmuxBin := fs.String("tmux-bin", base.TmuxBin, "tmux binary")
+	shared := addSharedFlags(fs, base, true)
 	_ = fs.Parse(args)
 
-	cfg := base
-	cfg.DataDir = *dataDir
-	cfg.TmuxBin = *tmuxBin
-	a := app.New(cfg)
+	a := app.New(shared.apply(base))
 
 	var err error
 	switch {
@@ -70,17 +71,13 @@ func runRestore(base config.Config, args []string) {
 	fs := flag.NewFlagSet("restore", flag.ExitOnError)
 	session := fs.String("session", "", "session to restore")
 	switchClient := fs.Bool("switch", true, "switch active client to restored session")
-	dataDir := fs.String("data-dir", base.DataDir, "snapshot directory")
-	tmuxBin := fs.String("tmux-bin", base.TmuxBin, "tmux binary")
+	shared := addSharedFlags(fs, base, true)
 	_ = fs.Parse(args)
 	if strings.TrimSpace(*session) == "" {
 		fatalf("restore requires --session")
 	}
 
-	cfg := base
-	cfg.DataDir = *dataDir
-	cfg.TmuxBin = *tmuxBin
-	a := app.New(cfg)
+	a := app.New(shared.apply(base))
 	if err := a.Restore(strings.TrimSpace(*session), *switchClient); err != nil {
 		fatalErr(err)
 	}
@@ -89,14 +86,10 @@ func runRestore(base config.Config, args []string) {
 func runPicker(base config.Config, args []string) {
 	fs := flag.NewFlagSet("picker", flag.ExitOnError)
 	fzfEngine := fs.Bool("fzf-engine", false, "use fzf engine instead of built-in TUI")
-	dataDir := fs.String("data-dir", base.DataDir, "snapshot directory")
-	tmuxBin := fs.String("tmux-bin", base.TmuxBin, "tmux binary")
+	shared := addSharedFlags(fs, base, true)
 	_ = fs.Parse(args)
 
-	cfg := base
-	cfg.DataDir = *dataDir
-	cfg.TmuxBin = *tmuxBin
-	a := app.New(cfg)
+	a := app.New(shared.apply(base))
 
 	var (
 		target app.PickerTarget
@@ -120,14 +113,10 @@ func runPicker(base config.Config, args []string) {
 func runBootstrap(base config.Config, args []string) {
 	fs := flag.NewFlagSet("bootstrap", flag.ExitOnError)
 	session := fs.String("session", "last", "session name or 'last'")
-	dataDir := fs.String("data-dir", base.DataDir, "snapshot directory")
-	tmuxBin := fs.String("tmux-bin", base.TmuxBin, "tmux binary")
+	shared := addSharedFlags(fs, base, true)
 	_ = fs.Parse(args)
 
-	cfg := base
-	cfg.DataDir = *dataDir
-	cfg.TmuxBin = *tmuxBin
-	a := app.New(cfg)
+	a := app.New(shared.apply(base))
 	if err := a.Bootstrap(*session); err != nil {
 		fatalErr(err)
 	}
@@ -136,13 +125,10 @@ func runBootstrap(base config.Config, args []string) {
 func runDaemon(base config.Config, args []string) {
 	fs := flag.NewFlagSet("daemon", flag.ExitOnError)
 	interval := fs.Duration("interval", base.SaveInterval, "autosave interval")
-	dataDir := fs.String("data-dir", base.DataDir, "snapshot directory")
-	tmuxBin := fs.String("tmux-bin", base.TmuxBin, "tmux binary")
+	shared := addSharedFlags(fs, base, true)
 	_ = fs.Parse(args)
 
-	cfg := base
-	cfg.DataDir = *dataDir
-	cfg.TmuxBin = *tmuxBin
+	cfg := shared.apply(base)
 	cfg.SaveInterval = *interval
 	a := app.New(cfg)
 	if err := a.RunDaemon(*interval); err != nil {
@@ -152,12 +138,10 @@ func runDaemon(base config.Config, args []string) {
 
 func runList(base config.Config, args []string) {
 	fs := flag.NewFlagSet("list", flag.ExitOnError)
-	dataDir := fs.String("data-dir", base.DataDir, "snapshot directory")
+	shared := addSharedFlags(fs, base, false)
 	_ = fs.Parse(args)
 
-	cfg := base
-	cfg.DataDir = *dataDir
-	a := app.New(cfg)
+	a := app.New(shared.apply(base))
 	recs, err := a.ListRecords()
 	if err != nil {
 		fatalErr(err)
@@ -196,4 +180,25 @@ func fatalErr(err error) {
 func fatalf(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, "lazy-tmux: "+format+"\n", args...)
 	os.Exit(1)
+}
+
+func addSharedFlags(fs *flag.FlagSet, base config.Config, withTmux bool) sharedFlags {
+	flags := sharedFlags{
+		dataDir: fs.String("data-dir", base.DataDir, "snapshot directory"),
+	}
+	if withTmux {
+		flags.tmuxBin = fs.String("tmux-bin", base.TmuxBin, "tmux binary")
+	}
+	return flags
+}
+
+func (f sharedFlags) apply(base config.Config) config.Config {
+	cfg := base
+	if f.dataDir != nil {
+		cfg.DataDir = *f.dataDir
+	}
+	if f.tmuxBin != nil {
+		cfg.TmuxBin = *f.tmuxBin
+	}
+	return cfg
 }
