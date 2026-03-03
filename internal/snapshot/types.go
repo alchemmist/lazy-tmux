@@ -23,12 +23,11 @@ type Window struct {
 }
 
 type Pane struct {
-	Index        int    `json:"index"`
-	CurrentPath  string `json:"current_path"`
-	CurrentCmd   string `json:"current_cmd"`
-	StartCommand string `json:"start_command"`
-	RestoreCmd   string `json:"restore_cmd,omitempty"`
-	IsActive     bool   `json:"is_active"`
+	Index       int    `json:"index"`
+	CurrentPath string `json:"current_path"`
+	CurrentCmd  string `json:"current_cmd"`
+	RestoreCmd  string `json:"restore_cmd,omitempty"`
+	IsActive    bool   `json:"is_active"`
 }
 
 type Index struct {
