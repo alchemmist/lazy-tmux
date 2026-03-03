@@ -1,9 +1,11 @@
 package store
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -216,5 +218,47 @@ func TestSaveSessionWithoutScrollbackDoesNotCreateSessionScrollbackDir(t *testin
 	sessionDir := filepath.Join(base, scrollbackDir, sanitizeName("plain"))
 	if _, err := os.Stat(sessionDir); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("expected no scrollback dir, got err=%v", err)
+	}
+}
+
+func TestLoadSessionRejectsScrollbackPathTraversal(t *testing.T) {
+	base := t.TempDir()
+	s := New(base)
+	ss := snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: "evil",
+		CapturedAt:  time.Now().UTC(),
+		Windows: []snapshot.Window{
+			{
+				Index: 0,
+				Panes: []snapshot.Pane{
+					{
+						Index:      0,
+						CurrentCmd: "zsh",
+						Scrollback: &snapshot.ScrollbackRef{
+							Ref: "../../../etc/passwd",
+						},
+					},
+				},
+			},
+		},
+	}
+	b, err := json.Marshal(ss)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(s.sessionPath("evil")), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(s.sessionPath("evil"), b, 0o644); err != nil {
+		t.Fatalf("write snapshot: %v", err)
+	}
+
+	_, err = s.LoadSession("evil")
+	if err == nil {
+		t.Fatal("expected traversal validation error")
+	}
+	if !strings.Contains(err.Error(), "invalid scrollback ref outside base dir") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

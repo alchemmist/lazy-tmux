@@ -52,6 +52,9 @@ func runSave(base config.Config, args []string) {
 	scrollbackLines := fs.Int("scrollback-lines", base.Scrollback.Lines, "max shell scrollback lines per pane")
 	shared := addSharedFlags(fs, base, true)
 	_ = fs.Parse(args)
+	if *scrollback && *scrollbackLines <= 0 {
+		fatalf("save requires --scrollback-lines > 0 when --scrollback is enabled")
+	}
 
 	cfg := shared.apply(base)
 	cfg.Scrollback.Enabled = *scrollback
@@ -140,6 +143,9 @@ func runDaemon(base config.Config, args []string) {
 	scrollbackLines := fs.Int("scrollback-lines", base.Scrollback.Lines, "max shell scrollback lines per pane")
 	shared := addSharedFlags(fs, base, true)
 	_ = fs.Parse(args)
+	if *scrollback && *scrollbackLines <= 0 {
+		fatalf("daemon requires --scrollback-lines > 0 when --scrollback is enabled")
+	}
 
 	cfg := shared.apply(base)
 	cfg.SaveInterval = *interval

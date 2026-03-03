@@ -370,10 +370,13 @@ exit 0
 
 func TestRestoreSessionReplaysScrollbackToPaneTTY(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "tmux.log")
-	ttyPath := filepath.Join(t.TempDir(), "tty.out")
-	if err := os.WriteFile(ttyPath, nil, 0o644); err != nil {
-		t.Fatalf("prepare tty file: %v", err)
+	var gotWritten string
+	origWriter := paneTTYWriter
+	paneTTYWriter = func(path, content string) error {
+		gotWritten = content
+		return nil
 	}
+	t.Cleanup(func() { paneTTYWriter = origWriter })
 
 	fake := writeFakeTmux(t, `
 echo "$*" >> "$TMUX_LOG"
@@ -385,13 +388,12 @@ if [ "$1" = "list-windows" ]; then
   exit 0
 fi
 if [ "$1" = "display-message" ] && [ "$5" = "#{pane_tty}" ]; then
-  echo "$TMUX_TTY"
+  echo "/dev/pts/42"
   exit 0
 fi
 exit 0
 `)
 	t.Setenv("TMUX_LOG", logPath)
-	t.Setenv("TMUX_TTY", ttyPath)
 
 	c := NewClient(fake)
 	s := snapshot.SessionSnapshot{
@@ -419,11 +421,7 @@ exit 0
 		t.Fatalf("RestoreSession error: %v", err)
 	}
 
-	b, err := os.ReadFile(ttyPath)
-	if err != nil {
-		t.Fatalf("read tty file: %v", err)
-	}
-	if !strings.Contains(string(b), "old output") {
-		t.Fatalf("expected scrollback replay in pane tty, got:\n%s", string(b))
+	if !strings.Contains(gotWritten, "old output") {
+		t.Fatalf("expected scrollback replay in pane tty, got:\n%s", gotWritten)
 	}
 }
