@@ -48,10 +48,15 @@ func runSave(base config.Config, args []string) {
 	fs := flag.NewFlagSet("save", flag.ExitOnError)
 	all := fs.Bool("all", false, "save all sessions")
 	session := fs.String("session", "", "save specific session")
+	scrollback := fs.Bool("scrollback", base.Scrollback.Enabled, "capture shell pane scrollback")
+	scrollbackLines := fs.Int("scrollback-lines", base.Scrollback.Lines, "max shell scrollback lines per pane")
 	shared := addSharedFlags(fs, base, true)
 	_ = fs.Parse(args)
 
-	a := app.New(shared.apply(base))
+	cfg := shared.apply(base)
+	cfg.Scrollback.Enabled = *scrollback
+	cfg.Scrollback.Lines = *scrollbackLines
+	a := app.New(cfg)
 
 	var err error
 	switch {
@@ -131,11 +136,15 @@ func runBootstrap(base config.Config, args []string) {
 func runDaemon(base config.Config, args []string) {
 	fs := flag.NewFlagSet("daemon", flag.ExitOnError)
 	interval := fs.Duration("interval", base.SaveInterval, "autosave interval")
+	scrollback := fs.Bool("scrollback", base.Scrollback.Enabled, "capture shell pane scrollback")
+	scrollbackLines := fs.Int("scrollback-lines", base.Scrollback.Lines, "max shell scrollback lines per pane")
 	shared := addSharedFlags(fs, base, true)
 	_ = fs.Parse(args)
 
 	cfg := shared.apply(base)
 	cfg.SaveInterval = *interval
+	cfg.Scrollback.Enabled = *scrollback
+	cfg.Scrollback.Lines = *scrollbackLines
 	a := app.New(cfg)
 	if err := a.RunDaemon(*interval); err != nil {
 		fatalErr(err)
@@ -175,6 +184,10 @@ Picker flags:
   --fzf-engine             Use fzf backend instead of built-in TUI
   --session-sort EXPR      Session sort (field[:asc|desc],...) fields: last-used,captured,name,windows,panes
   --window-sort EXPR       Window sort (field[:asc|desc],...) fields: index,name,panes,cmd
+
+Save/daemon flags:
+  --scrollback             Capture shell pane scrollback (opt-in)
+  --scrollback-lines N     Max captured lines per shell pane (default: 5000)
 `)
 }
 

@@ -148,3 +148,73 @@ func TestMarkSessionAccessed(t *testing.T) {
 		t.Fatalf("unexpected last_accessed: got %v want %v", recs[0].LastAccessed, accessedAt)
 	}
 }
+
+func TestSaveAndLoadSessionWithScrollbackSidecar(t *testing.T) {
+	s := New(t.TempDir())
+	ss := snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: "work",
+		CapturedAt:  time.Date(2026, 3, 3, 10, 0, 0, 0, time.UTC),
+		Windows: []snapshot.Window{
+			{
+				Index: 0,
+				Panes: []snapshot.Pane{
+					{
+						Index:      1,
+						CurrentCmd: "zsh",
+						Scrollback: &snapshot.ScrollbackRef{
+							Content: "echo 1\n1\n",
+						},
+					},
+				},
+			},
+		},
+	}
+	if err := s.SaveSession(ss); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	loaded, err := s.LoadSession("work")
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if loaded.Windows[0].Panes[0].Scrollback == nil {
+		t.Fatal("expected scrollback metadata")
+	}
+	sb := loaded.Windows[0].Panes[0].Scrollback
+	if sb.Ref == "" {
+		t.Fatal("expected scrollback ref")
+	}
+	if sb.Content != "echo 1\n1\n" {
+		t.Fatalf("unexpected scrollback content: %q", sb.Content)
+	}
+	if sb.Bytes == 0 || sb.Lines == 0 {
+		t.Fatalf("expected non-zero scrollback metadata, got lines=%d bytes=%d", sb.Lines, sb.Bytes)
+	}
+}
+
+func TestSaveSessionWithoutScrollbackDoesNotCreateSessionScrollbackDir(t *testing.T) {
+	base := t.TempDir()
+	s := New(base)
+	ss := snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: "plain",
+		CapturedAt:  time.Now().UTC(),
+		Windows: []snapshot.Window{
+			{
+				Index: 0,
+				Panes: []snapshot.Pane{
+					{Index: 0, CurrentCmd: "zsh"},
+				},
+			},
+		},
+	}
+	if err := s.SaveSession(ss); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	sessionDir := filepath.Join(base, scrollbackDir, sanitizeName("plain"))
+	if _, err := os.Stat(sessionDir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected no scrollback dir, got err=%v", err)
+	}
+}

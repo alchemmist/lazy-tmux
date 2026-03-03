@@ -23,11 +23,19 @@ type Window struct {
 }
 
 type Pane struct {
-	Index       int    `json:"index"`
-	CurrentPath string `json:"current_path"`
-	CurrentCmd  string `json:"current_cmd"`
-	RestoreCmd  string `json:"restore_cmd,omitempty"`
-	IsActive    bool   `json:"is_active"`
+	Index       int            `json:"index"`
+	CurrentPath string         `json:"current_path"`
+	CurrentCmd  string         `json:"current_cmd"`
+	RestoreCmd  string         `json:"restore_cmd,omitempty"`
+	Scrollback  *ScrollbackRef `json:"scrollback,omitempty"`
+	IsActive    bool           `json:"is_active"`
+}
+
+type ScrollbackRef struct {
+	Ref     string `json:"ref,omitempty"`
+	Lines   int    `json:"lines,omitempty"`
+	Bytes   int    `json:"bytes,omitempty"`
+	Content string `json:"-"`
 }
 
 type Index struct {

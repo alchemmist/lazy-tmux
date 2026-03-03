@@ -17,6 +17,7 @@ import (
 const (
 	indexFileName   = "index.json"
 	sessionsDirName = "sessions"
+	scrollbackDir   = "scrollback"
 	defaultDirPerm  = 0o755
 	defaultFilePerm = 0o644
 )
@@ -57,6 +58,9 @@ func (s *Store) SaveSession(ss snapshot.SessionSnapshot) error {
 	}
 
 	path := s.sessionPath(ss.SessionName)
+	if err := s.persistScrollbackUnlocked(&ss); err != nil {
+		return err
+	}
 	if err := writeJSONAtomic(path, ss); err != nil {
 		return err
 	}
@@ -89,6 +93,9 @@ func (s *Store) LoadSession(name string) (snapshot.SessionSnapshot, error) {
 		return out, err
 	}
 	if err := json.Unmarshal(b, &out); err != nil {
+		return out, err
+	}
+	if err := s.hydrateScrollback(&out); err != nil {
 		return out, err
 	}
 	return out, nil
@@ -160,6 +167,9 @@ func (s *Store) ensureLayout() error {
 	if err := os.MkdirAll(filepath.Join(s.baseDir, sessionsDirName), defaultDirPerm); err != nil {
 		return err
 	}
+	if err := os.MkdirAll(filepath.Join(s.baseDir, scrollbackDir), defaultDirPerm); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -200,6 +210,80 @@ func sanitizeName(name string) string {
 		return "session"
 	}
 	return out
+}
+
+func (s *Store) persistScrollbackUnlocked(ss *snapshot.SessionSnapshot) error {
+	sessionDir := filepath.Join(s.baseDir, scrollbackDir, sanitizeName(ss.SessionName))
+	hasAny := false
+
+	for wi := range ss.Windows {
+		for pi := range ss.Windows[wi].Panes {
+			pane := &ss.Windows[wi].Panes[pi]
+			if pane.Scrollback == nil {
+				continue
+			}
+			content := pane.Scrollback.Content
+			if strings.TrimSpace(content) == "" {
+				pane.Scrollback = nil
+				continue
+			}
+			if !hasAny {
+				_ = os.RemoveAll(sessionDir)
+				if err := os.MkdirAll(sessionDir, defaultDirPerm); err != nil {
+					return err
+				}
+				hasAny = true
+			}
+
+			fileName := fmt.Sprintf("w%d_p%d.log", ss.Windows[wi].Index, pane.Index)
+			path := filepath.Join(sessionDir, fileName)
+			if err := os.WriteFile(path, []byte(content), defaultFilePerm); err != nil {
+				return err
+			}
+			pane.Scrollback.Ref = filepath.Join(scrollbackDir, sanitizeName(ss.SessionName), fileName)
+			pane.Scrollback.Bytes = len(content)
+			pane.Scrollback.Lines = countLines(content)
+			pane.Scrollback.Content = ""
+		}
+	}
+	if !hasAny {
+		_ = os.RemoveAll(sessionDir)
+	}
+	return nil
+}
+
+func (s *Store) hydrateScrollback(ss *snapshot.SessionSnapshot) error {
+	for wi := range ss.Windows {
+		for pi := range ss.Windows[wi].Panes {
+			pane := &ss.Windows[wi].Panes[pi]
+			if pane.Scrollback == nil || strings.TrimSpace(pane.Scrollback.Ref) == "" {
+				continue
+			}
+			path := filepath.Join(s.baseDir, pane.Scrollback.Ref)
+			b, err := os.ReadFile(path)
+			if err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					continue
+				}
+				return err
+			}
+			pane.Scrollback.Content = string(b)
+			if pane.Scrollback.Bytes == 0 {
+				pane.Scrollback.Bytes = len(b)
+			}
+			if pane.Scrollback.Lines == 0 {
+				pane.Scrollback.Lines = countLines(string(b))
+			}
+		}
+	}
+	return nil
+}
+
+func countLines(s string) int {
+	if s == "" {
+		return 0
+	}
+	return strings.Count(s, "\n") + 1
 }
 
 func writeJSONAtomic(path string, v any) error {
