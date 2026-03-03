@@ -1,10 +1,11 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"os"
-	"sort"
 	"strings"
+	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/config"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
@@ -89,7 +90,12 @@ func (a *App) RestoreTarget(target PickerTarget, switchClient bool) error {
 		if target.WindowIndex != nil {
 			switchTarget = fmt.Sprintf("%s:%d", session, *target.WindowIndex)
 		}
-		return a.tmux.SwitchClient(switchTarget)
+		if err := a.tmux.SwitchClient(switchTarget); err != nil {
+			return err
+		}
+	}
+	if err := a.store.MarkSessionAccessed(session, time.Now().UTC()); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
 	}
 	return nil
 }
@@ -113,7 +119,7 @@ func (a *App) ListRecords() ([]snapshot.Record, error) {
 	return a.store.ListRecords()
 }
 
-func (a *App) pickerRecords() ([]snapshot.Record, error) {
+func (a *App) pickerRecords(opts PickerSortOptions) ([]snapshot.Record, error) {
 	records, err := a.store.ListRecords()
 	if err != nil {
 		return nil, err
@@ -121,12 +127,12 @@ func (a *App) pickerRecords() ([]snapshot.Record, error) {
 	if len(records) == 0 {
 		return nil, fmt.Errorf("no saved sessions found")
 	}
-	sort.Slice(records, func(i, j int) bool { return records[i].CapturedAt.After(records[j].CapturedAt) })
+	sortSessionRecords(records, opts.Session)
 	return records, nil
 }
 
-func (a *App) pickerSessions() ([]pickerSession, error) {
-	records, err := a.pickerRecords()
+func (a *App) pickerSessions(opts PickerSortOptions) ([]pickerSession, error) {
+	records, err := a.pickerRecords(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -156,11 +162,15 @@ func (a *App) pickerSessions() ([]pickerSession, error) {
 }
 
 func (a *App) SelectTargetWithTUI() (PickerTarget, error) {
-	sessions, err := a.pickerSessions()
+	return a.SelectTargetWithTUISorted(DefaultPickerSortOptions())
+}
+
+func (a *App) SelectTargetWithTUISorted(opts PickerSortOptions) (PickerTarget, error) {
+	sessions, err := a.pickerSessions(opts)
 	if err != nil {
 		return PickerTarget{}, err
 	}
-	return chooseTarget(sessions)
+	return chooseTarget(sessions, opts.Window)
 }
 
 func (a *App) SelectWithTUI() (string, error) {
@@ -172,7 +182,11 @@ func (a *App) SelectWithTUI() (string, error) {
 }
 
 func (a *App) SelectWithFZF() (string, error) {
-	records, err := a.pickerRecords()
+	return a.SelectWithFZFSorted(DefaultPickerSortOptions())
+}
+
+func (a *App) SelectWithFZFSorted(opts PickerSortOptions) (string, error) {
+	records, err := a.pickerRecords(opts)
 	if err != nil {
 		return "", err
 	}

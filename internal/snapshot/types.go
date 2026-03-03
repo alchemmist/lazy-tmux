@@ -37,9 +37,10 @@ type Index struct {
 }
 
 type Record struct {
-	SessionName string    `json:"session_name"`
-	File        string    `json:"file"`
-	CapturedAt  time.Time `json:"captured_at"`
-	Windows     int       `json:"windows"`
-	Panes       int       `json:"panes"`
+	SessionName  string    `json:"session_name"`
+	File         string    `json:"file"`
+	CapturedAt   time.Time `json:"captured_at"`
+	LastAccessed time.Time `json:"last_accessed,omitempty"`
+	Windows      int       `json:"windows"`
+	Panes        int       `json:"panes"`
 }

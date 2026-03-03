@@ -2,7 +2,6 @@ package app
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
@@ -26,6 +25,7 @@ type pickerRow struct {
 
 type pickerModel struct {
 	sessions      []pickerSession
+	windowSort    []WindowSortKey
 	visible       []pickerRow
 	queryInput    textinput.Model
 	viewport      viewport.Model
@@ -37,7 +37,7 @@ type pickerModel struct {
 	height        int
 }
 
-func newPickerModel(sessions []pickerSession) pickerModel {
+func newPickerModel(sessions []pickerSession, windowSort []WindowSortKey) pickerModel {
 	input := textinput.New()
 	input.Placeholder = "fuzzy search by session/window"
 	input.Prompt = "> "
@@ -47,6 +47,7 @@ func newPickerModel(sessions []pickerSession) pickerModel {
 
 	m := pickerModel{
 		sessions:      sessions,
+		windowSort:    windowSort,
 		queryInput:    input,
 		viewport:      vp,
 		selectedStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Bold(true),
@@ -132,7 +133,7 @@ func (m *pickerModel) resize() {
 
 func (m *pickerModel) applyFilter() {
 	query := strings.TrimSpace(strings.ToLower(m.queryInput.Value()))
-	m.visible = filteredTreeRows(m.sessions, query)
+	m.visible = filteredTreeRows(m.sessions, query, m.windowSort)
 	if len(m.visible) == 0 {
 		m.cursor = 0
 		m.viewport.SetContent("")
@@ -203,12 +204,12 @@ func (m *pickerModel) ensureCursorVisible() {
 	}
 }
 
-func filteredTreeRows(sessions []pickerSession, query string) []pickerRow {
+func filteredTreeRows(sessions []pickerSession, query string, windowSort []WindowSortKey) []pickerRow {
 	rows := make([]pickerRow, 0)
 	for _, s := range sessions {
 		windows := make([]snapshot.Window, len(s.Windows))
 		copy(windows, s.Windows)
-		sort.Slice(windows, func(i, j int) bool { return windows[i].Index < windows[j].Index })
+		sortWindows(windows, windowSort)
 
 		sessionMatch := query == "" || fuzzyMatch(query, strings.ToLower(s.Record.SessionName))
 		matchedWindows := make([]snapshot.Window, 0, len(windows))
@@ -292,8 +293,8 @@ func fuzzyMatch(query, target string) bool {
 	return qi == len(query)
 }
 
-func chooseTarget(sessions []pickerSession) (PickerTarget, error) {
-	m := newPickerModel(sessions)
+func chooseTarget(sessions []pickerSession, windowSort []WindowSortKey) (PickerTarget, error) {
+	m := newPickerModel(sessions, windowSort)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	finalModel, err := p.Run()
 	if err != nil {

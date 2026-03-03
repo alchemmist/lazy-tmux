@@ -68,11 +68,70 @@ After reloading tmux config (`tmux source-file ~/.tmux.conf`):
 ```bash
 lazy-tmux save [--all] [--session NAME] [--data-dir DIR]
 lazy-tmux restore --session NAME [--switch=true]
-lazy-tmux picker [--fzf-engine]
+lazy-tmux picker [--fzf-engine] [--session-sort EXPR] [--window-sort EXPR]
 lazy-tmux bootstrap [--session last|NAME]
 lazy-tmux daemon [--interval 5m]
 lazy-tmux list
 ```
+
+## Picker sorting
+
+`picker` supports configurable multi-key sorting with priority control.
+
+Flags:
+
+- `--session-sort EXPR` controls session order.
+- `--window-sort EXPR` controls window order inside each session.
+
+Expression format:
+
+- `EXPR` is a comma-separated list of keys.
+- each key is `field` or `field:asc` or `field:desc`.
+- order of keys in `EXPR` is the sort priority (leftmost key is highest priority).
+
+Examples:
+
+```bash
+# Sort sessions by name, then by captured time (newest first)
+lazy-tmux picker --session-sort "name:asc,captured:desc"
+
+# Sort windows by pane count, then by name
+lazy-tmux picker --window-sort "panes:desc,name:asc"
+
+# Use same sorting with fzf backend
+lazy-tmux picker --fzf-engine --session-sort "last-used:desc,name:asc"
+```
+
+Session sort fields:
+
+- `last-used` (alias: `last-accessed`, `last_accessed`)
+- `captured` (alias: `captured-at`, `captured_at`)
+- `name`
+- `windows`
+- `panes`
+
+Window sort fields:
+
+- `index`
+- `name`
+- `panes`
+- `cmd`
+
+Default directions (when `:asc|:desc` is omitted):
+
+- sessions: `name=asc`, all other session fields = `desc`
+- windows: `index=asc`, `name=asc`, all other window fields = `desc`
+
+Current defaults (if no sort flags are passed):
+
+- sessions: `last-used:desc,captured:desc,name:asc`
+- windows: `index:asc,name:asc`
+
+Validation behavior:
+
+- unknown fields are rejected with an error.
+- invalid direction values are rejected (`asc` and `desc` only).
+- duplicate fields in one expression are rejected.
 
 ## Storage
 
@@ -88,8 +147,8 @@ Override via:
 
 ## Important behavior notes
 
-- This tool restores tmux structure (sessions/windows/panes/layouts and pane start commands when available).
-- It does **not** checkpoint process memory state; long-running interactive processes are restarted only if tmux exposes a start command for pane recreation.
+- This tool restores tmux structure (sessions/windows/panes/layouts and pane commands when available).
+- It does **not** checkpoint process memory state; long-running interactive processes are restarted only if tmux exposes enough pane command metadata for recreation.
 
 ## Development
 
