@@ -123,8 +123,9 @@ func buildPickerTableLayout(totalWidth int) pickerTableLayout {
 	for _, spec := range active {
 		columns = append(columns, pickerColumnLayout{spec: spec, width: spec.MinWidth})
 	}
+	shrinkColumnsToFit(columns, totalWidth)
 
-	extra := totalWidth - minTableWidth(active)
+	extra := totalWidth - tableWidth(columns)
 	for i := range columns {
 		if extra <= 0 {
 			break
@@ -148,6 +149,47 @@ func buildPickerTableLayout(totalWidth int) pickerTableLayout {
 	}
 
 	return pickerTableLayout{columns: columns}
+}
+
+func shrinkColumnsToFit(columns []pickerColumnLayout, totalWidth int) {
+	if len(columns) == 0 {
+		return
+	}
+	for {
+		current := tableWidth(columns)
+		if current <= totalWidth {
+			return
+		}
+
+		target := widestShrinkableColumn(columns)
+		if target < 0 {
+			return
+		}
+		columns[target].width--
+	}
+}
+
+func tableWidth(columns []pickerColumnLayout) int {
+	if len(columns) == 0 {
+		return 0
+	}
+	width := len(columns) - 1
+	for _, col := range columns {
+		width += col.width
+	}
+	return width
+}
+
+func widestShrinkableColumn(columns []pickerColumnLayout) int {
+	best := -1
+	bestWidth := 1
+	for i := range columns {
+		if columns[i].width > bestWidth {
+			best = i
+			bestWidth = columns[i].width
+		}
+	}
+	return best
 }
 
 func minTableWidth(specs []pickerColumnSpec) int {
