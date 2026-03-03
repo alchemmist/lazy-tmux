@@ -182,6 +182,54 @@ func TestWindowPreviewCommandFallsBackToFirstPane(t *testing.T) {
 	}
 }
 
+func TestBuildPickerTableLayoutWideShowsAllColumns(t *testing.T) {
+	layout := buildPickerTableLayout(90)
+	got := columnIDs(layout)
+	want := []pickerColumnID{
+		pickerColItem,
+		pickerColCmd,
+		pickerColCaptured,
+		pickerColWins,
+		pickerColState,
+	}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("unexpected columns for wide layout: got %v want %v", got, want)
+	}
+}
+
+func TestBuildPickerTableLayoutNarrowHidesLowPriorityColumns(t *testing.T) {
+	layout := buildPickerTableLayout(32)
+	got := columnIDs(layout)
+	want := []pickerColumnID{
+		pickerColItem,
+		pickerColCmd,
+	}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("unexpected columns for narrow layout: got %v want %v", got, want)
+	}
+}
+
+func TestBuildPickerTableLayoutKeepsRequiredItemColumn(t *testing.T) {
+	width := 8
+	layout := buildPickerTableLayout(width)
+	got := columnIDs(layout)
+	want := []pickerColumnID{pickerColItem}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("required item column must remain visible: got %v want %v", got, want)
+	}
+	if gotWidth := len([]rune(layout.header())); gotWidth > width {
+		t.Fatalf("layout width exceeds budget: got %d want <= %d", gotWidth, width)
+	}
+}
+
+func columnIDs(layout pickerTableLayout) []pickerColumnID {
+	out := make([]pickerColumnID, 0, len(layout.columns))
+	for _, col := range layout.columns {
+		out = append(out, col.spec.ID)
+	}
+	return out
+}
+
 func withFakeFZF(t *testing.T, script string) string {
 	t.Helper()
 	dir := t.TempDir()
