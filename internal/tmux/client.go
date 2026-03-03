@@ -192,12 +192,7 @@ func (c *Client) RestoreSession(s snapshot.SessionSnapshot) error {
 	sort.Slice(windows, func(i, j int) bool { return windows[i].Index < windows[j].Index })
 
 	first := windows[0]
-	firstPath := firstPanePath(first)
-	args := []string{"new-session", "-d", "-s", s.SessionName, "-n", first.Name}
-	if firstPath != "" {
-		args = append(args, "-c", firstPath)
-	}
-	if _, err := c.runWithShellFallback(args, ""); err != nil {
+	if _, err := c.runWithShellFallback(newSessionArgs(s.SessionName, first), ""); err != nil {
 		return err
 	}
 
@@ -214,39 +209,55 @@ func (c *Client) RestoreSession(s snapshot.SessionSnapshot) error {
 		}
 	}
 
-	if err := c.ensurePaneCount(s.SessionName, first, first.Index); err != nil {
+	if err := c.populateWindow(s.SessionName, first, first.Index); err != nil {
 		return err
-	}
-	if err := c.restoreWindowCommands(s.SessionName, first, first.Index); err != nil {
-		return err
-	}
-	if first.Layout != "" {
-		_, _ = c.Output("select-layout", "-t", fmt.Sprintf("%s:%d", s.SessionName, first.Index), first.Layout)
 	}
 
 	for i := 1; i < len(windows); i++ {
 		w := windows[i]
-		path := firstPanePath(w)
-		wArgs := []string{"new-window", "-d", "-t", fmt.Sprintf("%s:%d", s.SessionName, w.Index), "-n", w.Name}
-		if path != "" {
-			wArgs = append(wArgs, "-c", path)
-		}
-		if _, err := c.runWithShellFallback(wArgs, ""); err != nil {
+		if err := c.createAndPopulateWindow(s.SessionName, w); err != nil {
 			return err
-		}
-		if err := c.ensurePaneCount(s.SessionName, w, w.Index); err != nil {
-			return err
-		}
-		if err := c.restoreWindowCommands(s.SessionName, w, w.Index); err != nil {
-			return err
-		}
-		if w.Layout != "" {
-			_, _ = c.Output("select-layout", "-t", fmt.Sprintf("%s:%d", s.SessionName, w.Index), w.Layout)
 		}
 	}
 
 	_, _ = c.Output("select-window", "-t", fmt.Sprintf("%s:%d", s.SessionName, s.CurrentWin))
 	_, _ = c.Output("select-pane", "-t", fmt.Sprintf("%s:%d.%d", s.SessionName, s.CurrentWin, s.CurrentPane))
+	return nil
+}
+
+func newSessionArgs(sessionName string, w snapshot.Window) []string {
+	args := []string{"new-session", "-d", "-s", sessionName, "-n", w.Name}
+	if path := firstPanePath(w); path != "" {
+		args = append(args, "-c", path)
+	}
+	return args
+}
+
+func newWindowArgs(sessionName string, w snapshot.Window) []string {
+	args := []string{"new-window", "-d", "-t", fmt.Sprintf("%s:%d", sessionName, w.Index), "-n", w.Name}
+	if path := firstPanePath(w); path != "" {
+		args = append(args, "-c", path)
+	}
+	return args
+}
+
+func (c *Client) createAndPopulateWindow(sessionName string, w snapshot.Window) error {
+	if _, err := c.runWithShellFallback(newWindowArgs(sessionName, w), ""); err != nil {
+		return err
+	}
+	return c.populateWindow(sessionName, w, w.Index)
+}
+
+func (c *Client) populateWindow(sessionName string, w snapshot.Window, windowIndex int) error {
+	if err := c.ensurePaneCount(sessionName, w, windowIndex); err != nil {
+		return err
+	}
+	if err := c.restoreWindowCommands(sessionName, w, windowIndex); err != nil {
+		return err
+	}
+	if w.Layout != "" {
+		_, _ = c.Output("select-layout", "-t", fmt.Sprintf("%s:%d", sessionName, windowIndex), w.Layout)
+	}
 	return nil
 }
 

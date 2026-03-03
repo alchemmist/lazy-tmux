@@ -231,26 +231,38 @@ func filteredTreeRows(sessions []pickerSession, query string) []pickerRow {
 				branch = "╰─"
 			}
 			wi := w.Index
-			cmd := ""
-			if len(w.Panes) > 0 {
-				if w.Panes[w.ActivePane-1].RestoreCmd != "" {
-					cmd = w.Panes[w.ActivePane-1].RestoreCmd
-				} else if w.Panes[w.ActivePane-1].CurrentCmd != "" {
-					cmd = w.Panes[w.ActivePane-1].CurrentCmd
-				}
-			}
 			rows = append(rows, pickerRow{
 				target:     PickerTarget{SessionName: s.Record.SessionName, WindowIndex: &wi},
 				item:       fmt.Sprintf("  %s [%d] %s", branch, w.Index, w.Name),
 				captured:   "",
 				wins:       "",
 				state:      "",
-				cmd:        cmd,
+				cmd:        windowPreviewCommand(w),
 				selectable: true,
 			})
 		}
 	}
 	return rows
+}
+
+func windowPreviewCommand(w snapshot.Window) string {
+	if len(w.Panes) == 0 {
+		return ""
+	}
+
+	// Snapshot may have sparse pane indices; fall back to first pane if active is missing.
+	active := 0
+	for i := range w.Panes {
+		if w.Panes[i].Index == w.ActivePane {
+			active = i
+			break
+		}
+	}
+
+	if cmd := strings.TrimSpace(w.Panes[active].RestoreCmd); cmd != "" {
+		return cmd
+	}
+	return strings.TrimSpace(w.Panes[active].CurrentCmd)
 }
 
 func sessionStateIcon(restored bool) string {
