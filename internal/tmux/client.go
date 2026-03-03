@@ -133,7 +133,6 @@ func (c *Client) CaptureSession(name string) (snapshot.SessionSnapshot, error) {
 				"#{pane_current_path}"+fieldSep+
 				"#{pane_current_command}"+fieldSep+
 				"#{pane_active}"+fieldSep+
-				"#{pane_start_command}"+fieldSep+
 				"#{pane_pid}"+fieldSep+
 				"#{pane_tty}",
 		)
@@ -142,19 +141,18 @@ func (c *Client) CaptureSession(name string) (snapshot.SessionSnapshot, error) {
 		}
 		for _, pLine := range splitLines(pOut) {
 			p := strings.Split(pLine, fieldSep)
-			if len(p) != 7 {
+			if len(p) != 6 {
 				continue
 			}
 			pIdx, _ := strconv.Atoi(p[0])
-			panePID, _ := strconv.Atoi(strings.TrimSpace(p[5]))
-			restoreCmd, _ := c.foregroundCommand(p[6], panePID)
+			panePID, _ := strconv.Atoi(strings.TrimSpace(p[4]))
+			restoreCmd, _ := c.foregroundCommand(p[5], panePID)
 			pane := snapshot.Pane{
-				Index:        pIdx,
-				CurrentPath:  p[1],
-				CurrentCmd:   p[2],
-				IsActive:     p[3] == "1",
-				StartCommand: p[4],
-				RestoreCmd:   strings.TrimSpace(restoreCmd),
+				Index:       pIdx,
+				CurrentPath: p[1],
+				CurrentCmd:  p[2],
+				IsActive:    p[3] == "1",
+				RestoreCmd:  strings.TrimSpace(restoreCmd),
 			}
 			if pane.IsActive {
 				w.ActivePane = pane.Index
@@ -292,15 +290,10 @@ func firstPanePath(w snapshot.Window) string {
 	return filepath.Clean(path)
 }
 
-func normalizedStartCommand(restore, start, current string) string {
+func normalizedCommand(restore, current string) string {
 	restore = sanitizeCommand(restore)
 	if restore != "" && !isShellCommand(restore) {
 		return restore
-	}
-
-	start = sanitizeCommand(start)
-	if start != "" && !isShellCommand(start) {
-		return start
 	}
 
 	current = sanitizeCommand(current)
@@ -352,7 +345,7 @@ func (c *Client) restoreWindowCommands(sessionName string, w snapshot.Window, wi
 	sort.Slice(panes, func(i, j int) bool { return panes[i].Index < panes[j].Index })
 
 	for _, pane := range panes {
-		cmd := normalizedStartCommand(pane.RestoreCmd, pane.StartCommand, pane.CurrentCmd)
+		cmd := normalizedCommand(pane.RestoreCmd, pane.CurrentCmd)
 		if strings.TrimSpace(cmd) == "" {
 			continue
 		}
