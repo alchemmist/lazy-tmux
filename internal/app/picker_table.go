@@ -123,9 +123,11 @@ func buildPickerTableLayout(totalWidth int) pickerTableLayout {
 	for _, spec := range active {
 		columns = append(columns, pickerColumnLayout{spec: spec, width: spec.MinWidth})
 	}
-	shrinkColumnsToFit(columns, totalWidth)
-
 	extra := totalWidth - tableWidth(columns)
+	if extra < 0 {
+		shrinkColumnsToFit(columns, totalWidth)
+		extra = totalWidth - tableWidth(columns)
+	}
 	for i := range columns {
 		if extra <= 0 {
 			break
