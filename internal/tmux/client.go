@@ -22,6 +22,8 @@ var (
 	ErrSessionExists   = errors.New("tmux session already exists")
 )
 
+var paneTTYWriter = writePaneTTY
+
 type Client struct {
 	bin string
 }
@@ -383,7 +385,7 @@ func (c *Client) restoreWindowScrollback(sessionName string, w snapshot.Window, 
 		if err != nil {
 			continue
 		}
-		if err := writePaneTTY(strings.TrimSpace(tty), pane.Scrollback.Content); err != nil {
+		if err := paneTTYWriter(strings.TrimSpace(tty), pane.Scrollback.Content); err != nil {
 			continue
 		}
 	}
@@ -393,6 +395,16 @@ func writePaneTTY(path, content string) error {
 	path = strings.TrimSpace(path)
 	if path == "" {
 		return errors.New("empty tty path")
+	}
+	if !strings.HasPrefix(path, "/dev/pts/") && !strings.HasPrefix(path, "/dev/tty") {
+		return fmt.Errorf("unsupported tty path: %s", path)
+	}
+	fi, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if fi.Mode()&os.ModeCharDevice == 0 {
+		return fmt.Errorf("tty path is not a character device: %s", path)
 	}
 	f, err := os.OpenFile(path, os.O_WRONLY, 0)
 	if err != nil {

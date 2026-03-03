@@ -253,13 +253,21 @@ func (s *Store) persistScrollbackUnlocked(ss *snapshot.SessionSnapshot) error {
 }
 
 func (s *Store) hydrateScrollback(ss *snapshot.SessionSnapshot) error {
+	baseRoot, err := filepath.Abs(filepath.Clean(filepath.Join(s.baseDir, scrollbackDir)))
+	if err != nil {
+		return err
+	}
+
 	for wi := range ss.Windows {
 		for pi := range ss.Windows[wi].Panes {
 			pane := &ss.Windows[wi].Panes[pi]
 			if pane.Scrollback == nil || strings.TrimSpace(pane.Scrollback.Ref) == "" {
 				continue
 			}
-			path := filepath.Join(s.baseDir, pane.Scrollback.Ref)
+			path, err := safeScrollbackPath(baseRoot, s.baseDir, pane.Scrollback.Ref)
+			if err != nil {
+				return err
+			}
 			b, err := os.ReadFile(path)
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
@@ -277,6 +285,39 @@ func (s *Store) hydrateScrollback(ss *snapshot.SessionSnapshot) error {
 		}
 	}
 	return nil
+}
+
+func safeScrollbackPath(baseRoot, baseDir, ref string) (string, error) {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return "", fmt.Errorf("empty scrollback ref")
+	}
+	candidate := filepath.Clean(filepath.Join(baseDir, ref))
+	candidateAbs, err := filepath.Abs(candidate)
+	if err != nil {
+		return "", err
+	}
+	baseEval, err := filepath.EvalSymlinks(baseRoot)
+	if err != nil {
+		baseEval = baseRoot
+	}
+	candidateDirEval, err := filepath.EvalSymlinks(filepath.Dir(candidateAbs))
+	if err != nil {
+		candidateDirEval = filepath.Dir(candidateAbs)
+	}
+	candidateEval := filepath.Join(candidateDirEval, filepath.Base(candidateAbs))
+
+	rel, err := filepath.Rel(baseEval, candidateEval)
+	if err != nil {
+		return "", err
+	}
+	if rel == "." {
+		return candidateAbs, nil
+	}
+	if strings.HasPrefix(rel, "..") || filepath.IsAbs(rel) {
+		return "", fmt.Errorf("invalid scrollback ref outside base dir: %s", ref)
+	}
+	return candidateAbs, nil
 }
 
 func countLines(s string) int {
