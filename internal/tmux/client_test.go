@@ -367,3 +367,63 @@ exit 0
 		t.Fatalf("expected new-session fallback without bad path, got:\n%s", out)
 	}
 }
+
+func TestRestoreSessionReplaysScrollbackToPaneTTY(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "tmux.log")
+	ttyPath := filepath.Join(t.TempDir(), "tty.out")
+	if err := os.WriteFile(ttyPath, nil, 0o644); err != nil {
+		t.Fatalf("prepare tty file: %v", err)
+	}
+
+	fake := writeFakeTmux(t, `
+echo "$*" >> "$TMUX_LOG"
+if [ "$1" = "has-session" ]; then
+  exit 1
+fi
+if [ "$1" = "list-windows" ]; then
+  echo "0"
+  exit 0
+fi
+if [ "$1" = "display-message" ] && [ "$5" = "#{pane_tty}" ]; then
+  echo "$TMUX_TTY"
+  exit 0
+fi
+exit 0
+`)
+	t.Setenv("TMUX_LOG", logPath)
+	t.Setenv("TMUX_TTY", ttyPath)
+
+	c := NewClient(fake)
+	s := snapshot.SessionSnapshot{
+		SessionName: "demo",
+		CurrentWin:  0,
+		CurrentPane: 0,
+		Windows: []snapshot.Window{
+			{
+				Index: 0,
+				Name:  "shell",
+				Panes: []snapshot.Pane{
+					{
+						Index:      0,
+						CurrentCmd: "zsh",
+						Scrollback: &snapshot.ScrollbackRef{
+							Content: "echo old\nold output\n",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	if err := c.RestoreSession(s); err != nil {
+		t.Fatalf("RestoreSession error: %v", err)
+	}
+
+	b, err := os.ReadFile(ttyPath)
+	if err != nil {
+		t.Fatalf("read tty file: %v", err)
+	}
+	if !strings.Contains(string(b), "old output") {
+		t.Fatalf("expected scrollback replay in pane tty, got:\n%s", string(b))
+	}
+}

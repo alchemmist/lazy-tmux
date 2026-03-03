@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -250,6 +251,7 @@ func (c *Client) populateWindow(sessionName string, w snapshot.Window, windowInd
 	if err := c.ensurePaneCount(sessionName, w, windowIndex); err != nil {
 		return err
 	}
+	c.restoreWindowScrollback(sessionName, w, windowIndex)
 	if err := c.restoreWindowCommands(sessionName, w, windowIndex); err != nil {
 		return err
 	}
@@ -257,6 +259,13 @@ func (c *Client) populateWindow(sessionName string, w snapshot.Window, windowInd
 		_, _ = c.Output("select-layout", "-t", fmt.Sprintf("%s:%d", sessionName, windowIndex), w.Layout)
 	}
 	return nil
+}
+
+func (c *Client) CapturePaneScrollback(target string, lines int) (string, error) {
+	if lines <= 0 {
+		lines = 5000
+	}
+	return c.Output("capture-pane", "-p", "-e", "-S", fmt.Sprintf("-%d", lines), "-t", target)
 }
 
 func (c *Client) ensurePaneCount(sessionName string, w snapshot.Window, windowIndex int) error {
@@ -355,6 +364,43 @@ func (c *Client) restoreWindowCommands(sessionName string, w snapshot.Window, wi
 		}
 	}
 	return nil
+}
+
+func (c *Client) restoreWindowScrollback(sessionName string, w snapshot.Window, windowIndex int) {
+	if len(w.Panes) == 0 {
+		return
+	}
+	panes := make([]snapshot.Pane, len(w.Panes))
+	copy(panes, w.Panes)
+	sort.Slice(panes, func(i, j int) bool { return panes[i].Index < panes[j].Index })
+
+	for _, pane := range panes {
+		if pane.Scrollback == nil || strings.TrimSpace(pane.Scrollback.Content) == "" {
+			continue
+		}
+		target := fmt.Sprintf("%s:%d.%d", sessionName, windowIndex, pane.Index)
+		tty, err := c.Output("display-message", "-p", "-t", target, "#{pane_tty}")
+		if err != nil {
+			continue
+		}
+		if err := writePaneTTY(strings.TrimSpace(tty), pane.Scrollback.Content); err != nil {
+			continue
+		}
+	}
+}
+
+func writePaneTTY(path, content string) error {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return errors.New("empty tty path")
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY, 0)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = io.WriteString(f, content)
+	return err
 }
 
 func (c *Client) foregroundCommand(paneTTY string, panePID int) (string, error) {

@@ -14,6 +14,7 @@
 - `daemon` mode for periodic autosave (single-instance lock per tmux socket).
 - `picker` with built-in TUI tree (`session -> windows`) and fuzzy search in a tmux popup (default).
 - Optional `fzf` picker backend via `--fzf-engine`.
+- Optional shell pane scrollback capture/replay (`--scrollback`, `--scrollback-lines`).
 - `restore` exactly one selected session from disk.
 - `bootstrap` on tmux startup to restore latest or named session.
 
@@ -66,11 +67,11 @@ After reloading tmux config (`tmux source-file ~/.tmux.conf`):
 ## CLI
 
 ```bash
-lazy-tmux save [--all] [--session NAME] [--data-dir DIR]
+lazy-tmux save [--all] [--session NAME] [--data-dir DIR] [--scrollback] [--scrollback-lines N]
 lazy-tmux restore --session NAME [--switch=true]
 lazy-tmux picker [--fzf-engine] [--session-sort EXPR] [--window-sort EXPR]
 lazy-tmux bootstrap [--session last|NAME]
-lazy-tmux daemon [--interval 5m]
+lazy-tmux daemon [--interval 5m] [--scrollback] [--scrollback-lines N]
 lazy-tmux list
 ```
 
@@ -133,12 +134,35 @@ Validation behavior:
 - invalid direction values are rejected (`asc` and `desc` only).
 - duplicate fields in one expression are rejected.
 
+## Shell scrollback
+
+By default, scrollback capture is disabled.
+
+Enable it explicitly:
+
+```bash
+lazy-tmux save --all --scrollback --scrollback-lines 5000
+lazy-tmux daemon --interval 5m --scrollback --scrollback-lines 5000
+```
+
+Behavior:
+
+- captures tmux pane scrollback only for panes that currently run an interactive shell (no detected foreground app command).
+- stores scrollback as sidecar files and references them from session snapshots.
+- on restore, writes captured scrollback back into pane tty before command replay.
+
+Storage layout:
+
+- `~/.local/share/lazy-tmux/sessions/*.json`
+- `~/.local/share/lazy-tmux/scrollback/<session>/*.log`
+
 ## Storage
 
 Default directory:
 
 - `~/.local/share/lazy-tmux/index.json`
 - `~/.local/share/lazy-tmux/sessions/*.json`
+- `~/.local/share/lazy-tmux/scrollback/*`
 
 Override via:
 
