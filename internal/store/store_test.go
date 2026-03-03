@@ -118,3 +118,33 @@ func TestDefaultDataDirEnvOverride(t *testing.T) {
 		t.Fatalf("expected env override, got %q", got)
 	}
 }
+
+func TestMarkSessionAccessed(t *testing.T) {
+	s := New(t.TempDir())
+	base := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
+
+	if err := s.SaveSession(snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: "demo",
+		CapturedAt:  base,
+		Windows:     []snapshot.Window{{Index: 0}},
+	}); err != nil {
+		t.Fatalf("save demo: %v", err)
+	}
+
+	accessedAt := base.Add(30 * time.Minute)
+	if err := s.MarkSessionAccessed("demo", accessedAt); err != nil {
+		t.Fatalf("mark accessed: %v", err)
+	}
+
+	recs, err := s.ListRecords()
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(recs) != 1 {
+		t.Fatalf("expected 1 record, got %d", len(recs))
+	}
+	if !recs[0].LastAccessed.Equal(accessedAt) {
+		t.Fatalf("unexpected last_accessed: got %v want %v", recs[0].LastAccessed, accessedAt)
+	}
+}
