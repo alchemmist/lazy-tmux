@@ -78,7 +78,10 @@ func ParsePickerSortOptions(sessionExpr, windowExpr string) (PickerSortOptions, 
 
 func parseSessionSortKeys(expr string) ([]SessionSortKey, error) {
 	seen := map[SessionSortField]struct{}{}
-	parts := splitSortExpr(expr)
+	parts, err := splitSortExpr(expr)
+	if err != nil {
+		return nil, fmt.Errorf("session sort: %w", err)
+	}
 	keys := make([]SessionSortKey, 0, len(parts))
 	for _, part := range parts {
 		field, desc, err := parseSessionSortPart(part)
@@ -99,7 +102,10 @@ func parseSessionSortKeys(expr string) ([]SessionSortKey, error) {
 
 func parseWindowSortKeys(expr string) ([]WindowSortKey, error) {
 	seen := map[WindowSortField]struct{}{}
-	parts := splitSortExpr(expr)
+	parts, err := splitSortExpr(expr)
+	if err != nil {
+		return nil, fmt.Errorf("window sort: %w", err)
+	}
 	keys := make([]WindowSortKey, 0, len(parts))
 	for _, part := range parts {
 		field, desc, err := parseWindowSortPart(part)
@@ -118,16 +124,17 @@ func parseWindowSortKeys(expr string) ([]WindowSortKey, error) {
 	return keys, nil
 }
 
-func splitSortExpr(expr string) []string {
+func splitSortExpr(expr string) ([]string, error) {
 	chunks := strings.Split(expr, ",")
 	out := make([]string, 0, len(chunks))
 	for _, ch := range chunks {
 		v := strings.TrimSpace(ch)
-		if v != "" {
-			out = append(out, v)
+		if v == "" {
+			return nil, fmt.Errorf("empty sort term in expression")
 		}
+		out = append(out, v)
 	}
-	return out
+	return out, nil
 }
 
 func parseSessionSortPart(part string) (SessionSortField, bool, error) {
