@@ -109,9 +109,10 @@ func (m pickerModel) View() string {
 	var b strings.Builder
 	b.WriteString(m.queryInput.View())
 	b.WriteString("\n")
-	itemW := m.itemWidth()
+	layout := buildPickerTableLayout(m.tableContentWidth())
 	b.WriteString("  ")
-	b.WriteString(fmt.Sprintf("%-*s %-19s %4s %5s   %-20s\n", itemW, "ITEM", "CAPTURED", "WINS", "STATE", "CMD"))
+	b.WriteString(layout.header())
+	b.WriteString("\n")
 	if len(m.visible) == 0 {
 		b.WriteString("No sessions or windows match query\n")
 		return b.String()
@@ -147,14 +148,14 @@ func (m *pickerModel) renderViewport() {
 		m.viewport.SetContent("")
 		return
 	}
-	itemW := m.itemWidth()
+	layout := buildPickerTableLayout(m.tableContentWidth())
 	lines := make([]string, 0, len(m.visible))
 	for i, row := range m.visible {
 		pointer := "  "
 		if i == m.cursor && row.selectable {
 			pointer = "> "
 		}
-		line := pointer + fmt.Sprintf("%-*s %-19s %4s %5s   %-20s", itemW, trim(row.item, itemW), row.captured, row.wins, row.state, row.cmd)
+		line := pointer + layout.row(row)
 		if i == m.cursor && row.selectable {
 			line = m.selectedStyle.Render(line)
 		}
@@ -163,9 +164,15 @@ func (m *pickerModel) renderViewport() {
 	m.viewport.SetContent(strings.Join(lines, "\n"))
 }
 
-func (m *pickerModel) itemWidth() int {
-	return 25
-	// return max(16, m.viewport.Width-34)
+func (m *pickerModel) tableContentWidth() int {
+	width := m.viewport.Width
+	if width <= 0 {
+		width = m.width
+	}
+	if width <= 0 {
+		width = 80
+	}
+	return max(1, width-2) // keep room for line pointer ("> ")
 }
 
 func (m *pickerModel) ensureCursorVisible() {
