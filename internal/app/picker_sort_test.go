@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -37,6 +38,26 @@ func TestParsePickerSortOptionsRejectsDuplicateField(t *testing.T) {
 	_, err := ParsePickerSortOptions("name,name:desc", "")
 	if err == nil {
 		t.Fatal("expected duplicate sort field error")
+	}
+}
+
+func TestParsePickerSortOptionsRejectsEmptySessionSortTerm(t *testing.T) {
+	_, err := ParsePickerSortOptions("name,,captured", "")
+	if err == nil {
+		t.Fatal("expected empty session sort term error")
+	}
+	if !strings.Contains(err.Error(), "empty sort term in expression") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestParsePickerSortOptionsRejectsEmptyWindowSortTerm(t *testing.T) {
+	_, err := ParsePickerSortOptions("", "index,,name")
+	if err == nil {
+		t.Fatal("expected empty window sort term error")
+	}
+	if !strings.Contains(err.Error(), "empty sort term in expression") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
