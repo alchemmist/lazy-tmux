@@ -41,6 +41,13 @@ func TestParsePickerSortOptionsRejectsDuplicateField(t *testing.T) {
 	}
 }
 
+func TestParseWindowSortKeysRejectsDuplicateField(t *testing.T) {
+	_, err := parseWindowSortKeys("name,name:desc")
+	if err == nil {
+		t.Fatal("expected duplicate window sort field error")
+	}
+}
+
 func TestParsePickerSortOptionsRejectsEmptySessionSortTerm(t *testing.T) {
 	_, err := ParsePickerSortOptions("name,,captured", "")
 	if err == nil {
