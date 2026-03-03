@@ -47,23 +47,23 @@ func TestIsShellCommand(t *testing.T) {
 	}
 }
 
-func TestNormalizedStartCommand(t *testing.T) {
-	if got := normalizedStartCommand("", "bash", "bash"); got != "" {
-		t.Fatalf("shell start command must be dropped, got %q", got)
+func TestNormalizedCommand(t *testing.T) {
+	if got := normalizedCommand("", "bash"); got != "" {
+		t.Fatalf("shell current command must be dropped, got %q", got)
 	}
-	if got := normalizedStartCommand("", "  ", "bash"); got != "" {
-		t.Fatalf("empty start command must be dropped, got %q", got)
+	if got := normalizedCommand("", "  "); got != "" {
+		t.Fatalf("empty current command must be dropped, got %q", got)
 	}
-	if got := normalizedStartCommand("", "nvim .", "nvim"); got != "nvim ." {
-		t.Fatalf("expected start command, got %q", got)
+	if got := normalizedCommand("", "nvim ."); got != "nvim ." {
+		t.Fatalf("expected current command, got %q", got)
 	}
-	if got := normalizedStartCommand("docker compose up", "bash", "docker"); got != "docker compose up" {
+	if got := normalizedCommand("docker compose up", "bash"); got != "docker compose up" {
 		t.Fatalf("expected restore command to win, got %q", got)
 	}
-	if got := normalizedStartCommand("\"nvim main.py\"", "", ""); got != "nvim main.py" {
+	if got := normalizedCommand("\"nvim main.py\"", ""); got != "nvim main.py" {
 		t.Fatalf("expected quoted command to be unwrapped, got %q", got)
 	}
-	if got := normalizedStartCommand("'ssh laba'", "", ""); got != "ssh laba" {
+	if got := normalizedCommand("'ssh laba'", ""); got != "ssh laba" {
 		t.Fatalf("expected single-quoted command to be unwrapped, got %q", got)
 	}
 }
@@ -72,10 +72,9 @@ func TestFirstPanePathUsesCleanPath(t *testing.T) {
 	w := snapshot.Window{
 		Panes: []snapshot.Pane{
 			{
-				CurrentPath:  "/tmp/proj/../proj2",
-				StartCommand: "nvim .",
-				CurrentCmd:   "nvim",
-				RestoreCmd:   "nvim file.txt",
+				CurrentPath: "/tmp/proj/../proj2",
+				CurrentCmd:  "nvim",
+				RestoreCmd:  "nvim file.txt",
 			},
 		},
 	}
@@ -153,8 +152,8 @@ exit 0
 				Name:   "editor",
 				Layout: "even-horizontal",
 				Panes: []snapshot.Pane{
-					{Index: 0, CurrentPath: "/tmp/proj", StartCommand: "nvim .", CurrentCmd: "nvim"},
-					{Index: 1, CurrentPath: "/tmp/proj", StartCommand: "htop", CurrentCmd: "htop"},
+					{Index: 0, CurrentPath: "/tmp/proj", CurrentCmd: "nvim ."},
+					{Index: 1, CurrentPath: "/tmp/proj", CurrentCmd: "htop"},
 				},
 			},
 			{
@@ -162,8 +161,8 @@ exit 0
 				Name:   "logs",
 				Layout: "tiled",
 				Panes: []snapshot.Pane{
-					{Index: 0, CurrentPath: "/var/log", StartCommand: "tail -f app.log", CurrentCmd: "tail"},
-					{Index: 1, CurrentPath: "/var/log", StartCommand: "zsh", CurrentCmd: "zsh"},
+					{Index: 0, CurrentPath: "/var/log", CurrentCmd: "tail -f app.log"},
+					{Index: 1, CurrentPath: "/var/log", CurrentCmd: "zsh"},
 				},
 			},
 		},
@@ -225,12 +224,12 @@ exit 0
 			{
 				Index: 3,
 				Name:  "first",
-				Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/tmp", StartCommand: "nvim", CurrentCmd: "nvim"}},
+				Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/tmp", CurrentCmd: "nvim"}},
 			},
 			{
 				Index: 5,
 				Name:  "second",
-				Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/tmp", StartCommand: "htop", CurrentCmd: "htop"}},
+				Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/tmp", CurrentCmd: "htop"}},
 			},
 		},
 	}
@@ -280,12 +279,12 @@ exit 0
 			{
 				Index: 0,
 				Name:  "ok",
-				Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/tmp", StartCommand: "nvim", CurrentCmd: "nvim"}},
+				Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/tmp", CurrentCmd: "nvim"}},
 			},
 			{
 				Index: 1,
 				Name:  "commands",
-				Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/tmp", StartCommand: "echo ok", CurrentCmd: "echo"}},
+				Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/tmp", CurrentCmd: "echo ok"}},
 			},
 		},
 	}
@@ -339,12 +338,12 @@ exit 0
 			{
 				Index: 0,
 				Name:  "ok",
-				Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/bad/path", StartCommand: "nvim", CurrentCmd: "nvim"}},
+				Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/bad/path", CurrentCmd: "nvim"}},
 			},
 			{
 				Index: 1,
 				Name:  "fallback",
-				Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/bad/path", StartCommand: "htop", CurrentCmd: "htop"}},
+				Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/bad/path", CurrentCmd: "htop"}},
 			},
 		},
 	}
