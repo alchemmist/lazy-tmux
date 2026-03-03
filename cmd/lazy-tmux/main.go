@@ -86,24 +86,30 @@ func runRestore(base config.Config, args []string) {
 func runPicker(base config.Config, args []string) {
 	fs := flag.NewFlagSet("picker", flag.ExitOnError)
 	fzfEngine := fs.Bool("fzf-engine", false, "use fzf engine instead of built-in TUI")
+	sessionSort := fs.String("session-sort", "", "session sort keys: field[:asc|desc],... (fields: last-used,captured,name,windows,panes)")
+	windowSort := fs.String("window-sort", "", "window sort keys: field[:asc|desc],... (fields: index,name,panes,cmd)")
 	shared := addSharedFlags(fs, base, true)
 	_ = fs.Parse(args)
 
 	a := app.New(shared.apply(base))
+	sortOpts, err := app.ParsePickerSortOptions(*sessionSort, *windowSort)
+	if err != nil {
+		fatalErr(err)
+	}
 
 	var (
 		target app.PickerTarget
-		err    error
+		selErr error
 	)
 	if *fzfEngine {
-		session, selErr := a.SelectWithFZF()
-		err = selErr
+		session, pickErr := a.SelectWithFZFSorted(sortOpts)
+		selErr = pickErr
 		target = app.PickerTarget{SessionName: session}
 	} else {
-		target, err = a.SelectTargetWithTUI()
+		target, selErr = a.SelectTargetWithTUISorted(sortOpts)
 	}
-	if err != nil {
-		fatalErr(err)
+	if selErr != nil {
+		fatalErr(selErr)
 	}
 	if err := a.RestoreTarget(target, true); err != nil {
 		fatalErr(err)
@@ -166,7 +172,9 @@ Commands:
   list       List saved sessions
 
 Picker flags:
-  --fzf-engine  Use fzf backend instead of built-in TUI
+  --fzf-engine             Use fzf backend instead of built-in TUI
+  --session-sort EXPR      Session sort (field[:asc|desc],...) fields: last-used,captured,name,windows,panes
+  --window-sort EXPR       Window sort (field[:asc|desc],...) fields: index,name,panes,cmd
 `)
 }
 

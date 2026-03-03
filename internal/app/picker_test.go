@@ -15,7 +15,7 @@ import (
 func TestPickerRecordsEmpty(t *testing.T) {
 	a := New(config.Config{DataDir: t.TempDir(), TmuxBin: "tmux"})
 
-	_, err := a.pickerRecords()
+	_, err := a.pickerRecords(DefaultPickerSortOptions())
 	if err == nil {
 		t.Fatal("expected error for empty records")
 	}
@@ -39,7 +39,7 @@ func TestPickerRecordsSortedByCapturedAt(t *testing.T) {
 		}
 	}
 
-	recs, err := a.pickerRecords()
+	recs, err := a.pickerRecords(DefaultPickerSortOptions())
 	if err != nil {
 		t.Fatalf("pickerRecords: %v", err)
 	}
@@ -75,7 +75,7 @@ func TestPickerRecordsSortedByLastAccessed(t *testing.T) {
 		t.Fatalf("mark alpha: %v", err)
 	}
 
-	recs, err := a.pickerRecords()
+	recs, err := a.pickerRecords(DefaultPickerSortOptions())
 	if err != nil {
 		t.Fatalf("pickerRecords: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestFilteredTreeRowsByWindowNameKeepsSessionParent(t *testing.T) {
 		},
 	}
 
-	rows := filteredTreeRows(sessions, "log")
+	rows := filteredTreeRows(sessions, "log", DefaultPickerSortOptions().Window)
 	if len(rows) != 2 {
 		t.Fatalf("expected 2 rows (session + matched window), got %d", len(rows))
 	}
