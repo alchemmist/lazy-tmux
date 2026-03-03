@@ -243,11 +243,15 @@ func TestBuildPickerTableLayoutNarrowHidesLowPriorityColumns(t *testing.T) {
 }
 
 func TestBuildPickerTableLayoutKeepsRequiredItemColumn(t *testing.T) {
-	layout := buildPickerTableLayout(8)
+	width := 8
+	layout := buildPickerTableLayout(width)
 	got := columnIDs(layout)
 	want := []pickerColumnID{pickerColItem}
 	if fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Fatalf("required item column must remain visible: got %v want %v", got, want)
+	}
+	if gotWidth := len([]rune(layout.header())); gotWidth > width {
+		t.Fatalf("layout width exceeds budget: got %d want <= %d", gotWidth, width)
 	}
 }
 
