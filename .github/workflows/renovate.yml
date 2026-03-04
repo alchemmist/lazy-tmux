@@ -9,7 +9,7 @@ jobs:
   renovate:
     runs-on: ubuntu-latest
     env:
-      LOG_LEVEL: debug
+      LOG_LEVEL: info
       RENOVATE_AUTODISCOVER: "true"
       RENOVATE_AUTODISCOVER_FILTER: "${{ github.repository }}"
     steps:
