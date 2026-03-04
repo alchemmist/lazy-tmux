@@ -262,3 +262,61 @@ func TestLoadSessionRejectsScrollbackPathTraversal(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestLoadSessionRejectsScrollbackSymlinkEscape(t *testing.T) {
+	base := t.TempDir()
+	s := New(base)
+
+	outsideDir := t.TempDir()
+	outsideFile := filepath.Join(outsideDir, "outside.log")
+	if err := os.WriteFile(outsideFile, []byte("secret\n"), 0o644); err != nil {
+		t.Fatalf("write outside file: %v", err)
+	}
+
+	linkDir := filepath.Join(base, scrollbackDir, sanitizeName("evil"))
+	if err := os.MkdirAll(linkDir, 0o755); err != nil {
+		t.Fatalf("mkdir link dir: %v", err)
+	}
+	linkPath := filepath.Join(linkDir, "w0_p0.log")
+	if err := os.Symlink(outsideFile, linkPath); err != nil {
+		t.Fatalf("create symlink: %v", err)
+	}
+
+	ss := snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: "evil",
+		CapturedAt:  time.Now().UTC(),
+		Windows: []snapshot.Window{
+			{
+				Index: 0,
+				Panes: []snapshot.Pane{
+					{
+						Index:      0,
+						CurrentCmd: "zsh",
+						Scrollback: &snapshot.ScrollbackRef{
+							Ref: filepath.Join(scrollbackDir, sanitizeName("evil"), "w0_p0.log"),
+						},
+					},
+				},
+			},
+		},
+	}
+	b, err := json.Marshal(ss)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(s.sessionPath("evil")), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(s.sessionPath("evil"), b, 0o644); err != nil {
+		t.Fatalf("write snapshot: %v", err)
+	}
+
+	_, err = s.LoadSession("evil")
+	if err == nil {
+		t.Fatal("expected symlink escape validation error")
+	}
+	if !strings.Contains(err.Error(), "invalid scrollback ref outside base dir") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

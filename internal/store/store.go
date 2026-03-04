@@ -306,18 +306,26 @@ func safeScrollbackPath(baseRoot, baseDir, ref string) (string, error) {
 		candidateDirEval = filepath.Dir(candidateAbs)
 	}
 	candidateEval := filepath.Join(candidateDirEval, filepath.Base(candidateAbs))
+	finalEval, err := filepath.EvalSymlinks(candidateEval)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			finalEval = candidateEval
+		} else {
+			return "", err
+		}
+	}
 
-	rel, err := filepath.Rel(baseEval, candidateEval)
+	rel, err := filepath.Rel(baseEval, finalEval)
 	if err != nil {
 		return "", err
 	}
 	if rel == "." {
-		return candidateAbs, nil
+		return finalEval, nil
 	}
 	if strings.HasPrefix(rel, "..") || filepath.IsAbs(rel) {
 		return "", fmt.Errorf("invalid scrollback ref outside base dir: %s", ref)
 	}
-	return candidateAbs, nil
+	return finalEval, nil
 }
 
 func countLines(s string) int {
