@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alchemmist/lazy-tmux/internal/config"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 	"github.com/alchemmist/lazy-tmux/internal/store"
 	"github.com/alchemmist/lazy-tmux/internal/tmux"
@@ -150,6 +151,56 @@ exit 0
 	out := string(b)
 	if strings.Contains(out, "switch-client -t") {
 		t.Fatalf("switch-client must not be called when switch=false, got:\n%s", out)
+	}
+}
+
+func TestSaveSessionCapturesShellScrollbackWhenEnabled(t *testing.T) {
+	fake := writeFakeTmuxForApp(t, `
+if [ "$1" = "has-session" ]; then
+  exit 0
+fi
+if [ "$1" = "display-message" ]; then
+  printf "0\0370\n"
+  exit 0
+fi
+if [ "$1" = "list-windows" ]; then
+  printf "0\037main\037layout\0371\n"
+  exit 0
+fi
+if [ "$1" = "list-panes" ]; then
+  printf "0\037/tmp\037zsh\0371\037111\037\n"
+  exit 0
+fi
+if [ "$1" = "capture-pane" ]; then
+  printf "echo hi\nhi\n"
+  exit 0
+fi
+exit 0
+`)
+
+	dataDir := t.TempDir()
+	a := &App{
+		cfg: config.Config{
+			Scrollback: config.ScrollbackConfig{Enabled: true, Lines: 200},
+		},
+		store: store.New(dataDir),
+		tmux:  tmux.NewClient(fake),
+	}
+
+	if err := a.SaveSession("demo"); err != nil {
+		t.Fatalf("SaveSession error: %v", err)
+	}
+
+	loaded, err := a.store.LoadSession("demo")
+	if err != nil {
+		t.Fatalf("LoadSession error: %v", err)
+	}
+	sb := loaded.Windows[0].Panes[0].Scrollback
+	if sb == nil {
+		t.Fatal("expected shell pane scrollback to be captured")
+	}
+	if !strings.Contains(sb.Content, "echo hi") {
+		t.Fatalf("unexpected scrollback content: %q", sb.Content)
 	}
 }
 

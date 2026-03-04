@@ -15,10 +15,13 @@ import (
 )
 
 const (
-	indexFileName   = "index.json"
-	sessionsDirName = "sessions"
-	defaultDirPerm  = 0o755
-	defaultFilePerm = 0o644
+	indexFileName      = "index.json"
+	sessionsDirName    = "sessions"
+	scrollbackDir      = "scrollback"
+	defaultDirPerm     = 0o755
+	defaultFilePerm    = 0o644
+	scrollbackDirPerm  = 0o700
+	scrollbackFilePerm = 0o600
 )
 
 type Store struct {
@@ -56,8 +59,22 @@ func (s *Store) SaveSession(ss snapshot.SessionSnapshot) error {
 		return err
 	}
 
+	safeName, entries, err := s.planScrollbackUnlocked(&ss)
+	if err != nil {
+		return err
+	}
+
 	path := s.sessionPath(ss.SessionName)
-	if err := writeJSONAtomic(path, ss); err != nil {
+	jsonTmp, err := writeJSONTemp(path, ss, defaultFilePerm)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = os.Remove(jsonTmp) }()
+
+	if err := s.persistScrollbackUnlocked(ss.SessionName, safeName, entries); err != nil {
+		return err
+	}
+	if err := os.Rename(jsonTmp, path); err != nil {
 		return err
 	}
 
@@ -83,12 +100,19 @@ func (s *Store) SaveSession(ss snapshot.SessionSnapshot) error {
 
 func (s *Store) LoadSession(name string) (snapshot.SessionSnapshot, error) {
 	var out snapshot.SessionSnapshot
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	path := s.sessionPath(name)
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return out, err
 	}
 	if err := json.Unmarshal(b, &out); err != nil {
+		return out, err
+	}
+	if err := s.hydrateScrollback(&out); err != nil {
 		return out, err
 	}
 	return out, nil
@@ -160,6 +184,9 @@ func (s *Store) ensureLayout() error {
 	if err := os.MkdirAll(filepath.Join(s.baseDir, sessionsDirName), defaultDirPerm); err != nil {
 		return err
 	}
+	if err := os.MkdirAll(filepath.Join(s.baseDir, scrollbackDir), scrollbackDirPerm); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -202,14 +229,248 @@ func sanitizeName(name string) string {
 	return out
 }
 
-func writeJSONAtomic(path string, v any) error {
-	b, err := json.MarshalIndent(v, "", "  ")
+type scrollbackEntry struct {
+	FileName string
+	Content  string
+	Ref      string
+	Bytes    int
+	Lines    int
+}
+
+func (s *Store) planScrollbackUnlocked(ss *snapshot.SessionSnapshot) (string, []scrollbackEntry, error) {
+	safeName, err := safeScrollbackSessionName(ss.SessionName)
+	if err != nil {
+		return "", nil, err
+	}
+	entries := make([]scrollbackEntry, 0)
+	for wi := range ss.Windows {
+		for pi := range ss.Windows[wi].Panes {
+			pane := &ss.Windows[wi].Panes[pi]
+			if pane.Scrollback == nil {
+				continue
+			}
+			content := pane.Scrollback.Content
+			if strings.TrimSpace(content) == "" {
+				pane.Scrollback = nil
+				continue
+			}
+			fileName := fmt.Sprintf("w%d_p%d.log", ss.Windows[wi].Index, pane.Index)
+			ref := filepath.Join(scrollbackDir, safeName, fileName)
+			pane.Scrollback.Ref = ref
+			pane.Scrollback.Bytes = len(content)
+			pane.Scrollback.Lines = countLines(content)
+			pane.Scrollback.Content = ""
+			entries = append(entries, scrollbackEntry{
+				FileName: fileName,
+				Content:  content,
+				Ref:      ref,
+				Bytes:    len(content),
+				Lines:    countLines(content),
+			})
+		}
+	}
+	return safeName, entries, nil
+}
+
+func (s *Store) persistScrollbackUnlocked(sessionName, safeName string, entries []scrollbackEntry) error {
+	scrollRoot := filepath.Clean(filepath.Join(s.baseDir, scrollbackDir))
+	sessionDir := filepath.Clean(filepath.Join(scrollRoot, safeName))
+	if err := ensureUnderDir(scrollRoot, sessionDir, sessionName); err != nil {
+		return err
+	}
+	stageDir := sessionDir + ".tmp"
+	_ = os.RemoveAll(stageDir)
+	defer func() { _ = os.RemoveAll(stageDir) }()
+
+	if len(entries) == 0 {
+		_ = os.RemoveAll(sessionDir)
+		_ = os.RemoveAll(stageDir)
+		return nil
+	}
+
+	if err := os.MkdirAll(stageDir, scrollbackDirPerm); err != nil {
+		return err
+	}
+	for _, ent := range entries {
+		path := filepath.Join(stageDir, ent.FileName)
+		if err := os.WriteFile(path, []byte(ent.Content), scrollbackFilePerm); err != nil {
+			return err
+		}
+	}
+
+	if err := promoteScrollbackStage(sessionDir, stageDir); err != nil {
+		return err
+	}
+	return nil
+}
+
+func promoteScrollbackStage(sessionDir, stageDir string) error {
+	backupDir := sessionDir + ".bak"
+	_ = os.RemoveAll(backupDir)
+
+	hadSessionDir := false
+	if _, err := os.Stat(sessionDir); err == nil {
+		hadSessionDir = true
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	if hadSessionDir {
+		if err := os.Rename(sessionDir, backupDir); err != nil {
+			return err
+		}
+	}
+
+	if err := os.Rename(stageDir, sessionDir); err != nil {
+		if hadSessionDir {
+			_ = os.Rename(backupDir, sessionDir)
+		}
+		return err
+	}
+
+	if hadSessionDir {
+		_ = os.RemoveAll(backupDir)
+	}
+	return nil
+}
+
+func (s *Store) hydrateScrollback(ss *snapshot.SessionSnapshot) error {
+	baseRoot, err := filepath.Abs(filepath.Clean(filepath.Join(s.baseDir, scrollbackDir)))
 	if err != nil {
 		return err
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, append(b, '\n'), defaultFilePerm); err != nil {
+
+	for wi := range ss.Windows {
+		for pi := range ss.Windows[wi].Panes {
+			pane := &ss.Windows[wi].Panes[pi]
+			if pane.Scrollback == nil || strings.TrimSpace(pane.Scrollback.Ref) == "" {
+				continue
+			}
+			path, err := safeScrollbackPath(baseRoot, s.baseDir, pane.Scrollback.Ref)
+			if err != nil {
+				return err
+			}
+			b, err := os.ReadFile(path)
+			if err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					continue
+				}
+				return err
+			}
+			pane.Scrollback.Content = string(b)
+			if pane.Scrollback.Bytes == 0 {
+				pane.Scrollback.Bytes = len(b)
+			}
+			if pane.Scrollback.Lines == 0 {
+				pane.Scrollback.Lines = countLines(string(b))
+			}
+		}
+	}
+	return nil
+}
+
+func safeScrollbackPath(baseRoot, baseDir, ref string) (string, error) {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return "", fmt.Errorf("empty scrollback ref")
+	}
+	candidate := filepath.Clean(filepath.Join(baseDir, ref))
+	candidateAbs, err := filepath.Abs(candidate)
+	if err != nil {
+		return "", err
+	}
+	baseEval, err := filepath.EvalSymlinks(baseRoot)
+	if err != nil {
+		baseEval = baseRoot
+	}
+	candidateDirEval, err := filepath.EvalSymlinks(filepath.Dir(candidateAbs))
+	if err != nil {
+		candidateDirEval = filepath.Dir(candidateAbs)
+	}
+	candidateEval := filepath.Join(candidateDirEval, filepath.Base(candidateAbs))
+	finalEval, err := filepath.EvalSymlinks(candidateEval)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			finalEval = candidateEval
+		} else {
+			return "", err
+		}
+	}
+
+	rel, err := filepath.Rel(baseEval, finalEval)
+	if err != nil {
+		return "", err
+	}
+	if rel == "." {
+		return finalEval, nil
+	}
+	cleanRel := filepath.Clean(rel)
+	if filepath.IsAbs(cleanRel) || cleanRel == ".." || strings.HasPrefix(cleanRel, ".."+string(os.PathSeparator)) {
+		return "", fmt.Errorf("invalid scrollback ref outside base dir: %s", ref)
+	}
+	return finalEval, nil
+}
+
+func safeScrollbackSessionName(sessionName string) (string, error) {
+	name := sanitizeName(sessionName)
+	if name == "" || name == "." || name == ".." {
+		return "", fmt.Errorf("invalid session name for scrollback: %q", sessionName)
+	}
+	if strings.ContainsRune(name, filepath.Separator) {
+		return "", fmt.Errorf("invalid session name for scrollback: %q", sessionName)
+	}
+	if filepath.Separator != '/' && strings.Contains(name, "/") {
+		return "", fmt.Errorf("invalid session name for scrollback: %q", sessionName)
+	}
+	if filepath.Separator != '\\' && strings.Contains(name, "\\") {
+		return "", fmt.Errorf("invalid session name for scrollback: %q", sessionName)
+	}
+	return name, nil
+}
+
+func ensureUnderDir(baseDir, child, ref string) error {
+	baseAbs, err := filepath.Abs(filepath.Clean(baseDir))
+	if err != nil {
+		return err
+	}
+	childAbs, err := filepath.Abs(filepath.Clean(child))
+	if err != nil {
+		return err
+	}
+	rel, err := filepath.Rel(baseAbs, childAbs)
+	if err != nil {
+		return err
+	}
+	cleanRel := filepath.Clean(rel)
+	if filepath.IsAbs(cleanRel) || cleanRel == ".." || strings.HasPrefix(cleanRel, ".."+string(os.PathSeparator)) {
+		return fmt.Errorf("invalid path outside base dir: %s", ref)
+	}
+	return nil
+}
+
+func countLines(s string) int {
+	if s == "" {
+		return 0
+	}
+	return strings.Count(s, "\n") + 1
+}
+
+func writeJSONAtomic(path string, v any) error {
+	tmp, err := writeJSONTemp(path, v, defaultFilePerm)
+	if err != nil {
 		return err
 	}
 	return os.Rename(tmp, path)
+}
+
+func writeJSONTemp(path string, v any, perm os.FileMode) (string, error) {
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, append(b, '\n'), perm); err != nil {
+		return "", err
+	}
+	return tmp, nil
 }
