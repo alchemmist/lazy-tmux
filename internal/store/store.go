@@ -15,11 +15,13 @@ import (
 )
 
 const (
-	indexFileName   = "index.json"
-	sessionsDirName = "sessions"
-	scrollbackDir   = "scrollback"
-	defaultDirPerm  = 0o755
-	defaultFilePerm = 0o644
+	indexFileName      = "index.json"
+	sessionsDirName    = "sessions"
+	scrollbackDir      = "scrollback"
+	defaultDirPerm     = 0o755
+	defaultFilePerm    = 0o644
+	scrollbackDirPerm  = 0o700
+	scrollbackFilePerm = 0o600
 )
 
 type Store struct {
@@ -213,7 +215,19 @@ func sanitizeName(name string) string {
 }
 
 func (s *Store) persistScrollbackUnlocked(ss *snapshot.SessionSnapshot) error {
-	sessionDir := filepath.Join(s.baseDir, scrollbackDir, sanitizeName(ss.SessionName))
+	safeName, err := safeScrollbackSessionName(ss.SessionName)
+	if err != nil {
+		return err
+	}
+	scrollRoot := filepath.Clean(filepath.Join(s.baseDir, scrollbackDir))
+	sessionDir := filepath.Clean(filepath.Join(scrollRoot, safeName))
+	if err := ensureUnderDir(scrollRoot, sessionDir, ss.SessionName); err != nil {
+		return err
+	}
+	stageDir := sessionDir + ".tmp"
+	_ = os.RemoveAll(stageDir)
+	defer func() { _ = os.RemoveAll(stageDir) }()
+
 	hasAny := false
 
 	for wi := range ss.Windows {
@@ -228,19 +242,18 @@ func (s *Store) persistScrollbackUnlocked(ss *snapshot.SessionSnapshot) error {
 				continue
 			}
 			if !hasAny {
-				_ = os.RemoveAll(sessionDir)
-				if err := os.MkdirAll(sessionDir, defaultDirPerm); err != nil {
+				if err := os.MkdirAll(stageDir, scrollbackDirPerm); err != nil {
 					return err
 				}
 				hasAny = true
 			}
 
 			fileName := fmt.Sprintf("w%d_p%d.log", ss.Windows[wi].Index, pane.Index)
-			path := filepath.Join(sessionDir, fileName)
-			if err := os.WriteFile(path, []byte(content), defaultFilePerm); err != nil {
+			path := filepath.Join(stageDir, fileName)
+			if err := os.WriteFile(path, []byte(content), scrollbackFilePerm); err != nil {
 				return err
 			}
-			pane.Scrollback.Ref = filepath.Join(scrollbackDir, sanitizeName(ss.SessionName), fileName)
+			pane.Scrollback.Ref = filepath.Join(scrollbackDir, safeName, fileName)
 			pane.Scrollback.Bytes = len(content)
 			pane.Scrollback.Lines = countLines(content)
 			pane.Scrollback.Content = ""
@@ -248,6 +261,41 @@ func (s *Store) persistScrollbackUnlocked(ss *snapshot.SessionSnapshot) error {
 	}
 	if !hasAny {
 		_ = os.RemoveAll(sessionDir)
+		_ = os.RemoveAll(stageDir)
+		return nil
+	}
+	if err := promoteScrollbackStage(sessionDir, stageDir); err != nil {
+		return err
+	}
+	return nil
+}
+
+func promoteScrollbackStage(sessionDir, stageDir string) error {
+	backupDir := sessionDir + ".bak"
+	_ = os.RemoveAll(backupDir)
+
+	hadSessionDir := false
+	if _, err := os.Stat(sessionDir); err == nil {
+		hadSessionDir = true
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	if hadSessionDir {
+		if err := os.Rename(sessionDir, backupDir); err != nil {
+			return err
+		}
+	}
+
+	if err := os.Rename(stageDir, sessionDir); err != nil {
+		if hadSessionDir {
+			_ = os.Rename(backupDir, sessionDir)
+		}
+		return err
+	}
+
+	if hadSessionDir {
+		_ = os.RemoveAll(backupDir)
 	}
 	return nil
 }
@@ -322,10 +370,48 @@ func safeScrollbackPath(baseRoot, baseDir, ref string) (string, error) {
 	if rel == "." {
 		return finalEval, nil
 	}
-	if strings.HasPrefix(rel, "..") || filepath.IsAbs(rel) {
+	cleanRel := filepath.Clean(rel)
+	if filepath.IsAbs(cleanRel) || cleanRel == ".." || strings.HasPrefix(cleanRel, ".."+string(os.PathSeparator)) {
 		return "", fmt.Errorf("invalid scrollback ref outside base dir: %s", ref)
 	}
 	return finalEval, nil
+}
+
+func safeScrollbackSessionName(sessionName string) (string, error) {
+	name := sanitizeName(sessionName)
+	if name == "" || name == "." || name == ".." {
+		return "", fmt.Errorf("invalid session name for scrollback: %q", sessionName)
+	}
+	if strings.ContainsRune(name, filepath.Separator) {
+		return "", fmt.Errorf("invalid session name for scrollback: %q", sessionName)
+	}
+	if filepath.Separator != '/' && strings.Contains(name, "/") {
+		return "", fmt.Errorf("invalid session name for scrollback: %q", sessionName)
+	}
+	if filepath.Separator != '\\' && strings.Contains(name, "\\") {
+		return "", fmt.Errorf("invalid session name for scrollback: %q", sessionName)
+	}
+	return name, nil
+}
+
+func ensureUnderDir(baseDir, child, ref string) error {
+	baseAbs, err := filepath.Abs(filepath.Clean(baseDir))
+	if err != nil {
+		return err
+	}
+	childAbs, err := filepath.Abs(filepath.Clean(child))
+	if err != nil {
+		return err
+	}
+	rel, err := filepath.Rel(baseAbs, childAbs)
+	if err != nil {
+		return err
+	}
+	cleanRel := filepath.Clean(rel)
+	if filepath.IsAbs(cleanRel) || cleanRel == ".." || strings.HasPrefix(cleanRel, ".."+string(os.PathSeparator)) {
+		return fmt.Errorf("invalid path outside base dir: %s", ref)
+	}
+	return nil
 }
 
 func countLines(s string) int {

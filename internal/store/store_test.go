@@ -320,3 +320,83 @@ func TestLoadSessionRejectsScrollbackSymlinkEscape(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestLoadSessionAllowsDotDotPrefixSegmentName(t *testing.T) {
+	base := t.TempDir()
+	s := New(base)
+
+	scrollDir := filepath.Join(base, scrollbackDir, "..cache")
+	if err := os.MkdirAll(scrollDir, 0o755); err != nil {
+		t.Fatalf("mkdir scroll dir: %v", err)
+	}
+	logPath := filepath.Join(scrollDir, "w0_p0.log")
+	if err := os.WriteFile(logPath, []byte("ok\n"), 0o600); err != nil {
+		t.Fatalf("write log: %v", err)
+	}
+
+	ss := snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: "demo",
+		CapturedAt:  time.Now().UTC(),
+		Windows: []snapshot.Window{
+			{
+				Index: 0,
+				Panes: []snapshot.Pane{
+					{
+						Index:      0,
+						CurrentCmd: "zsh",
+						Scrollback: &snapshot.ScrollbackRef{
+							Ref: filepath.Join(scrollbackDir, "..cache", "w0_p0.log"),
+						},
+					},
+				},
+			},
+		},
+	}
+	b, err := json.Marshal(ss)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(s.sessionPath("demo")), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(s.sessionPath("demo"), b, 0o644); err != nil {
+		t.Fatalf("write snapshot: %v", err)
+	}
+
+	loaded, err := s.LoadSession("demo")
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if loaded.Windows[0].Panes[0].Scrollback == nil || loaded.Windows[0].Panes[0].Scrollback.Content != "ok\n" {
+		t.Fatalf("unexpected scrollback content: %#v", loaded.Windows[0].Panes[0].Scrollback)
+	}
+}
+
+func TestSaveSessionRejectsInvalidScrollbackSessionName(t *testing.T) {
+	s := New(t.TempDir())
+	ss := snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: "..",
+		CapturedAt:  time.Now().UTC(),
+		Windows: []snapshot.Window{
+			{
+				Index: 0,
+				Panes: []snapshot.Pane{
+					{
+						Index:      0,
+						CurrentCmd: "zsh",
+						Scrollback: &snapshot.ScrollbackRef{Content: "x\n"},
+					},
+				},
+			},
+		},
+	}
+	err := s.SaveSession(ss)
+	if err == nil {
+		t.Fatal("expected invalid session name error")
+	}
+	if !strings.Contains(err.Error(), "invalid session name for scrollback") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
