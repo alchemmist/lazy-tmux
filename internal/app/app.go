@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -55,6 +56,9 @@ func (a *App) SaveSession(session string) error {
 	snap, err := a.tmux.CaptureSession(session)
 	if err != nil {
 		return err
+	}
+	if a.cfg.Scrollback.Enabled {
+		a.captureShellScrollback(&snap)
 	}
 	return a.store.SaveSession(snap)
 }
@@ -191,4 +195,46 @@ func (a *App) SelectWithFZFSorted(opts PickerSortOptions) (string, error) {
 		return "", err
 	}
 	return chooseSessionFZF(records)
+}
+
+func (a *App) captureShellScrollback(snap *snapshot.SessionSnapshot) {
+	lines := a.cfg.Scrollback.Lines
+	if lines <= 0 {
+		lines = 5000
+	}
+
+	for wi := range snap.Windows {
+		for pi := range snap.Windows[wi].Panes {
+			pane := &snap.Windows[wi].Panes[pi]
+			if strings.TrimSpace(pane.RestoreCmd) != "" || !isShellCommandName(pane.CurrentCmd) {
+				continue
+			}
+			target := fmt.Sprintf("%s:%d.%d", snap.SessionName, snap.Windows[wi].Index, pane.Index)
+			out, err := a.tmux.CapturePaneScrollback(target, lines)
+			if err != nil {
+				continue
+			}
+			out = strings.TrimRight(out, "\n")
+			if strings.TrimSpace(out) == "" {
+				continue
+			}
+			pane.Scrollback = &snapshot.ScrollbackRef{
+				Content: out + "\n",
+			}
+		}
+	}
+}
+
+func isShellCommandName(cmd string) bool {
+	fields := strings.Fields(strings.TrimSpace(cmd))
+	if len(fields) == 0 {
+		return false
+	}
+	base := strings.TrimPrefix(filepath.Base(fields[0]), "-")
+	switch base {
+	case "bash", "zsh", "fish", "sh", "ksh":
+		return true
+	default:
+		return false
+	}
 }
