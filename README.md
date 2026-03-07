@@ -1,4 +1,4 @@
-# lazy-tmux
+<h2><img src="./assets/logo.svg" alt="Favicon Preview" width="50" align="center">&nbsp;&nbsp;&nbsp;lazy-tmux</h2>
 
 `lazy-tmux` is a Go CLI that snapshots tmux sessions to disk and restores them lazily on demand.
 
