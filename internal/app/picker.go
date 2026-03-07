@@ -277,7 +277,7 @@ func sessionStateIcon(restored bool) string {
 	if restored {
 		return "✓"
 	}
-	return "💤"
+	return ""
 }
 
 func fuzzyMatch(query, target string) bool {
