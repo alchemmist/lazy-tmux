@@ -15,7 +15,11 @@
       href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap"
       rel="stylesheet"
     />
-    <script defer src="https://umami.alchemmist.xyz/script.js" data-website-id="1d4c3792-8068-4e17-a321-f5ecd6eeea4e"></script>
+    <script
+      defer
+      src="https://umami.alchemmist.xyz/script.js"
+      data-website-id="1d4c3792-8068-4e17-a321-f5ecd6eeea4e"
+    ></script>
     <style>
       :root {
         --bg: #070707;
@@ -164,10 +168,6 @@
         overflow-x: auto;
         color: #ececec;
         font-size: 15px;
-      }
-
-      pre {
-        overflow-x: auto;
         scrollbar-width: none;
         -ms-overflow-style: none;
       }
@@ -194,7 +194,7 @@
         border-radius: 5px;
         padding: 1px 5px;
         font-size: 0.9em;
-        font-family: "JetBrains Mono";
+        font-family: "JetBrains Mono", monospace;
       }
 
       @media (max-width: 760px) {
@@ -220,7 +220,11 @@
     <main class="container">
       <section class="hero">
         <div style="display: flex; gap: 2em; margin-bottom: 2em">
-          <img src="/assets/logo-white.svg" width="60em" />
+          <img
+            src="/assets/logo-white.svg"
+            style="width: 60px; height: auto"
+            alt="lazy-tmux logo"
+          />
           <h1>lazy-tmux</h1>
         </div>
         <p class="subtitle">
@@ -356,18 +360,17 @@
 
       <section class="section" id="install">
         <h2>Installation</h2>
-        <p>Install with builtin powerful TUI pikcer:</p>
+        <p>Install with builtin powerful TUI picker:</p>
         <pre><code>curl -sSL https://alchemmist.github.io/lazy-tmux/install.sh | sh</code></pre>
         <p>
-          Install pure, no-deps, lighweight binary (<code>fzf</code> required):
+          Install pure, no-deps, lightweight binary (<code>fzf</code> required):
         </p>
         <pre><code>curl -sSL https://alchemmist.github.io/lazy-tmux/install.sh | sh -s -- --fzf-only</code></pre>
         <br />
         <p>Or use your package manager. Arch:</p>
         <pre><code>yay -S lazy-tmux</code></pre>
-        <p>MacOS:</p>
-        <pre><code>brew tap username/tap</code>
-<code>brew install project</code></pre>
+        <p>MacOS (Homebrew):</p>
+        <pre><code># Homebrew support coming soon</code></pre>
       </section>
 
       <section class="section">
@@ -385,22 +388,22 @@
           <li>You can call picker with <code>&lt;prefix&gt; + f</code></li>
           <li>
             You can save all sessions with 5000 lines of scrollback with
-            <code>&lt;prefix&gt; + &gt;C-s&gt;</code>
+            <code>&lt;prefix&gt; + &lt;C-s&gt;</code>
           </li>
           <li>
             On your system will running daemon, which will save all sessions
-            witl 5000 lines scrollback every 3 minute.
+            with 5000 lines scrollback every 3 minute.
           </li>
         </ul>
         <p>
-          Fell free to open your config and edit any paramters. For example you
+          Feel free to open your config and edit any parameters. For example you
           can configure picker popup size:
         </p>
         <pre><code>bind-key f display-popup -w 65% -h 75% -E 'lazy-tmux picker'</code></pre>
         <p>Or edit time interval:</p>
         <pre><code>run-shell -b 'lazy-tmux daemon --interval 5m --scrollback&gt;/tmp/lazy-tmux.log 2&gt;&amp;1 || tmux display-message "lazy-tmux daemon already running"'</code></pre>
         <p>Or up scrollback lines limit:</p>
-        <pre><code>run-shell -b 'lazy-tmux daemon --interval 3m --scrollback --scrollback-lines 8000&gt;/tmp/lazy-tmux.log 2&amp;lt&amp;1 || tmux display-message "lazy-tmux daemon already running"'</code></pre>
+        <pre><code>run-shell -b 'lazy-tmux daemon --interval 3m --scrollback --scrollback-lines 8000&gt;/tmp/lazy-tmux.log 2&gt;&amp;1 || tmux display-message "lazy-tmux daemon already running"'</code></pre>
         <p>Or remap saving shortcut:</p>
         <pre><code>bind-key C-S run-shell 'lazy-tmux save --all --scrollback &amp;&amp; tmux display-message "All sessions saved successfully!"'</code></pre>
       </section>
@@ -520,7 +523,10 @@
           <tbody>
             <tr>
               <td><code>&lt;C-d&gt;</code></td>
-              <td>Delete window or session, depends on current cursor position. If trying to delete session confirmed is needed.</td>
+              <td>
+                Deletes a window or a session depending on the cursor position;
+                deleting a session requires confirmation.
+              </td>
             </tr>
           </tbody>
         </table>
