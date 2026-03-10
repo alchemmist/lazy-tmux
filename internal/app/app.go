@@ -72,7 +72,33 @@ func (a *App) SaveCurrent() error {
 }
 
 func (a *App) DeleteWindow(session string, windowIndex int) error {
-	return a.tmux.KillWindow(session, windowIndex)
+	if a.tmux.SessionExists(session) {
+		if err := a.tmux.KillWindow(session, windowIndex); err != nil {
+			return err
+		}
+	}
+
+	snap, err := a.store.LoadSession(session)
+	if err != nil {
+		return err
+	}
+	windows := make([]snapshot.Window, 0, len(snap.Windows))
+	removed := false
+	for _, w := range snap.Windows {
+		if w.Index == windowIndex {
+			removed = true
+			continue
+		}
+		windows = append(windows, w)
+	}
+	if !removed {
+		return fmt.Errorf("window not found in snapshot")
+	}
+	if len(windows) == 0 {
+		return a.store.DeleteSession(session)
+	}
+	snap.Windows = windows
+	return a.store.SaveSession(snap)
 }
 
 func (a *App) DeleteSession(session string) error {
