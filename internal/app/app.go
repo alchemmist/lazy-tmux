@@ -102,7 +102,12 @@ func (a *App) DeleteWindow(session string, windowIndex int) error {
 }
 
 func (a *App) DeleteSession(session string) error {
-	return a.tmux.KillSession(session)
+	if a.tmux.SessionExists(session) {
+		if err := a.tmux.KillSession(session); err != nil {
+			return err
+		}
+	}
+	return a.store.DeleteSession(session)
 }
 
 func (a *App) RenameWindow(session string, windowIndex int, name string) error {
