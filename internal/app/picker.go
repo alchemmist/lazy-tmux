@@ -208,7 +208,7 @@ func (m *pickerModel) applyFilter() {
 		return
 	}
 	if m.cursor < 0 || m.cursor >= len(m.visible) || !m.visible[m.cursor].selectable {
-		m.cursor = firstSelectableRow(m.visible)
+		m.cursor = nearestSelectableRow(m.visible, m.cursor)
 	}
 }
 
@@ -503,6 +503,29 @@ func (m *pickerModel) ensureCursorVisible() {
 	}
 }
 
+func nearestSelectableRow(rows []pickerRow, from int) int {
+	if len(rows) == 0 {
+		return 0
+	}
+	if from < 0 {
+		from = 0
+	}
+	if from >= len(rows) {
+		from = len(rows) - 1
+	}
+	for i := from; i >= 0; i-- {
+		if rows[i].selectable {
+			return i
+		}
+	}
+	for i := from + 1; i < len(rows); i++ {
+		if rows[i].selectable {
+			return i
+		}
+	}
+	return 0
+}
+
 func filteredTreeRows(sessions []pickerSession, query string, windowSort []WindowSortKey) []pickerRow {
 	rows := make([]pickerRow, 0)
 	for _, s := range sessions {
@@ -612,15 +635,6 @@ func chooseTarget(sessions []pickerSession, windowSort []WindowSortKey, actions 
 		return PickerTarget{}, fmt.Errorf("no session selected")
 	}
 	return result.selected, nil
-}
-
-func firstSelectableRow(rows []pickerRow) int {
-	for i := range rows {
-		if rows[i].selectable {
-			return i
-		}
-	}
-	return 0
 }
 
 func (m *pickerModel) moveNextSelectable() {

@@ -31,6 +31,8 @@ type pickerSession struct {
 	Restored bool
 }
 
+var errNoSavedSessions = errors.New("no saved sessions found")
+
 func New(cfg config.Config) *App {
 	return &App{
 		cfg:   cfg,
@@ -72,21 +74,22 @@ func (a *App) SaveCurrent() error {
 }
 
 func (a *App) DeleteWindow(session string, windowIndex int) error {
-	var err error
 	if a.tmux.SessionExists(session) {
-		if err = a.tmux.KillWindow(session, windowIndex); err == nil {
-			if !a.tmux.SessionExists(session) {
-				_ = a.store.DeleteSession(session)
-				return nil
+		if err := a.tmux.KillWindow(session, windowIndex); err != nil {
+			if !os.IsNotExist(err) {
+				return err
 			}
-			_ = a.SaveSession(session)
-			return nil
+		} else {
+			if !a.tmux.SessionExists(session) {
+				return a.store.DeleteSession(session)
+			}
+			return a.SaveSession(session)
 		}
 	}
 
 	snap, err := a.store.LoadSession(session)
 	if err != nil {
-		return nil
+		return err
 	}
 	windows := make([]snapshot.Window, 0, len(snap.Windows))
 	removed := false
@@ -98,23 +101,22 @@ func (a *App) DeleteWindow(session string, windowIndex int) error {
 		windows = append(windows, w)
 	}
 	if !removed {
-		return nil
+		return fmt.Errorf("window not found in snapshot")
 	}
 	if len(windows) == 0 {
-		_ = a.store.DeleteSession(session)
-		return nil
+		return a.store.DeleteSession(session)
 	}
 	snap.Windows = windows
-	_ = a.store.SaveSession(snap)
-	return nil
+	return a.store.SaveSession(snap)
 }
 
 func (a *App) DeleteSession(session string) error {
 	if a.tmux.SessionExists(session) {
-		_ = a.tmux.KillSession(session)
+		if err := a.tmux.KillSession(session); err != nil {
+			return err
+		}
 	}
-	_ = a.store.DeleteSession(session)
-	return nil
+	return a.store.DeleteSession(session)
 }
 
 func (a *App) RenameWindow(session string, windowIndex int, name string) error {
@@ -148,16 +150,40 @@ func (a *App) RenameSession(session string, name string) error {
 	if strings.TrimSpace(name) == "" {
 		return fmt.Errorf("session name is empty")
 	}
-	if a.tmux.SessionExists(session) {
-		if err := a.tmux.RenameSession(session, name); err != nil {
-			return err
-		}
+	if strings.TrimSpace(session) == "" {
+		return fmt.Errorf("session name is empty")
+	}
+	if session == name {
+		return nil
+	}
+	srcPath, err := a.store.SessionPath(session)
+	if err != nil {
+		return err
+	}
+	dstPath, err := a.store.SessionPath(name)
+	if err != nil {
+		return err
+	}
+	if srcPath == dstPath {
+		return nil
+	}
+	exists, err := a.store.SessionExists(name)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return fmt.Errorf("session %q already exists", name)
 	}
 	snap, err := a.store.LoadSession(session)
 	if err != nil {
 		return err
 	}
 	snap.SessionName = name
+	if a.tmux.SessionExists(session) {
+		if err := a.tmux.RenameSession(session, name); err != nil {
+			return err
+		}
+	}
 	if err := a.store.SaveSession(snap); err != nil {
 		return err
 	}
@@ -285,7 +311,7 @@ func (a *App) pickerRecords(opts PickerSortOptions) ([]snapshot.Record, error) {
 		return nil, err
 	}
 	if len(records) == 0 {
-		return nil, fmt.Errorf("no saved sessions found")
+		return nil, errNoSavedSessions
 	}
 	sortSessionRecords(records, opts.Session)
 	return records, nil
@@ -328,7 +354,11 @@ func (a *App) SelectTargetWithTUI() (PickerTarget, error) {
 func (a *App) SelectTargetWithTUISorted(opts PickerSortOptions) (PickerTarget, error) {
 	sessions, err := a.pickerSessions(opts)
 	if err != nil {
-		return PickerTarget{}, err
+		if errors.Is(err, errNoSavedSessions) {
+			sessions = []pickerSession{}
+		} else {
+			return PickerTarget{}, err
+		}
 	}
 	actions := pickerActions{
 		DeleteWindow:  a.DeleteWindow,
@@ -338,7 +368,14 @@ func (a *App) SelectTargetWithTUISorted(opts PickerSortOptions) (PickerTarget, e
 		NewSession:    a.NewSession,
 		NewWindow:     a.NewWindow,
 		Reload: func() ([]pickerSession, error) {
-			return a.pickerSessions(opts)
+			sessions, err := a.pickerSessions(opts)
+			if err != nil {
+				if errors.Is(err, errNoSavedSessions) {
+					return []pickerSession{}, nil
+				}
+				return nil, err
+			}
+			return sessions, nil
 		},
 	}
 	return chooseTarget(sessions, opts.Window, actions)

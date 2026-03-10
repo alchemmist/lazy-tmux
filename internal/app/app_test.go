@@ -106,7 +106,7 @@ exit 0
 		t.Fatalf("read log: %v", err)
 	}
 	out := string(b)
-	if !strings.Contains(out, "switch-client -t demo:3") {
+	if !strings.Contains(out, "switch-client -t =demo:3") {
 		t.Fatalf("expected window-specific switch target, got:\n%s", out)
 	}
 }

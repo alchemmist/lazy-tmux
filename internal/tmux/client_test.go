@@ -178,19 +178,19 @@ exit 0
 	}
 	out := string(b)
 	mustContain := []string{
-		"has-session -t demo",
+		"has-session -t =demo",
 		"new-session -d -s demo -n editor -c /tmp/proj",
-		"list-windows -t demo -F #{window_index}",
-		"split-window -d -t demo:0 -c /tmp/proj",
-		"send-keys -t demo:0.0 nvim . C-m",
-		"send-keys -t demo:0.1 htop C-m",
-		"select-layout -t demo:0 even-horizontal",
-		"new-window -d -t demo:1 -n logs -c /var/log",
-		"split-window -d -t demo:1 -c /var/log",
-		"send-keys -t demo:1.0 tail -f app.log C-m",
-		"select-layout -t demo:1 tiled",
-		"select-window -t demo:1",
-		"select-pane -t demo:1.1",
+		"list-windows -t =demo -F #{window_index}",
+		"split-window -d -t =demo:0 -c /tmp/proj",
+		"send-keys -t =demo:0.0 nvim . C-m",
+		"send-keys -t =demo:0.1 htop C-m",
+		"select-layout -t =demo:0 even-horizontal",
+		"new-window -d -t =demo:1 -n logs -c /var/log",
+		"split-window -d -t =demo:1 -c /var/log",
+		"send-keys -t =demo:1.0 tail -f app.log C-m",
+		"select-layout -t =demo:1 tiled",
+		"select-window -t =demo:1",
+		"select-pane -t =demo:1.1",
 	}
 	for _, needle := range mustContain {
 		if !strings.Contains(out, needle) {
@@ -245,8 +245,8 @@ exit 0
 	out := string(b)
 	mustContain := []string{
 		"new-session -d -s demo -n first -c /tmp",
-		"move-window -s demo:0 -t demo:3",
-		"new-window -d -t demo:5 -n second -c /tmp",
+		"move-window -s =demo:0 -t =demo:3",
+		"new-window -d -t =demo:5 -n second -c /tmp",
 	}
 	for _, needle := range mustContain {
 		if !strings.Contains(out, needle) {
@@ -298,10 +298,10 @@ exit 0
 		t.Fatalf("read log: %v", err)
 	}
 	out := string(b)
-	if !strings.Contains(out, "new-window -d -t demo:1 -n commands -c /tmp") {
+	if !strings.Contains(out, "new-window -d -t =demo:1 -n commands -c /tmp") {
 		t.Fatalf("expected new-window without inline command, got:\n%s", out)
 	}
-	if !strings.Contains(out, "send-keys -t demo:1.0 echo ok C-m") {
+	if !strings.Contains(out, "send-keys -t =demo:1.0 echo ok C-m") {
 		t.Fatalf("expected command via send-keys, got:\n%s", out)
 	}
 }
@@ -357,10 +357,10 @@ exit 0
 		t.Fatalf("read log: %v", err)
 	}
 	out := string(b)
-	if !strings.Contains(out, "new-window -d -t demo:1 -n fallback -c /bad/path") {
+	if !strings.Contains(out, "new-window -d -t =demo:1 -n fallback -c /bad/path") {
 		t.Fatalf("expected initial attempt with bad path, got:\n%s", out)
 	}
-	if !strings.Contains(out, "new-window -d -t demo:1 -n fallback") {
+	if !strings.Contains(out, "new-window -d -t =demo:1 -n fallback") {
 		t.Fatalf("expected final fallback without path, got:\n%s", out)
 	}
 	if !strings.Contains(out, "new-session -d -s demo -n ok") {
