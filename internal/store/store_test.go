@@ -400,3 +400,27 @@ func TestSaveSessionRejectsInvalidScrollbackSessionName(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestDeleteSessionRemovesIndexEntry(t *testing.T) {
+	s := New(t.TempDir())
+	if err := s.SaveSession(snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: "demo",
+		CapturedAt:  time.Now().UTC(),
+		Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
+	}); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	if err := s.DeleteSession("demo"); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+
+	recs, err := s.ListRecords()
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(recs) != 0 {
+		t.Fatalf("expected no records, got %d", len(recs))
+	}
+}

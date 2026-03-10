@@ -172,25 +172,54 @@ exit 0
 		t.Fatalf("RestoreSession error: %v", err)
 	}
 
+	numeric := snapshot.SessionSnapshot{
+		SessionName: "1",
+		CurrentWin:  0,
+		CurrentPane: 1,
+		Windows: []snapshot.Window{
+			{
+				Index:  0,
+				Name:   "editor",
+				Layout: "even-horizontal",
+				Panes: []snapshot.Pane{
+					{Index: 0, CurrentPath: "/tmp/proj", CurrentCmd: "nvim ."},
+					{Index: 1, CurrentPath: "/tmp/proj", CurrentCmd: "htop"},
+				},
+			},
+		},
+	}
+	if err := c.RestoreSession(numeric); err != nil {
+		t.Fatalf("RestoreSession numeric error: %v", err)
+	}
+
 	b, err := os.ReadFile(logPath)
 	if err != nil {
 		t.Fatalf("read log: %v", err)
 	}
 	out := string(b)
 	mustContain := []string{
-		"has-session -t demo",
+		"has-session -t =demo",
 		"new-session -d -s demo -n editor -c /tmp/proj",
-		"list-windows -t demo -F #{window_index}",
-		"split-window -d -t demo:0 -c /tmp/proj",
-		"send-keys -t demo:0.0 nvim . C-m",
-		"send-keys -t demo:0.1 htop C-m",
-		"select-layout -t demo:0 even-horizontal",
-		"new-window -d -t demo:1 -n logs -c /var/log",
-		"split-window -d -t demo:1 -c /var/log",
-		"send-keys -t demo:1.0 tail -f app.log C-m",
-		"select-layout -t demo:1 tiled",
-		"select-window -t demo:1",
-		"select-pane -t demo:1.1",
+		"list-windows -t =demo -F #{window_index}",
+		"split-window -d -t =demo:0 -c /tmp/proj",
+		"send-keys -t =demo:0.0 nvim . C-m",
+		"send-keys -t =demo:0.1 htop C-m",
+		"select-layout -t =demo:0 even-horizontal",
+		"new-window -d -t =demo:1 -n logs -c /var/log",
+		"split-window -d -t =demo:1 -c /var/log",
+		"send-keys -t =demo:1.0 tail -f app.log C-m",
+		"select-layout -t =demo:1 tiled",
+		"select-window -t =demo:1",
+		"select-pane -t =demo:1.1",
+		"has-session -t =1",
+		"new-session -d -s 1 -n editor -c /tmp/proj",
+		"list-windows -t =1 -F #{window_index}",
+		"split-window -d -t =1:0 -c /tmp/proj",
+		"send-keys -t =1:0.0 nvim . C-m",
+		"send-keys -t =1:0.1 htop C-m",
+		"select-layout -t =1:0 even-horizontal",
+		"select-window -t =1:0",
+		"select-pane -t =1:0.1",
 	}
 	for _, needle := range mustContain {
 		if !strings.Contains(out, needle) {
@@ -245,8 +274,8 @@ exit 0
 	out := string(b)
 	mustContain := []string{
 		"new-session -d -s demo -n first -c /tmp",
-		"move-window -s demo:0 -t demo:3",
-		"new-window -d -t demo:5 -n second -c /tmp",
+		"move-window -s =demo:0 -t =demo:3",
+		"new-window -d -t =demo:5 -n second -c /tmp",
 	}
 	for _, needle := range mustContain {
 		if !strings.Contains(out, needle) {
@@ -298,10 +327,10 @@ exit 0
 		t.Fatalf("read log: %v", err)
 	}
 	out := string(b)
-	if !strings.Contains(out, "new-window -d -t demo:1 -n commands -c /tmp") {
+	if !strings.Contains(out, "new-window -d -t =demo:1 -n commands -c /tmp") {
 		t.Fatalf("expected new-window without inline command, got:\n%s", out)
 	}
-	if !strings.Contains(out, "send-keys -t demo:1.0 echo ok C-m") {
+	if !strings.Contains(out, "send-keys -t =demo:1.0 echo ok C-m") {
 		t.Fatalf("expected command via send-keys, got:\n%s", out)
 	}
 }
@@ -357,10 +386,10 @@ exit 0
 		t.Fatalf("read log: %v", err)
 	}
 	out := string(b)
-	if !strings.Contains(out, "new-window -d -t demo:1 -n fallback -c /bad/path") {
+	if !strings.Contains(out, "new-window -d -t =demo:1 -n fallback -c /bad/path") {
 		t.Fatalf("expected initial attempt with bad path, got:\n%s", out)
 	}
-	if !strings.Contains(out, "new-window -d -t demo:1 -n fallback") {
+	if !strings.Contains(out, "new-window -d -t =demo:1 -n fallback") {
 		t.Fatalf("expected final fallback without path, got:\n%s", out)
 	}
 	if !strings.Contains(out, "new-session -d -s demo -n ok") {
@@ -423,5 +452,26 @@ exit 0
 
 	if !strings.Contains(gotWritten, "old output") {
 		t.Fatalf("expected scrollback replay in pane tty, got:\n%s", gotWritten)
+	}
+}
+
+func TestNewWindowTargetsNumericSession(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "tmux.log")
+	fake := writeFakeTmux(t, `
+echo "$*" >> "$TMUX_LOG"
+exit 0
+`)
+	t.Setenv("TMUX_LOG", logPath)
+
+	c := NewClient(fake)
+	if err := c.NewWindow("12", "ok"); err != nil {
+		t.Fatalf("NewWindow error: %v", err)
+	}
+	b, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read log: %v", err)
+	}
+	if !strings.Contains(string(b), "new-window -d -t =12: -n ok") {
+		t.Fatalf("expected numeric target to be escaped, got:\n%s", string(b))
 	}
 }
