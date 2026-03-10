@@ -156,6 +156,33 @@ func (s *Store) LoadSession(name string) (snapshot.SessionSnapshot, error) {
 	return out, nil
 }
 
+func (s *Store) SessionPath(name string) (string, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", errors.New("empty session name")
+	}
+	return s.sessionPath(name), nil
+}
+
+func (s *Store) SessionExists(name string) (bool, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return false, errors.New("empty session name")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	path := s.sessionPath(name)
+	if _, err := os.Stat(path); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 func (s *Store) ListRecords() ([]snapshot.Record, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
