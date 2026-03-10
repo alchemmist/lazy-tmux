@@ -115,16 +115,16 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.reload()
 			m.renderViewport()
 			return m, nil
-		case "ctrl+shift+d":
+		case "alt+d":
 			m.confirmDeleteSession()
 			return m, nil
 		case "ctrl+r":
 			m.renameCurrentWindow()
 			return m, nil
-		case "ctrl+shift+r":
+		case "alt+r":
 			m.renameCurrentSession()
 			return m, nil
-		case "ctrl+shift+n":
+		case "alt+n":
 			m.newSession()
 			return m, nil
 		case "ctrl+n":

@@ -76,6 +76,10 @@ func (a *App) DeleteWindow(session string, windowIndex int) error {
 		if err := a.tmux.KillWindow(session, windowIndex); err != nil {
 			return err
 		}
+		if !a.tmux.SessionExists(session) {
+			return a.store.DeleteSession(session)
+		}
+		return a.SaveSession(session)
 	}
 
 	snap, err := a.store.LoadSession(session)
