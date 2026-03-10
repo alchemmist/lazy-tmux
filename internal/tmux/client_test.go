@@ -425,3 +425,24 @@ exit 0
 		t.Fatalf("expected scrollback replay in pane tty, got:\n%s", gotWritten)
 	}
 }
+
+func TestNewWindowTargetsNumericSession(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "tmux.log")
+	fake := writeFakeTmux(t, `
+echo "$*" >> "$TMUX_LOG"
+exit 0
+`)
+	t.Setenv("TMUX_LOG", logPath)
+
+	c := NewClient(fake)
+	if err := c.NewWindow("12", "ok"); err != nil {
+		t.Fatalf("NewWindow error: %v", err)
+	}
+	b, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read log: %v", err)
+	}
+	if !strings.Contains(string(b), "new-window -d -t =12: -n ok") {
+		t.Fatalf("expected numeric target to be escaped, got:\n%s", string(b))
+	}
+}

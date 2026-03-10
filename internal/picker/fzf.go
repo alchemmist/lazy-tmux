@@ -1,4 +1,4 @@
-package app
+package picker
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
-func chooseSessionFZF(records []snapshot.Record) (string, error) {
+func ChooseSessionFZF(records []snapshot.Record) (string, error) {
 	var input bytes.Buffer
 	for _, r := range records {
 		line := fmt.Sprintf("%s\t%s\t%dw\n", r.SessionName, r.CapturedAt.Local().Format("2006-01-02 15:04:05"), r.Windows)

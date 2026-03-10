@@ -1,4 +1,4 @@
-package app
+package picker
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
-type PickerSortOptions struct {
+type SortOptions struct {
 	Session []SessionSortKey
 	Window  []WindowSortKey
 }
@@ -25,6 +25,7 @@ type WindowSortKey struct {
 }
 
 type SessionSortField string
+
 type WindowSortField string
 
 const (
@@ -42,8 +43,8 @@ const (
 	WindowSortCmd   WindowSortField = "cmd"
 )
 
-func DefaultPickerSortOptions() PickerSortOptions {
-	return PickerSortOptions{
+func DefaultSortOptions() SortOptions {
+	return SortOptions{
 		Session: []SessionSortKey{
 			{Field: SessionSortLastUsed, Desc: true},
 			{Field: SessionSortCaptured, Desc: true},
@@ -56,20 +57,20 @@ func DefaultPickerSortOptions() PickerSortOptions {
 	}
 }
 
-func ParsePickerSortOptions(sessionExpr, windowExpr string) (PickerSortOptions, error) {
-	opts := DefaultPickerSortOptions()
+func ParseSortOptions(sessionExpr, windowExpr string) (SortOptions, error) {
+	opts := DefaultSortOptions()
 
 	if strings.TrimSpace(sessionExpr) != "" {
 		keys, err := parseSessionSortKeys(sessionExpr)
 		if err != nil {
-			return PickerSortOptions{}, err
+			return SortOptions{}, err
 		}
 		opts.Session = keys
 	}
 	if strings.TrimSpace(windowExpr) != "" {
 		keys, err := parseWindowSortKeys(windowExpr)
 		if err != nil {
-			return PickerSortOptions{}, err
+			return SortOptions{}, err
 		}
 		opts.Window = keys
 	}
@@ -224,112 +225,107 @@ func parseWindowField(in string) (WindowSortField, bool) {
 
 func defaultSessionDirection(field SessionSortField) bool {
 	switch field {
-	case SessionSortName:
-		return false
-	default:
+	case SessionSortLastUsed, SessionSortCaptured:
 		return true
+	default:
+		return false
 	}
 }
 
 func defaultWindowDirection(field WindowSortField) bool {
 	switch field {
-	case WindowSortIndex, WindowSortName:
-		return false
-	default:
+	case WindowSortPanes:
 		return true
+	default:
+		return false
 	}
 }
 
 func sortSessionRecords(records []snapshot.Record, keys []SessionSortKey) {
-	if len(records) == 0 {
-		return
-	}
-	if len(keys) == 0 {
-		keys = DefaultPickerSortOptions().Session
-	}
 	sort.Slice(records, func(i, j int) bool {
-		return compareSessionRecord(records[i], records[j], keys) < 0
+		for _, key := range keys {
+			if cmp := compareSessionField(records[i], records[j], key.Field); cmp != 0 {
+				if key.Desc {
+					return cmp > 0
+				}
+				return cmp < 0
+			}
+		}
+		return records[i].SessionName < records[j].SessionName
 	})
 }
 
-func compareSessionRecord(a, b snapshot.Record, keys []SessionSortKey) int {
-	for _, key := range keys {
-		var cmp int
-		switch key.Field {
-		case SessionSortLastUsed:
-			cmp = compareTime(a.LastAccessed, b.LastAccessed)
-		case SessionSortCaptured:
-			cmp = compareTime(a.CapturedAt, b.CapturedAt)
-		case SessionSortName:
-			cmp = strings.Compare(a.SessionName, b.SessionName)
-		case SessionSortWindows:
-			cmp = compareInt(a.Windows, b.Windows)
-		case SessionSortPanes:
-			cmp = compareInt(a.Panes, b.Panes)
-		}
-		if cmp == 0 {
-			continue
-		}
-		if key.Desc {
-			cmp = -cmp
-		}
-		return cmp
-	}
-	return strings.Compare(a.SessionName, b.SessionName)
+func SortSessionRecords(records []snapshot.Record, keys []SessionSortKey) {
+	sortSessionRecords(records, keys)
 }
 
-func sortWindows(windows []snapshot.Window, keys []WindowSortKey) {
-	if len(windows) == 0 {
-		return
+func compareSessionField(a, b snapshot.Record, field SessionSortField) int {
+	switch field {
+	case SessionSortLastUsed:
+		return compareTime(a.LastAccessed, b.LastAccessed)
+	case SessionSortCaptured:
+		return compareTime(a.CapturedAt, b.CapturedAt)
+	case SessionSortName:
+		return strings.Compare(a.SessionName, b.SessionName)
+	case SessionSortWindows:
+		return compareInt(a.Windows, b.Windows)
+	case SessionSortPanes:
+		return compareInt(a.Panes, b.Panes)
+	default:
+		return 0
 	}
-	if len(keys) == 0 {
-		keys = DefaultPickerSortOptions().Window
-	}
-	sort.Slice(windows, func(i, j int) bool {
-		return compareWindow(windows[i], windows[j], keys) < 0
-	})
-}
-
-func compareWindow(a, b snapshot.Window, keys []WindowSortKey) int {
-	for _, key := range keys {
-		var cmp int
-		switch key.Field {
-		case WindowSortIndex:
-			cmp = compareInt(a.Index, b.Index)
-		case WindowSortName:
-			cmp = strings.Compare(a.Name, b.Name)
-		case WindowSortPanes:
-			cmp = compareInt(len(a.Panes), len(b.Panes))
-		case WindowSortCmd:
-			cmp = strings.Compare(windowPreviewCommand(a), windowPreviewCommand(b))
-		}
-		if cmp == 0 {
-			continue
-		}
-		if key.Desc {
-			cmp = -cmp
-		}
-		return cmp
-	}
-	return compareInt(a.Index, b.Index)
-}
-
-func compareInt(a, b int) int {
-	if a < b {
-		return -1
-	}
-	if a > b {
-		return 1
-	}
-	return 0
 }
 
 func compareTime(a, b time.Time) int {
+	if a.Equal(b) {
+		return 0
+	}
 	if a.Before(b) {
 		return -1
 	}
-	if a.After(b) {
+	return 1
+}
+
+func compareInt(a, b int) int {
+	switch {
+	case a < b:
+		return -1
+	case a > b:
 		return 1
+	default:
+		return 0
 	}
-	return 0
+}
+
+func sortWindows(windows []snapshot.Window, keys []WindowSortKey) {
+	sort.Slice(windows, func(i, j int) bool {
+		for _, key := range keys {
+			if cmp := compareWindowField(windows[i], windows[j], key.Field); cmp != 0 {
+				if key.Desc {
+					return cmp > 0
+				}
+				return cmp < 0
+			}
+		}
+		return windows[i].Index < windows[j].Index
+	})
+}
+
+func SortWindows(windows []snapshot.Window, keys []WindowSortKey) {
+	sortWindows(windows, keys)
+}
+
+func compareWindowField(a, b snapshot.Window, field WindowSortField) int {
+	switch field {
+	case WindowSortIndex:
+		return compareInt(a.Index, b.Index)
+	case WindowSortName:
+		return strings.Compare(a.Name, b.Name)
+	case WindowSortPanes:
+		return compareInt(len(a.Panes), len(b.Panes))
+	case WindowSortCmd:
+		return strings.Compare(windowPreviewCommand(a), windowPreviewCommand(b))
+	default:
+		return 0
+	}
 }
