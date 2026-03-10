@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"log"
 
 	"github.com/alchemmist/lazy-tmux/internal/picker"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
@@ -39,7 +40,8 @@ func (a *App) pickerSessions(opts PickerSortOptions) ([]picker.Session, error) {
 	for _, rec := range records {
 		snap, err := a.store.LoadSession(rec.SessionName)
 		if err != nil {
-			return nil, err
+			log.Printf("picker: skip session %s: %v", rec.SessionName, err)
+			continue
 		}
 		_, restored := live[rec.SessionName]
 		sessions = append(sessions, picker.Session{

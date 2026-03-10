@@ -172,6 +172,26 @@ exit 0
 		t.Fatalf("RestoreSession error: %v", err)
 	}
 
+	numeric := snapshot.SessionSnapshot{
+		SessionName: "1",
+		CurrentWin:  0,
+		CurrentPane: 1,
+		Windows: []snapshot.Window{
+			{
+				Index:  0,
+				Name:   "editor",
+				Layout: "even-horizontal",
+				Panes: []snapshot.Pane{
+					{Index: 0, CurrentPath: "/tmp/proj", CurrentCmd: "nvim ."},
+					{Index: 1, CurrentPath: "/tmp/proj", CurrentCmd: "htop"},
+				},
+			},
+		},
+	}
+	if err := c.RestoreSession(numeric); err != nil {
+		t.Fatalf("RestoreSession numeric error: %v", err)
+	}
+
 	b, err := os.ReadFile(logPath)
 	if err != nil {
 		t.Fatalf("read log: %v", err)
@@ -191,6 +211,15 @@ exit 0
 		"select-layout -t =demo:1 tiled",
 		"select-window -t =demo:1",
 		"select-pane -t =demo:1.1",
+		"has-session -t =1",
+		"new-session -d -s 1 -n editor -c /tmp/proj",
+		"list-windows -t =1 -F #{window_index}",
+		"split-window -d -t =1:0 -c /tmp/proj",
+		"send-keys -t =1:0.0 nvim . C-m",
+		"send-keys -t =1:0.1 htop C-m",
+		"select-layout -t =1:0 even-horizontal",
+		"select-window -t =1:0",
+		"select-pane -t =1:0.1",
 	}
 	for _, needle := range mustContain {
 		if !strings.Contains(out, needle) {

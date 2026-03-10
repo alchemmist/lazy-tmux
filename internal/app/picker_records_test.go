@@ -57,8 +57,8 @@ func TestPickerRecordsSortedByLastAccessed(t *testing.T) {
 	base := time.Date(2026, 3, 1, 10, 0, 0, 0, time.UTC)
 
 	for _, s := range []snapshot.SessionSnapshot{
-		{Version: snapshot.FormatVersion, SessionName: "alpha", CapturedAt: base, Windows: []snapshot.Window{{Index: 0}}},
-		{Version: snapshot.FormatVersion, SessionName: "beta", CapturedAt: base.Add(1 * time.Hour), Windows: []snapshot.Window{{Index: 0}}},
+		{Version: snapshot.FormatVersion, SessionName: "alpha", CapturedAt: base, Windows: []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}}},
+		{Version: snapshot.FormatVersion, SessionName: "beta", CapturedAt: base.Add(1 * time.Hour), Windows: []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}}},
 	} {
 		if err := a.store.SaveSession(s); err != nil {
 			t.Fatalf("save session %q: %v", s.SessionName, err)

@@ -96,7 +96,8 @@ func (m pickerModel) handlePromptKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.resize()
 		return m, nil
 	case "enter":
-		if m.mode == modeConfirmDeleteSession {
+		switch m.mode {
+		case modeConfirmDeleteSession:
 			val := strings.TrimSpace(m.promptInput.Value())
 			if strings.EqualFold(val, "y") {
 				if err := m.deleteSession(m.pending.SessionName); err != nil {
@@ -107,7 +108,7 @@ func (m pickerModel) handlePromptKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.reload()
 				m.renderViewport()
 			}
-		} else if m.mode == modeRenameWindow {
+		case modeRenameWindow:
 			name := strings.TrimSpace(m.promptInput.Value())
 			if name != "" && m.pending.WindowIndex != nil {
 				if err := m.renameWindow(m.pending.SessionName, *m.pending.WindowIndex, name); err != nil {
@@ -118,7 +119,7 @@ func (m pickerModel) handlePromptKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.reload()
 				m.renderViewport()
 			}
-		} else if m.mode == modeRenameSession {
+		case modeRenameSession:
 			name := strings.TrimSpace(m.promptInput.Value())
 			if name != "" {
 				if err := m.renameSession(m.pending.SessionName, name); err != nil {
@@ -129,7 +130,7 @@ func (m pickerModel) handlePromptKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.reload()
 				m.renderViewport()
 			}
-		} else if m.mode == modeNewSession {
+		case modeNewSession:
 			name := strings.TrimSpace(m.promptInput.Value())
 			if name != "" {
 				if err := m.createSession(name); err != nil {
@@ -140,7 +141,7 @@ func (m pickerModel) handlePromptKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.reload()
 				m.renderViewport()
 			}
-		} else if m.mode == modeNewWindow {
+		case modeNewWindow:
 			name := strings.TrimSpace(m.promptInput.Value())
 			if err := m.createWindow(m.pending.SessionName, name); err != nil {
 				m.setStatus(err.Error())
