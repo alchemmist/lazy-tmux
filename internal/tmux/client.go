@@ -97,6 +97,11 @@ func (c *Client) SwitchClient(session string) error {
 	return err
 }
 
+func (c *Client) KillWindow(session string, windowIndex int) error {
+	_, err := c.Output("kill-window", "-t", fmt.Sprintf("%s:%d", session, windowIndex))
+	return err
+}
+
 func (c *Client) CaptureSession(name string) (snapshot.SessionSnapshot, error) {
 	if !c.SessionExists(name) {
 		return snapshot.SessionSnapshot{}, ErrSessionNotFound
