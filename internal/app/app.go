@@ -177,7 +177,47 @@ func (a *App) NewSession(name string) error {
 }
 
 func (a *App) NewWindow(session string, name string) error {
-	return a.tmux.NewWindow(session, name)
+	if strings.TrimSpace(session) == "" {
+		return fmt.Errorf("session name is empty")
+	}
+	if a.tmux.SessionExists(session) {
+		if err := a.tmux.NewWindow(session, name); err != nil {
+			return err
+		}
+		snap, err := a.tmux.CaptureSession(session)
+		if err != nil {
+			return err
+		}
+		return a.store.SaveSession(snap)
+	}
+
+	snap, err := a.store.LoadSession(session)
+	if err != nil {
+		return err
+	}
+	idx := nextWindowIndex(snap.Windows)
+	if strings.TrimSpace(name) == "" {
+		name = fmt.Sprintf("window-%d", idx)
+	}
+	snap.Windows = append(snap.Windows, snapshot.Window{
+		Index:      idx,
+		Name:       name,
+		ActivePane: 0,
+		Panes: []snapshot.Pane{
+			{Index: 0},
+		},
+	})
+	return a.store.SaveSession(snap)
+}
+
+func nextWindowIndex(windows []snapshot.Window) int {
+	maxIdx := -1
+	for _, w := range windows {
+		if w.Index > maxIdx {
+			maxIdx = w.Index
+		}
+	}
+	return maxIdx + 1
 }
 
 func (a *App) Restore(session string, switchClient bool) error {
