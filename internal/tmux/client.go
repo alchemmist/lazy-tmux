@@ -122,6 +122,15 @@ func (c *Client) NewSession(name string) error {
 	return err
 }
 
+func (c *Client) NewWindow(session string, name string) error {
+	args := []string{"new-window", "-d", "-t", session}
+	if strings.TrimSpace(name) != "" {
+		args = append(args, "-n", name)
+	}
+	_, err := c.Output(args...)
+	return err
+}
+
 func (c *Client) CaptureSession(name string) (snapshot.SessionSnapshot, error) {
 	if !c.SessionExists(name) {
 		return snapshot.SessionSnapshot{}, ErrSessionNotFound
