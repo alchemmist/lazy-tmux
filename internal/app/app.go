@@ -111,7 +111,30 @@ func (a *App) DeleteSession(session string) error {
 }
 
 func (a *App) RenameWindow(session string, windowIndex int, name string) error {
-	return a.tmux.RenameWindow(session, windowIndex, name)
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("window name is empty")
+	}
+	if a.tmux.SessionExists(session) {
+		if err := a.tmux.RenameWindow(session, windowIndex, name); err != nil {
+			return err
+		}
+	}
+	snap, err := a.store.LoadSession(session)
+	if err != nil {
+		return err
+	}
+	updated := false
+	for i := range snap.Windows {
+		if snap.Windows[i].Index == windowIndex {
+			snap.Windows[i].Name = name
+			updated = true
+			break
+		}
+	}
+	if !updated {
+		return fmt.Errorf("window not found in snapshot")
+	}
+	return a.store.SaveSession(snap)
 }
 
 func (a *App) RenameSession(session string, name string) error {
