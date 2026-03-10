@@ -29,6 +29,7 @@ type pickerActions struct {
 	DeleteSession func(session string) error
 	RenameWindow  func(session string, windowIndex int, name string) error
 	RenameSession func(session string, name string) error
+	NewSession    func(name string) error
 	Reload        func() ([]pickerSession, error)
 }
 
@@ -58,6 +59,7 @@ const (
 	modeConfirmDeleteSession
 	modeRenameWindow
 	modeRenameSession
+	modeNewSession
 )
 
 func newPickerModel(sessions []pickerSession, windowSort []WindowSortKey, actions pickerActions) pickerModel {
@@ -119,6 +121,9 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "ctrl+shift+r":
 			m.renameCurrentSession()
+			return m, nil
+		case "ctrl+shift+n":
+			m.newSession()
 			return m, nil
 		case "ctrl+k":
 			m.movePrevSelectable()
@@ -280,6 +285,15 @@ func (m *pickerModel) renameCurrentSession() {
 	m.resize()
 }
 
+func (m *pickerModel) newSession() {
+	m.pending = PickerTarget{}
+	m.mode = modeNewSession
+	m.promptInput = textinput.New()
+	m.promptInput.Prompt = "New session name: "
+	m.promptInput.Focus()
+	m.resize()
+}
+
 func (m pickerModel) handlePromptKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "ctrl+c":
@@ -321,6 +335,17 @@ func (m pickerModel) handlePromptKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.reload()
 				m.renderViewport()
 			}
+		} else if m.mode == modeNewSession {
+			name := strings.TrimSpace(m.promptInput.Value())
+			if name != "" {
+				if err := m.createSession(name); err != nil {
+					m.setStatus(err.Error())
+				} else {
+					m.clearStatus()
+				}
+				m.reload()
+				m.renderViewport()
+			}
 		}
 		m.mode = modeBrowse
 		m.promptInput.Blur()
@@ -354,6 +379,13 @@ func (m *pickerModel) renameSession(session string, name string) error {
 		return fmt.Errorf("rename session not available")
 	}
 	return m.actions.RenameSession(session, name)
+}
+
+func (m *pickerModel) createSession(name string) error {
+	if m.actions.NewSession == nil {
+		return fmt.Errorf("new session not available")
+	}
+	return m.actions.NewSession(name)
 }
 
 func (m *pickerModel) reload() {
