@@ -87,6 +87,10 @@ func (a *App) RenameSession(session string, name string) error {
 	return a.tmux.RenameSession(session, name)
 }
 
+func (a *App) NewSession(name string) error {
+	return a.tmux.NewSession(name)
+}
+
 func (a *App) Restore(session string, switchClient bool) error {
 	return a.RestoreTarget(PickerTarget{SessionName: session}, switchClient)
 }
@@ -195,6 +199,7 @@ func (a *App) SelectTargetWithTUISorted(opts PickerSortOptions) (PickerTarget, e
 		DeleteSession: a.DeleteSession,
 		RenameWindow:  a.RenameWindow,
 		RenameSession: a.RenameSession,
+		NewSession:    a.NewSession,
 		Reload: func() ([]pickerSession, error) {
 			return a.pickerSessions(opts)
 		},

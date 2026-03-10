@@ -117,6 +117,11 @@ func (c *Client) RenameSession(session string, name string) error {
 	return err
 }
 
+func (c *Client) NewSession(name string) error {
+	_, err := c.Output("new-session", "-d", "-s", name)
+	return err
+}
+
 func (c *Client) CaptureSession(name string) (snapshot.SessionSnapshot, error) {
 	if !c.SessionExists(name) {
 		return snapshot.SessionSnapshot{}, ErrSessionNotFound
