@@ -72,19 +72,21 @@ func (a *App) SaveCurrent() error {
 }
 
 func (a *App) DeleteWindow(session string, windowIndex int) error {
+	var err error
 	if a.tmux.SessionExists(session) {
-		if err := a.tmux.KillWindow(session, windowIndex); err != nil {
-			return err
+		if err = a.tmux.KillWindow(session, windowIndex); err == nil {
+			if !a.tmux.SessionExists(session) {
+				_ = a.store.DeleteSession(session)
+				return nil
+			}
+			_ = a.SaveSession(session)
+			return nil
 		}
-		if !a.tmux.SessionExists(session) {
-			return a.store.DeleteSession(session)
-		}
-		return a.SaveSession(session)
 	}
 
 	snap, err := a.store.LoadSession(session)
 	if err != nil {
-		return err
+		return nil
 	}
 	windows := make([]snapshot.Window, 0, len(snap.Windows))
 	removed := false
@@ -96,22 +98,23 @@ func (a *App) DeleteWindow(session string, windowIndex int) error {
 		windows = append(windows, w)
 	}
 	if !removed {
-		return fmt.Errorf("window not found in snapshot")
+		return nil
 	}
 	if len(windows) == 0 {
-		return a.store.DeleteSession(session)
+		_ = a.store.DeleteSession(session)
+		return nil
 	}
 	snap.Windows = windows
-	return a.store.SaveSession(snap)
+	_ = a.store.SaveSession(snap)
+	return nil
 }
 
 func (a *App) DeleteSession(session string) error {
 	if a.tmux.SessionExists(session) {
-		if err := a.tmux.KillSession(session); err != nil {
-			return err
-		}
+		_ = a.tmux.KillSession(session)
 	}
-	return a.store.DeleteSession(session)
+	_ = a.store.DeleteSession(session)
+	return nil
 }
 
 func (a *App) RenameWindow(session string, windowIndex int, name string) error {
