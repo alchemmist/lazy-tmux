@@ -20,17 +20,6 @@ type App struct {
 	tmux  *tmux.Client
 }
 
-type PickerTarget struct {
-	SessionName string
-	WindowIndex *int
-}
-
-type pickerSession struct {
-	Record   snapshot.Record
-	Windows  []snapshot.Window
-	Restored bool
-}
-
 func New(cfg config.Config) *App {
 	return &App{
 		cfg:   cfg,
@@ -123,80 +112,6 @@ func (a *App) ListRecords() ([]snapshot.Record, error) {
 	return a.store.ListRecords()
 }
 
-func (a *App) pickerRecords(opts PickerSortOptions) ([]snapshot.Record, error) {
-	records, err := a.store.ListRecords()
-	if err != nil {
-		return nil, err
-	}
-	if len(records) == 0 {
-		return nil, fmt.Errorf("no saved sessions found")
-	}
-	sortSessionRecords(records, opts.Session)
-	return records, nil
-}
-
-func (a *App) pickerSessions(opts PickerSortOptions) ([]pickerSession, error) {
-	records, err := a.pickerRecords(opts)
-	if err != nil {
-		return nil, err
-	}
-	liveSessions, err := a.tmux.ListSessions()
-	if err != nil {
-		return nil, err
-	}
-	live := make(map[string]struct{}, len(liveSessions))
-	for _, name := range liveSessions {
-		live[name] = struct{}{}
-	}
-
-	sessions := make([]pickerSession, 0, len(records))
-	for _, rec := range records {
-		snap, err := a.store.LoadSession(rec.SessionName)
-		if err != nil {
-			return nil, err
-		}
-		_, restored := live[rec.SessionName]
-		sessions = append(sessions, pickerSession{
-			Record:   rec,
-			Windows:  snap.Windows,
-			Restored: restored,
-		})
-	}
-	return sessions, nil
-}
-
-func (a *App) SelectTargetWithTUI() (PickerTarget, error) {
-	return a.SelectTargetWithTUISorted(DefaultPickerSortOptions())
-}
-
-func (a *App) SelectTargetWithTUISorted(opts PickerSortOptions) (PickerTarget, error) {
-	sessions, err := a.pickerSessions(opts)
-	if err != nil {
-		return PickerTarget{}, err
-	}
-	return chooseTarget(sessions, opts.Window)
-}
-
-func (a *App) SelectWithTUI() (string, error) {
-	target, err := a.SelectTargetWithTUI()
-	if err != nil {
-		return "", err
-	}
-	return target.SessionName, nil
-}
-
-func (a *App) SelectWithFZF() (string, error) {
-	return a.SelectWithFZFSorted(DefaultPickerSortOptions())
-}
-
-func (a *App) SelectWithFZFSorted(opts PickerSortOptions) (string, error) {
-	records, err := a.pickerRecords(opts)
-	if err != nil {
-		return "", err
-	}
-	return chooseSessionFZF(records)
-}
-
 func (a *App) captureShellScrollback(snap *snapshot.SessionSnapshot) {
 	lines := a.cfg.Scrollback.Lines
 	if lines <= 0 {
@@ -209,7 +124,7 @@ func (a *App) captureShellScrollback(snap *snapshot.SessionSnapshot) {
 			if strings.TrimSpace(pane.RestoreCmd) != "" || !isShellCommandName(pane.CurrentCmd) {
 				continue
 			}
-			target := fmt.Sprintf("%s:%d.%d", snap.SessionName, snap.Windows[wi].Index, pane.Index)
+			target := tmux.PaneTarget(snap.SessionName, snap.Windows[wi].Index, pane.Index)
 			out, err := a.tmux.CapturePaneScrollback(target, lines)
 			if err != nil {
 				continue

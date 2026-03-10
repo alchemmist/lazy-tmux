@@ -35,6 +35,30 @@ func NewClient(bin string) *Client {
 	return &Client{bin: bin}
 }
 
+func sessionTarget(name string) string {
+	name = strings.TrimSpace(name)
+	if strings.HasPrefix(name, "=") {
+		return name
+	}
+	return "=" + name
+}
+
+func sessionWindowTarget(name string, windowIndex int) string {
+	return fmt.Sprintf("%s:%d", sessionTarget(name), windowIndex)
+}
+
+func sessionPaneTarget(name string, windowIndex, paneIndex int) string {
+	return fmt.Sprintf("%s:%d.%d", sessionTarget(name), windowIndex, paneIndex)
+}
+
+func PaneTarget(name string, windowIndex, paneIndex int) string {
+	return sessionPaneTarget(name, windowIndex, paneIndex)
+}
+
+func sessionWindowBaseTarget(name string) string {
+	return sessionTarget(name) + ":"
+}
+
 func (c *Client) Run(args ...string) error {
 	cmd := exec.Command(c.bin, args...)
 	cmd.Stdout = os.Stdout
@@ -52,7 +76,7 @@ func (c *Client) Output(args ...string) (string, error) {
 }
 
 func (c *Client) SessionExists(name string) bool {
-	err := exec.Command(c.bin, "has-session", "-t", name).Run()
+	err := exec.Command(c.bin, "has-session", "-t", sessionTarget(name)).Run()
 	return err == nil
 }
 
@@ -93,7 +117,41 @@ func (c *Client) SwitchClient(session string) error {
 	if os.Getenv("TMUX") == "" {
 		return nil
 	}
-	_, err := c.Output("switch-client", "-t", session)
+	_, err := c.Output("switch-client", "-t", sessionTarget(session))
+	return err
+}
+
+func (c *Client) KillWindow(session string, windowIndex int) error {
+	_, err := c.Output("kill-window", "-t", sessionWindowTarget(session, windowIndex))
+	return err
+}
+
+func (c *Client) KillSession(session string) error {
+	_, err := c.Output("kill-session", "-t", sessionTarget(session))
+	return err
+}
+
+func (c *Client) RenameWindow(session string, windowIndex int, name string) error {
+	_, err := c.Output("rename-window", "-t", sessionWindowTarget(session, windowIndex), name)
+	return err
+}
+
+func (c *Client) RenameSession(session string, name string) error {
+	_, err := c.Output("rename-session", "-t", sessionTarget(session), name)
+	return err
+}
+
+func (c *Client) NewSession(name string) error {
+	_, err := c.Output("new-session", "-d", "-s", name)
+	return err
+}
+
+func (c *Client) NewWindow(session string, name string) error {
+	args := []string{"new-window", "-d", "-t", sessionWindowBaseTarget(session)}
+	if strings.TrimSpace(name) != "" {
+		args = append(args, "-n", name)
+	}
+	_, err := c.Output(args...)
 	return err
 }
 
@@ -102,7 +160,7 @@ func (c *Client) CaptureSession(name string) (snapshot.SessionSnapshot, error) {
 		return snapshot.SessionSnapshot{}, ErrSessionNotFound
 	}
 
-	metaOut, err := c.Output("display-message", "-p", "-t", name, "#{window_index}"+fieldSep+"#{pane_index}")
+	metaOut, err := c.Output("display-message", "-p", "-t", sessionTarget(name), "#{window_index}"+fieldSep+"#{pane_index}")
 	if err != nil {
 		return snapshot.SessionSnapshot{}, err
 	}
@@ -113,7 +171,7 @@ func (c *Client) CaptureSession(name string) (snapshot.SessionSnapshot, error) {
 	currentWin, _ := strconv.Atoi(meta[0])
 	currentPane, _ := strconv.Atoi(meta[1])
 
-	wOut, err := c.Output("list-windows", "-t", name, "-F", "#{window_index}"+fieldSep+"#{window_name}"+fieldSep+"#{window_layout}"+fieldSep+"#{window_active}")
+	wOut, err := c.Output("list-windows", "-t", sessionTarget(name), "-F", "#{window_index}"+fieldSep+"#{window_name}"+fieldSep+"#{window_layout}"+fieldSep+"#{window_active}")
 	if err != nil {
 		return snapshot.SessionSnapshot{}, err
 	}
@@ -131,7 +189,7 @@ func (c *Client) CaptureSession(name string) (snapshot.SessionSnapshot, error) {
 			Layout:   parts[2],
 			IsActive: parts[3] == "1",
 		}
-		pOut, err := c.Output("list-panes", "-t", fmt.Sprintf("%s:%d", name, idx), "-F",
+		pOut, err := c.Output("list-panes", "-t", sessionWindowTarget(name, idx), "-F",
 			"#{pane_index}"+fieldSep+
 				"#{pane_current_path}"+fieldSep+
 				"#{pane_current_command}"+fieldSep+
@@ -202,8 +260,8 @@ func (c *Client) RestoreSession(s snapshot.SessionSnapshot) error {
 	if createdIdx, err := c.createdFirstWindowIndex(s.SessionName); err == nil && createdIdx != first.Index {
 		_, err = c.Output(
 			"move-window",
-			"-s", fmt.Sprintf("%s:%d", s.SessionName, createdIdx),
-			"-t", fmt.Sprintf("%s:%d", s.SessionName, first.Index),
+			"-s", sessionWindowTarget(s.SessionName, createdIdx),
+			"-t", sessionWindowTarget(s.SessionName, first.Index),
 		)
 		if err != nil {
 			return err
@@ -221,8 +279,8 @@ func (c *Client) RestoreSession(s snapshot.SessionSnapshot) error {
 		}
 	}
 
-	_, _ = c.Output("select-window", "-t", fmt.Sprintf("%s:%d", s.SessionName, s.CurrentWin))
-	_, _ = c.Output("select-pane", "-t", fmt.Sprintf("%s:%d.%d", s.SessionName, s.CurrentWin, s.CurrentPane))
+	_, _ = c.Output("select-window", "-t", sessionWindowTarget(s.SessionName, s.CurrentWin))
+	_, _ = c.Output("select-pane", "-t", sessionPaneTarget(s.SessionName, s.CurrentWin, s.CurrentPane))
 	return nil
 }
 
@@ -235,7 +293,7 @@ func newSessionArgs(sessionName string, w snapshot.Window) []string {
 }
 
 func newWindowArgs(sessionName string, w snapshot.Window) []string {
-	args := []string{"new-window", "-d", "-t", fmt.Sprintf("%s:%d", sessionName, w.Index), "-n", w.Name}
+	args := []string{"new-window", "-d", "-t", sessionWindowTarget(sessionName, w.Index), "-n", w.Name}
 	if path := firstPanePath(w); path != "" {
 		args = append(args, "-c", path)
 	}
@@ -258,7 +316,7 @@ func (c *Client) populateWindow(sessionName string, w snapshot.Window, windowInd
 		return err
 	}
 	if w.Layout != "" {
-		_, _ = c.Output("select-layout", "-t", fmt.Sprintf("%s:%d", sessionName, windowIndex), w.Layout)
+		_, _ = c.Output("select-layout", "-t", sessionWindowTarget(sessionName, windowIndex), w.Layout)
 	}
 	return nil
 }
@@ -276,7 +334,7 @@ func (c *Client) ensurePaneCount(sessionName string, w snapshot.Window, windowIn
 	}
 	for i := 1; i < len(w.Panes); i++ {
 		pane := w.Panes[i]
-		args := []string{"split-window", "-d", "-t", fmt.Sprintf("%s:%d", sessionName, windowIndex)}
+		args := []string{"split-window", "-d", "-t", sessionWindowTarget(sessionName, windowIndex)}
 		if pane.CurrentPath != "" {
 			args = append(args, "-c", pane.CurrentPath)
 		}
@@ -360,7 +418,7 @@ func (c *Client) restoreWindowCommands(sessionName string, w snapshot.Window, wi
 		if strings.TrimSpace(cmd) == "" {
 			continue
 		}
-		target := fmt.Sprintf("%s:%d.%d", sessionName, windowIndex, pane.Index)
+		target := sessionPaneTarget(sessionName, windowIndex, pane.Index)
 		if _, err := c.Output("send-keys", "-t", target, cmd, "C-m"); err != nil {
 			return err
 		}
@@ -380,7 +438,7 @@ func (c *Client) restoreWindowScrollback(sessionName string, w snapshot.Window, 
 		if pane.Scrollback == nil || strings.TrimSpace(pane.Scrollback.Content) == "" {
 			continue
 		}
-		target := fmt.Sprintf("%s:%d.%d", sessionName, windowIndex, pane.Index)
+		target := sessionPaneTarget(sessionName, windowIndex, pane.Index)
 		tty, err := c.Output("display-message", "-p", "-t", target, "#{pane_tty}")
 		if err != nil {
 			continue
@@ -535,7 +593,7 @@ func stripOptionPair(args []string, opt string) []string {
 }
 
 func (c *Client) createdFirstWindowIndex(session string) (int, error) {
-	out, err := c.Output("list-windows", "-t", session, "-F", "#{window_index}")
+	out, err := c.Output("list-windows", "-t", sessionTarget(session), "-F", "#{window_index}")
 	if err != nil {
 		return 0, err
 	}
