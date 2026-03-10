@@ -23,6 +23,11 @@ type pickerRow struct {
 	selectable bool
 }
 
+type pickerActions struct {
+	DeleteWindow func(session string, windowIndex int) error
+	Reload       func() ([]pickerSession, error)
+}
+
 type pickerModel struct {
 	sessions      []pickerSession
 	windowSort    []WindowSortKey
@@ -35,9 +40,11 @@ type pickerModel struct {
 	cursor        int
 	width         int
 	height        int
+	actions       pickerActions
+	statusMsg     string
 }
 
-func newPickerModel(sessions []pickerSession, windowSort []WindowSortKey) pickerModel {
+func newPickerModel(sessions []pickerSession, windowSort []WindowSortKey, actions pickerActions) pickerModel {
 	input := textinput.New()
 	input.Placeholder = "fuzzy search by session/window"
 	input.Prompt = "> "
@@ -52,6 +59,7 @@ func newPickerModel(sessions []pickerSession, windowSort []WindowSortKey) picker
 		viewport:      vp,
 		selectedStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Bold(true),
 		cursor:        0,
+		actions:       actions,
 	}
 	m.applyFilter()
 	return m
@@ -74,6 +82,15 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "ctrl+q", "esc":
 			m.cancelled = true
 			return m, tea.Quit
+		case "ctrl+d":
+			if err := m.deleteCurrentWindow(); err != nil {
+				m.setStatus(err.Error())
+			} else {
+				m.clearStatus()
+			}
+			m.reload()
+			m.renderViewport()
+			return m, nil
 		case "ctrl+k":
 			m.movePrevSelectable()
 			m.ensureCursorVisible()
@@ -114,6 +131,10 @@ func (m pickerModel) View() string {
 	b.WriteString("  ")
 	b.WriteString(layout.header())
 	b.WriteString("\n")
+	if m.statusMsg != "" {
+		b.WriteString(m.statusMsg)
+		b.WriteString("\n")
+	}
 	if len(m.visible) == 0 {
 		b.WriteString("No sessions or windows match query\n")
 		return b.String()
@@ -127,7 +148,7 @@ func (m *pickerModel) resize() {
 		return
 	}
 	m.viewport.Width = max(1, m.width-1)
-	reserved := lipgloss.Height(m.queryInput.View()) + 1
+	reserved := lipgloss.Height(m.queryInput.View()) + 1 + m.statusHeight()
 	m.viewport.Height = max(1, m.height-reserved)
 }
 
@@ -163,6 +184,55 @@ func (m *pickerModel) renderViewport() {
 		lines = append(lines, line)
 	}
 	m.viewport.SetContent(strings.Join(lines, "\n"))
+}
+
+func (m *pickerModel) deleteCurrentWindow() error {
+	row, ok := m.currentRow()
+	if !ok || row.target.WindowIndex == nil {
+		return fmt.Errorf("select a window row to delete")
+	}
+	if m.actions.DeleteWindow == nil {
+		return fmt.Errorf("delete window not available")
+	}
+	return m.actions.DeleteWindow(row.target.SessionName, *row.target.WindowIndex)
+}
+
+func (m *pickerModel) reload() {
+	if m.actions.Reload == nil {
+		return
+	}
+	sessions, err := m.actions.Reload()
+	if err != nil {
+		m.setStatus(err.Error())
+		return
+	}
+	m.sessions = sessions
+	m.applyFilter()
+	m.ensureCursorVisible()
+}
+
+func (m *pickerModel) currentRow() (pickerRow, bool) {
+	if len(m.visible) == 0 || m.cursor < 0 || m.cursor >= len(m.visible) {
+		return pickerRow{}, false
+	}
+	return m.visible[m.cursor], true
+}
+
+func (m *pickerModel) setStatus(msg string) {
+	m.statusMsg = strings.TrimSpace(msg)
+	m.resize()
+}
+
+func (m *pickerModel) clearStatus() {
+	m.statusMsg = ""
+	m.resize()
+}
+
+func (m *pickerModel) statusHeight() int {
+	if m.statusMsg == "" {
+		return 0
+	}
+	return 1
 }
 
 func (m *pickerModel) tableContentWidth() int {
@@ -293,8 +363,8 @@ func fuzzyMatch(query, target string) bool {
 	return qi == len(query)
 }
 
-func chooseTarget(sessions []pickerSession, windowSort []WindowSortKey) (PickerTarget, error) {
-	m := newPickerModel(sessions, windowSort)
+func chooseTarget(sessions []pickerSession, windowSort []WindowSortKey, actions pickerActions) (PickerTarget, error) {
+	m := newPickerModel(sessions, windowSort, actions)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	finalModel, err := p.Run()
 	if err != nil {
