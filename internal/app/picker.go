@@ -24,8 +24,9 @@ type pickerRow struct {
 }
 
 type pickerActions struct {
-	DeleteWindow func(session string, windowIndex int) error
-	Reload       func() ([]pickerSession, error)
+	DeleteWindow  func(session string, windowIndex int) error
+	DeleteSession func(session string) error
+	Reload        func() ([]pickerSession, error)
 }
 
 type pickerModel struct {
@@ -42,7 +43,17 @@ type pickerModel struct {
 	height        int
 	actions       pickerActions
 	statusMsg     string
+	mode          pickerMode
+	promptInput   textinput.Model
+	pending       PickerTarget
 }
+
+type pickerMode int
+
+const (
+	modeBrowse pickerMode = iota
+	modeConfirmDeleteSession
+)
 
 func newPickerModel(sessions []pickerSession, windowSort []WindowSortKey, actions pickerActions) pickerModel {
 	input := textinput.New()
@@ -60,6 +71,7 @@ func newPickerModel(sessions []pickerSession, windowSort []WindowSortKey, action
 		selectedStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Bold(true),
 		cursor:        0,
 		actions:       actions,
+		mode:          modeBrowse,
 	}
 	m.applyFilter()
 	return m
@@ -78,6 +90,9 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.renderViewport()
 		return m, nil
 	case tea.KeyMsg:
+		if m.mode != modeBrowse {
+			return m.handlePromptKey(msg)
+		}
 		switch msg.String() {
 		case "ctrl+c", "ctrl+q", "esc":
 			m.cancelled = true
@@ -90,6 +105,9 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.reload()
 			m.renderViewport()
+			return m, nil
+		case "ctrl+shift+d":
+			m.confirmDeleteSession()
 			return m, nil
 		case "ctrl+k":
 			m.movePrevSelectable()
@@ -125,7 +143,11 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m pickerModel) View() string {
 	var b strings.Builder
-	b.WriteString(m.queryInput.View())
+	if m.mode == modeBrowse {
+		b.WriteString(m.queryInput.View())
+	} else {
+		b.WriteString(m.promptInput.View())
+	}
 	b.WriteString("\n")
 	layout := buildPickerTableLayout(m.tableContentWidth())
 	b.WriteString("  ")
@@ -148,7 +170,11 @@ func (m *pickerModel) resize() {
 		return
 	}
 	m.viewport.Width = max(1, m.width-1)
-	reserved := lipgloss.Height(m.queryInput.View()) + 1 + m.statusHeight()
+	inputHeight := lipgloss.Height(m.queryInput.View())
+	if m.mode != modeBrowse {
+		inputHeight = lipgloss.Height(m.promptInput.View())
+	}
+	reserved := inputHeight + 1 + m.statusHeight()
 	m.viewport.Height = max(1, m.height-reserved)
 }
 
@@ -195,6 +221,60 @@ func (m *pickerModel) deleteCurrentWindow() error {
 		return fmt.Errorf("delete window not available")
 	}
 	return m.actions.DeleteWindow(row.target.SessionName, *row.target.WindowIndex)
+}
+
+func (m *pickerModel) confirmDeleteSession() {
+	row, ok := m.currentRow()
+	if !ok {
+		m.setStatus("select a session to delete")
+		return
+	}
+	m.pending = row.target
+	m.mode = modeConfirmDeleteSession
+	m.promptInput = textinput.New()
+	m.promptInput.Prompt = fmt.Sprintf("Delete session %s? type y: ", row.target.SessionName)
+	m.promptInput.Focus()
+	m.resize()
+}
+
+func (m pickerModel) handlePromptKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc", "ctrl+c":
+		m.mode = modeBrowse
+		m.promptInput.Blur()
+		m.resize()
+		return m, nil
+	case "enter":
+		if m.mode == modeConfirmDeleteSession {
+			val := strings.TrimSpace(m.promptInput.Value())
+			if strings.EqualFold(val, "y") {
+				if err := m.deleteSession(m.pending.SessionName); err != nil {
+					m.setStatus(err.Error())
+				} else {
+					m.clearStatus()
+				}
+				m.reload()
+				m.renderViewport()
+			}
+		}
+		m.mode = modeBrowse
+		m.promptInput.Blur()
+		m.resize()
+		return m, nil
+	}
+	var cmd tea.Cmd
+	m.promptInput, cmd = m.promptInput.Update(msg)
+	return m, cmd
+}
+
+func (m *pickerModel) deleteSession(session string) error {
+	if m.actions.DeleteSession == nil {
+		return fmt.Errorf("delete session not available")
+	}
+	if strings.TrimSpace(session) == "" {
+		return fmt.Errorf("select a session to delete")
+	}
+	return m.actions.DeleteSession(session)
 }
 
 func (m *pickerModel) reload() {
