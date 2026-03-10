@@ -51,6 +51,10 @@ func sessionPaneTarget(name string, windowIndex, paneIndex int) string {
 	return fmt.Sprintf("%s:%d.%d", sessionTarget(name), windowIndex, paneIndex)
 }
 
+func PaneTarget(name string, windowIndex, paneIndex int) string {
+	return sessionPaneTarget(name, windowIndex, paneIndex)
+}
+
 func sessionWindowBaseTarget(name string) string {
 	return sessionTarget(name) + ":"
 }

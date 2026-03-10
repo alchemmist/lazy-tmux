@@ -1,6 +1,9 @@
 package picker
 
 func trim(s string, n int) string {
+	if n < 0 {
+		n = 0
+	}
 	r := []rune(s)
 	if len(r) <= n {
 		return s

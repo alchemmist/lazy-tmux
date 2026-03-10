@@ -124,7 +124,7 @@ func (a *App) captureShellScrollback(snap *snapshot.SessionSnapshot) {
 			if strings.TrimSpace(pane.RestoreCmd) != "" || !isShellCommandName(pane.CurrentCmd) {
 				continue
 			}
-			target := fmt.Sprintf("%s:%d.%d", snap.SessionName, snap.Windows[wi].Index, pane.Index)
+			target := tmux.PaneTarget(snap.SessionName, snap.Windows[wi].Index, pane.Index)
 			out, err := a.tmux.CapturePaneScrollback(target, lines)
 			if err != nil {
 				continue

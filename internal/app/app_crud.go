@@ -1,8 +1,10 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
@@ -11,7 +13,8 @@ import (
 func (a *App) DeleteWindow(session string, windowIndex int) error {
 	if a.tmux.SessionExists(session) {
 		if err := a.tmux.KillWindow(session, windowIndex); err != nil {
-			if !os.IsNotExist(err) {
+			var exitErr *exec.ExitError
+			if !errors.As(err, &exitErr) {
 				return err
 			}
 		} else {
@@ -24,6 +27,9 @@ func (a *App) DeleteWindow(session string, windowIndex int) error {
 
 	snap, err := a.store.LoadSession(session)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("session %q not found: %w", session, os.ErrNotExist)
+		}
 		return err
 	}
 	windows := make([]snapshot.Window, 0, len(snap.Windows))
@@ -86,7 +92,7 @@ func (a *App) RenameSession(session string, name string) error {
 		return fmt.Errorf("session name is empty")
 	}
 	if strings.TrimSpace(session) == "" {
-		return fmt.Errorf("session name is empty")
+		return fmt.Errorf("source session is empty")
 	}
 	if session == name {
 		return nil
@@ -128,6 +134,11 @@ func (a *App) RenameSession(session string, name string) error {
 func (a *App) NewSession(name string) error {
 	if strings.TrimSpace(name) == "" {
 		return fmt.Errorf("session name is empty")
+	}
+	if exists, err := a.store.SessionExists(name); err != nil {
+		return err
+	} else if exists {
+		return fmt.Errorf("session %q already exists in storage", name)
 	}
 	if err := a.tmux.NewSession(name); err != nil {
 		return err
