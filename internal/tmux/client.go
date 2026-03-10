@@ -112,6 +112,11 @@ func (c *Client) RenameWindow(session string, windowIndex int, name string) erro
 	return err
 }
 
+func (c *Client) RenameSession(session string, name string) error {
+	_, err := c.Output("rename-session", "-t", session, name)
+	return err
+}
+
 func (c *Client) CaptureSession(name string) (snapshot.SessionSnapshot, error) {
 	if !c.SessionExists(name) {
 		return snapshot.SessionSnapshot{}, ErrSessionNotFound

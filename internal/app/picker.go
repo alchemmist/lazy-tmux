@@ -28,6 +28,7 @@ type pickerActions struct {
 	DeleteWindow  func(session string, windowIndex int) error
 	DeleteSession func(session string) error
 	RenameWindow  func(session string, windowIndex int, name string) error
+	RenameSession func(session string, name string) error
 	Reload        func() ([]pickerSession, error)
 }
 
@@ -56,6 +57,7 @@ const (
 	modeBrowse pickerMode = iota
 	modeConfirmDeleteSession
 	modeRenameWindow
+	modeRenameSession
 )
 
 func newPickerModel(sessions []pickerSession, windowSort []WindowSortKey, actions pickerActions) pickerModel {
@@ -114,6 +116,9 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "ctrl+r":
 			m.renameCurrentWindow()
+			return m, nil
+		case "ctrl+shift+r":
+			m.renameCurrentSession()
 			return m, nil
 		case "ctrl+k":
 			m.movePrevSelectable()
@@ -259,6 +264,22 @@ func (m *pickerModel) renameCurrentWindow() {
 	m.resize()
 }
 
+func (m *pickerModel) renameCurrentSession() {
+	row, ok := m.currentRow()
+	if !ok {
+		m.setStatus("select a session to rename")
+		return
+	}
+	m.pending = row.target
+	m.mode = modeRenameSession
+	m.promptInput = textinput.New()
+	m.promptInput.Prompt = fmt.Sprintf("Rename session %s: ", row.target.SessionName)
+	m.promptInput.SetValue(row.target.SessionName)
+	m.promptInput.CursorEnd()
+	m.promptInput.Focus()
+	m.resize()
+}
+
 func (m pickerModel) handlePromptKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "ctrl+c":
@@ -282,6 +303,17 @@ func (m pickerModel) handlePromptKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			name := strings.TrimSpace(m.promptInput.Value())
 			if name != "" && m.pending.WindowIndex != nil {
 				if err := m.renameWindow(m.pending.SessionName, *m.pending.WindowIndex, name); err != nil {
+					m.setStatus(err.Error())
+				} else {
+					m.clearStatus()
+				}
+				m.reload()
+				m.renderViewport()
+			}
+		} else if m.mode == modeRenameSession {
+			name := strings.TrimSpace(m.promptInput.Value())
+			if name != "" {
+				if err := m.renameSession(m.pending.SessionName, name); err != nil {
 					m.setStatus(err.Error())
 				} else {
 					m.clearStatus()
@@ -315,6 +347,13 @@ func (m *pickerModel) renameWindow(session string, windowIndex int, name string)
 		return fmt.Errorf("rename window not available")
 	}
 	return m.actions.RenameWindow(session, windowIndex, name)
+}
+
+func (m *pickerModel) renameSession(session string, name string) error {
+	if m.actions.RenameSession == nil {
+		return fmt.Errorf("rename session not available")
+	}
+	return m.actions.RenameSession(session, name)
 }
 
 func (m *pickerModel) reload() {
