@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/textinput"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 type pickerRow struct {
@@ -69,7 +69,7 @@ func newPickerModel(sessions []Session, windowSort []WindowSortKey, actions Acti
 	input.Prompt = "> "
 	input.Focus()
 
-	vp := viewport.New(0, 0)
+	vp := viewport.New()
 
 	m := pickerModel{
 		sessions:      sessions,
@@ -97,7 +97,7 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.resize()
 		m.renderViewport()
 		return m, nil
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if m.mode != modeBrowse {
 			return m.handlePromptKey(msg)
 		}
@@ -161,7 +161,7 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m pickerModel) View() string {
+func (m pickerModel) View() tea.View {
 	var b strings.Builder
 	if m.mode == modeBrowse {
 		b.WriteString(m.queryInput.View())
@@ -179,23 +179,27 @@ func (m pickerModel) View() string {
 	}
 	if len(m.visible) == 0 {
 		b.WriteString("No sessions or windows match query\n")
-		return b.String()
+		view := tea.NewView(b.String())
+		view.AltScreen = true
+		return view
 	}
 	b.WriteString(m.viewport.View())
-	return b.String()
+	view := tea.NewView(b.String())
+	view.AltScreen = true
+	return view
 }
 
 func (m *pickerModel) resize() {
 	if m.width <= 0 || m.height <= 0 {
 		return
 	}
-	m.viewport.Width = max(1, m.width-1)
+	m.viewport.SetWidth(max(1, m.width-1))
 	inputHeight := lipgloss.Height(m.queryInput.View())
 	if m.mode != modeBrowse {
 		inputHeight = lipgloss.Height(m.promptInput.View())
 	}
 	reserved := inputHeight + 1 + m.statusHeight()
-	m.viewport.Height = max(1, m.height-reserved)
+	m.viewport.SetHeight(max(1, m.height-reserved))
 }
 
 func (m *pickerModel) applyFilter() {
@@ -233,7 +237,7 @@ func (m *pickerModel) renderViewport() {
 }
 
 func (m *pickerModel) tableContentWidth() int {
-	width := m.viewport.Width
+	width := m.viewport.Width()
 	if width <= 0 {
 		width = m.width
 	}
@@ -244,36 +248,36 @@ func (m *pickerModel) tableContentWidth() int {
 }
 
 func (m *pickerModel) ensureCursorVisible() {
-	if len(m.visible) == 0 || m.viewport.Height <= 0 {
+	if len(m.visible) == 0 || m.viewport.Height() <= 0 {
 		return
 	}
-	maxOffset := max(0, len(m.visible)-m.viewport.Height)
-	top := m.viewport.YOffset
-	bottom := top + m.viewport.Height - 1
+	maxOffset := max(0, len(m.visible)-m.viewport.Height())
+	top := m.viewport.YOffset()
+	bottom := top + m.viewport.Height() - 1
 
 	if m.cursor < top+scrollMargin {
 		newTop := m.cursor - scrollMargin
 		if newTop < 0 {
 			newTop = 0
 		}
-		m.viewport.YOffset = newTop
+		m.viewport.SetYOffset(newTop)
 		return
 	}
 	if m.cursor > bottom-scrollMargin {
-		newTop := m.cursor - (m.viewport.Height - 1 - scrollMargin)
+		newTop := m.cursor - (m.viewport.Height() - 1 - scrollMargin)
 		if newTop < 0 {
 			newTop = 0
 		}
 		if newTop > maxOffset {
 			newTop = maxOffset
 		}
-		m.viewport.YOffset = newTop
+		m.viewport.SetYOffset(newTop)
 	}
 }
 
 func ChooseTarget(sessions []Session, windowSort []WindowSortKey, actions Actions) (Target, error) {
 	m := newPickerModel(sessions, windowSort, actions)
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m)
 	finalModel, err := p.Run()
 	if err != nil {
 		return Target{}, err
