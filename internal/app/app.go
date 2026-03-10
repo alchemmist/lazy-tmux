@@ -158,7 +158,22 @@ func (a *App) RenameSession(session string, name string) error {
 }
 
 func (a *App) NewSession(name string) error {
-	return a.tmux.NewSession(name)
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("session name is empty")
+	}
+	if err := a.tmux.NewSession(name); err != nil {
+		return err
+	}
+	snap, err := a.tmux.CaptureSession(name)
+	if err != nil {
+		_ = a.tmux.KillSession(name)
+		return err
+	}
+	if err := a.store.SaveSession(snap); err != nil {
+		_ = a.tmux.KillSession(name)
+		return err
+	}
+	return nil
 }
 
 func (a *App) NewWindow(session string, name string) error {
