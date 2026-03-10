@@ -98,6 +98,44 @@ func (s *Store) SaveSession(ss snapshot.SessionSnapshot) error {
 	return writeJSONAtomic(s.indexPath(), idx)
 }
 
+func (s *Store) DeleteSession(name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return errors.New("empty session name")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	path := s.sessionPath(name)
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	safeName, err := safeScrollbackSessionName(name)
+	if err != nil {
+		return err
+	}
+	scrollRoot := filepath.Clean(filepath.Join(s.baseDir, scrollbackDir))
+	sessionDir := filepath.Clean(filepath.Join(scrollRoot, safeName))
+	if err := ensureUnderDir(scrollRoot, sessionDir, name); err != nil {
+		return err
+	}
+	if err := os.RemoveAll(sessionDir); err != nil {
+		return err
+	}
+
+	idx, err := s.loadIndexUnlocked()
+	if err != nil {
+		return err
+	}
+	if idx.Sessions != nil {
+		delete(idx.Sessions, name)
+	}
+	idx.Updated = time.Now().UTC()
+	return writeJSONAtomic(s.indexPath(), idx)
+}
+
 func (s *Store) LoadSession(name string) (snapshot.SessionSnapshot, error) {
 	var out snapshot.SessionSnapshot
 
