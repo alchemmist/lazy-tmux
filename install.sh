@@ -75,6 +75,7 @@ fi
 repo="alchemmist/lazy-tmux"
 asset="lazy-tmux_${os}_${arch}${suffix}.tar.gz"
 url="https://github.com/${repo}/releases/latest/download/${asset}"
+checksums_url="https://github.com/${repo}/releases/latest/download/checksums.txt"
 
 info "Detected platform: ${os}/${arch}"
 if [ "$fzf_only" -eq 1 ]; then
@@ -99,6 +100,26 @@ trap cleanup EXIT INT TERM
 
 info "Downloading ${asset}"
 curl -fsSL "$url" -o "$tmp_dir/$asset"
+
+info "Verifying checksum"
+curl -fsSL "$checksums_url" -o "$tmp_dir/checksums.txt"
+
+expected_sum=$(awk "/\\b${asset}\$/{print \$1}" "$tmp_dir/checksums.txt")
+if [ -z "$expected_sum" ]; then
+  die "Checksum not found for ${asset}"
+fi
+
+if command -v sha256sum >/dev/null 2>&1; then
+  actual_sum=$(sha256sum "$tmp_dir/$asset" | awk '{print $1}')
+elif command -v shasum >/dev/null 2>&1; then
+  actual_sum=$(shasum -a 256 "$tmp_dir/$asset" | awk '{print $1}')
+else
+  die "No sha256 tool found (sha256sum or shasum required)"
+fi
+
+if [ "$actual_sum" != "$expected_sum" ]; then
+  die "Checksum mismatch for ${asset}"
+fi
 
 tar -xzf "$tmp_dir/$asset" -C "$tmp_dir"
 

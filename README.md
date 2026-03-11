@@ -61,13 +61,13 @@ bind-key s run-shell 'lazy-tmux save --all'
 Install with builtin powerful TUI picker:
 
 ```bash
-curl -fsSL https://alchemmist.github.io/lazy-tmux/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/alchemmist/lazy-tmux/main/install.sh | sh
 ```
 
 Install pure, no-deps, lightweight binary (fzf required):
 
 ```bash
-curl -fsSL https://alchemmist.github.io/lazy-tmux/install.sh | sh -s -- --fzf-engine
+curl -fsSL https://raw.githubusercontent.com/alchemmist/lazy-tmux/main/install.sh | sh -s -- --fzf-engine
 ```
 
 Homebrew:
