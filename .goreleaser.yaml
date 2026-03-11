@@ -50,6 +50,7 @@ changelog:
   use: git
 
 brews:
+  folder: Formula
   - name: lazy-tmux
     ids: [default]
     description: "Fast tmux session manager with TUI picker"
