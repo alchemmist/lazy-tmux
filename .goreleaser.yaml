@@ -55,7 +55,6 @@ brews:
     description: "Fast tmux session manager with TUI picker"
     homepage: "https://github.com/alchemmist/lazy-tmux"
     license: "MIT"
-    folder: Formula
     repository:
       owner: alchemmist
       name: homebrew-tap
@@ -68,7 +67,6 @@ brews:
     ids: [fzf]
     description: "Fast tmux session manager (fzf picker)"
     homepage: "https://github.com/alchemmist/lazy-tmux"
-    folder: Formula
     license: "MIT"
     repository:
       owner: alchemmist
