@@ -52,6 +52,7 @@ changelog:
 brews:
   - name: lazy-tmux
     ids: [default]
+    folder: Formula
     description: "Fast tmux session manager with TUI picker"
     homepage: "https://github.com/alchemmist/lazy-tmux"
     license: "MIT"
@@ -63,8 +64,10 @@ brews:
       bin.install "lazy-tmux"
     test: |
       system "#{bin}/lazy-tmux", "--version"
+
   - name: lazy-tmux-fzf
     ids: [fzf]
+    folder: Formula
     description: "Fast tmux session manager (fzf picker)"
     homepage: "https://github.com/alchemmist/lazy-tmux"
     license: "MIT"
