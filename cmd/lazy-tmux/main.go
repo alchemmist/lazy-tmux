@@ -37,6 +37,8 @@ func main() {
 		runDaemon(cfg, os.Args[2:])
 	case "list":
 		runList(cfg, os.Args[2:])
+	case "setup":
+		setupConfig()
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -185,6 +187,7 @@ Commands:
   bootstrap  Restore one session at tmux startup (default: last)
   daemon     Periodically save all sessions
   list       List saved sessions
+  setup      Print config keybinds for tmux
 
 Picker flags:
   --fzf-engine             Use fzf backend instead of built-in TUI
@@ -194,6 +197,13 @@ Picker flags:
 Save/daemon flags:
   --scrollback             Capture shell pane scrollback (opt-in)
   --scrollback-lines N     Max captured lines per shell pane (default: 5000)
+`)
+}
+
+func setupConfig() {
+	fmt.Print(`run-shell -b 'lazy-tmux daemon --interval 3m --scrollback>/tmp/lazy-tmux.log 2>&1 || tmux display-message "lazy-tmux daemon already running"'
+bind-key f display-popup -w 75% -h 85% -E 'lazy-tmux picker'
+bind-key C-s run-shell 'lazy-tmux save --all --scrollback && tmux display-message "All sessions saved successfully!"'
 `)
 }
 
