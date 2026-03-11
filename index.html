@@ -36,8 +36,7 @@
 
       body {
         margin: 0;
-        font-family:
-          "SF Pro Text", "Segoe UI", system-ui, sans-serif, monospace;
+        font-family: "JetBrains Mono", monospace;
         background:
           radial-gradient(
             circle at 20% -40%,
@@ -178,6 +177,10 @@
 
       .muted {
         color: var(--muted);
+      }
+
+      .muted a {
+        color: rgb(173, 216, 230);
       }
 
       footer {
@@ -375,18 +378,8 @@
 
       <section class="section">
         <h2>Quick tmux setup</h2>
-        <p>
-          Keep your tmux config clean with an include file:
-        </p>
-        <pre><code>lazy-tmux setup &gt; ~/.tmux.d/lazy-tmux.conf</code></pre>
-        <p>
-          Then add a single line to <code>~/.tmux.conf</code>:
-        </p>
-        <pre><code>source-file ~/.tmux.d/lazy-tmux.conf</code></pre>
-        <p>
-          Alternatively, overwrite directly:
-        </p>
-        <pre><code>lazy-tmux setup &gt; ~/.tmux.conf</code></pre>
+        <p>Keep your tmux config clean with an include file:</p>
+        <pre><code>lazy-tmux setup &gt;&gt; ~/.tmux.conf</code></pre>
         <p>
           This command puts some rules to the end of your tmux config. After
           reloading tmux config:
@@ -511,7 +504,7 @@
                   text-align: left;
                   border-bottom: 1px solid var(--line);
                   padding: 6px;
-                  width: 180px;
+                  width: 200px;
                 "
               >
                 Command / Flag
@@ -533,10 +526,6 @@
               <td>Fuzzy search sessions and windows.</td>
             </tr>
             <tr>
-              <td><code>Backspace</code></td>
-              <td>Remove a character from the search query.</td>
-            </tr>
-            <tr>
               <td><code>&lt;C-j&gt;</code></td>
               <td>Move down to the next selectable row.</td>
             </tr>
@@ -549,8 +538,40 @@
               <td>Restore the selected session or window.</td>
             </tr>
             <tr>
-              <td><code>Esc</code>, <code>&lt;C-c&gt;</code>, <code>&lt;C-q&gt;</code></td>
+              <td>
+                <code>Esc</code>, <code>&lt;C-c&gt;</code>,
+                <code>&lt;C-q&gt;</code>
+              </td>
               <td>Cancel and close the picker.</td>
+            </tr>
+            <tr>
+              <td><code>&lt;C-d&gt;</code></td>
+              <td>Delete window under cursor.</td>
+            </tr>
+            <tr>
+              <td><code>&lt;Alt-d&gt;</code></td>
+              <td>
+                Delete session, that have window under cursor. Confirming via
+                typing "y"
+              </td>
+            </tr>
+            <tr>
+              <td><code>&lt;C-r&gt;</code></td>
+              <td>Rename window under cursor.</td>
+            </tr>
+            <tr>
+              <td><code>&lt;Alt-r&gt;</code></td>
+              <td>Rename session, that have window under cursor</td>
+            </tr>
+            <tr>
+              <td><code>&lt;C-n&gt;</code></td>
+              <td>
+                Create new window in session under cursor. Enter window name.
+              </td>
+            </tr>
+            <tr>
+              <td><code>&lt;Alt-n&gt;</code></td>
+              <td>Create new session. Enter session name.</td>
             </tr>
           </tbody>
         </table>
@@ -580,9 +601,19 @@
       </section>
 
       <footer>
-        <span class="muted">Storage:</span>
-        <code>~/.local/share/lazy-tmux/index.json</code> and
-        <code>~/.local/share/lazy-tmux/sessions/*.json</code>
+        <p class="muted">
+          Author: Anton Grishin (alchemmist),
+          <code>anton.ingrish@gmail.com</code>
+        </p>
+        <p class="muted">
+          OpenSource:
+          <code
+            ><a href="https://github.com/alchemmist/lazy-tmux"
+              >alchemmist/lazy-tmux</a
+            ></code
+          >
+        </p>
+        <p class="muted">© 2026 lazy-tmux</p>
       </footer>
     </main>
   </body>
