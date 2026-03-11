@@ -12,12 +12,20 @@ GOBIN := $(shell go env GOPATH)/bin
 STATICCHECK := $(GOBIN)/staticcheck
 GOLANGCI_LINT := $(GOBIN)/golangci-lint
 
-.PHONY: help check build test test-race test-cov fmt fmt-check vet staticcheck golangci-lint lint tidy tidy-check install clean
+.PHONY: help check build build-fzf build-all test test-race test-cov fmt fmt-check vet staticcheck golangci-lint lint tidy install clean dist dist-tui dist-fzf tag
+
+GORELEASER ?= goreleaser
+TYPE ?= patch
 
 check: fmt-check lint staticcheck test build
 
 build:
 	go build -o bin/$(BINARY) ./cmd/$(BINARY)
+
+build-fzf:
+	go build -tags lazy_fzf -o bin/$(BINARY)-fzf ./cmd/$(BINARY)
+
+build-all: build build-fzf
 
 test:
 	go test $(GO_PACKAGES)
@@ -60,6 +68,41 @@ tidy:
 install: build
 	go install ./cmd/$(BINARY)
 
+dist:
+	$(GORELEASER) release --snapshot --clean
+
+dist-tui:
+	$(GORELEASER) release --snapshot --clean --id lazy-tmux
+
+dist-fzf:
+	$(GORELEASER) release --snapshot --clean --id lazy-tmux-fzf
+
+tag:
+	@if ! git diff --quiet || ! git diff --cached --quiet; then \
+		echo "working tree is dirty; commit or stash changes first"; \
+		exit 1; \
+	fi
+	@latest="$$(git tag --list 'v*' --sort=-v:refname | head -n1)"; \
+	if [ -z "$$latest" ]; then \
+		next="v0.1.0"; \
+	else \
+		ver="$${latest#v}"; \
+		IFS=. read -r major minor patch <<< "$$ver"; \
+		case "$(TYPE)" in \
+			patch) patch=$$((patch+1));; \
+			minor) minor=$$((minor+1)); patch=0;; \
+			major) major=$$((major+1)); minor=0; patch=0;; \
+			*) echo "TYPE must be patch, minor, or major"; exit 1;; \
+		esac; \
+		next="v$${major}.$${minor}.$${patch}"; \
+	fi; \
+	if git rev-parse -q --verify "refs/tags/$$next" >/dev/null; then \
+		echo "tag $$next already exists"; \
+		exit 1; \
+	fi; \
+	echo "tagging $$next"; \
+	git tag -a "$$next" -m "release $$next"
+
 clean:
 	rm -rf bin dist coverage.out
 
@@ -67,6 +110,8 @@ help:
 	@printf "Available targets:\n\n"
 	@printf "  check       - run fmt-check, lint, test, build\n"
 	@printf "  build       - build binary into ./bin\n"
+	@printf "  build-fzf   - build fzf-only binary into ./bin\n"
+	@printf "  build-all   - build both tui and fzf-only binaries into ./bin\n"
 	@printf "  test        - run all tests\n"
 	@printf "  test-race   - run tests with race detector\n"
 	@printf "  cover       - run tests with coverage profile\n"
@@ -78,4 +123,8 @@ help:
 	@printf "  lint        - run vet + staticcheck + golangci-lint\n"
 	@printf "  tidy        - run go mod tidy\n"
 	@printf "  install     - install CLI with go install\n"
+	@printf "  dist        - build all release artifacts locally (snapshot)\n"
+	@printf "  dist-tui    - build tui artifacts locally (snapshot)\n"
+	@printf "  dist-fzf    - build fzf artifacts locally (snapshot)\n"
+	@printf "  tag         - create next git tag (TYPE=patch|minor|major)\n"
 	@printf "  clean       - remove build artifacts\n"
