@@ -104,7 +104,7 @@ curl -fsSL "$url" -o "$tmp_dir/$asset"
 info "Verifying checksum"
 curl -fsSL "$checksums_url" -o "$tmp_dir/checksums.txt"
 
-expected_sum=$(awk "/\\b${asset}\$/{print \$1}" "$tmp_dir/checksums.txt")
+expected_sum=$(awk -v asset="$asset" '$2 == asset {print $1}' "$tmp_dir/checksums.txt")
 if [ -z "$expected_sum" ]; then
   die "Checksum not found for ${asset}"
 fi
