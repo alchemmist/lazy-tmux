@@ -37,7 +37,7 @@
       body {
         margin: 0;
         font-family:
-          monospace, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+          "SF Pro Text", "Segoe UI", system-ui, sans-serif, monospace;
         background:
           radial-gradient(
             circle at 20% -40%,
@@ -228,8 +228,8 @@
           <h1>lazy-tmux</h1>
         </div>
         <p class="subtitle">
-          CLI that snapshots tmux sessions and restores them lazily and seamless
-          when you select one.
+          CLI that snapshots tmux sessions and restores them lazily and
+          seamlessly when you select one.
         </p>
         <div class="actions">
           <a
@@ -269,10 +269,8 @@
           </li>
 
           <li>
-            Full CRUD for sessions, windows, and panes directly from the TUI
-            picker using keyboard shortcuts. Create, rename, delete, save, and
-            restore everything without leaving the picker. (<i>in development</i
-            >)
+            Keyboard-driven picker that lets you search, navigate, and restore
+            sessions without leaving tmux.
           </li>
 
           <li>
@@ -320,66 +318,75 @@
           Your browser does not support the video tag.
         </video>
         <p>
-          Here we try to make some actions in tmp session, then kill tmux server
-          and then restore it with lazy-tmux. As we see all logs save and python
-          http server, which was running in another session was restarted. In
-          TUI picker we can see the status of session (restore or not) but we
-          can go to it seamless like it's already loaded!
+          We create activity in a temporary tmux session, then stop the tmux
+          server and restore the sessions with lazy-tmux. Logs are preserved,
+          and a Python HTTP server that ran in another session is restarted. The
+          TUI picker shows whether each session is restored, while still letting
+          you attach as if it were already loaded.
         </p>
       </section>
 
       <section class="section">
         <h2>Why?</h2>
         <p>
-          Many tmux session managers exist, but none combine full flexibility,
-          deep session control, and resource efficiency like lazy-tmux:
+          Most tmux session tools either restore everything at once or stay
+          shallow. lazy-tmux is built for real workflows: it restores only what
+          you pick, keeps history, and gives you full control without leaving
+          tmux.
         </p>
         <ul>
           <li>
-            <strong>lazy-restore / resurrect:</strong> Restore all sessions at
-            once or individual ones, but no full CRUD, no deep pane info,
-            scrollback, or daemon autosave.
+            <strong>Lazy restoration:</strong> Only load what you need, keep
+            memory and startup time low.
           </li>
           <li>
-            <strong>continuum:</strong> Automatic saving/restoring, but heavy,
-            less interactive, no selective lazy restore.
+            <strong>Deep visibility:</strong> Tree + table view shows sessions,
+            windows, panes, commands, timestamps, and restore state.
           </li>
           <li>
-            <strong>sessionx / other managers:</strong> Often only basic session
-            save/restore, no integrated TUI with table + tree, no scrollback,
-            limited sorting, no full keyboard CRUD.
+            <strong>Real control:</strong> Create, rename, delete, save, and
+            restore from the picker with fast keyboard flow.
+          </li>
+          <li>
+            <strong>Durable context:</strong> Optional scrollback capture keeps
+            logs and output across restarts.
           </li>
         </ul>
         <p>
-          Lazy-tmux solves these problems by combining lazy restoration, deep
-          TUI tree with pane info, daemon autosave, scrollback capture, keyboard
-          CRUD, and fully flexible sorting, all while staying lightweight and
-          seamlessly integrating into tmux.
+          The result is a lightweight, tmux-native workflow that feels instant
+          and predictable even across reboots.
         </p>
       </section>
 
       <section class="section" id="install">
         <h2>Installation</h2>
         <p>Install with builtin powerful TUI picker:</p>
-        <pre><code>curl -fsSL https://alchemmist.github.io/lazy-tmux/install.sh | sh</code></pre>
+        <pre><code>curl -fsSL https://raw.githubusercontent.com/alchemmist/lazy-tmux/main/install.sh | sh</code></pre>
         <p>
           Install pure, no-deps, lightweight binary (<code>fzf</code> required):
         </p>
-        <pre><code>curl -fsSL https://alchemmist.github.io/lazy-tmux/install.sh | sh -s -- --fzf-only</code></pre>
+        <pre><code>curl -fsSL https://raw.githubusercontent.com/alchemmist/lazy-tmux/main/install.sh | sh -s -- --fzf-engine</code></pre>
         <br />
         <p>Or use your package manager. Arch:</p>
         <pre><code>yay -S lazy-tmux</code></pre>
         <p>MacOS (Homebrew):</p>
-        <pre><code># Homebrew support coming soon</code></pre>
+        <pre><code>brew install alchemmist/tap/lazy-tmux</code></pre>
       </section>
 
       <section class="section">
         <h2>Quick tmux setup</h2>
         <p>
-          Just for at one's fingertips we can setup tmux keybindings with one
-          command:
+          Keep your tmux config clean with an include file:
         </p>
-        <pre><code>lazy-tmux setup &gt;&gt; ~/.tmux.conf</code></pre>
+        <pre><code>lazy-tmux setup &gt; ~/.tmux.d/lazy-tmux.conf</code></pre>
+        <p>
+          Then add a single line to <code>~/.tmux.conf</code>:
+        </p>
+        <pre><code>source-file ~/.tmux.d/lazy-tmux.conf</code></pre>
+        <p>
+          Alternatively, overwrite directly:
+        </p>
+        <pre><code>lazy-tmux setup &gt; ~/.tmux.conf</code></pre>
         <p>
           This command puts some rules to the end of your tmux config. After
           reloading tmux config:
@@ -391,8 +398,8 @@
             <code>&lt;prefix&gt; + &lt;C-s&gt;</code>
           </li>
           <li>
-            On your system will running daemon, which will save all sessions
-            with 5000 lines scrollback every 3 minute.
+            A daemon will run on your system, saving all sessions with 5000
+            lines of scrollback every 3 minutes.
           </li>
         </ul>
         <p>
@@ -522,11 +529,28 @@
           </thead>
           <tbody>
             <tr>
-              <td><code>&lt;C-d&gt;</code></td>
-              <td>
-                Deletes a window or a session depending on the cursor position;
-                deleting a session requires confirmation.
-              </td>
+              <td><code>Type</code></td>
+              <td>Fuzzy search sessions and windows.</td>
+            </tr>
+            <tr>
+              <td><code>Backspace</code></td>
+              <td>Remove a character from the search query.</td>
+            </tr>
+            <tr>
+              <td><code>&lt;C-j&gt;</code></td>
+              <td>Move down to the next selectable row.</td>
+            </tr>
+            <tr>
+              <td><code>&lt;C-k&gt;</code></td>
+              <td>Move up to the previous selectable row.</td>
+            </tr>
+            <tr>
+              <td><code>Enter</code></td>
+              <td>Restore the selected session or window.</td>
+            </tr>
+            <tr>
+              <td><code>Esc</code>, <code>&lt;C-c&gt;</code>, <code>&lt;C-q&gt;</code></td>
+              <td>Cancel and close the picker.</td>
             </tr>
           </tbody>
         </table>
