@@ -148,7 +148,7 @@ else
 fi
 
 info "Installed lazy-tmux to $install_dir/$bin_name"
-if [ "$fzf_only" -eq 1 ]; then
+if [ "$fzf_only" -eq 1 ] && ! command -v fzf >/dev/null 2>&1; then
   info "Note: fzf-only build requires fzf in PATH."
 fi
 
