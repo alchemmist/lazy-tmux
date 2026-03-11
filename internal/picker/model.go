@@ -1,3 +1,5 @@
+//go:build !lazy_fzf
+
 package picker
 
 import (
@@ -19,16 +21,6 @@ type pickerRow struct {
 	cmd        string
 	windowName string
 	selectable bool
-}
-
-type Actions struct {
-	DeleteWindow  func(session string, windowIndex int) error
-	DeleteSession func(session string) error
-	RenameWindow  func(session string, windowIndex int, name string) error
-	RenameSession func(session string, name string) error
-	NewSession    func(name string) error
-	NewWindow     func(session string, name string) error
-	Reload        func() ([]Session, error)
 }
 
 type pickerModel struct {
@@ -65,7 +57,7 @@ const scrollMargin = 2
 
 func newPickerModel(sessions []Session, windowSort []WindowSortKey, actions Actions) pickerModel {
 	input := textinput.New()
-	input.Placeholder = "fuzzy search by session/window"
+	input.Placeholder = ""
 	input.Prompt = "> "
 	input.Focus()
 
@@ -276,6 +268,9 @@ func (m *pickerModel) ensureCursorVisible() {
 }
 
 func ChooseTarget(sessions []Session, windowSort []WindowSortKey, actions Actions) (Target, error) {
+	if tuiDisabled() {
+		return Target{}, fmt.Errorf("TUI picker disabled in fzf-only build")
+	}
 	m := newPickerModel(sessions, windowSort, actions)
 	p := tea.NewProgram(m)
 	finalModel, err := p.Run()
