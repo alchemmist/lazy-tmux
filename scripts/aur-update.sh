@@ -35,7 +35,7 @@ fi
 workdir=$(mktemp -d)
 trap 'rm -rf "$workdir"' EXIT
 
-git clone "$AUR_REPO_URL" "$workdir"
+git clone --depth=1 --single-branch "$AUR_REPO_URL" "$workdir"
 
 pkgbuild="$workdir/PKGBUILD"
 srcinfo="$workdir/.SRCINFO"
@@ -50,6 +50,12 @@ sed -i "s#lazy-tmux_[0-9.\-]\+_#lazy-tmux_${ver}_#g" "$srcinfo"
 
 perl -0777 -i -pe "s/sha256sums_x86_64 = .*\n\tsha256sums_x86_64 = .*/sha256sums_x86_64 = ${sha_amd64}\n\tsha256sums_x86_64 = ${sha_amd64_fzf}/" "$srcinfo"
 perl -0777 -i -pe "s/sha256sums_aarch64 = .*\n\tsha256sums_aarch64 = .*/sha256sums_aarch64 = ${sha_arm64}\n\tsha256sums_aarch64 = ${sha_arm64_fzf}/" "$srcinfo"
+
+grep -q "pkgver = ${ver}" "$srcinfo" || { echo "AUR update failed: pkgver" >&2; exit 1; }
+grep -q "sha256sums_x86_64 = ${sha_amd64}" "$srcinfo" || { echo "AUR update failed: sha256sums_x86_64 (main)" >&2; exit 1; }
+grep -q "sha256sums_x86_64 = ${sha_amd64_fzf}" "$srcinfo" || { echo "AUR update failed: sha256sums_x86_64 (fzf)" >&2; exit 1; }
+grep -q "sha256sums_aarch64 = ${sha_arm64}" "$srcinfo" || { echo "AUR update failed: sha256sums_aarch64 (main)" >&2; exit 1; }
+grep -q "sha256sums_aarch64 = ${sha_arm64_fzf}" "$srcinfo" || { echo "AUR update failed: sha256sums_aarch64 (fzf)" >&2; exit 1; }
 
 git -C "$workdir" add PKGBUILD .SRCINFO
 if git -C "$workdir" diff --cached --quiet; then

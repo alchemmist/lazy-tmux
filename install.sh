@@ -40,8 +40,8 @@ for arg in "$@"; do
       exit 0
       ;;
     *)
-      die "Unknown argument: $arg"
       print_usage
+      die "Unknown argument: $arg"
       ;;
   esac
 done
