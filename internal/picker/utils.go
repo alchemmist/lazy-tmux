@@ -1,3 +1,5 @@
+//go:build !lazy_fzf
+
 package picker
 
 func trim(s string, n int) string {
