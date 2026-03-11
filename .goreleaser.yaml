@@ -48,3 +48,31 @@ checksum:
 
 changelog:
   use: git
+
+brews:
+  - name: lazy-tmux
+    ids: [default]
+    description: "Fast tmux session manager with TUI picker"
+    homepage: "https://github.com/alchemmist/lazy-tmux"
+    license: "MIT"
+    repository:
+      owner: alchemmist
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    install: |
+      bin.install "lazy-tmux"
+    test: |
+      system "#{bin}/lazy-tmux", "--version"
+  - name: lazy-tmux-fzf
+    ids: [fzf]
+    description: "Fast tmux session manager (fzf picker)"
+    homepage: "https://github.com/alchemmist/lazy-tmux"
+    license: "MIT"
+    repository:
+      owner: alchemmist
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    install: |
+      bin.install "lazy-tmux" => "lazy-tmux-fzf"
+    test: |
+      system "#{bin}/lazy-tmux-fzf", "--version"
