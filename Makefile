@@ -12,7 +12,7 @@ GOBIN := $(shell go env GOPATH)/bin
 STATICCHECK := $(GOBIN)/staticcheck
 GOLANGCI_LINT := $(GOBIN)/golangci-lint
 
-.PHONY: help check build build-fzf build-all test test-race test-cov fmt fmt-check vet staticcheck golangci-lint lint tidy tidy-check install clean dist dist-tui dist-fzf tag
+.PHONY: help check build build-fzf build-all test test-race test-cov fmt fmt-check vet staticcheck golangci-lint lint tidy install clean dist dist-tui dist-fzf tag
 
 GORELEASER ?= goreleaser
 TYPE ?= patch
@@ -87,9 +87,7 @@ tag:
 		next="v0.1.0"; \
 	else \
 		ver="$${latest#v}"; \
-		IFS=. read -r major minor patch <<EOF; \
-$$ver \
-EOF \
+		IFS=. read -r major minor patch <<< "$$ver"; \
 		case "$(TYPE)" in \
 			patch) patch=$$((patch+1));; \
 			minor) minor=$$((minor+1)); patch=0;; \
