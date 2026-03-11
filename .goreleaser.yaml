@@ -1,9 +1,11 @@
+version: 2
 project_name: lazy-tmux
 
 before:
   hooks:
     - go mod tidy
     - go test ./...
+    - go test -tags lazy_fzf ./...
 
 builds:
   - id: lazy-tmux
@@ -33,11 +35,11 @@ builds:
 
 archives:
   - id: default
-    builds: [lazy-tmux]
+    ids: [lazy-tmux]
     formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
   - id: fzf
-    builds: [lazy-tmux-fzf]
+    ids: [lazy-tmux-fzf]
     formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}_fzf"
 
