@@ -54,6 +54,32 @@ run-shell -b 'lazy-tmux bootstrap --session last >/tmp/lazy-tmux-bootstrap.log 2
 # Manual save
 bind-key s run-shell 'lazy-tmux save --all'
 
+# Installation
+
+Install with builtin powerful TUI picker:
+
+```
+curl -fsSL https://alchemmist.github.io/lazy-tmux/install.sh | sh
+```
+
+Install pure, no-deps, lightweight binary (fzf required):
+
+```
+curl -fsSL https://alchemmist.github.io/lazy-tmux/install.sh | sh -s -- --fzf-engine
+```
+
+Homebrew:
+
+```
+brew install alchemmist/tap/lazy-tmux
+```
+
+AUR (yay):
+
+```
+yay -S lazy-tmux
+```
+
 # Lazy restore picker in popup
 bind-key f display-popup -E -w 100% -h 100% 'lazy-tmux picker'
 ```
