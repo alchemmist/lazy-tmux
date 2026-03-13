@@ -1,6 +1,11 @@
-<h2><img src="./assets/logo.svg" alt="Favicon Preview" width="50" align="center">&nbsp;&nbsp;&nbsp;lazy-tmux</h2>
+<h2><img src="./assets/logo.svg" alt="Favicon Preview" width="60" align="center">&nbsp;&nbsp;&nbsp;lazy-tmux</h2>
 
-`lazy-tmux` is a Go CLI that snapshots tmux sessions to disk and restores them lazily on demand.
+![License](https://img.shields.io/github/license/alchemmist/devsyringe?style=flat)
+![Contributors](https://img.shields.io/github/contributors/alchemmist/devsyringe?style=flat)
+![Go](https://img.shields.io/badge/1.25-default?label=Go)
+[![Build](https://github.com/alchemmist/lazy-tmux/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/alchemmist/lazy-tmux/actions/workflows/build.yml)
+
+`lazy-tmux` is a Go cli that snapshots tmux sessions to disk and restores them lazily on demand.
 
 ## Why
 
