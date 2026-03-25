@@ -53,11 +53,11 @@ vet:
 
 staticcheck:
 	go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
-	$(shell go env GOPATH)/bin/staticcheck ./...
+	staticcheck ./...
 
 golangci-lint:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
-	$(shell go env GOPATH)/bin/golangci-lint run ./...
+	golangci-lint run ./...
 
 lint: vet staticcheck golangci-lint
 
