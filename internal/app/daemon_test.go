@@ -70,7 +70,10 @@ exit 0
 		t.Fatalf("RunDaemon error: %v", err)
 	}
 	w.Close()
-	out, _ := io.ReadAll(r)
+	out, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("read stderr: %v", err)
+	}
 	r.Close()
 	if !strings.Contains(string(out), "lazy-tmux daemon save error: boom") {
 		t.Fatalf("expected logged error, got %q", string(out))

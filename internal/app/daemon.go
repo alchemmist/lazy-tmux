@@ -39,7 +39,9 @@ func (a *App) RunDaemon(interval time.Duration) error {
 	ticker := newDaemonTicker(interval)
 	defer ticker.Stop()
 
-	_ = a.runDaemonSaveAll()
+	if err := a.runDaemonSaveAll(); err != nil {
+		fmt.Fprintf(os.Stderr, "lazy-tmux daemon save error: %v\n", err)
+	}
 	for range ticker.Chan() {
 		if err := a.runDaemonSaveAll(); err != nil {
 			fmt.Fprintf(os.Stderr, "lazy-tmux daemon save error: %v\n", err)
