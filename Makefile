@@ -20,16 +20,16 @@ build-fzf:
 build-all: build build-fzf
 
 test:
-	go install gotest.tools/gotestsum@latest
+	go install gotest.tools/gotestsum@v1.13.0
 	gotestsum -- ./...
 
 test-race:
-	go install gotest.tools/gotestsum@latest
+	go install gotest.tools/gotestsum@v1.13.0
 	gotestsum -- -race ./...
 
 test-cov:
-	go install gotest.tools/gotestsum@latest
-	go install github.com/vladopajic/go-test-coverage/v2@latest
+	go install gotest.tools/gotestsum@v1.13.0
+	go install github.com/vladopajic/go-test-coverage/v2@v2.18.4
 	gotestsum -- -coverprofile=cover.out -covermode=atomic -coverpkg=./... ./...
 	go-test-coverage --config=./.testcoverage.yml
 
@@ -52,11 +52,11 @@ vet:
 	go vet ./...
 
 staticcheck:
-	go install honnef.co/go/tools/cmd/staticcheck@latest
+	go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
 	$(shell go env GOPATH)/bin/staticcheck ./...
 
 golangci-lint:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
 	$(shell go env GOPATH)/bin/golangci-lint run ./...
 
 lint: vet staticcheck golangci-lint
