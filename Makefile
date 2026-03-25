@@ -11,8 +11,11 @@ GOFMT_PATHS := ./cmd ./internal
 GOBIN := $(shell go env GOPATH)/bin
 STATICCHECK := $(GOBIN)/staticcheck
 GOLANGCI_LINT := $(GOBIN)/golangci-lint
+INTEGRATION_IMAGE ?= lazy-tmux-integration
+INTEGRATION_DOCKERFILE ?= docker/integration.Dockerfile
+GOTESTSUM := $(GOBIN)/gotestsum
 
-.PHONY: help check build build-fzf build-all test test-race test-cov fmt fmt-check vet staticcheck golangci-lint lint tidy install clean dist dist-tui dist-fzf tag
+.PHONY: help check build build-fzf build-all test test-race test-cov test-integration fmt fmt-check vet staticcheck golangci-lint lint tidy install clean dist dist-tui dist-fzf tag
 
 GORELEASER ?= goreleaser
 TYPE ?= patch
@@ -28,15 +31,19 @@ build-fzf:
 build-all: build build-fzf
 
 test:
-	go test $(GO_PACKAGES)
+	$(GOTESTSUM) -- $(GO_PACKAGES)
 
 test-race:
-	go test -race $(GO_PACKAGES)
+	$(GOTESTSUM) -- -race $(GO_PACKAGES)
 
 test-cov: 
 	go install github.com/vladopajic/go-test-coverage/v2@latest
-	go test ./... -coverprofile=./cover.out -covermode=atomic -coverpkg=./...
+	$(GOTESTSUM) -- -coverprofile=cover.out -covermode=atomic -coverpkg=./... $(GO_PACKAGES)
 	${GOBIN}/go-test-coverage --config=./.testcoverage.yml
+
+test-integration:
+	docker build -f $(INTEGRATION_DOCKERFILE) -t $(INTEGRATION_IMAGE) .
+	docker run --rm $(INTEGRATION_IMAGE)
 
 fmt:
 	gofmt -w $(GOFMT_PATHS)
@@ -115,6 +122,7 @@ help:
 	@printf "  test        - run all tests\n"
 	@printf "  test-race   - run tests with race detector\n"
 	@printf "  cover       - run tests with coverage profile\n"
+	@printf "  test-integration - run integration tests (tmux + TUI)\n"
 	@printf "  fmt         - format Go sources with gofmt\n"
 	@printf "  fmt-check   - verify Go sources are formatted\n"
 	@printf "  vet         - run go vet\n"
