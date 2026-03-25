@@ -267,13 +267,21 @@ func (m *pickerModel) ensureCursorVisible() {
 	}
 }
 
+type pickerRunner interface {
+	Run() (tea.Model, error)
+}
+
+var newPickerRunner = func(m pickerModel) pickerRunner {
+	return tea.NewProgram(m)
+}
+
 func ChooseTarget(sessions []Session, windowSort []WindowSortKey, actions Actions) (Target, error) {
 	if tuiDisabled() {
 		return Target{}, fmt.Errorf("TUI picker disabled in fzf-only build")
 	}
 	m := newPickerModel(sessions, windowSort, actions)
-	p := tea.NewProgram(m)
-	finalModel, err := p.Run()
+	runner := newPickerRunner(m)
+	finalModel, err := runner.Run()
 	if err != nil {
 		return Target{}, err
 	}

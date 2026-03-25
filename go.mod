@@ -1,6 +1,6 @@
 module github.com/alchemmist/lazy-tmux
 
-go 1.25.7
+go 1.26
 
 require (
 	charm.land/bubbles/v2 v2.0.0
