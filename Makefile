@@ -31,9 +31,11 @@ build-fzf:
 build-all: build build-fzf
 
 test:
+	go install gotest.tools/gotestsum@latest
 	$(GOTESTSUM) -- $(GO_PACKAGES)
 
 test-race:
+	go install gotest.tools/gotestsum@latest
 	$(GOTESTSUM) -- -race $(GO_PACKAGES)
 
 test-cov: 
