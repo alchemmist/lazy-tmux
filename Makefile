@@ -113,7 +113,7 @@ help:
 	@printf "  build-all   - build both tui and fzf-only binaries into ./bin\n"
 	@printf "  test        - run all tests\n"
 	@printf "  test-race   - run tests with race detector\n"
-	@printf "  cover       - run tests with coverage profile\n"
+	@printf "  test-cov       - run tests with coverage profile\n"
 	@printf "  test-integration - run integration tests (tmux + TUI)\n"
 	@printf "  fmt         - format Go sources with gofmt\n"
 	@printf "  fmt-check   - verify Go sources are formatted\n"
