@@ -1,4 +1,4 @@
-.DEFAULT_GOAL := help
+.DEF.DEFAULT_GOAL := help
 
 SHELL := /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
@@ -6,21 +6,10 @@ MAKEFLAGS += --warn-undefined-variables
 MAKEFLAGS += --no-builtin-rules
 
 BINARY := lazy-tmux
-GO_PACKAGES := ./...
-GOFMT_PATHS := ./cmd ./internal
-GOBIN := $(shell go env GOPATH)/bin
-STATICCHECK := $(GOBIN)/staticcheck
-GOLANGCI_LINT := $(GOBIN)/golangci-lint
-INTEGRATION_IMAGE ?= lazy-tmux-integration
-INTEGRATION_DOCKERFILE ?= docker/integration.Dockerfile
-GOTESTSUM := $(GOBIN)/gotestsum
 
 .PHONY: help check build build-fzf build-all test test-race test-cov test-integration fmt fmt-check vet staticcheck golangci-lint lint tidy install clean dist dist-tui dist-fzf tag
 
-GORELEASER ?= goreleaser
-TYPE ?= patch
-
-check: fmt-check lint staticcheck test build
+check: fmt-check lint test build
 
 build:
 	go build -o bin/$(BINARY) ./cmd/$(BINARY)
@@ -32,26 +21,27 @@ build-all: build build-fzf
 
 test:
 	go install gotest.tools/gotestsum@latest
-	$(GOTESTSUM) -- $(GO_PACKAGES)
+	gotestsum -- ./...
 
 test-race:
 	go install gotest.tools/gotestsum@latest
-	$(GOTESTSUM) -- -race $(GO_PACKAGES)
+	gotestsum -- -race ./...
 
-test-cov: 
+test-cov:
+	go install gotest.tools/gotestsum@latest
 	go install github.com/vladopajic/go-test-coverage/v2@latest
-	$(GOTESTSUM) -- -coverprofile=cover.out -covermode=atomic -coverpkg=./... $(GO_PACKAGES)
-	${GOBIN}/go-test-coverage --config=./.testcoverage.yml
+	gotestsum -- -coverprofile=cover.out -covermode=atomic -coverpkg=./... ./...
+	go-test-coverage --config=./.testcoverage.yml
 
 test-integration:
-	docker build -f $(INTEGRATION_DOCKERFILE) -t $(INTEGRATION_IMAGE) .
-	docker run --rm $(INTEGRATION_IMAGE)
+	docker build -f docker/integration.Dockerfile -t lazy-tmux-integration .
+	docker run --rm lazy-tmux-integration
 
 fmt:
-	gofmt -w $(GOFMT_PATHS)
+	gofmt -w ./cmd ./internal
 
 fmt-check:
-	@unformatted="$$(gofmt -l $(GOFMT_PATHS))"; \
+	@unformatted="$$(gofmt -l ./cmd ./internal)"; \
 	if [ -n "$$unformatted" ]; then \
 		echo "gofmt required for:"; \
 		echo "$$unformatted"; \
@@ -59,15 +49,15 @@ fmt-check:
 	fi
 
 vet:
-	go vet $(GO_PACKAGES)
+	go vet ./...
 
 staticcheck:
 	go install honnef.co/go/tools/cmd/staticcheck@latest
-	$(STATICCHECK) $(GO_PACKAGES)
+	$(shell go env GOPATH)/bin/staticcheck ./...
 
 golangci-lint:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-	$(GOLANGCI_LINT) run ./...
+	$(shell go env GOPATH)/bin/golangci-lint run ./...
 
 lint: vet staticcheck golangci-lint
 
@@ -78,13 +68,13 @@ install: build
 	go install ./cmd/$(BINARY)
 
 dist:
-	$(GORELEASER) release --snapshot --clean
+	goreleaser release --snapshot --clean
 
 dist-tui:
-	$(GORELEASER) release --snapshot --clean --id lazy-tmux
+	goreleaser release --snapshot --clean --id lazy-tmux
 
 dist-fzf:
-	$(GORELEASER) release --snapshot --clean --id lazy-tmux-fzf
+	goreleaser release --snapshot --clean --id lazy-tmux-fzf
 
 tag:
 	@if ! git diff --quiet || ! git diff --cached --quiet; then \
@@ -97,7 +87,7 @@ tag:
 	else \
 		ver="$${latest#v}"; \
 		IFS=. read -r major minor patch <<< "$$ver"; \
-		case "$(TYPE)" in \
+		case "$${TYPE:-patch}" in \
 			patch) patch=$$((patch+1));; \
 			minor) minor=$$((minor+1)); patch=0;; \
 			major) major=$$((major+1)); minor=0; patch=0;; \
@@ -137,4 +127,4 @@ help:
 	@printf "  dist-tui    - build tui artifacts locally (snapshot)\n"
 	@printf "  dist-fzf    - build fzf artifacts locally (snapshot)\n"
 	@printf "  tag         - create next git tag (TYPE=patch|minor|major)\n"
-	@printf "  clean       - remove build artifacts\n"
+	@printf "  clean       - remove build artifacts\n"printf "  clean       - remove build artifacts\n"
