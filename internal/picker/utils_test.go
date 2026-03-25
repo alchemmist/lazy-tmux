@@ -21,4 +21,3 @@ func TestTrim(t *testing.T) {
 		t.Fatalf("expected trim to return original when shorter, got %q", got)
 	}
 }
-

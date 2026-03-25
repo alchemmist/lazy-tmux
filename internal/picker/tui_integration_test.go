@@ -68,4 +68,3 @@ func TestPickerTUISelectsWindow(t *testing.T) {
 		t.Fatalf("expected output to contain session name, got:\n%s", out.String())
 	}
 }
-

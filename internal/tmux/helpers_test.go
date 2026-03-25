@@ -43,4 +43,3 @@ func TestParsePSLine(t *testing.T) {
 		t.Fatalf("unexpected parsed values: %d %q %q", pid, stat, cmd)
 	}
 }
-

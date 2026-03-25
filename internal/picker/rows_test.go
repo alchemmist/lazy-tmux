@@ -36,4 +36,3 @@ func TestFilteredTreeRowsSessionMatchIncludesAllWindows(t *testing.T) {
 		t.Fatalf("unexpected second window: %q", rows[2].windowName)
 	}
 }
-
