@@ -57,4 +57,3 @@ exit 0
 		t.Fatal("expected alpha to be marked as restored")
 	}
 }
-
