@@ -21,7 +21,7 @@ Cli written on Go for saving and restoring tmux sessions lazy. Key features:
 - Full environment snapshots: restore pane layout and commands (e.g. `npm`, `docker-compose`, `nvim`).
 - Optional scrollback capture: preserve and replay previous terminal output.
 
-Chekout [lazy-tmux.xyz](https://lazy-tmux.xyz) for more informaiton and documentation!
+Chekout [lazy-tmux.xyz](https://lazy-tmux.xyz) for more informaiton about installation and usage!
 
 Just for bulding from source you need to have installed go and cloned this project. After that run:
 
