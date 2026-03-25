@@ -82,7 +82,13 @@ func runSave(base config.Config, args []string) error {
 	scrollback := fs.Bool("scrollback", base.Scrollback.Enabled, "capture shell pane scrollback")
 	scrollbackLines := fs.Int("scrollback-lines", base.Scrollback.Lines, "max shell scrollback lines per pane")
 	shared := addSharedFlags(fs, base, true)
+
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			fs.SetOutput(os.Stdout)
+			fs.Usage()
+			return nil
+		}
 		return err
 	}
 	if *scrollback && *scrollbackLines <= 0 {
@@ -112,7 +118,13 @@ func runRestore(base config.Config, args []string) error {
 	session := fs.String("session", "", "session to restore")
 	switchClient := fs.Bool("switch", true, "switch active client to restored session")
 	shared := addSharedFlags(fs, base, true)
+
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			fs.SetOutput(os.Stdout)
+			fs.Usage()
+			return nil
+		}
 		return err
 	}
 	if strings.TrimSpace(*session) == "" {
@@ -130,7 +142,13 @@ func runPicker(base config.Config, args []string) error {
 	sessionSort := fs.String("session-sort", "", "session sort keys: field[:asc|desc],... (fields: last-used,captured,name,windows,panes)")
 	windowSort := fs.String("window-sort", "", "window sort keys: field[:asc|desc],... (fields: index,name,panes,cmd)")
 	shared := addSharedFlags(fs, base, true)
+
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			fs.SetOutput(os.Stdout)
+			fs.Usage()
+			return nil
+		}
 		return err
 	}
 
@@ -162,7 +180,13 @@ func runBootstrap(base config.Config, args []string) error {
 	fs.SetOutput(io.Discard)
 	session := fs.String("session", "last", "session name or 'last'")
 	shared := addSharedFlags(fs, base, true)
+
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			fs.SetOutput(os.Stdout)
+			fs.Usage()
+			return nil
+		}
 		return err
 	}
 
@@ -177,7 +201,13 @@ func runDaemon(base config.Config, args []string) error {
 	scrollback := fs.Bool("scrollback", base.Scrollback.Enabled, "capture shell pane scrollback")
 	scrollbackLines := fs.Int("scrollback-lines", base.Scrollback.Lines, "max shell scrollback lines per pane")
 	shared := addSharedFlags(fs, base, true)
+
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			fs.SetOutput(os.Stdout)
+			fs.Usage()
+			return nil
+		}
 		return err
 	}
 	if *scrollback && *scrollbackLines <= 0 {
@@ -196,7 +226,13 @@ func runList(base config.Config, args []string, stdout io.Writer) error {
 	fs := flag.NewFlagSet("list", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	shared := addSharedFlags(fs, base, false)
+
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			fs.SetOutput(os.Stdout)
+			fs.Usage()
+			return nil
+		}
 		return err
 	}
 
