@@ -29,6 +29,8 @@
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://lazy-tmux.alchemmist.xyz" />
+    <meta property="og:image" content="https://lazy-tmux.alchemmist.xyz/assets/site-preview.png" />
+
 
     <link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
     <link
@@ -466,10 +468,7 @@
       <!-- CLI (без изменений) -->
       <section class="section">
         <h2 id="cli">CLI</h2>
-        <table
-          class="cli-table"
-          style="width: 100%; border-collapse: collapse"
-        >
+        <table class="cli-table" style="width: 100%; border-collapse: collapse">
           <thead>
             <tr>
               <th
@@ -561,7 +560,10 @@ lazy-tmux picker --fzf-engine --session-sort "last-used:desc,name:asc"</code></p
           Default directions (when <code>:asc|:desc</code> is omitted):
         </p>
         <ul>
-          <li>sessions: <code>name=asc</code>, all other session fields = <code>desc</code></li>
+          <li>
+            sessions: <code>name=asc</code>, all other session fields =
+            <code>desc</code>
+          </li>
           <li>
             windows: <code>index=asc</code>, <code>name=asc</code>, all other
             window fields = <code>desc</code>
@@ -577,7 +579,10 @@ lazy-tmux picker --fzf-engine --session-sort "last-used:desc,name:asc"</code></p
         <p class="muted" style="margin: 12px 0 8px">Validation behavior:</p>
         <ul>
           <li>unknown fields are rejected with an error.</li>
-          <li>invalid direction values are rejected (<code>asc</code> and <code>desc</code> only).</li>
+          <li>
+            invalid direction values are rejected (<code>asc</code> and
+            <code>desc</code> only).
+          </li>
           <li>duplicate fields in one expression are rejected.</li>
         </ul>
         <h3 class="cli-subtitle">Scrollback capture</h3>
@@ -605,7 +610,9 @@ lazy-tmux daemon --interval 5m --scrollback --scrollback-lines 5000</code></pre>
         <ul>
           <li><code>~/.local/share/lazy-tmux/sessions/*.json</code></li>
           <li>
-            <code>~/.local/share/lazy-tmux/scrollback/&lt;session&gt;/*.log</code>
+            <code
+              >~/.local/share/lazy-tmux/scrollback/&lt;session&gt;/*.log</code
+            >
           </li>
         </ul>
         <h3 class="cli-subtitle">Storage</h3>
