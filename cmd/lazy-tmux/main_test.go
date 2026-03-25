@@ -14,7 +14,7 @@ func TestRunNoArgs(t *testing.T) {
 	var out bytes.Buffer
 	var errOut bytes.Buffer
 
-	code := run(nil, &out, &errOut)
+	code := runCLI(nil, &out, &errOut)
 	if code != 2 {
 		t.Fatalf("expected exit code 2, got %d", code)
 	}
@@ -30,7 +30,7 @@ func TestRunHelp(t *testing.T) {
 	var out bytes.Buffer
 	var errOut bytes.Buffer
 
-	code := run([]string{"help"}, &out, &errOut)
+	code := runCLI([]string{"help"}, &out, &errOut)
 	if code != 0 {
 		t.Fatalf("expected exit code 0, got %d", code)
 	}
@@ -46,7 +46,7 @@ func TestRunUnknownCommand(t *testing.T) {
 	var out bytes.Buffer
 	var errOut bytes.Buffer
 
-	code := run([]string{"wat"}, &out, &errOut)
+	code := runCLI([]string{"wat"}, &out, &errOut)
 	if code != 1 {
 		t.Fatalf("expected exit code 1, got %d", code)
 	}
@@ -59,7 +59,7 @@ func TestRunRestoreRequiresSession(t *testing.T) {
 	var out bytes.Buffer
 	var errOut bytes.Buffer
 
-	code := run([]string{"restore"}, &out, &errOut)
+	code := runCLI([]string{"restore"}, &out, &errOut)
 	if code != 1 {
 		t.Fatalf("expected exit code 1, got %d", code)
 	}
@@ -73,7 +73,7 @@ func TestRunBootstrapLastOnEmptyStore(t *testing.T) {
 	var errOut bytes.Buffer
 	dir := t.TempDir()
 
-	code := run([]string{"bootstrap", "--session", "last", "--data-dir", dir}, &out, &errOut)
+	code := runCLI([]string{"bootstrap", "--session", "last", "--data-dir", dir}, &out, &errOut)
 	if code != 0 {
 		t.Fatalf("expected exit code 0, got %d, stderr=%s", code, errOut.String())
 	}
@@ -102,7 +102,7 @@ func TestRunListPrintsSavedRecords(t *testing.T) {
 		t.Fatalf("save beta: %v", err)
 	}
 
-	code := run([]string{"list", "--data-dir", dir}, &out, &errOut)
+	code := runCLI([]string{"list", "--data-dir", dir}, &out, &errOut)
 	if code != 0 {
 		t.Fatalf("expected exit code 0, got %d, stderr=%s", code, errOut.String())
 	}
