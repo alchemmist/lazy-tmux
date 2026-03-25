@@ -1,4 +1,4 @@
-.DEF.DEFAULT_GOAL := help
+.DEFAULT_GOAL := help
 
 SHELL := /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
@@ -127,4 +127,4 @@ help:
 	@printf "  dist-tui    - build tui artifacts locally (snapshot)\n"
 	@printf "  dist-fzf    - build fzf artifacts locally (snapshot)\n"
 	@printf "  tag         - create next git tag (TYPE=patch|minor|major)\n"
-	@printf "  clean       - remove build artifacts\n"printf "  clean       - remove build artifacts\n"
+	@printf "  clean       - remove build artifacts\n"
