@@ -42,3 +42,51 @@ func TestParsePickerSortOptionsRejectsEmptyWindowSortTerm(t *testing.T) {
 		t.Fatal("expected empty window sort term error")
 	}
 }
+
+func TestParsePickerSortOptionsUnknownField(t *testing.T) {
+	_, err := ParseSortOptions("wat:asc", "")
+	if err == nil {
+		t.Fatal("expected unknown field error")
+	}
+}
+
+func TestParsePickerSortOptionsInvalidDirection(t *testing.T) {
+	_, err := ParseSortOptions("name:up", "")
+	if err == nil {
+		t.Fatal("expected invalid direction error")
+	}
+}
+
+func TestParsePickerSortOptionsDefaultDirections(t *testing.T) {
+	sess, desc, err := parseSessionSortPart("last-used")
+	if err != nil {
+		t.Fatalf("parseSessionSortPart: %v", err)
+	}
+	if sess != SessionSortLastUsed || !desc {
+		t.Fatalf("expected last-used to default to desc, got %v desc=%v", sess, desc)
+	}
+
+	sess, desc, err = parseSessionSortPart("name")
+	if err != nil {
+		t.Fatalf("parseSessionSortPart: %v", err)
+	}
+	if sess != SessionSortName || desc {
+		t.Fatalf("expected name to default to asc, got %v desc=%v", sess, desc)
+	}
+
+	win, wdesc, err := parseWindowSortPart("panes")
+	if err != nil {
+		t.Fatalf("parseWindowSortPart: %v", err)
+	}
+	if win != WindowSortPanes || !wdesc {
+		t.Fatalf("expected panes to default to desc, got %v desc=%v", win, wdesc)
+	}
+
+	win, wdesc, err = parseWindowSortPart("index")
+	if err != nil {
+		t.Fatalf("parseWindowSortPart: %v", err)
+	}
+	if win != WindowSortIndex || wdesc {
+		t.Fatalf("expected index to default to asc, got %v desc=%v", win, wdesc)
+	}
+}
