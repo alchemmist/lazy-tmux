@@ -1,227 +1,32 @@
 <h2><img src="./assets/logo.svg" alt="Favicon Preview" width="60" align="center">&nbsp;&nbsp;&nbsp;lazy-tmux</h2>
 
+![Static Badge](https://img.shields.io/badge/website-red?style=flat&logo=data%3Aimage%2Fpng%3Bbase64%2CiVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAAD0eNT6AAAQAElEQVR4AezWvZJs11kG4F0EkJBwB4aEyCQmkQPAV0BMhJRIARAScwGUqwhIpMQq7oDAKWWowkrsBAUUVNlW4NyxXa6SV5%2Bjkeac09N%2F%2B2d9a72PqveZme7ee3%2Fv8%2FWM3t9b%2FEdgDIH325hfOpaKBm0tHgQIjCagAIy2MfMSIECAAIHVAsuiAGyA6BIECBAgQGA0AQVgtI2ZlwABAgQIrBQ4na4AnBQcBAgQIEAgTEABCFu4uAQIECCQLvA6vwLw2sG%2FBAgQIEAgSkABiFq3sAQIECCQLvCUXwF4kvCVAAECBAgECSgAQcsWlQABAgTSBb7JrwB8Y%2BE7AgQIECAQI6AAxKxaUAIECBBIF3ieXwF4ruF7AgQIECAQIqAAhCxaTAIECBBIF3gzvwLwpoefCBAgQIBAhIACELFmIQkQIEAgXeDt%2FArA2yJ%2BJkCAAAECAQIKQMCSRSRAgACBdIF38ysA75p4hgABAgQITC%2BgAEy%2FYgEJECBAIF3gXH4F4JyK5wgQIECAwOQCCsDkCxaPAAECBNIFzudXAM67eJYAAQIECEwtoABMvV7hCBAgQCBd4KX8CsBLMp4nQIAAAQITCygAEy9XNAIECBBIF3g5vwLwso1XCBAgQIDAtAIKwLSrFYwAAQIE0gUu5VcALul4jQABAgQITCqgAEy6WLEIECBAIF3gcn4F4LKPVwkQIECAwJQCCsCUaxWKAAECBNIFruVXAK4JeZ0AAQIECEwooABMuFSRCBAgQCBd4Hp%2BBeC6Ua93fNxu%2FD%2BO5cngL5vFHxc4PmgzVHlU8DjNUMXDHAQI3CGgANyB1eGt3273dCzLyaBRLF8sy1LhWIr8V8HiNEMRDmMQIPAkcMtXBeAWJe8hQIAAAQKTCSgAky1UHAIECBBIF7gtvwJwm5N3ESBAgACBqQQUgKnWKQwBAgQIpAvcml8BuFXK%2BwgQIECAwEQCCsBEyxSFAAECBNIFbs%2BvANxu5Z0ECBAgQGAaAQVgmlUKQoAAAQLpAvfkVwDu0fJeAgQIECAwiYACMMkixSBAgACBdIH78isA93l5NwECBAgQmEJAAZhijUIQIECAQLrAvfkVgHvFvJ8AAQIECEwgoABMsEQRCBAgQCBd4P78CsD9Zs4gQIAAAQLDCygAw69QAAIECBBIF3gkvwLwiJpzCBAgQIDA4AIKwOALND4BAgQIpAs8ll8BeMzNWQQIECBAYGgBBWDo9RmeAAECBNIFHs2vADwq5zwCBAgQIDCwgAIw8PKMToAAAQLpAo%2FnVwAet3MmAQIECBAYVkABGHZ1BidAgACBdIE1%2BRWANXrOJUCAAAECgwooAIMuztgECBAgkC6wLr8CsM7P2QQIECBAYEgBBWDItRmaAAECBNIF1uZXANYKOp8AAQIECAwooAAMuDQjEyBAgEC6wPr8CsB6Q1cgQIAAAQLDCSgAw63MwAQIECCQLrBFfgXgXcUft6cqHL9qc3zXsTwZ%2FLJZVNjL99sc3ytytDE8CBAg8JiAAnDe7b32dO%2Fj522GzxzLk8HPmkXvnZzu%2F2Wb40dFjjaGBwECeQLbJFYAtnF0FQIECBAgMJSAAjDUugxLgAABAukCW%2BVXALaSdB0CBAgQIDCQgAIw0LKMSoAAAQLpAtvlVwC2s3QlAgQIECAwjIACMMyqDEqAAAEC6QJb5lcAttR0LQIECBAgMIiAAjDIooxJgAABAukC2%2BZXALb1dDUCBAgQIDCEgAIwxJoMSYAAAQLpAlvnVwC2FnU9AgQIECAwgIACMMCSjEiAAAEC6QLb51cAtjd1RQIECBAgUF5AASi%2FIgMSIECAQLrAHvkVgD1UXZMAAQIECBQXUACKL8h4BAgQIJAusE9%2BBWAfV1clQIAAAQKlBRSA0usxHAECBAikC%2ByVXwHYS9Z1CRAgQIBAYQEFoPByjEaAAAEC6QL75VcA9rN1ZQIECBAgUFZAASi7GoMRIECAQLrAnvkVgD11XZsAAQIECBQVUACKLsZYBAgQIJAusG9%2BBWBfX1cnQIAAAQIlBRSAkmsxFAECBAikC%2BydXwHYW9j1CRAgQIBAQQEFoOBSjESAAAEC6QL751cA9jd2BwIECBAgUE5AASi3EgMRIECAQLrAEfkVgCOU3YMAAQIECBQTUACKLcQ4BAgQIJAucEz%2BSgXg4xa5wvFfbY6PChxthBKPv29TVNjL37Y5KuzlkzaHBwECBIYXqFQA3muaHxY4%2Fr3NcPojX%2BFoo5R4VNjLF02iwk5OM7RRPAgQILCPwFFXrVQAjsrsPgQIECBAIF5AAYj%2FCAAgQIAAgToCx02iABxn7U4ECBAgQKCMgAJQZhUGIUCAAIF0gSPzKwBHarsXAQIECBAoIqAAFFmEMQgQIEAgXeDY%2FArAsd7uRoAAAQIESggoACXWYAgCBAgQSBc4Or8CcLS4%2BxEgQIAAgQICCkCBJRiBAAECBNIFjs%2BvABxv7o4ECBAgQKC7gALQfQUGIECAAIF0gR75FYAe6u5JgAABAgQ6CygAnRfg9gQIECCQLtAnvwLQx91dCRAgQIBAVwEFoCu%2FmxMgQIBAukCv%2FApAL3n3JUCAAAECHQUUgI74bk2AAAEC6QL98isA%2FezdmQABAgQIdBNQALrRuzEBAgQIpAv0zK8A9NR3bwIECBAg0ElAAegE77YECBAgkC7QN78C0Nff3QkQIECAQBcBBaALu5sSIECAQLpA7%2FwKQO8NuD8BAgQIEOggoAB0QHdLAgQIEEgX6J9fAei%2FAxMQIECAAIHDBRSAw8ndkAABAgTSBSrkVwAqbMEMBAgQIEDgYAEF4GBwtyNAgACBdIEa%2BRWAGnswBQECBAgQOFRAATiU280IECBAIF2gSn4FoMomzEGAAAECBA4UUAAOxHYrAgQIEEgXqJNfAaizC5MQIECAAIHDBBSAw6jdiAABAgTSBSrlVwAqbcMsBAgQIEDgIAEF4CBotyFAgACBdIFa%2BRWAWvswDQECBAgQOERAATiE2U0IECBAIF2gWn4FoNpGzEOAAAECBA4QUAAOQHYLAgQIEEgXqJdfAai3ExMRIECAAIHdBRSA3YndgAABAgTSBSrmVwAqbsVMBAgQIEBgZwEFYGdglydAgACBdIGa%2BRWAmnsxFQECBAgQ2FVAAdiV18UJECBAIF2gan4FoOpmzEWAAAECBHYUUAB2xHVpAgQIEEgXqJtfAai7G5MRIECAAIHdBBSA3WhdmAABAgTSBSrnVwAqb8dsBAgQIEBgJwEFYCdYlyVAgACBdIHa%2BRWA2vsxHQECBAgQ2EVAAdiF1UUJECBAIF2gen4FoPqGzEeAAAECBHYQUAB2QHVJAgQIEEgXqJ9fAai%2FIxMSIECAAIHNBRSAzUldkAABAgTSBUbIrwCMsCUzEiBAgACBjQUUgI1BXY4AAQIE0gXGyK8AjLEnUxIgQIAAgU0FFIBNOV2MAAECBNIFRsmvAIyyKXMSIECAAIENBRSADTFdigABAgTSBcbJfyoA77dxKxz%2F1%2Bb4tMDRRvAgQIAAAQJzC5wKwA9axArHP7Y5PihwfNZm8CBAgAABAncLjHTCqQCMNK9ZCRAgQIAAgQ0EFIANEF2CAAECBAgsy1gGCsBY%2BzItAQIECBDYREAB2ITRRQgQIEAgXWC0%2FArAaBszLwECBAgQ2EBAAdgA0SUIECBAIF1gvPwKwHg7MzEBAgQIEFgtoACsJnQBAgQIEEgXGDG%2FAjDi1sxMgAABAgRWCigAKwGdToAAAQLpAmPmVwDG3JupCRAgQIDAKgEFYBWfkwkQIEAgXWDU%2FArAqJszNwECBAgQWCGgAKzAcyoBAgQIpAuMm18BGHd3JidAgAABAg8LKAAP0zmRAAECBNIFRs6vAIy8PbMTIECAAIEHBRSAB%2BGcRoAAAQLpAmPnVwDG3p%2FpCRAgQIDAQwIKwENsTiJAgACBdIHR8ysAo2%2FQ%2FAQIECBA4AEBBeABNKcQIECAQLrA%2BPkVgPF3KAEBAgQIELhbQAG4m8wJBAgQIJAuMEN%2BBWCGLcpAgAABAgTuFFAA7gTzdgIECBBIF5gjvwIwxx6lIECAAAECdwkoAHdxeTMBAgQIpAvMkl8BmGWTchAgQIAAgTsEFIA7sLyVAAECBNIF5smvAMyzS0kIECBAgMDNAgrAzVTeSIAAAQLpAjPlVwBm2qYsBAgQIEDgRgEF4EYobyNAgACBdIG58isAc%2B1TGgIECBAgcJOAAnATkzcRIECAQLrAbPkVgNk2Kg8BAgQIELhBQAG4AclbCBAgQCBdYL78CsB8O5WIAAECBAhcFVAArhJ5AwECBAikC8yYXwGYcasyESBAgACBKwIKwBUgLxMgQIBAusCc%2BRWAOfcqFQECBAgQuCigAFzk8SIBAgQIpAvMml8BmHWzchEgQIAAgQsCCsAFHC8RIECAQLrAvPkVgHl3KxkBAgQIEHhRQAF4kcYLBAgQIJAuMHN%2BBWDm7cpGgAABAgReEFAAXoDxNAECBAikC8ydXwGYe7%2FSESBAgACBswIKwFkWTxIgQIBAusDs%2BRWA2TcsHwECBAgQOCOgAJxB8RQBAgQIpAvMn18BmH%2FHEhIgQIAAgXcEFIB3SDxBgAABAukCCfkVgIQty0iAAAECBN4SUADeAvEjAQIECKQLZORXADL2LCUBAgQIEHhDQAF4g8MPBAgQIJAukJJfAUjZtJwECBAgQOCZgALwDMO3BAgQIJAukJNfAcjZtaQECBAgQOBrAQXgawrfECBAgEC6QFJ%2BBSBp27ISIECAAIGvBBSAryB8IUCAAIF0gaz8CkDWvqUlQIAAAQKvBBSAVwz%2BIUCAAIF0gYPyf6vd58sKhwLQtuBBgAABAgTSBBSAtI3LS4AAAQJnBPKeUgDydi4xAQIECBBYFAAfAgIECBCIF0gEUAASty4zAQIECMQLKADxHwEABAgQSBfIzK8AZO5dagIECBAIF1AAwj8A4hMgQCBdIDW%2FApC6ebkJECBAIFpAAYhev%2FAECBBIF8jNrwDk7l5yAgQIEAgWUACCly86AQIE0gWS8ysAyduXnQABAgRiBRSA2NULToAAgXSB7PwKQPb%2BpSdAgACBUAEFIHTxYhMgQCBdID2%2FApD%2BCZCfAAECBCIFFIDItQtNgACBdAH5FQCfAQIECBAgECigAAQuXWQCBAikC8i%2FLAqATwEBAgQIEAgUUAACly4yAQIEsgWkPwkoACcFBwECBAgQCBNQAMIWLi4BAgTSBeR%2FLaAAvHbwLwECBAgQiBJQAKLWLSwBAgTSBeR%2FElAAniR8JUCAAAECQQIKQNCyRSVAgEC6gPzfCCgA31j4jgABAgQIxAgoADGrFpQAAQLpAvI%2FF1AAnmv4ngABAgQIhAgoACGLFpMAAQLpAvK%2FKaAAvOnhJwIECBAgECGgAESseVXIT9rZf1Dg%2BO82w68LHD9pM3gQIDCcwPJXy7J8WeD4RZuhxEMBKLGG0kP8pk1X4fhtm%2BP3Cxxt9EhtugAADjZJREFUBA8CBAiML6AAjL9DCQgQIEDgioCX3xVQAN418QwBAgQIEJheQAGYfsUCEiBAIF1A%2FnMCCsA5Fc8RIECAAIHJBRSAyRcsHgECBNIF5D8voACcd%2FEsAQIECBCYWkABmHq9whEgQCBdQP6XBBSAl2Q8T4AAAQIEJhZQACZermgECBBIF5D%2FZQEF4GUbrxAgQIAAgWkFFIBpVysYAQIE0gXkvySgAFzS8RoBAgQIEJhUQAGYdLFiESBAIF1A%2FssCCsBlH68SIECAAIEpBRSAKdcqFAECBNIF5L8moABcE%2FI6AQIECBCYUEABmHCpIhEgQCBdQP7rAgrAdSPvIECAAAEC0wkoANOtVCACBAikC8h%2Fi4ACcIuS9xAgQIAAgckEFIDJFioOAQIE0gXkv01AAbjNybsIECBAgMBUAgrAVOsUhgABAukC8t8qoADcKuV9BAgQIEBgIgEFYKJlikKAAIF0AflvF1AAbrfyTgIECBAgMI2AAjDNKgUhQIBAuoD89wgoAPdoeS8BAgQIEJhEQAGYZJFiECBAIF1A%2FvsEFID7vLybAAECBAhMIaAATLFGIQgQIJAuIP%2B9AgrAvWLeT4AAAQIEJhBQACZYYkiEz1vOPy9w%2FEub4SdFjjaGB4HyAh%2B2CXf%2FnbnhHt9v7%2FlekaON0f%2BhAPTfgQluE%2Fhpe1uF43%2FbHN8pcHy7zeBBYBSBCr8zv25YPypwfNFmKPFQAEqswRAECBAg8LiAMx8RUAAeUXMOAQIECBAYXEABGHyBxidAgEC6gPyPCSgAj7k5iwABAgQIDC2gAAy9PsMTIEAgXUD%2BRwUUgEflnEeAAAECBAYWUAAGXp7RCRAgkC4g%2F%2BMCCsDjds4kQIAAAQLDCigAw67O4AQIEEgXkH%2BNgAKwRs%2B5BAgQIEBgUAEFYNDFGZsAAQLpAvKvE1AA1vk5mwABAgQIDCmgAAy5NkMTIEAgXUD%2BtQIKwFpB5xMgQIAAgQEFFIABl2ZkAgQIpAvIv15AAVhv6AoECBAgQGA4AQVguJUZmAABAukC8m8hoABsoegaBAgQIEBgMAEFYLCFGZcAAQLpAvJvI6AAbOPoKgQIECBAYCgBBWCodRmWAAEC6QLybyWgAGwl6ToECBAgQGAgAQVgoGUZlQABAukC8m8noABsZ%2BlKBAgQIEBgGAEFYJhVGZQAAQLpAvJvKaAAbKnpWgQIECBAYBABBWCQRRmTAAEC6QLybyugAGzr6WoECBAgQGAIAQVgiDUZkgABAukC8m8toABsLep6BAgQIEBgAAEFYIAlGZEAAQLpAvJvL6AAbG%2FqigQIECBAoLzAqQB80KascPxTm%2BMHBY732gweBC4JVPh9%2Bbs2YIXfFzMsC4PLBn%2FTPqsrf2eWLc7%2FjzZHhV39c5tjizyrr3EqAJ%2B2YSoc32lzvF%2FgaCN4EHhR4KftlQq%2FL%2F%2FW5qjw%2B2KGZWFw2eD%2Fl2Wp8Dvzw%2BXynEft8U%2FbHBU8Pj0VgDaLBwECBAgQqClgqn0EFIB9XF2VAAECBAiUFlAASq%2FHcAQIEEgXkH8vAQVgL1nXJUCAAAEChQUUgMLLMRoBAgTSBeTfT0AB2M%2FWlQkQIECAQFkBBaDsagxGgACBdAH59xRQAPbUdW0CBAgQIFBUQAEouhhjESBAIF1A%2Fn0FFIB9fV2dAAECBAiUFFAASq7FUAQIEEgXkH9vAQVgb2HXJ0CAAAECBQUUgIJLMRIBAgTSBeTfX0AB2N%2FYHQgQIECAQDkBBaDcSgxEgACBdAH5jxBQAI5Qdg8CBAgQIFBMQAEothDjECBAIF1A%2FmMEFIBjnN2FAAECBAiUElAASq3DMAQIEEgXkP8oAQXgKGn3IUCAAAEChQQUgELLMAoBAgTSBeQ%2FTkABOM7anQgQIECAQBkBBaDMKgxCgACBdAH5jxRQAI7Udi8CBAgQIFBEQAEosghjECBAIF1A%2FmMFFIBjvd2NAAECBAiUEFAASqzBEAQIEEgXkP9oAQXgaHH3I0CAAAECBQQUgAJLMAIBAgTSBeQ%2FXkABON7cHQkQIECAQHcBBaD7CgxAgACBdAH5ewgoAD3U3ZMAAQIECHQWUAA6L8DtCawQ%2BId2rmNZGNQ2%2BLx9Ti8%2BvNhHQAHo4%2B6uBNYK%2FKZd4F8dC4NlCIP2UfWoJqAAVNuIeQgQIBAlIGwvAQWgl7z7EiBAgACBjgIKQEd8tyZAgEC6gPz9BBSAfvbuTIAAAQIEugkoAN3o3ZgAAQLpAvL3FFAAeuq7NwECBAgQ6CSgAHSCd1sCBAikC8jfV0AB6Ovv7gQIECBAoIuAAtCF3U0JECCQLiB%2FbwEFoPcG3J8AAQIECHQQUAA6oLslAQIE0gXk7y%2BgAPTfgQkIECBAgMDhAgrA4eRuSIAAgXQB%2BSsIKAAVtmAGAgQIECBwsIACcDC42xEgQCBdQP4aAgpAjT2YggABAgQIHCqgABzK7WYECBBIF5C%2FioACUGUT5iBAgAABAgcKKAAHYrsVAQIE0gXkryOgANTZhUkIECBAgMBhAgrAYdRuRIAAgXQB%2BSsJKACVtmEWAgQIECBwkIACcBC02xAgQCBdQP5aAgpArX2YhgABAgQIHCKgABzC7CYECBBIF5C%2FmoACUG0j5iFAgAABAgcIKAAHILsFAQIE0gXkryegANTbiYkIECBAgMDuAgrA7sRuQIAAgXQB%2BSsKKAAVt2ImAgQIECCws4ACsDOwyxMgQCBdQP6aAgpAzb2YigABAgQI7CpQqQB81pJ%2BUuD46zbDh0WONoYHAQIERhZYqvw9Pf1tr%2FD%2FmNP%2F60ostFIB%2BKiJVDj%2Bos3xcYGjjeBBgACBKQQq%2FE09%2FW2v8P%2BY0wwlllqpAJQAMQQBAgQIbCfgSnUFFIC6uzEZAQIECBDYTUAB2I3WhQkQIJAuIH9lAQWg8nbMRoAAAQIEdhJQAHaCdVkCBAikC8hfW0ABqL0f0xEgQIAAgV0EFIBdWF2UAAEC6QLyVxdQAKpvyHwECBAgQGAHAQVgB1SXJECAQLqA%2FPUFFID6OzIhAQIECBDYXEAB2JzUBQkQIJAuIP8IAgrACFsyIwECBAgQ2FhAAdgY1OUIECCQLiD%2FGAIKwBh7MiUBAgQIENhUQAHYlNPFCBAgkC4g%2FygCCsAomzInAQIECBDYUEAB2BDTpQgQIJAuIP84AgrAOLsyKQECBAgQ2ExAAdiM0oUIECCQLiD%2FSAIKwEjbMisBAgQIENhIQAHYCNJlCBAgkC4g%2F1gCCsBY%2BzItAQIECBDYREAB2ITRRQgQIJAuIP9oAgrAaBszLwECBAgQ2EBAAdgA0SUIECCQLiD%2FeAIKwHg7MzEBAgQIEFgtoACsJnQBAgQIpAvIP6KAAjDi1sxMgAABAgRWCigAKwGdToAAgXQB%2BccUUADG3JupCRAgQIDAKgEFYBWfkwkQIJAuIP%2BoAgrAqJszNwECBAgQWCGgAJzH%2B6w93fv4kzbDe47luUHj8CBQXuD5Z3b679s2rmU8%2FS3r%2Fff0dP82qsdzAQXgucbr77%2FbvlQ4%2FqjN8WPH8mTwYbPwIDCCwOmz%2BvS59XVZTn%2FLKvxNPc0wwufnsBkVgMOo3YgAAQKzCcgzsoACMPL2zE6AAAECBB4UUAAehHMaAQIE0gXkH1tAARh7f6YnQIAAAQIPCSgAD7E5iQABAukC8o8uoACMvkHzEyBAgACBBwQUgAfQnEKAAIF0AfnHF1AAxt%2BhBAQIECBA4G4BBeBuMicQIEAgXUD%2BGQQUgBm2KAMBAgQIELhTQAG4E8zbCRAgkC4g%2FxwCCsAce5SCAAECBAjcJaAA3MXlzQQIEEgXkH8WAQVglk3KQYAAAQIE7hBQAO7A8lYCBAikC8g%2Fj4ACMM8uJSFAgAABAjcLKAA3U3kjAQIE0gXkn0lAAZhpm7IQIECAAIEbBRSAG6G8jQABAukC8s8loADMtU9pCBAgQIDATQIKwE1M3kSAAIF0AflnE1AAZtuoPAQIECBA4AYBBeAGJG8hQIBAuoD88wkoAPPtVCICBAgQIHBVQAG4SuQNBAgQSBeQf0YBBWDGrcpEgAABAgSuCCgAV4C8TIAAgXQB%2BecUUADm3KtUBAgQIEDgooACcJHHiwQIEEgXkH9WAQVg1s3KRYAAAQIELggoABdwvESAAIF0AfnnFVAA5t2tZAQIECBA4EUBBeBFmhIvfN6mcCzLyeAPm8W3HAuDpbzB0v47fWYnOF797q3N0Tg8KgooABW38nqmj9qXP3MsTwY%2FbBa%2FcCwMlvIG%2F9k%2Bp0%2BfW1%2BX5fS3rJF4VBNQAKptxDwECBAoImCMuQUUgLn3Kx0BAgQIEDgroACcZfEkAQIE0gXkn11AAZh9w%2FIRIECAAIEzAgrAGRRPESBAIF1A%2FvkFFID5dywhAQIECBB4R0ABeIfEEwQIEEgXkD9BQAFI2LKMBAgQIEDgLQEF4C0QPxIgQCBdQP4MAQUgY89SEiBAgACBNwQUgDc4%2FECAAIF0AflTBBSAlE3LSYAAAQIEngkoAM8wfEuAAIF0AflzBBSAnF1LSoAAAQIEvhZQAL6m8A0BAgTSBeRPElAAkrYtKwECBAgQ%2BEpAAfgKwhcCBAikC8ifJaAAZO1bWgIECBAg8EpAAXjF4B8CBAikC8ifJqAApG1cXgIECBAg0AQUgIbgQYAAgXQB%2BfMEFIC8nUtMgAABAgQWBcCHgAABAvECABIFFIDErctMgAABAvECCkD8RwAAAQLpAvJnCigAmXuXmgABAgTCBRSA8A%2BA%2BAQIpAvInyqgAKRuXm4CBAgQiBZQAKLXLzwBAukC8ucKKAC5u5ecAAECBIIFFIDg5YtOgEC6gPzJAgpA8vZlJ0CAAIFYAQUgdvWCEyCQLiB%2FtsDvAAAA%2F%2F9IbnkqAAAABklEQVQDAPrbLI%2BaU7JjAAAAAElFTkSuQmCC&color=%23add8e6&link=https%3A%2F%2Flazy-tmux.xyz)
 ![License](https://img.shields.io/github/license/alchemmist/devsyringe?style=flat)
 ![Contributors](https://img.shields.io/github/contributors/alchemmist/devsyringe?style=flat)
 ![Go](https://img.shields.io/badge/1.25-default?label=Go)
 [![Build](https://github.com/alchemmist/lazy-tmux/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/alchemmist/lazy-tmux/actions/workflows/build.yml)
 
-`lazy-tmux` is a Go cli that snapshots tmux sessions to disk and restores them lazily on demand.
+Project architect: [@alchemmist](https://github.com/alchemmist)
 
-## Why
+Cli written on Go for saving and restoring tmux sessions lazy. Key features:
 
-- Keeps session state across reboots.
-- Restores only the session you choose (no eager full restore).
-- Supports periodic autosave and manual save.
+- Save sessions: current, specific, or all — including windows, panes, layouts, running commands, and scrollback history.
+- Lazy restore: restore only what you need, avoiding high RAM usage (unlike tmux-resurrect).
+- Autosave daemon: periodically snapshots all sessions in the background (single instance, no conflicts).
+- Interactive TUI browser: tree view (sessions/windows) + table (commands, snapshot time, counts, status) with fuzzy search.
+- Keyboard-driven picker for fast search, navigation, and manage sessions and windows directly inside picker tree.
+- Flexible sorting via `--session-sort` or `--window-sort` (by last-used, time, size, name, command, etc.).
+- Optional `fzf` integration via `--fzf-engine` (lighter and no dependencies binary, but without full keyboard control and TUI picker).
+- Bootstrap restore on tmux startup: auto-restore latest or specific session.
+- Full environment snapshots: restore pane layout and commands (e.g. `npm`, `docker-compose`, `nvim`).
+- Optional scrollback capture: preserve and replay previous terminal output.
 
-## Features
+Chekout [lazy-tmux.xyz](https://lazy-tmux.xyz) for more informaiton and documentation!
 
-- `save` current session, specific session, or all sessions.
-- `daemon` mode for periodic autosave (single-instance lock per tmux socket).
-- `picker` with built-in TUI tree (`session -> windows`) and fuzzy search in a tmux popup (default).
-- Optional `fzf` picker backend via `--fzf-engine`.
-- Optional shell pane scrollback capture/replay (`--scrollback`, `--scrollback-lines`).
-- `restore` exactly one selected session from disk.
-- `bootstrap` on tmux startup to restore latest or named session.
-
-## Install
-
-### From source
-
-```bash
-make install
-```
-
-or
-
-```bash
-go install ./cmd/lazy-tmux
-```
-
-### Build local binary
+Just for bulding from source you need to have installed go and cloned this project. After that run:
 
 ```bash
 make build
 ```
 
-Binary path: `bin/lazy-tmux`.
-
-## tmux setup
-
-Add this to your `~/.tmux.conf`:
-
-```tmux
-# Start lazy autosave daemon (every 5 minutes)
-run-shell -b 'lazy-tmux daemon --interval 5m >/tmp/lazy-tmux.log 2>&1'
-
-# Restore one session on startup (latest snapshot)
-run-shell -b 'lazy-tmux bootstrap --session last >/tmp/lazy-tmux-bootstrap.log 2>&1'
-
-# Manual save
-bind-key s run-shell 'lazy-tmux save --all'
-
-```
-
-# Installation
-
-Install with builtin powerful TUI picker:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/alchemmist/lazy-tmux/main/install.sh | sh
-```
-
-Install pure, no-deps, lightweight binary (fzf required):
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/alchemmist/lazy-tmux/main/install.sh | sh -s -- --fzf-engine
-```
-
-Homebrew:
-
-```bash
-brew install alchemmist/tap/lazy-tmux
-```
-
-AUR (yay):
-
-```bash
-yay -S lazy-tmux
-```
-
-# Lazy restore picker in popup
-```tmux
-bind-key f display-popup -E -w 100% -h 100% 'lazy-tmux picker'
-```
-
-After reloading tmux config (`tmux source-file ~/.tmux.conf`):
-
-- `prefix + s` saves snapshots.
-- `prefix + f` opens TUI picker from saved sessions/windows (`--fzf-engine` for `fzf` backend).
-- selected session is restored only when selected.
-
-## CLI
-
-```bash
-lazy-tmux save [--all] [--session NAME] [--data-dir DIR] [--scrollback] [--scrollback-lines N]
-lazy-tmux restore --session NAME [--switch=true]
-lazy-tmux picker [--fzf-engine] [--session-sort EXPR] [--window-sort EXPR]
-lazy-tmux bootstrap [--session last|NAME]
-lazy-tmux daemon [--interval 5m] [--scrollback] [--scrollback-lines N]
-lazy-tmux list
-```
-
-## Picker sorting
-
-`picker` supports configurable multi-key sorting with priority control.
-
-Flags:
-
-- `--session-sort EXPR` controls session order.
-- `--window-sort EXPR` controls window order inside each session.
-
-Expression format:
-
-- `EXPR` is a comma-separated list of keys.
-- each key is `field` or `field:asc` or `field:desc`.
-- order of keys in `EXPR` is the sort priority (leftmost key is highest priority).
-
-Examples:
-
-```bash
-# Sort sessions by name, then by captured time (newest first)
-lazy-tmux picker --session-sort "name:asc,captured:desc"
-
-# Sort windows by pane count, then by name
-lazy-tmux picker --window-sort "panes:desc,name:asc"
-
-# Use same sorting with fzf backend
-lazy-tmux picker --fzf-engine --session-sort "last-used:desc,name:asc"
-```
-
-Session sort fields:
-
-- `last-used` (alias: `last-accessed`, `last_accessed`)
-- `captured` (alias: `captured-at`, `captured_at`)
-- `name`
-- `windows`
-- `panes`
-
-Window sort fields:
-
-- `index`
-- `name`
-- `panes`
-- `cmd`
-
-Default directions (when `:asc|:desc` is omitted):
-
-- sessions: `name=asc`, all other session fields = `desc`
-- windows: `index=asc`, `name=asc`, all other window fields = `desc`
-
-Current defaults (if no sort flags are passed):
-
-- sessions: `last-used:desc,captured:desc,name:asc`
-- windows: `index:asc,name:asc`
-
-Validation behavior:
-
-- unknown fields are rejected with an error.
-- invalid direction values are rejected (`asc` and `desc` only).
-- duplicate fields in one expression are rejected.
-
-## Shell scrollback
-
-By default, scrollback capture is disabled.
-
-Enable it explicitly:
-
-```bash
-lazy-tmux save --all --scrollback --scrollback-lines 5000
-lazy-tmux daemon --interval 5m --scrollback --scrollback-lines 5000
-```
-
-Behavior:
-
-- captures tmux pane scrollback only for panes that currently run an interactive shell (no detected foreground app command).
-- stores scrollback as sidecar files and references them from session snapshots.
-- on restore, writes captured scrollback back into pane tty before command replay.
-
-Storage layout:
-
-- `~/.local/share/lazy-tmux/sessions/*.json`
-- `~/.local/share/lazy-tmux/scrollback/<session>/*.log`
-
-## Storage
-
-Default directory:
-
-- `~/.local/share/lazy-tmux/index.json`
-- `~/.local/share/lazy-tmux/sessions/*.json`
-- `~/.local/share/lazy-tmux/scrollback/*`
-
-Override via:
-
-- env: `LAZY_TMUX_DATA_DIR`
-- flag: `--data-dir`
-
-## Important behavior notes
-
-- This tool restores tmux structure (sessions/windows/panes/layouts and pane commands when available).
-- It does **not** checkpoint process memory state; long-running interactive processes are restarted only if tmux exposes enough pane command metadata for recreation.
-
-## Development
-
-```bash
-make fmt
-make lint
-make test
-make build
-make check
-```
-
-## Release
-
-`goreleaser` config is included.
-
-```bash
-goreleaser release --snapshot --clean
-```
+Binary will compiled in `bin/lazy-tmux`. For more development options run `make help`.
