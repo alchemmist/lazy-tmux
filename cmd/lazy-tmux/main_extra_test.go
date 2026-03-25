@@ -16,10 +16,20 @@ func captureStdout(t *testing.T, fn func()) string {
 	if err != nil {
 		t.Fatalf("pipe: %v", err)
 	}
+
 	os.Stdout = w
+	defer func() { os.Stdout = old }()
+	defer w.Close()
+
+	defer func() {
+		if rec := recover(); rec != nil {
+			panic(rec)
+		}
+	}()
+
 	fn()
 	w.Close()
-	os.Stdout = old
+
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, r); err != nil {
 		t.Fatalf("copy: %v", err)
