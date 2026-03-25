@@ -256,11 +256,19 @@
       table th {
         padding: 10px 6px;
       }
+      .cli-table th:first-child,
+      .cli-table td:first-child {
+        width: 260px;
+      }
       .comparison-note {
         background: rgba(255, 255, 255, 0.03);
         padding: 1em;
         border-left: 3px solid var(--accent);
         margin-top: 1em;
+      }
+      .cli-subtitle {
+        margin: 25px 0 8px;
+        font-size: 20px;
       }
     </style>
   </head>
@@ -297,6 +305,7 @@
             >GitHub</a
           >
           <a class="btn alt" href="#install">Install</a>
+          <a class="btn alt" href="#cli">Docs</a>
         </div>
       </section>
 
@@ -456,8 +465,11 @@
 
       <!-- CLI (без изменений) -->
       <section class="section">
-        <h2>CLI</h2>
-        <table style="width: 100%; border-collapse: collapse">
+        <h2 id="cli">CLI</h2>
+        <table
+          class="cli-table"
+          style="width: 100%; border-collapse: collapse"
+        >
           <thead>
             <tr>
               <th
@@ -535,6 +547,79 @@
             </tr>
           </tbody>
         </table>
+        <h3 class="cli-subtitle">Sorting examples</h3>
+        <pre><code># Sort sessions by name, then by captured time (newest first)
+lazy-tmux picker --session-sort "name:asc,captured:desc"
+
+# Sort windows by pane count, then by name
+lazy-tmux picker --window-sort "panes:desc,name:asc"
+
+# Use same sorting with fzf backend
+lazy-tmux picker --fzf-engine --session-sort "last-used:desc,name:asc"</code></pre>
+        <h3 class="cli-subtitle">Sorting behavior</h3>
+        <p class="muted" style="margin: 0 0 8px">
+          Default directions (when <code>:asc|:desc</code> is omitted):
+        </p>
+        <ul>
+          <li>sessions: <code>name=asc</code>, all other session fields = <code>desc</code></li>
+          <li>
+            windows: <code>index=asc</code>, <code>name=asc</code>, all other
+            window fields = <code>desc</code>
+          </li>
+        </ul>
+        <p class="muted" style="margin: 12px 0 8px">
+          Current defaults (if no sort flags are passed):
+        </p>
+        <ul>
+          <li>sessions: <code>last-used:desc,captured:desc,name:asc</code></li>
+          <li>windows: <code>index:asc,name:asc</code></li>
+        </ul>
+        <p class="muted" style="margin: 12px 0 8px">Validation behavior:</p>
+        <ul>
+          <li>unknown fields are rejected with an error.</li>
+          <li>invalid direction values are rejected (<code>asc</code> and <code>desc</code> only).</li>
+          <li>duplicate fields in one expression are rejected.</li>
+        </ul>
+        <h3 class="cli-subtitle">Scrollback capture</h3>
+        <p class="muted" style="margin: 0 0 8px">
+          By default, scrollback capture is disabled. Enable it explicitly:
+        </p>
+        <pre><code>lazy-tmux save --all --scrollback --scrollback-lines 5000
+lazy-tmux daemon --interval 5m --scrollback --scrollback-lines 5000</code></pre>
+        <p class="muted" style="margin: 12px 0 8px">Behavior:</p>
+        <ul>
+          <li>
+            captures tmux pane scrollback only for panes that currently run an
+            interactive shell (no detected foreground app command).
+          </li>
+          <li>
+            stores scrollback as sidecar files and references them from session
+            snapshots.
+          </li>
+          <li>
+            on restore, writes captured scrollback back into pane tty before
+            command replay.
+          </li>
+        </ul>
+        <p class="muted" style="margin: 12px 0 8px">Storage layout:</p>
+        <ul>
+          <li><code>~/.local/share/lazy-tmux/sessions/*.json</code></li>
+          <li>
+            <code>~/.local/share/lazy-tmux/scrollback/&lt;session&gt;/*.log</code>
+          </li>
+        </ul>
+        <h3 class="cli-subtitle">Storage</h3>
+        <p class="muted" style="margin: 0 0 8px">Default directory:</p>
+        <ul>
+          <li><code>~/.local/share/lazy-tmux/index.json</code></li>
+          <li><code>~/.local/share/lazy-tmux/sessions/*.json</code></li>
+          <li><code>~/.local/share/lazy-tmux/scrollback/*</code></li>
+        </ul>
+        <p class="muted" style="margin: 12px 0 8px">Override via:</p>
+        <ul>
+          <li>env: <code>LAZY_TMUX_DATA_DIR</code></li>
+          <li>flag: <code>--data-dir</code></li>
+        </ul>
       </section>
 
       <!-- TUI picker (без изменений) -->
