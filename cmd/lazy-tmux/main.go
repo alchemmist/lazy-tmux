@@ -13,8 +13,10 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/config"
 )
 
-var exitFunc = os.Exit
-var fatalOutput = io.Writer(os.Stderr)
+var (
+	exitFunc    = os.Exit
+	fatalOutput = io.Writer(os.Stderr)
+)
 
 type sharedFlags struct {
 	dataDir *string

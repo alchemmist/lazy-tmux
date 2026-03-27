@@ -2,10 +2,47 @@ run:
   timeout: 5m
 
 linters:
-  disable-all: false
-  enable:
-    - errcheck
-    - gofmt
-    - govet
-    - ineffassign
-    - unused
+  enable-all: true
+  disable:
+    - tenv
+
+    - wsl
+    - lll
+    - gofumpt
+    - gci
+    - wrapcheck
+    - varnamelen
+    - testpackage
+    - unparam
+    - tagliatelle
+    - recvcheck
+    - paralleltest
+    - nlreturn
+    - nonamedreturns
+    - perfsprint
+    - nestif
+    - mnd
+    - goconst
+    - ireturn
+    - gocritic
+    - gochecknoglobals
+    - intrange
+    - forcetypeassert
+    - funlen
+    - gosmopolitan
+    - exhaustruct
+    - err113
+    - exhaustive
+    - depguard
+    - dupword
+    - cyclop
+    - errorlint
+    - revive
+    - gosec
+    - gocognit
+  # enable:
+  #   - errcheck
+  #   - gofmt
+  #   - govet
+  #   - ineffassign
+  #   - unused

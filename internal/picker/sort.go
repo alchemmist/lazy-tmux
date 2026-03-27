@@ -172,7 +172,7 @@ func parseWindowSortPart(part string) (WindowSortField, bool, error) {
 	return field, desc, nil
 }
 
-func splitSortPart(part string) (name string, dir string, hasDir bool) {
+func splitSortPart(part string) (name, dir string, hasDir bool) {
 	left, right, ok := strings.Cut(strings.TrimSpace(part), ":")
 	if !ok {
 		return strings.TrimSpace(part), "", false
