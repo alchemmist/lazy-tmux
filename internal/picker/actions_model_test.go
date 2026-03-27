@@ -9,7 +9,6 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
-
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
