@@ -4,6 +4,7 @@ package app
 
 import (
 	"bytes"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -14,14 +15,36 @@ import (
 )
 
 func TestWakeupIntegrationRestoresSession(t *testing.T) {
+	logFile := "/tmp/lazy-tmux-wakeup-test-log"
+	os.RemoveAll(logFile) // Clean up any prior test data
+
 	tmuxBin := writeFakeTmuxForApp(t, `
 if [ "$1" = "has-session" ]; then
+  echo "has-session" >> "`+logFile+`"
   exit 1
 fi
 if [ "$1" = "new-session" ]; then
+  echo "new-session" >> "`+logFile+`"
+  exit 0
+fi
+if [ "$1" = "send-keys" ]; then
+  echo "send-keys" >> "`+logFile+`"
+  exit 0
+fi
+if [ "$1" = "select-layout" ]; then
+  echo "select-layout" >> "`+logFile+`"
+  exit 0
+fi
+if [ "$1" = "select-window" ]; then
+  echo "select-window" >> "`+logFile+`"
+  exit 0
+fi
+if [ "$1" = "select-pane" ]; then
+  echo "select-pane" >> "`+logFile+`"
   exit 0
 fi
 if [ "$1" = "display-message" ]; then
+  echo "display-message" >> "`+logFile+`"
   if echo "$*" | grep -q "#{window_index}"; then
     printf "0\0370\n"
     exit 0
@@ -42,14 +65,17 @@ if [ "$1" = "display-message" ]; then
   exit 0
 fi
 if [ "$1" = "list-windows" ]; then
+  echo "list-windows" >> "`+logFile+`"
   printf "0\037main\037layout\0371\n"
   exit 0
 fi
 if [ "$1" = "list-panes" ]; then
+  echo "list-panes" >> "`+logFile+`"
   printf "0\037/home/user\037zsh\0371\037111\037\n"
   exit 0
 fi
-exit 0
+echo "unknown: $@" >> "`+logFile+`"
+exit 1
 `)
 
 	dataDir := t.TempDir()
@@ -104,18 +130,58 @@ exit 0
 	if loaded.SessionName != "myapp" {
 		t.Fatalf("expected session name 'myapp', got '%s'", loaded.SessionName)
 	}
+
+	// Verify expected tmux commands were invoked
+	logData, err := os.ReadFile(logFile)
+	if err != nil {
+		t.Fatalf("expected tmux commands to be logged: %v", err)
+	}
+	logContent := string(logData)
+	if !strings.Contains(logContent, "has-session") {
+		t.Fatalf("expected 'has-session' to be called, log: %s", logContent)
+	}
+	if !strings.Contains(logContent, "new-session") {
+		t.Fatalf("expected 'new-session' to be called, log: %s", logContent)
+	}
+	if !strings.Contains(logContent, "select-window") {
+		t.Fatalf("expected 'select-window' to be called, log: %s", logContent)
+	}
+	if !strings.Contains(logContent, "select-pane") {
+		t.Fatalf("expected 'select-pane' to be called, log: %s", logContent)
+	}
 }
 
 func TestSleepIntegrationSavesAndClosesSession(t *testing.T) {
-	capturedPaneOutput := false
+	logFile := "/tmp/lazy-tmux-sleep-test-log"
+	os.RemoveAll(logFile) // Clean up any prior test data
+
 	tmuxBin := writeFakeTmuxForApp(t, `
 if [ "$1" = "has-session" ]; then
+  echo "has-session" >> "`+logFile+`"
   exit 0
 fi
 if [ "$1" = "kill-session" ]; then
+  echo "kill-session" >> "`+logFile+`"
+  exit 0
+fi
+if [ "$1" = "send-keys" ]; then
+  echo "send-keys" >> "`+logFile+`"
+  exit 0
+fi
+if [ "$1" = "select-layout" ]; then
+  echo "select-layout" >> "`+logFile+`"
+  exit 0
+fi
+if [ "$1" = "select-window" ]; then
+  echo "select-window" >> "`+logFile+`"
+  exit 0
+fi
+if [ "$1" = "select-pane" ]; then
+  echo "select-pane" >> "`+logFile+`"
   exit 0
 fi
 if [ "$1" = "display-message" ]; then
+  echo "display-message" >> "`+logFile+`"
   if echo "$*" | grep -q "#{window_index}"; then
     printf "0\0370\n"
     exit 0
@@ -136,18 +202,22 @@ if [ "$1" = "display-message" ]; then
   exit 0
 fi
 if [ "$1" = "list-windows" ]; then
+  echo "list-windows" >> "`+logFile+`"
   printf "0\037editor\037layout\0371\n"
   exit 0
 fi
 if [ "$1" = "list-panes" ]; then
+  echo "list-panes" >> "`+logFile+`"
   printf "0\037/home/user/project\037nvim\0371\037222\037\n"
   exit 0
 fi
 if [ "$1" = "capture-pane" ]; then
+  echo "capture-pane" >> "`+logFile+`"
   printf "nvim session content\n"
   exit 0
 fi
-exit 0
+echo "unknown: $@" >> "`+logFile+`"
+exit 1
 `)
 
 	dataDir := t.TempDir()
@@ -203,21 +273,29 @@ exit 0
 		t.Fatalf("expected session name 'workspace', got '%s'", loaded.SessionName)
 	}
 
-	_ = capturedPaneOutput
+	// Verify expected tmux commands were invoked
+	logData, err := os.ReadFile(logFile)
+	if err != nil {
+		t.Fatalf("expected tmux commands to be logged: %v", err)
+	}
+	logContent := string(logData)
+	if !strings.Contains(logContent, "has-session") {
+		t.Fatalf("expected 'has-session' to be called, log: %s", logContent)
+	}
+	if !strings.Contains(logContent, "kill-session") {
+		t.Fatalf("expected 'kill-session' to be called, log: %s", logContent)
+	}
 }
 
 func TestWakeupHelpWorks(t *testing.T) {
 	bin := buildLazyTmuxBinary(t)
 
 	cmd := exec.Command(bin, "wakeup", "-h")
-	var out bytes.Buffer
-	cmd.Stdout = &out
+	output, _ := cmd.CombinedOutput()
 
-	_ = cmd.Run() // May exit with non-zero for -h
-
-	output := out.String()
-	if !strings.Contains(output, "session to wakeup") {
-		t.Fatalf("expected help text in output, got: %s", output)
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "session to wakeup") {
+		t.Fatalf("expected help text in output, got: %s", outputStr)
 	}
 }
 
@@ -225,13 +303,10 @@ func TestSleepHelpWorks(t *testing.T) {
 	bin := buildLazyTmuxBinary(t)
 
 	cmd := exec.Command(bin, "sleep", "-h")
-	var out bytes.Buffer
-	cmd.Stdout = &out
+	output, _ := cmd.CombinedOutput()
 
-	_ = cmd.Run() // May exit with non-zero for -h
-
-	output := out.String()
-	if !strings.Contains(output, "session to sleep") {
-		t.Fatalf("expected help text in output, got: %s", output)
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "session to sleep") {
+		t.Fatalf("expected help text in output, got: %s", outputStr)
 	}
 }
