@@ -112,3 +112,67 @@ func TestRunListPrintsSavedRecords(t *testing.T) {
 		t.Fatalf("expected both records in output, got:\n%s", text)
 	}
 }
+
+func TestRunWakeupRequiresSession(t *testing.T) {
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+
+	code := runCLI([]string{"wakeup"}, &out, &errOut)
+	if code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
+	}
+	if !strings.Contains(errOut.String(), "wakeup requires --session") {
+		t.Fatalf("unexpected stderr: %s", errOut.String())
+	}
+}
+
+func TestRunWakeupOnNonexistentSessionFails(t *testing.T) {
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	dir := t.TempDir()
+
+	code := runCLI([]string{"wakeup", "--session", "nonexistent", "--data-dir", dir}, &out, &errOut)
+	if code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
+	}
+	if !strings.Contains(errOut.String(), "not found") {
+		t.Fatalf("unexpected stderr: %s", errOut.String())
+	}
+}
+
+func TestRunSleepRequiresSession(t *testing.T) {
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+
+	code := runCLI([]string{"sleep"}, &out, &errOut)
+	if code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
+	}
+	if !strings.Contains(errOut.String(), "sleep requires --session") {
+		t.Fatalf("unexpected stderr: %s", errOut.String())
+	}
+}
+
+func TestRunSleepOnNonrunningSessionFails(t *testing.T) {
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	dir := t.TempDir()
+	s := store.New(dir)
+
+	if err := s.SaveSession(snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: "demo",
+		CapturedAt:  time.Now().UTC(),
+		Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
+	}); err != nil {
+		t.Fatalf("save session: %v", err)
+	}
+
+	code := runCLI([]string{"sleep", "--session", "demo", "--data-dir", dir}, &out, &errOut)
+	if code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
+	}
+	if !strings.Contains(errOut.String(), "not running") {
+		t.Fatalf("unexpected stderr: %s", errOut.String())
+	}
+}
