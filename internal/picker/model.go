@@ -61,21 +61,21 @@ func newPickerModel(sessions []Session, windowSort []WindowSortKey, actions Acti
 	input.Prompt = "> "
 	input.Focus()
 
-	vp := viewport.New()
+	viewPort := viewport.New()
 
-	m := pickerModel{
+	model := pickerModel{
 		sessions:      sessions,
 		windowSort:    windowSort,
 		queryInput:    input,
-		viewport:      vp,
+		viewport:      viewPort,
 		selectedStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Bold(true),
 		cursor:        0,
 		actions:       actions,
 		mode:          modeBrowse,
 	}
-	m.applyFilter()
+	model.applyFilter()
 
-	return m
+	return model
 }
 
 func (m pickerModel) Init() tea.Cmd {
@@ -187,36 +187,36 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m pickerModel) View() tea.View {
-	var b strings.Builder
+	var builder strings.Builder
 	if m.mode == modeBrowse {
-		b.WriteString(m.queryInput.View())
+		builder.WriteString(m.queryInput.View())
 	} else {
-		b.WriteString(m.promptInput.View())
+		builder.WriteString(m.promptInput.View())
 	}
 
-	b.WriteString("\n")
+	builder.WriteString("\n")
 
 	layout := buildPickerTableLayout(m.tableContentWidth())
 
-	b.WriteString("  ")
-	b.WriteString(layout.header())
-	b.WriteString("\n")
+	builder.WriteString("  ")
+	builder.WriteString(layout.header())
+	builder.WriteString("\n")
 
 	if m.statusMsg != "" {
-		b.WriteString(m.statusMsg)
-		b.WriteString("\n")
+		builder.WriteString(m.statusMsg)
+		builder.WriteString("\n")
 	}
 
 	if len(m.visible) == 0 {
-		b.WriteString("No sessions or windows match query\n")
-		view := tea.NewView(b.String())
+		builder.WriteString("No sessions or windows match query\n")
+		view := tea.NewView(builder.String())
 		view.AltScreen = true
 
 		return view
 	}
 
-	b.WriteString(m.viewport.View())
-	view := tea.NewView(b.String())
+	builder.WriteString(m.viewport.View())
+	view := tea.NewView(builder.String())
 	view.AltScreen = true
 
 	return view
@@ -263,14 +263,14 @@ func (m *pickerModel) renderViewport() {
 	layout := buildPickerTableLayout(m.tableContentWidth())
 	lines := make([]string, 0, len(m.visible))
 
-	for i, row := range m.visible {
+	for rowIndex, row := range m.visible {
 		pointer := "  "
-		if i == m.cursor && row.selectable {
+		if rowIndex == m.cursor && row.selectable {
 			pointer = "> "
 		}
 
 		line := pointer + layout.row(row)
-		if i == m.cursor && row.selectable {
+		if rowIndex == m.cursor && row.selectable {
 			line = m.selectedStyle.Render(line)
 		}
 

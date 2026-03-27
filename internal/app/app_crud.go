@@ -42,13 +42,13 @@ func (a *App) DeleteWindow(session string, windowIndex int) error {
 	windows := make([]snapshot.Window, 0, len(snap.Windows))
 	removed := false
 
-	for _, w := range snap.Windows {
-		if w.Index == windowIndex {
+	for _, write := range snap.Windows {
+		if write.Index == windowIndex {
 			removed = true
 			continue
 		}
 
-		windows = append(windows, w)
+		windows = append(windows, write)
 	}
 
 	if !removed {

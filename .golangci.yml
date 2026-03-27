@@ -6,7 +6,6 @@ linters:
   disable:
     - tenv
 
-    - varnamelen
     - testpackage
     - unparam
     - tagliatelle
@@ -35,9 +34,3 @@ linters:
     - revive
     - gosec
     - gocognit
-  # enable:
-  #   - errcheck
-  #   - gofmt
-  #   - govet
-  #   - ineffassign
-  #   - unused

@@ -12,16 +12,16 @@ import (
 func filteredTreeRows(sessions []Session, query string, windowSort []WindowSortKey) []pickerRow {
 	rows := make([]pickerRow, 0)
 
-	for _, s := range sessions {
-		windows := make([]snapshot.Window, len(s.Windows))
-		copy(windows, s.Windows)
+	for _, sess := range sessions {
+		windows := make([]snapshot.Window, len(sess.Windows))
+		copy(windows, sess.Windows)
 		sortWindows(windows, windowSort)
 
-		sessionMatch := query == "" || fuzzyMatch(query, strings.ToLower(s.Record.SessionName))
+		sessionMatch := query == "" || fuzzyMatch(query, strings.ToLower(sess.Record.SessionName))
 		matchedWindows := make([]snapshot.Window, 0, len(windows))
 
 		for _, w := range windows {
-			target := strings.ToLower(s.Record.SessionName + " " + w.Name)
+			target := strings.ToLower(sess.Record.SessionName + " " + w.Name)
 			if query == "" || sessionMatch || fuzzyMatch(query, target) {
 				matchedWindows = append(matchedWindows, w)
 			}
@@ -32,29 +32,29 @@ func filteredTreeRows(sessions []Session, query string, windowSort []WindowSortK
 		}
 
 		rows = append(rows, pickerRow{
-			target:     Target{SessionName: s.Record.SessionName},
-			item:       s.Record.SessionName,
-			captured:   s.Record.CapturedAt.Local().Format("2006-01-02 15:04:05"),
-			wins:       fmt.Sprintf("%d", s.Record.Windows),
-			state:      sessionStateIcon(s.Restored),
+			target:     Target{SessionName: sess.Record.SessionName},
+			item:       sess.Record.SessionName,
+			captured:   sess.Record.CapturedAt.Local().Format("2006-01-02 15:04:05"),
+			wins:       fmt.Sprintf("%d", sess.Record.Windows),
+			state:      sessionStateIcon(sess.Restored),
 			selectable: false,
 		})
 
-		for i, w := range matchedWindows {
+		for idx, win := range matchedWindows {
 			branch := "├─"
-			if i == len(matchedWindows)-1 {
+			if idx == len(matchedWindows)-1 {
 				branch = "╰─"
 			}
 
-			wi := w.Index
+			wi := win.Index
 			rows = append(rows, pickerRow{
-				target:     Target{SessionName: s.Record.SessionName, WindowIndex: &wi},
-				item:       fmt.Sprintf("  %s [%d] %s", branch, w.Index, w.Name),
+				target:     Target{SessionName: sess.Record.SessionName, WindowIndex: &wi},
+				item:       fmt.Sprintf("  %s [%d] %s", branch, win.Index, win.Name),
 				captured:   "",
 				wins:       "",
 				state:      "",
-				cmd:        windowPreviewCommand(w),
-				windowName: w.Name,
+				cmd:        windowPreviewCommand(win),
+				windowName: win.Name,
 				selectable: true,
 			})
 		}
@@ -76,18 +76,18 @@ func fuzzyMatch(query, target string) bool {
 		return true
 	}
 
-	qr := []rune(query)
-	qi := 0
+	queryRunes := []rune(query)
+	queryIndex := 0
 
 	for _, r := range target {
-		if qi >= len(qr) {
+		if queryIndex >= len(queryRunes) {
 			break
 		}
 
-		if r == qr[qi] {
-			qi++
+		if r == queryRunes[queryIndex] {
+			queryIndex++
 		}
 	}
 
-	return qi == len(qr)
+	return queryIndex == len(queryRunes)
 }

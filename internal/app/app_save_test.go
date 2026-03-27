@@ -34,17 +34,17 @@ fi
 exit 0
 `)
 
-	a := &App{
+	app := &App{
 		cfg:   config.Config{Scrollback: config.ScrollbackConfig{Enabled: false}},
 		store: store.New(t.TempDir()),
 		tmux:  tmux.NewClient(fake),
 	}
 
-	if err := a.SaveCurrent(); err != nil {
+	if err := app.SaveCurrent(); err != nil {
 		t.Fatalf("SaveCurrent error: %v", err)
 	}
 
-	if _, err := a.store.LoadSession("demo"); err != nil {
+	if _, err := app.store.LoadSession("demo"); err != nil {
 		t.Fatalf("expected snapshot saved, got %v", err)
 	}
 }
@@ -73,26 +73,26 @@ fi
 exit 0
 `)
 
-	a := &App{
+	app := &App{
 		cfg:   config.Config{Scrollback: config.ScrollbackConfig{Enabled: false}},
 		store: store.New(t.TempDir()),
 		tmux:  tmux.NewClient(fake),
 	}
 
-	if err := a.SaveAll(); err != nil {
+	if err := app.SaveAll(); err != nil {
 		t.Fatalf("SaveAll error: %v", err)
 	}
 
 	for _, name := range []string{"alpha", "beta"} {
-		if _, err := a.store.LoadSession(name); err != nil {
+		if _, err := app.store.LoadSession(name); err != nil {
 			t.Fatalf("expected %s snapshot saved, got %v", name, err)
 		}
 	}
 }
 
 func TestRestoreReturnsErrorOnEmptySession(t *testing.T) {
-	a := &App{}
-	if err := a.Restore(" ", false); err == nil {
+	app := &App{}
+	if err := app.Restore(" ", false); err == nil {
 		t.Fatal("expected error for empty session name")
 	}
 }
@@ -111,11 +111,11 @@ exit 0
 
 	dataDir := t.TempDir()
 
-	a := &App{
+	app := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),
 	}
-	if err := a.store.SaveSession(snapshot.SessionSnapshot{
+	if err := app.store.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "demo",
 		CapturedAt:  time.Now().UTC(),
@@ -124,11 +124,11 @@ exit 0
 		t.Fatalf("save session: %v", err)
 	}
 
-	if err := a.Restore("demo", false); err != nil {
+	if err := app.Restore("demo", false); err != nil {
 		t.Fatalf("Restore error: %v", err)
 	}
 
-	rec, err := a.store.LatestRecord()
+	rec, err := app.store.LatestRecord()
 	if err != nil {
 		t.Fatalf("LatestRecord: %v", err)
 	}

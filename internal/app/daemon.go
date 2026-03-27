@@ -64,22 +64,22 @@ func acquireLock(socketPath string) (func(), error) {
 		return nil, fmt.Errorf("create runtime dir: %w", err)
 	}
 
-	h := fnv.New64a()
-	_, _ = h.Write([]byte(socketPath))
-	lockPath := filepath.Join(runtimeDir, fmt.Sprintf("lazy-tmux-%x.lock", h.Sum64()))
+	hash := fnv.New64a()
+	_, _ = hash.Write([]byte(socketPath))
+	lockPath := filepath.Join(runtimeDir, fmt.Sprintf("lazy-tmux-%x.lock", hash.Sum64()))
 
-	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o644)
+	file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o644)
 	if err != nil {
 		return nil, fmt.Errorf("open lock file: %w", err)
 	}
 
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		_ = f.Close()
+	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		_ = file.Close()
 		return nil, fmt.Errorf("daemon already running")
 	}
 
 	return func() {
-		_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
-		_ = f.Close()
+		_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
+		_ = file.Close()
 	}, nil
 }

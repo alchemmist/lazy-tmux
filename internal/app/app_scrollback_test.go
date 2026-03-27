@@ -38,7 +38,7 @@ exit 0
 
 	t.Setenv("TMUX_LOG", logPath)
 
-	a := &App{
+	app := &App{
 		cfg:  config.Config{Scrollback: config.ScrollbackConfig{Enabled: true, Lines: 10}},
 		tmux: tmux.NewClient(fake),
 	}
@@ -56,7 +56,7 @@ exit 0
 		},
 	}
 
-	a.captureShellScrollback(&snap)
+	app.captureShellScrollback(&snap)
 
 	if snap.Windows[0].Panes[0].Scrollback != nil {
 		t.Fatal("expected non-shell pane to skip scrollback capture")
@@ -82,7 +82,7 @@ fi
 exit 0
 `)
 
-	a := &App{
+	app := &App{
 		cfg:  config.Config{Scrollback: config.ScrollbackConfig{Enabled: true, Lines: 10}},
 		tmux: tmux.NewClient(fake),
 	}
@@ -99,7 +99,7 @@ exit 0
 		},
 	}
 
-	a.captureShellScrollback(&snap)
+	app.captureShellScrollback(&snap)
 
 	if snap.Windows[0].Panes[0].Scrollback != nil {
 		t.Fatalf(

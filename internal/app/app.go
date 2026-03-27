@@ -153,14 +153,14 @@ func (a *App) captureShellScrollback(snap *snapshot.SessionSnapshot) {
 		lines = 5000
 	}
 
-	for wi := range snap.Windows {
-		for pi := range snap.Windows[wi].Panes {
-			pane := &snap.Windows[wi].Panes[pi]
+	for win := range snap.Windows {
+		for pi := range snap.Windows[win].Panes {
+			pane := &snap.Windows[win].Panes[pi]
 			if strings.TrimSpace(pane.RestoreCmd) != "" || !isShellCommandName(pane.CurrentCmd) {
 				continue
 			}
 
-			target := tmux.PaneTarget(snap.SessionName, snap.Windows[wi].Index, pane.Index)
+			target := tmux.PaneTarget(snap.SessionName, snap.Windows[win].Index, pane.Index)
 
 			out, err := a.tmux.CapturePaneScrollback(target, lines)
 			if err != nil {

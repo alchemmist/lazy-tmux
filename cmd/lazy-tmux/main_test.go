@@ -97,9 +97,9 @@ func TestRunListPrintsSavedRecords(t *testing.T) {
 	var errOut bytes.Buffer
 
 	dir := t.TempDir()
-	s := store.New(dir)
+	store := store.New(dir)
 
-	if err := s.SaveSession(snapshot.SessionSnapshot{
+	if err := store.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "alpha",
 		CapturedAt:  time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC),
@@ -108,7 +108,7 @@ func TestRunListPrintsSavedRecords(t *testing.T) {
 		t.Fatalf("save alpha: %v", err)
 	}
 
-	if err := s.SaveSession(snapshot.SessionSnapshot{
+	if err := store.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "beta",
 		CapturedAt:  time.Date(2026, 1, 1, 11, 0, 0, 0, time.UTC),

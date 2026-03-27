@@ -14,9 +14,9 @@ import (
 
 func TestSaveAndLoadSession(t *testing.T) {
 	dir := t.TempDir()
-	s := New(dir)
+	store := New(dir)
 
-	ss := snapshot.SessionSnapshot{
+	sessionSnapshot := snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "work/main",
 		CapturedAt:  time.Now().UTC(),
@@ -25,20 +25,20 @@ func TestSaveAndLoadSession(t *testing.T) {
 		},
 	}
 
-	if err := s.SaveSession(ss); err != nil {
+	if err := store.SaveSession(sessionSnapshot); err != nil {
 		t.Fatalf("save: %v", err)
 	}
 
-	loaded, err := s.LoadSession("work/main")
+	loaded, err := store.LoadSession("work/main")
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
 
-	if loaded.SessionName != ss.SessionName {
-		t.Fatalf("expected session %q, got %q", ss.SessionName, loaded.SessionName)
+	if loaded.SessionName != sessionSnapshot.SessionName {
+		t.Fatalf("expected session %q, got %q", sessionSnapshot.SessionName, loaded.SessionName)
 	}
 
-	recs, err := s.ListRecords()
+	recs, err := store.ListRecords()
 	if err != nil {
 		t.Fatalf("list records: %v", err)
 	}
@@ -88,10 +88,10 @@ func TestLatestRecordNoData(t *testing.T) {
 }
 
 func TestListRecordsSortedByCapturedAtDesc(t *testing.T) {
-	s := New(t.TempDir())
+	store := New(t.TempDir())
 	base := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
 
-	if err := s.SaveSession(snapshot.SessionSnapshot{
+	if err := store.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "old",
 		CapturedAt:  base,
@@ -100,7 +100,7 @@ func TestListRecordsSortedByCapturedAtDesc(t *testing.T) {
 		t.Fatalf("save old: %v", err)
 	}
 
-	if err := s.SaveSession(snapshot.SessionSnapshot{
+	if err := store.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "new",
 		CapturedAt:  base.Add(1 * time.Hour),
@@ -109,7 +109,7 @@ func TestListRecordsSortedByCapturedAtDesc(t *testing.T) {
 		t.Fatalf("save new: %v", err)
 	}
 
-	recs, err := s.ListRecords()
+	recs, err := store.ListRecords()
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
@@ -132,10 +132,10 @@ func TestDefaultDataDirEnvOverride(t *testing.T) {
 }
 
 func TestMarkSessionAccessed(t *testing.T) {
-	s := New(t.TempDir())
+	store := New(t.TempDir())
 	base := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
 
-	if err := s.SaveSession(snapshot.SessionSnapshot{
+	if err := store.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "demo",
 		CapturedAt:  base,
@@ -145,11 +145,11 @@ func TestMarkSessionAccessed(t *testing.T) {
 	}
 
 	accessedAt := base.Add(30 * time.Minute)
-	if err := s.MarkSessionAccessed("demo", accessedAt); err != nil {
+	if err := store.MarkSessionAccessed("demo", accessedAt); err != nil {
 		t.Fatalf("mark accessed: %v", err)
 	}
 
-	recs, err := s.ListRecords()
+	recs, err := store.ListRecords()
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
@@ -164,8 +164,8 @@ func TestMarkSessionAccessed(t *testing.T) {
 }
 
 func TestSaveAndLoadSessionWithScrollbackSidecar(t *testing.T) {
-	s := New(t.TempDir())
-	ss := snapshot.SessionSnapshot{
+	store := New(t.TempDir())
+	sessionSnapshot := snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "work",
 		CapturedAt:  time.Date(2026, 3, 3, 10, 0, 0, 0, time.UTC),
@@ -185,11 +185,11 @@ func TestSaveAndLoadSessionWithScrollbackSidecar(t *testing.T) {
 		},
 	}
 
-	if err := s.SaveSession(ss); err != nil {
+	if err := store.SaveSession(sessionSnapshot); err != nil {
 		t.Fatalf("save: %v", err)
 	}
 
-	loaded, err := s.LoadSession("work")
+	loaded, err := store.LoadSession("work")
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
@@ -198,24 +198,24 @@ func TestSaveAndLoadSessionWithScrollbackSidecar(t *testing.T) {
 		t.Fatal("expected scrollback metadata")
 	}
 
-	sb := loaded.Windows[0].Panes[0].Scrollback
-	if sb.Ref == "" {
+	scrollback := loaded.Windows[0].Panes[0].Scrollback
+	if scrollback.Ref == "" {
 		t.Fatal("expected scrollback ref")
 	}
 
-	if sb.Content != "echo 1\n1\n" {
-		t.Fatalf("unexpected scrollback content: %q", sb.Content)
+	if scrollback.Content != "echo 1\n1\n" {
+		t.Fatalf("unexpected scrollback content: %q", scrollback.Content)
 	}
 
-	if sb.Bytes == 0 || sb.Lines == 0 {
-		t.Fatalf("expected non-zero scrollback metadata, got lines=%d bytes=%d", sb.Lines, sb.Bytes)
+	if scrollback.Bytes == 0 || scrollback.Lines == 0 {
+		t.Fatalf("expected non-zero scrollback metadata, got lines=%d bytes=%d", scrollback.Lines, scrollback.Bytes)
 	}
 }
 
 func TestSaveSessionWithoutScrollbackDoesNotCreateSessionScrollbackDir(t *testing.T) {
 	base := t.TempDir()
-	s := New(base)
-	ss := snapshot.SessionSnapshot{
+	store := New(base)
+	sessionSnapshot := snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "plain",
 		CapturedAt:  time.Now().UTC(),
@@ -229,7 +229,7 @@ func TestSaveSessionWithoutScrollbackDoesNotCreateSessionScrollbackDir(t *testin
 		},
 	}
 
-	if err := s.SaveSession(ss); err != nil {
+	if err := store.SaveSession(sessionSnapshot); err != nil {
 		t.Fatalf("save: %v", err)
 	}
 
@@ -241,8 +241,8 @@ func TestSaveSessionWithoutScrollbackDoesNotCreateSessionScrollbackDir(t *testin
 
 func TestLoadSessionRejectsScrollbackPathTraversal(t *testing.T) {
 	base := t.TempDir()
-	s := New(base)
-	ss := snapshot.SessionSnapshot{
+	store := New(base)
+	sessionSnapshot := snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "evil",
 		CapturedAt:  time.Now().UTC(),
@@ -262,20 +262,20 @@ func TestLoadSessionRejectsScrollbackPathTraversal(t *testing.T) {
 		},
 	}
 
-	b, err := json.Marshal(ss)
+	jsonData, err := json.Marshal(sessionSnapshot)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(s.sessionPath("evil")), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(store.sessionPath("evil")), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 
-	if err := os.WriteFile(s.sessionPath("evil"), b, 0o644); err != nil {
+	if err := os.WriteFile(store.sessionPath("evil"), jsonData, 0o644); err != nil {
 		t.Fatalf("write snapshot: %v", err)
 	}
 
-	_, err = s.LoadSession("evil")
+	_, err = store.LoadSession("evil")
 	if err == nil {
 		t.Fatal("expected traversal validation error")
 	}
@@ -287,7 +287,7 @@ func TestLoadSessionRejectsScrollbackPathTraversal(t *testing.T) {
 
 func TestLoadSessionRejectsScrollbackSymlinkEscape(t *testing.T) {
 	base := t.TempDir()
-	s := New(base)
+	store := New(base)
 
 	outsideDir := t.TempDir()
 
@@ -306,7 +306,7 @@ func TestLoadSessionRejectsScrollbackSymlinkEscape(t *testing.T) {
 		t.Fatalf("create symlink: %v", err)
 	}
 
-	ss := snapshot.SessionSnapshot{
+	sessionSnapshot := snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "evil",
 		CapturedAt:  time.Now().UTC(),
@@ -326,20 +326,20 @@ func TestLoadSessionRejectsScrollbackSymlinkEscape(t *testing.T) {
 		},
 	}
 
-	b, err := json.Marshal(ss)
+	jsonData, err := json.Marshal(sessionSnapshot)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(s.sessionPath("evil")), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(store.sessionPath("evil")), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 
-	if err := os.WriteFile(s.sessionPath("evil"), b, 0o644); err != nil {
+	if err := os.WriteFile(store.sessionPath("evil"), jsonData, 0o644); err != nil {
 		t.Fatalf("write snapshot: %v", err)
 	}
 
-	_, err = s.LoadSession("evil")
+	_, err = store.LoadSession("evil")
 	if err == nil {
 		t.Fatal("expected symlink escape validation error")
 	}
@@ -351,7 +351,7 @@ func TestLoadSessionRejectsScrollbackSymlinkEscape(t *testing.T) {
 
 func TestLoadSessionAllowsDotDotPrefixSegmentName(t *testing.T) {
 	base := t.TempDir()
-	s := New(base)
+	store := New(base)
 
 	scrollDir := filepath.Join(base, scrollbackDir, "..cache")
 	if err := os.MkdirAll(scrollDir, 0o755); err != nil {
@@ -363,7 +363,7 @@ func TestLoadSessionAllowsDotDotPrefixSegmentName(t *testing.T) {
 		t.Fatalf("write log: %v", err)
 	}
 
-	ss := snapshot.SessionSnapshot{
+	sessionSnapshot := snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "demo",
 		CapturedAt:  time.Now().UTC(),
@@ -383,20 +383,20 @@ func TestLoadSessionAllowsDotDotPrefixSegmentName(t *testing.T) {
 		},
 	}
 
-	b, err := json.Marshal(ss)
+	jsonData, err := json.Marshal(sessionSnapshot)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(s.sessionPath("demo")), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(store.sessionPath("demo")), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 
-	if err := os.WriteFile(s.sessionPath("demo"), b, 0o644); err != nil {
+	if err := os.WriteFile(store.sessionPath("demo"), jsonData, 0o644); err != nil {
 		t.Fatalf("write snapshot: %v", err)
 	}
 
-	loaded, err := s.LoadSession("demo")
+	loaded, err := store.LoadSession("demo")
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
@@ -408,8 +408,8 @@ func TestLoadSessionAllowsDotDotPrefixSegmentName(t *testing.T) {
 }
 
 func TestSaveSessionRejectsInvalidScrollbackSessionName(t *testing.T) {
-	s := New(t.TempDir())
-	ss := snapshot.SessionSnapshot{
+	store := New(t.TempDir())
+	sessionSnapshot := snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "..",
 		CapturedAt:  time.Now().UTC(),
@@ -427,7 +427,7 @@ func TestSaveSessionRejectsInvalidScrollbackSessionName(t *testing.T) {
 		},
 	}
 
-	err := s.SaveSession(ss)
+	err := store.SaveSession(sessionSnapshot)
 	if err == nil {
 		t.Fatal("expected invalid session name error")
 	}
@@ -438,8 +438,8 @@ func TestSaveSessionRejectsInvalidScrollbackSessionName(t *testing.T) {
 }
 
 func TestDeleteSessionRemovesIndexEntry(t *testing.T) {
-	s := New(t.TempDir())
-	if err := s.SaveSession(snapshot.SessionSnapshot{
+	store := New(t.TempDir())
+	if err := store.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "demo",
 		CapturedAt:  time.Now().UTC(),
@@ -448,11 +448,11 @@ func TestDeleteSessionRemovesIndexEntry(t *testing.T) {
 		t.Fatalf("save: %v", err)
 	}
 
-	if err := s.DeleteSession("demo"); err != nil {
+	if err := store.DeleteSession("demo"); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
 
-	recs, err := s.ListRecords()
+	recs, err := store.ListRecords()
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}

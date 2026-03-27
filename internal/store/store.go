@@ -46,13 +46,13 @@ func DefaultDataDir() string {
 	return filepath.Join(home, ".local", "share", "lazy-tmux")
 }
 
-func (s *Store) SaveSession(ss snapshot.SessionSnapshot) error {
-	if ss.SessionName == "" {
+func (s *Store) SaveSession(sessionSnapshot snapshot.SessionSnapshot) error {
+	if sessionSnapshot.SessionName == "" {
 		return errors.New("empty session name")
 	}
 
-	if ss.CapturedAt.IsZero() {
-		ss.CapturedAt = time.Now().UTC()
+	if sessionSnapshot.CapturedAt.IsZero() {
+		sessionSnapshot.CapturedAt = time.Now().UTC()
 	}
 
 	s.mu.Lock()
@@ -62,21 +62,21 @@ func (s *Store) SaveSession(ss snapshot.SessionSnapshot) error {
 		return err
 	}
 
-	safeName, entries, err := s.planScrollbackUnlocked(&ss)
+	safeName, entries, err := s.planScrollbackUnlocked(&sessionSnapshot)
 	if err != nil {
 		return err
 	}
 
-	path := s.sessionPath(ss.SessionName)
+	path := s.sessionPath(sessionSnapshot.SessionName)
 
-	jsonTmp, err := writeJSONTemp(path, ss, defaultFilePerm)
+	jsonTmp, err := writeJSONTemp(path, sessionSnapshot, defaultFilePerm)
 	if err != nil {
 		return err
 	}
 
 	defer func() { _ = os.Remove(jsonTmp) }()
 
-	if err := s.persistScrollbackUnlocked(ss.SessionName, safeName, entries); err != nil {
+	if err := s.persistScrollbackUnlocked(sessionSnapshot.SessionName, safeName, entries); err != nil {
 		return err
 	}
 
@@ -90,16 +90,16 @@ func (s *Store) SaveSession(ss snapshot.SessionSnapshot) error {
 	}
 
 	panes := 0
-	for _, w := range ss.Windows {
+	for _, w := range sessionSnapshot.Windows {
 		panes += len(w.Panes)
 	}
 
-	idx.Sessions[ss.SessionName] = snapshot.Record{
-		SessionName:  ss.SessionName,
+	idx.Sessions[sessionSnapshot.SessionName] = snapshot.Record{
+		SessionName:  sessionSnapshot.SessionName,
 		File:         path,
-		CapturedAt:   ss.CapturedAt.UTC(),
-		LastAccessed: idx.Sessions[ss.SessionName].LastAccessed,
-		Windows:      len(ss.Windows),
+		CapturedAt:   sessionSnapshot.CapturedAt.UTC(),
+		LastAccessed: idx.Sessions[sessionSnapshot.SessionName].LastAccessed,
+		Windows:      len(sessionSnapshot.Windows),
 		Panes:        panes,
 	}
 	idx.Updated = time.Now().UTC()
@@ -247,14 +247,14 @@ func (s *Store) LatestRecord() (snapshot.Record, error) {
 	return recs[0], nil
 }
 
-func (s *Store) MarkSessionAccessed(name string, at time.Time) error {
+func (s *Store) MarkSessionAccessed(name string, accessTime time.Time) error {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return errors.New("empty session name")
 	}
 
-	if at.IsZero() {
-		at = time.Now().UTC()
+	if accessTime.IsZero() {
+		accessTime = time.Now().UTC()
 	}
 
 	s.mu.Lock()
@@ -270,7 +270,7 @@ func (s *Store) MarkSessionAccessed(name string, at time.Time) error {
 		return os.ErrNotExist
 	}
 
-	rec.LastAccessed = at.UTC()
+	rec.LastAccessed = accessTime.UTC()
 	idx.Sessions[name] = rec
 	idx.Updated = time.Now().UTC()
 
@@ -292,7 +292,7 @@ func (s *Store) ensureLayout() error {
 func (s *Store) loadIndexUnlocked() (snapshot.Index, error) {
 	p := s.indexPath()
 
-	b, err := os.ReadFile(p)
+	fileContent, err := os.ReadFile(p)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return snapshot.Index{
@@ -306,7 +306,7 @@ func (s *Store) loadIndexUnlocked() (snapshot.Index, error) {
 	}
 
 	var idx snapshot.Index
-	if err := json.Unmarshal(b, &idx); err != nil {
+	if err := json.Unmarshal(fileContent, &idx); err != nil {
 		return snapshot.Index{}, fmt.Errorf("decode index: %w", err)
 	}
 
@@ -349,18 +349,18 @@ type scrollbackEntry struct {
 }
 
 func (s *Store) planScrollbackUnlocked(
-	ss *snapshot.SessionSnapshot,
+	sessionSnapshot *snapshot.SessionSnapshot,
 ) (string, []scrollbackEntry, error) {
-	safeName, err := safeScrollbackSessionName(ss.SessionName)
+	safeName, err := safeScrollbackSessionName(sessionSnapshot.SessionName)
 	if err != nil {
 		return "", nil, err
 	}
 
 	entries := make([]scrollbackEntry, 0)
 
-	for wi := range ss.Windows {
-		for pi := range ss.Windows[wi].Panes {
-			pane := &ss.Windows[wi].Panes[pi]
+	for windowIndex := range sessionSnapshot.Windows {
+		for pi := range sessionSnapshot.Windows[windowIndex].Panes {
+			pane := &sessionSnapshot.Windows[windowIndex].Panes[pi]
 			if pane.Scrollback == nil {
 				continue
 			}
@@ -371,7 +371,7 @@ func (s *Store) planScrollbackUnlocked(
 				continue
 			}
 
-			fileName := fmt.Sprintf("w%d_p%d.log", ss.Windows[wi].Index, pane.Index)
+			fileName := fmt.Sprintf("w%d_p%d.log", sessionSnapshot.Windows[windowIndex].Index, pane.Index)
 			ref := filepath.Join(scrollbackDir, safeName, fileName)
 			pane.Scrollback.Ref = ref
 			pane.Scrollback.Bytes = len(content)
@@ -464,15 +464,15 @@ func promoteScrollbackStage(sessionDir, stageDir string) error {
 	return nil
 }
 
-func (s *Store) hydrateScrollback(ss *snapshot.SessionSnapshot) error {
+func (s *Store) hydrateScrollback(sessionSnapshot *snapshot.SessionSnapshot) error {
 	baseRoot, err := filepath.Abs(filepath.Clean(filepath.Join(s.baseDir, scrollbackDir)))
 	if err != nil {
 		return fmt.Errorf("get base root: %w", err)
 	}
 
-	for wi := range ss.Windows {
-		for pi := range ss.Windows[wi].Panes {
-			pane := &ss.Windows[wi].Panes[pi]
+	for wi := range sessionSnapshot.Windows {
+		for pi := range sessionSnapshot.Windows[wi].Panes {
+			pane := &sessionSnapshot.Windows[wi].Panes[pi]
 			if pane.Scrollback == nil || strings.TrimSpace(pane.Scrollback.Ref) == "" {
 				continue
 			}
@@ -482,7 +482,7 @@ func (s *Store) hydrateScrollback(ss *snapshot.SessionSnapshot) error {
 				return err
 			}
 
-			b, err := os.ReadFile(path)
+			fileContent, err := os.ReadFile(path)
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
 					continue
@@ -491,13 +491,13 @@ func (s *Store) hydrateScrollback(ss *snapshot.SessionSnapshot) error {
 				return fmt.Errorf("read scrollback file: %w", err)
 			}
 
-			pane.Scrollback.Content = string(b)
+			pane.Scrollback.Content = string(fileContent)
 			if pane.Scrollback.Bytes == 0 {
-				pane.Scrollback.Bytes = len(b)
+				pane.Scrollback.Bytes = len(fileContent)
 			}
 
 			if pane.Scrollback.Lines == 0 {
-				pane.Scrollback.Lines = countLines(string(b))
+				pane.Scrollback.Lines = countLines(string(fileContent))
 			}
 		}
 	}
@@ -625,13 +625,13 @@ func writeJSONAtomic(path string, v any) error {
 }
 
 func writeJSONTemp(path string, v any, perm os.FileMode) (string, error) {
-	b, err := json.MarshalIndent(v, "", "  ")
+	jsonData, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("marshal json: %w", err)
 	}
 
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, append(b, '\n'), perm); err != nil {
+	if err := os.WriteFile(tmp, append(jsonData, '\n'), perm); err != nil {
 		return "", fmt.Errorf("write temp file: %w", err)
 	}
 
