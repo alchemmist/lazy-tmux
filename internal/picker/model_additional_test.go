@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
-
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
