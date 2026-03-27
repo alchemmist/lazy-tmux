@@ -2,6 +2,7 @@ package app
 
 import (
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -225,13 +226,13 @@ exit 0
 }
 
 func TestSleepKillsRunningSession(t *testing.T) {
-	killCalled := false
+	markerFile := "/tmp/lazy-tmux-test-kill-marker"
 	fake := writeFakeTmuxForApp(t, `
 if [ "$1" = "has-session" ]; then
   exit 0
 fi
 if [ "$1" = "kill-session" ]; then
-  echo "killed" >> /tmp/test-marker
+  echo "killed" >> "`+markerFile+`"
   exit 0
 fi
 if [ "$1" = "display-message" ]; then
@@ -292,5 +293,12 @@ exit 0
 		t.Fatalf("expected session to remain in store: %v", err)
 	}
 
-	_ = killCalled
+	// Verify that kill-session was actually executed
+	data, err := os.ReadFile(markerFile)
+	if err != nil {
+		t.Fatalf("expected kill-session to be called (marker file missing): %v", err)
+	}
+	if !strings.Contains(string(data), "killed") {
+		t.Fatalf("expected 'killed' in marker file, got: %s", string(data))
+	}
 }

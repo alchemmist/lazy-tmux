@@ -314,7 +314,7 @@ Usage:
 Commands:
   save       Save current or selected sessions
   restore    Restore one session from disk
-  wakeup     Restore a saved session (lazy load) and switch to it
+  wakeup     Restore a saved session (lazy load) without switching clients
   sleep      Save and close a running session
   picker     Open session picker and restore selected session (default: TUI)
   bootstrap  Restore one session at tmux startup (default: last)
