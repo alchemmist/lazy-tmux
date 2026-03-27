@@ -198,3 +198,31 @@ func nextWindowIndex(windows []snapshot.Window) int {
 	}
 	return maxIdx + 1
 }
+
+func (a *App) Wakeup(session string) error {
+	if strings.TrimSpace(session) == "" {
+		return fmt.Errorf("session name is empty")
+	}
+	// Check if session already exists
+	if a.tmux.SessionExists(session) {
+		return fmt.Errorf("session %q is already awake", session)
+	}
+	// Restore the session
+	return a.Restore(session, false)
+}
+
+func (a *App) Sleep(session string) error {
+	if strings.TrimSpace(session) == "" {
+		return fmt.Errorf("session name is empty")
+	}
+	// Check if session exists
+	if !a.tmux.SessionExists(session) {
+		return fmt.Errorf("session %q is not running", session)
+	}
+	// Save the session first
+	if err := a.SaveSession(session); err != nil {
+		return err
+	}
+	// Then kill it
+	return a.tmux.KillSession(session)
+}
