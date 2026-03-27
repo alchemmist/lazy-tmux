@@ -345,7 +345,7 @@ func ChooseTarget(sessions []Session, windowSort []WindowSortKey, actions Action
 
 	finalModel, err := runner.Run()
 	if err != nil {
-		return Target{}, err
+		return Target{}, fmt.Errorf("run picker: %w", err)
 	}
 
 	result, ok := finalModel.(pickerModel)

@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"fmt"
 	"log"
 
 	"github.com/alchemmist/lazy-tmux/internal/picker"
@@ -13,7 +14,7 @@ var errNoSavedSessions = errors.New("no saved sessions found")
 func (a *App) pickerRecords(opts PickerSortOptions) ([]snapshot.Record, error) {
 	records, err := a.store.ListRecords()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list records: %w", err)
 	}
 
 	if len(records) == 0 {
@@ -33,7 +34,7 @@ func (a *App) pickerSessions(opts PickerSortOptions) ([]picker.Session, error) {
 
 	liveSessions, err := a.tmux.ListSessions()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list sessions: %w", err)
 	}
 
 	live := make(map[string]struct{}, len(liveSessions))
@@ -96,7 +97,12 @@ func (a *App) SelectTargetWithTUISorted(opts PickerSortOptions) (PickerTarget, e
 		},
 	}
 
-	return picker.ChooseTarget(sessions, opts.Window, actions)
+	target, err := picker.ChooseTarget(sessions, opts.Window, actions)
+	if err != nil {
+		return picker.Target{}, fmt.Errorf("choose target: %w", err)
+	}
+
+	return target, nil
 }
 
 func (a *App) SelectWithTUI() (string, error) {
@@ -118,5 +124,10 @@ func (a *App) SelectWithFZFSorted(opts PickerSortOptions) (string, error) {
 		return "", err
 	}
 
-	return picker.ChooseSessionFZF(records)
+	session, err := picker.ChooseSessionFZF(records)
+	if err != nil {
+		return "", fmt.Errorf("choose session fzf: %w", err)
+	}
+
+	return session, nil
 }

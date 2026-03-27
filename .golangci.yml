@@ -6,7 +6,6 @@ linters:
   disable:
     - tenv
 
-    - wrapcheck
     - varnamelen
     - testpackage
     - unparam

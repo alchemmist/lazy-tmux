@@ -66,7 +66,11 @@ func (c *Client) Run(args ...string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("run tmux: %w", err)
+	}
+
+	return nil
 }
 
 func (c *Client) Output(args ...string) (string, error) {
@@ -560,7 +564,7 @@ func writePaneTTY(path, content string) error {
 
 	fi, err := os.Stat(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("stat tty: %w", err)
 	}
 
 	if fi.Mode()&os.ModeCharDevice == 0 {
@@ -569,13 +573,17 @@ func writePaneTTY(path, content string) error {
 
 	f, err := os.OpenFile(path, os.O_WRONLY, 0)
 	if err != nil {
-		return err
+		return fmt.Errorf("open tty: %w", err)
 	}
 
 	defer f.Close()
-	_, err = io.WriteString(f, content)
 
-	return err
+	_, err = io.WriteString(f, content)
+	if err != nil {
+		return fmt.Errorf("write to tty: %w", err)
+	}
+
+	return nil
 }
 
 func (c *Client) foregroundCommand(paneTTY string, panePID int) (string, error) {
@@ -608,7 +616,7 @@ func (c *Client) foregroundCommand(paneTTY string, panePID int) (string, error) 
 	}
 
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("get output: %w", err)
 	}
 
 	return pickForegroundCommand(splitLines(string(out)), panePID), nil
@@ -728,5 +736,10 @@ func (c *Client) createdFirstWindowIndex(session string) (int, error) {
 		return 0, errors.New("no windows found after session creation")
 	}
 
-	return strconv.Atoi(lines[0])
+	idx, err := strconv.Atoi(lines[0])
+	if err != nil {
+		return 0, fmt.Errorf("parse window index: %w", err)
+	}
+
+	return idx, nil
 }
