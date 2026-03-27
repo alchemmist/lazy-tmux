@@ -107,7 +107,7 @@ clean:
 
 help:
 	@printf "Available targets:\n\n"
-	@printf "  check       - run fmt-check, lint, test, build\n"
+	@printf "  check       - run build, fmt-check, lint, test, test-cov, test-integration\n"
 	@printf "  build       - build binary into ./bin\n"
 	@printf "  build-fzf   - build fzf-only binary into ./bin\n"
 	@printf "  build-all   - build both tui and fzf-only binaries into ./bin\n"
