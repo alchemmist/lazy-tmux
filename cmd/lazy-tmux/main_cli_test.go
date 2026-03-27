@@ -38,7 +38,9 @@ exit 0
 `)
 
 	var out bytes.Buffer
+
 	var errOut bytes.Buffer
+
 	code := runCLI([]string{
 		"save",
 		"--session", "demo",
@@ -56,11 +58,14 @@ exit 0
 
 func TestRunSaveValidatesScrollbackLines(t *testing.T) {
 	var out bytes.Buffer
+
 	var errOut bytes.Buffer
+
 	code := runCLI([]string{"save", "--scrollback", "--scrollback-lines", "0"}, &out, &errOut)
 	if code != 1 {
 		t.Fatalf("expected exit code 1, got %d", code)
 	}
+
 	if !strings.Contains(errOut.String(), "save requires --scrollback-lines > 0") {
 		t.Fatalf("unexpected stderr: %s", errOut.String())
 	}
@@ -92,7 +97,9 @@ exit 0
 `)
 
 	var out bytes.Buffer
+
 	var errOut bytes.Buffer
+
 	code := runCLI([]string{
 		"save",
 		"--all",
@@ -136,7 +143,9 @@ exit 0
 `)
 
 	var out bytes.Buffer
+
 	var errOut bytes.Buffer
+
 	code := runCLI([]string{
 		"save",
 		"--tmux-bin", fake,
@@ -145,6 +154,7 @@ exit 0
 	if code != 0 {
 		t.Fatalf("expected exit code 0, got %d, stderr=%s", code, errOut.String())
 	}
+
 	if _, err := store.New(dataDir).LoadSession("demo"); err != nil {
 		t.Fatalf("expected saved snapshot, got %v", err)
 	}
@@ -152,6 +162,7 @@ exit 0
 
 func TestRunRestoreSuccess(t *testing.T) {
 	dataDir := t.TempDir()
+
 	s := store.New(dataDir)
 	if err := s.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
@@ -176,7 +187,9 @@ exit 0
 `)
 
 	var out bytes.Buffer
+
 	var errOut bytes.Buffer
+
 	code := runCLI([]string{
 		"restore",
 		"--session", "demo",
@@ -191,6 +204,7 @@ exit 0
 
 func TestRunPickerFZFSuccess(t *testing.T) {
 	dataDir := t.TempDir()
+
 	s := store.New(dataDir)
 	if err := s.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
@@ -214,14 +228,18 @@ fi
 exit 0
 `)
 	fakeFzfDir := t.TempDir()
+
 	fakeFzf := filepath.Join(fakeFzfDir, "fzf")
 	if err := os.WriteFile(fakeFzf, []byte("#!/bin/sh\nprintf 'demo\t2026-03-10 10:00:00\t1w\n'\n"), 0o755); err != nil {
 		t.Fatalf("write fake fzf: %v", err)
 	}
+
 	t.Setenv("PATH", fakeFzfDir+":"+os.Getenv("PATH"))
 
 	var out bytes.Buffer
+
 	var errOut bytes.Buffer
+
 	code := runCLI([]string{
 		"picker",
 		"--fzf-engine",
@@ -235,11 +253,14 @@ exit 0
 
 func TestRunPickerRejectsBadSort(t *testing.T) {
 	var out bytes.Buffer
+
 	var errOut bytes.Buffer
+
 	code := runCLI([]string{"picker", "--session-sort", "wat"}, &out, &errOut)
 	if code != 1 {
 		t.Fatalf("expected exit code 1, got %d", code)
 	}
+
 	if !strings.Contains(errOut.String(), "unknown session sort field") {
 		t.Fatalf("unexpected stderr: %s", errOut.String())
 	}
@@ -247,11 +268,14 @@ func TestRunPickerRejectsBadSort(t *testing.T) {
 
 func TestRunDaemonValidatesScrollbackLines(t *testing.T) {
 	var out bytes.Buffer
+
 	var errOut bytes.Buffer
+
 	code := runCLI([]string{"daemon", "--scrollback", "--scrollback-lines", "0"}, &out, &errOut)
 	if code != 1 {
 		t.Fatalf("expected exit code 1, got %d", code)
 	}
+
 	if !strings.Contains(errOut.String(), "daemon requires --scrollback-lines > 0") {
 		t.Fatalf("unexpected stderr: %s", errOut.String())
 	}
@@ -259,11 +283,14 @@ func TestRunDaemonValidatesScrollbackLines(t *testing.T) {
 
 func TestRunSetupPrintsConfig(t *testing.T) {
 	var out bytes.Buffer
+
 	var errOut bytes.Buffer
+
 	code := runCLI([]string{"setup"}, &out, &errOut)
 	if code != 0 {
 		t.Fatalf("expected exit code 0, got %d", code)
 	}
+
 	if !strings.Contains(out.String(), "lazy-tmux daemon") {
 		t.Fatalf("unexpected setup output: %s", out.String())
 	}
@@ -271,6 +298,7 @@ func TestRunSetupPrintsConfig(t *testing.T) {
 
 func TestRunBootstrapRestoresLastSession(t *testing.T) {
 	dataDir := t.TempDir()
+
 	s := store.New(dataDir)
 	if err := s.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
@@ -295,7 +323,9 @@ exit 0
 `)
 
 	var out bytes.Buffer
+
 	var errOut bytes.Buffer
+
 	code := runCLI([]string{
 		"bootstrap",
 		"--session", "last",
@@ -312,8 +342,10 @@ func writeFakeTmuxCLI(t *testing.T, body string) string {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "tmux")
 	script := "#!/bin/sh\nset -eu\n" + body + "\n"
+
 	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
 		t.Fatalf("write fake tmux: %v", err)
 	}
+
 	return path
 }

@@ -24,9 +24,11 @@ func TestNearestSelectableRow(t *testing.T) {
 	if got := nearestSelectableRow(rows, 0); got != 1 {
 		t.Fatalf("expected nearest selectable from 0 to be 1, got %d", got)
 	}
+
 	if got := nearestSelectableRow(rows, 3); got != 2 {
 		t.Fatalf("expected nearest selectable from 3 to be 2, got %d", got)
 	}
+
 	if got := nearestSelectableRow(nil, 2); got != 0 {
 		t.Fatalf("expected 0 for empty rows, got %d", got)
 	}
@@ -49,6 +51,7 @@ func TestDeleteSessionValidatesActionAndName(t *testing.T) {
 	}
 
 	called := false
+
 	m.actions.DeleteSession = func(session string) error {
 		called = true
 		return nil
@@ -56,9 +59,11 @@ func TestDeleteSessionValidatesActionAndName(t *testing.T) {
 	if err := m.deleteSession(" "); err == nil {
 		t.Fatal("expected error when session name is empty")
 	}
+
 	if called {
 		t.Fatal("delete action must not be called on empty session")
 	}
+
 	if err := m.deleteSession("demo"); err != nil {
 		t.Fatalf("unexpected delete error: %v", err)
 	}
@@ -71,19 +76,24 @@ func TestCreateWindowValidatesActionAndSession(t *testing.T) {
 	}
 
 	called := false
+
 	m.actions.NewWindow = func(session, name string) error {
 		called = true
+
 		if session == "" {
 			t.Fatal("session must not be empty")
 		}
+
 		return nil
 	}
 	if err := m.createWindow(" ", ""); err == nil {
 		t.Fatal("expected error when session is empty")
 	}
+
 	if called {
 		t.Fatal("new window action must not be called on empty session")
 	}
+
 	if err := m.createWindow("demo", "win"); err != nil {
 		t.Fatalf("unexpected create window error: %v", err)
 	}
@@ -112,6 +122,7 @@ func TestApplyFilterMovesCursorToSelectableRow(t *testing.T) {
 	if len(m.visible) < 2 {
 		t.Fatalf("expected at least 2 rows, got %d", len(m.visible))
 	}
+
 	if m.cursor != 1 {
 		t.Fatalf("expected cursor to move to selectable row, got %d", m.cursor)
 	}
@@ -141,6 +152,7 @@ func TestDeleteCurrentWindowInvokesAction(t *testing.T) {
 	if err := m.deleteCurrentWindow(); err != nil {
 		t.Fatalf("deleteCurrentWindow error: %v", err)
 	}
+
 	if !called {
 		t.Fatal("expected DeleteWindow to be called")
 	}
@@ -193,6 +205,7 @@ func TestHandlePromptKeyConfirmDeleteSession(t *testing.T) {
 	if !deleted {
 		t.Fatal("expected delete session to be called")
 	}
+
 	if out.mode != modeBrowse {
 		t.Fatalf("expected mode to return to browse, got %v", out.mode)
 	}
@@ -228,9 +241,11 @@ func TestHandlePromptKeyRenameWindow(t *testing.T) {
 
 	next, _ := m.handlePromptKey(tea.KeyPressMsg{Code: tea.KeyEnter})
 	out := next.(pickerModel)
+
 	if !called {
 		t.Fatal("expected RenameWindow to be called")
 	}
+
 	if out.mode != modeBrowse {
 		t.Fatalf("expected mode to return to browse, got %v", out.mode)
 	}
@@ -266,9 +281,11 @@ func TestHandlePromptKeyNewSession(t *testing.T) {
 
 	next, _ := m.handlePromptKey(tea.KeyPressMsg{Code: tea.KeyEnter})
 	out := next.(pickerModel)
+
 	if !called {
 		t.Fatal("expected NewSession to be called")
 	}
+
 	if out.mode != modeBrowse {
 		t.Fatalf("expected mode to return to browse, got %v", out.mode)
 	}
@@ -286,6 +303,7 @@ func TestHandlePromptKeyEscCancelsPrompt(t *testing.T) {
 	m.resize()
 
 	next, _ := m.handlePromptKey(tea.KeyPressMsg{Code: tea.KeyEsc})
+
 	out := next.(pickerModel)
 	if out.mode != modeBrowse {
 		t.Fatalf("expected mode to return to browse, got %v", out.mode)

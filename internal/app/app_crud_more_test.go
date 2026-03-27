@@ -22,6 +22,7 @@ fi
 exit 0
 `)
 	dataDir := t.TempDir()
+
 	a := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),
@@ -38,6 +39,7 @@ exit 0
 	if err := a.DeleteSession("demo"); err != nil {
 		t.Fatalf("DeleteSession error: %v", err)
 	}
+
 	if _, err := a.store.LoadSession("demo"); err == nil || !os.IsNotExist(err) {
 		t.Fatalf("expected session to be deleted, got %v", err)
 	}
@@ -51,6 +53,7 @@ fi
 exit 0
 `)
 	dataDir := t.TempDir()
+
 	a := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),
@@ -74,6 +77,7 @@ exit 0
 	if err != nil {
 		t.Fatalf("load session: %v", err)
 	}
+
 	if snap.Windows[0].Name != "new" {
 		t.Fatalf("expected window name to be updated, got %q", snap.Windows[0].Name)
 	}
@@ -87,6 +91,7 @@ fi
 exit 0
 `)
 	dataDir := t.TempDir()
+
 	a := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),
@@ -111,9 +116,11 @@ exit 0
 	if err != nil {
 		t.Fatalf("load session: %v", err)
 	}
+
 	if len(snap.Windows) != 3 {
 		t.Fatalf("expected 3 windows, got %d", len(snap.Windows))
 	}
+
 	last := snap.Windows[2]
 	if last.Index != 3 || last.Name != "window-3" {
 		t.Fatalf("unexpected new window: %+v", last)
@@ -125,6 +132,7 @@ func TestRenameSessionValidations(t *testing.T) {
 	if err := a.RenameSession("demo", ""); err == nil {
 		t.Fatal("expected error for empty name")
 	}
+
 	if err := a.RenameSession("", "demo"); err == nil {
 		t.Fatal("expected error for empty source")
 	}
@@ -145,6 +153,7 @@ fi
 exit 0
 `)
 	dataDir := t.TempDir()
+
 	a := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),
@@ -179,9 +188,11 @@ if [ "$1" = "kill-window" ]; then
 fi
 exit 0
 `)
+
 	t.Setenv("COUNT_FILE", state)
 
 	dataDir := t.TempDir()
+
 	a := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),
@@ -198,6 +209,7 @@ exit 0
 	if err := a.DeleteWindow("demo", 0); err != nil {
 		t.Fatalf("DeleteWindow error: %v", err)
 	}
+
 	if _, err := a.store.LoadSession("demo"); err == nil || !os.IsNotExist(err) {
 		t.Fatalf("expected session to be deleted, got %v", err)
 	}
@@ -225,6 +237,7 @@ fi
 exit 0
 `)
 	dataDir := t.TempDir()
+
 	a := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),

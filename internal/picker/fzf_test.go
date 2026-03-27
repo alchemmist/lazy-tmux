@@ -22,6 +22,7 @@ func TestChooseSessionFZFSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ChooseSessionFZF: %v", err)
 	}
+
 	if selected != "beta" {
 		t.Fatalf("expected beta, got %q", selected)
 	}
@@ -34,6 +35,7 @@ func TestChooseSessionFZFEmptySelection(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for empty selection")
 	}
+
 	if !strings.Contains(err.Error(), "no session selected") {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -46,6 +48,7 @@ func TestChooseSessionFZFCommandFailure(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected command failure error")
 	}
+
 	if !strings.Contains(err.Error(), "fzf selection canceled or failed") {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -54,9 +57,11 @@ func TestChooseSessionFZFCommandFailure(t *testing.T) {
 func withFakeFZF(t *testing.T, script string) string {
 	t.Helper()
 	dir := t.TempDir()
+
 	path := filepath.Join(dir, "fzf")
 	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
 		t.Fatalf("write fake fzf: %v", err)
 	}
+
 	return dir
 }

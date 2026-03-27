@@ -32,6 +32,7 @@ func NewClient(bin string) *Client {
 	if strings.TrimSpace(bin) == "" {
 		bin = "tmux"
 	}
+
 	return &Client{bin: bin}
 }
 
@@ -40,6 +41,7 @@ func sessionTarget(name string) string {
 	if strings.HasPrefix(name, "=") {
 		return name
 	}
+
 	return "=" + name
 }
 
@@ -63,15 +65,18 @@ func (c *Client) Run(args ...string) error {
 	cmd := exec.Command(c.bin, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+
 	return cmd.Run()
 }
 
 func (c *Client) Output(args ...string) (string, error) {
 	cmd := exec.Command(c.bin, args...)
+
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("tmux %s: %w (%s)", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
 	}
+
 	return string(out), nil
 }
 
@@ -86,10 +91,13 @@ func (c *Client) ListSessions() ([]string, error) {
 		if strings.Contains(err.Error(), "no server running") {
 			return nil, nil
 		}
+
 		return nil, err
 	}
+
 	lines := splitLines(out)
 	sort.Strings(lines)
+
 	return lines, nil
 }
 
@@ -98,6 +106,7 @@ func (c *Client) CurrentSession() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return strings.TrimSpace(out), nil
 }
 
@@ -106,10 +115,12 @@ func (c *Client) SocketPath() string {
 	if err != nil {
 		return "default"
 	}
+
 	v := strings.TrimSpace(out)
 	if v == "" {
 		return "default"
 	}
+
 	return v
 }
 
@@ -117,7 +128,9 @@ func (c *Client) SwitchClient(session string) error {
 	if os.Getenv("TMUX") == "" {
 		return nil
 	}
+
 	_, err := c.Output("switch-client", "-t", sessionTarget(session))
+
 	return err
 }
 
@@ -151,7 +164,9 @@ func (c *Client) NewWindow(session, name string) error {
 	if strings.TrimSpace(name) != "" {
 		args = append(args, "-n", name)
 	}
+
 	_, err := c.Output(args...)
+
 	return err
 }
 
@@ -164,10 +179,12 @@ func (c *Client) CaptureSession(name string) (snapshot.SessionSnapshot, error) {
 	if err != nil {
 		return snapshot.SessionSnapshot{}, err
 	}
+
 	meta := strings.Split(strings.TrimSpace(metaOut), fieldSep)
 	if len(meta) != 2 {
 		return snapshot.SessionSnapshot{}, fmt.Errorf("unexpected session meta format: %q", strings.TrimSpace(metaOut))
 	}
+
 	currentWin, _ := strconv.Atoi(meta[0])
 	currentPane, _ := strconv.Atoi(meta[1])
 
@@ -177,11 +194,13 @@ func (c *Client) CaptureSession(name string) (snapshot.SessionSnapshot, error) {
 	}
 
 	windows := make([]snapshot.Window, 0)
+
 	for _, line := range splitLines(wOut) {
 		parts := strings.Split(line, fieldSep)
 		if len(parts) != 4 {
 			continue
 		}
+
 		idx, _ := strconv.Atoi(parts[0])
 		w := snapshot.Window{
 			Index:    idx,
@@ -189,6 +208,7 @@ func (c *Client) CaptureSession(name string) (snapshot.SessionSnapshot, error) {
 			Layout:   parts[2],
 			IsActive: parts[3] == "1",
 		}
+
 		pOut, err := c.Output("list-panes", "-t", sessionWindowTarget(name, idx), "-F",
 			"#{pane_index}"+fieldSep+
 				"#{pane_current_path}"+fieldSep+
@@ -200,14 +220,17 @@ func (c *Client) CaptureSession(name string) (snapshot.SessionSnapshot, error) {
 		if err != nil {
 			return snapshot.SessionSnapshot{}, err
 		}
+
 		for _, pLine := range splitLines(pOut) {
 			p := strings.Split(pLine, fieldSep)
 			if len(p) != 6 {
 				continue
 			}
+
 			pIdx, _ := strconv.Atoi(p[0])
 			panePID, _ := strconv.Atoi(strings.TrimSpace(p[4]))
 			restoreCmd, _ := c.foregroundCommand(p[5], panePID)
+
 			pane := snapshot.Pane{
 				Index:       pIdx,
 				CurrentPath: p[1],
@@ -218,13 +241,16 @@ func (c *Client) CaptureSession(name string) (snapshot.SessionSnapshot, error) {
 			if pane.IsActive {
 				w.ActivePane = pane.Index
 			}
+
 			w.Panes = append(w.Panes, pane)
 		}
+
 		sort.Slice(w.Panes, func(i, j int) bool { return w.Panes[i].Index < w.Panes[j].Index })
 		windows = append(windows, w)
 	}
 
 	sort.Slice(windows, func(i, j int) bool { return windows[i].Index < windows[j].Index })
+
 	return snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: name,
@@ -239,9 +265,11 @@ func (c *Client) RestoreSession(s snapshot.SessionSnapshot) error {
 	if s.SessionName == "" {
 		return errors.New("empty session name")
 	}
+
 	if c.SessionExists(s.SessionName) {
 		return ErrSessionExists
 	}
+
 	if len(s.Windows) == 0 {
 		return errors.New("session snapshot has no windows")
 	}
@@ -281,6 +309,7 @@ func (c *Client) RestoreSession(s snapshot.SessionSnapshot) error {
 
 	_, _ = c.Output("select-window", "-t", sessionWindowTarget(s.SessionName, s.CurrentWin))
 	_, _ = c.Output("select-pane", "-t", sessionPaneTarget(s.SessionName, s.CurrentWin, s.CurrentPane))
+
 	return nil
 }
 
@@ -289,6 +318,7 @@ func newSessionArgs(sessionName string, w snapshot.Window) []string {
 	if path := firstPanePath(w); path != "" {
 		args = append(args, "-c", path)
 	}
+
 	return args
 }
 
@@ -297,6 +327,7 @@ func newWindowArgs(sessionName string, w snapshot.Window) []string {
 	if path := firstPanePath(w); path != "" {
 		args = append(args, "-c", path)
 	}
+
 	return args
 }
 
@@ -304,6 +335,7 @@ func (c *Client) createAndPopulateWindow(sessionName string, w snapshot.Window) 
 	if _, err := c.runWithShellFallback(newWindowArgs(sessionName, w), ""); err != nil {
 		return err
 	}
+
 	return c.populateWindow(sessionName, w, w.Index)
 }
 
@@ -311,13 +343,17 @@ func (c *Client) populateWindow(sessionName string, w snapshot.Window, windowInd
 	if err := c.ensurePaneCount(sessionName, w, windowIndex); err != nil {
 		return err
 	}
+
 	c.restoreWindowScrollback(sessionName, w, windowIndex)
+
 	if err := c.restoreWindowCommands(sessionName, w, windowIndex); err != nil {
 		return err
 	}
+
 	if w.Layout != "" {
 		_, _ = c.Output("select-layout", "-t", sessionWindowTarget(sessionName, windowIndex), w.Layout)
 	}
+
 	return nil
 }
 
@@ -325,6 +361,7 @@ func (c *Client) CapturePaneScrollback(target string, lines int) (string, error)
 	if lines <= 0 {
 		lines = 5000
 	}
+
 	return c.Output("capture-pane", "-p", "-e", "-S", fmt.Sprintf("-%d", lines), "-t", target)
 }
 
@@ -332,16 +369,20 @@ func (c *Client) ensurePaneCount(sessionName string, w snapshot.Window, windowIn
 	if len(w.Panes) <= 1 {
 		return nil
 	}
+
 	for i := 1; i < len(w.Panes); i++ {
 		pane := w.Panes[i]
 		args := []string{"split-window", "-d", "-t", sessionWindowTarget(sessionName, windowIndex)}
+
 		if pane.CurrentPath != "" {
 			args = append(args, "-c", pane.CurrentPath)
 		}
+
 		if _, err := c.runWithShellFallback(args, ""); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -349,13 +390,16 @@ func firstPanePath(w snapshot.Window) string {
 	if len(w.Panes) == 0 {
 		return ""
 	}
+
 	pane := w.Panes[0]
+
 	path := pane.CurrentPath
 	if path == "" {
 		if home, err := os.UserHomeDir(); err == nil {
 			path = home
 		}
 	}
+
 	return filepath.Clean(path)
 }
 
@@ -383,6 +427,7 @@ func isShellCommand(cmd string) bool {
 		"ksh":  {},
 	}
 	_, ok := shells[base]
+
 	return ok
 }
 
@@ -391,7 +436,9 @@ func executableName(cmd string) string {
 	if len(fields) == 0 {
 		return ""
 	}
+
 	base := filepath.Base(fields[0])
+
 	return strings.TrimPrefix(base, "-")
 }
 
@@ -402,6 +449,7 @@ func sanitizeCommand(cmd string) string {
 			cmd = strings.TrimSpace(cmd[1 : len(cmd)-1])
 		}
 	}
+
 	return cmd
 }
 
@@ -409,6 +457,7 @@ func (c *Client) restoreWindowCommands(sessionName string, w snapshot.Window, wi
 	if len(w.Panes) == 0 {
 		return nil
 	}
+
 	panes := make([]snapshot.Pane, len(w.Panes))
 	copy(panes, w.Panes)
 	sort.Slice(panes, func(i, j int) bool { return panes[i].Index < panes[j].Index })
@@ -418,11 +467,13 @@ func (c *Client) restoreWindowCommands(sessionName string, w snapshot.Window, wi
 		if strings.TrimSpace(cmd) == "" {
 			continue
 		}
+
 		target := sessionPaneTarget(sessionName, windowIndex, pane.Index)
 		if _, err := c.Output("send-keys", "-t", target, cmd, "C-m"); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -430,6 +481,7 @@ func (c *Client) restoreWindowScrollback(sessionName string, w snapshot.Window, 
 	if len(w.Panes) == 0 {
 		return
 	}
+
 	panes := make([]snapshot.Pane, len(w.Panes))
 	copy(panes, w.Panes)
 	sort.Slice(panes, func(i, j int) bool { return panes[i].Index < panes[j].Index })
@@ -438,11 +490,14 @@ func (c *Client) restoreWindowScrollback(sessionName string, w snapshot.Window, 
 		if pane.Scrollback == nil || strings.TrimSpace(pane.Scrollback.Content) == "" {
 			continue
 		}
+
 		target := sessionPaneTarget(sessionName, windowIndex, pane.Index)
+
 		tty, err := c.Output("display-message", "-p", "-t", target, "#{pane_tty}")
 		if err != nil {
 			continue
 		}
+
 		if err := paneTTYWriter(strings.TrimSpace(tty), pane.Scrollback.Content); err != nil {
 			continue
 		}
@@ -454,22 +509,28 @@ func writePaneTTY(path, content string) error {
 	if path == "" {
 		return errors.New("empty tty path")
 	}
+
 	if !strings.HasPrefix(path, "/dev/pts/") && !strings.HasPrefix(path, "/dev/tty") {
 		return fmt.Errorf("unsupported tty path: %s", path)
 	}
+
 	fi, err := os.Stat(path)
 	if err != nil {
 		return err
 	}
+
 	if fi.Mode()&os.ModeCharDevice == 0 {
 		return fmt.Errorf("tty path is not a character device: %s", path)
 	}
+
 	f, err := os.OpenFile(path, os.O_WRONLY, 0)
 	if err != nil {
 		return err
 	}
+
 	defer f.Close()
 	_, err = io.WriteString(f, content)
+
 	return err
 }
 
@@ -484,19 +545,24 @@ func (c *Client) foregroundCommand(paneTTY string, panePID int) (string, error) 
 	if b := strings.TrimPrefix(tty, "/dev/"); b != tty {
 		candidates = append(candidates, b)
 	}
+
 	if b := filepath.Base(tty); b != tty {
 		candidates = append(candidates, b)
 	}
 
 	var out []byte
+
 	var err error
+
 	for _, t := range candidates {
 		cmd := exec.Command("ps", "-t", t, "-o", "pid=", "-o", "stat=", "-o", "command=")
+
 		out, err = cmd.Output()
 		if err == nil {
 			break
 		}
 	}
+
 	if err != nil {
 		return "", err
 	}
@@ -506,21 +572,26 @@ func (c *Client) foregroundCommand(paneTTY string, panePID int) (string, error) 
 
 func pickForegroundCommand(lines []string, panePID int) string {
 	fallback := ""
+
 	for _, line := range lines {
 		pid, stat, cmd, ok := parsePSLine(line)
 		if !ok {
 			continue
 		}
+
 		if pid == panePID || isShellCommand(cmd) {
 			continue
 		}
+
 		if strings.Contains(stat, "+") {
 			return cmd
 		}
+
 		if fallback == "" {
 			fallback = cmd
 		}
 	}
+
 	return fallback
 }
 
@@ -529,28 +600,35 @@ func parsePSLine(line string) (int, string, string, bool) {
 	if len(fields) < 3 {
 		return 0, "", "", false
 	}
+
 	pid, err := strconv.Atoi(fields[0])
 	if err != nil {
 		return 0, "", "", false
 	}
+
 	stat := fields[1]
+
 	cmd := strings.Join(fields[2:], " ")
 	if strings.TrimSpace(cmd) == "" {
 		return 0, "", "", false
 	}
+
 	return pid, stat, cmd, true
 }
 
 func splitLines(in string) []string {
 	s := bufio.NewScanner(strings.NewReader(in))
 	out := make([]string, 0)
+
 	for s.Scan() {
 		line := strings.TrimSpace(s.Text())
 		if line == "" {
 			continue
 		}
+
 		out = append(out, line)
 	}
+
 	return out
 }
 
@@ -582,13 +660,16 @@ func (c *Client) runWithShellFallback(args []string, cmd string) (string, error)
 
 func stripOptionPair(args []string, opt string) []string {
 	out := make([]string, 0, len(args))
+
 	for i := 0; i < len(args); i++ {
 		if args[i] == opt {
 			i++ // skip option value
 			continue
 		}
+
 		out = append(out, args[i])
 	}
+
 	return out
 }
 
@@ -597,9 +678,11 @@ func (c *Client) createdFirstWindowIndex(session string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	lines := splitLines(out)
 	if len(lines) == 0 {
 		return 0, errors.New("no windows found after session creation")
 	}
+
 	return strconv.Atoi(lines[0])
 }

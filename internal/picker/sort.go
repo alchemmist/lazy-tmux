@@ -65,110 +65,143 @@ func ParseSortOptions(sessionExpr, windowExpr string) (SortOptions, error) {
 		if err != nil {
 			return SortOptions{}, err
 		}
+
 		opts.Session = keys
 	}
+
 	if strings.TrimSpace(windowExpr) != "" {
 		keys, err := parseWindowSortKeys(windowExpr)
 		if err != nil {
 			return SortOptions{}, err
 		}
+
 		opts.Window = keys
 	}
+
 	return opts, nil
 }
 
 func parseSessionSortKeys(expr string) ([]SessionSortKey, error) {
 	seen := map[SessionSortField]struct{}{}
+
 	parts, err := splitSortExpr(expr)
 	if err != nil {
 		return nil, fmt.Errorf("session sort: %w", err)
 	}
+
 	keys := make([]SessionSortKey, 0, len(parts))
+
 	for _, part := range parts {
 		field, desc, err := parseSessionSortPart(part)
 		if err != nil {
 			return nil, err
 		}
+
 		if _, ok := seen[field]; ok {
 			return nil, fmt.Errorf("duplicate session sort field: %s", field)
 		}
+
 		seen[field] = struct{}{}
+
 		keys = append(keys, SessionSortKey{Field: field, Desc: desc})
 	}
+
 	if len(keys) == 0 {
 		return nil, fmt.Errorf("empty session sort expression")
 	}
+
 	return keys, nil
 }
 
 func parseWindowSortKeys(expr string) ([]WindowSortKey, error) {
 	seen := map[WindowSortField]struct{}{}
+
 	parts, err := splitSortExpr(expr)
 	if err != nil {
 		return nil, fmt.Errorf("window sort: %w", err)
 	}
+
 	keys := make([]WindowSortKey, 0, len(parts))
+
 	for _, part := range parts {
 		field, desc, err := parseWindowSortPart(part)
 		if err != nil {
 			return nil, err
 		}
+
 		if _, ok := seen[field]; ok {
 			return nil, fmt.Errorf("duplicate window sort field: %s", field)
 		}
+
 		seen[field] = struct{}{}
+
 		keys = append(keys, WindowSortKey{Field: field, Desc: desc})
 	}
+
 	if len(keys) == 0 {
 		return nil, fmt.Errorf("empty window sort expression")
 	}
+
 	return keys, nil
 }
 
 func splitSortExpr(expr string) ([]string, error) {
 	chunks := strings.Split(expr, ",")
 	out := make([]string, 0, len(chunks))
+
 	for _, ch := range chunks {
 		v := strings.TrimSpace(ch)
 		if v == "" {
 			return nil, fmt.Errorf("empty sort term in expression")
 		}
+
 		out = append(out, v)
 	}
+
 	return out, nil
 }
 
 func parseSessionSortPart(part string) (SessionSortField, bool, error) {
 	name, descToken, hasDesc := splitSortPart(part)
 	field, ok := parseSessionField(name)
+
 	if !ok {
 		return "", false, fmt.Errorf("unknown session sort field: %s", name)
 	}
+
 	desc := defaultSessionDirection(field)
+
 	if hasDesc {
 		v, err := parseDirection(descToken)
 		if err != nil {
 			return "", false, fmt.Errorf("session %s: %w", name, err)
 		}
+
 		desc = v
 	}
+
 	return field, desc, nil
 }
 
 func parseWindowSortPart(part string) (WindowSortField, bool, error) {
 	name, descToken, hasDesc := splitSortPart(part)
 	field, ok := parseWindowField(name)
+
 	if !ok {
 		return "", false, fmt.Errorf("unknown window sort field: %s", name)
 	}
+
 	desc := defaultWindowDirection(field)
+
 	if hasDesc {
 		v, err := parseDirection(descToken)
 		if err != nil {
 			return "", false, fmt.Errorf("window %s: %w", name, err)
 		}
+
 		desc = v
 	}
+
 	return field, desc, nil
 }
 
@@ -177,6 +210,7 @@ func splitSortPart(part string) (name, dir string, hasDir bool) {
 	if !ok {
 		return strings.TrimSpace(part), "", false
 	}
+
 	return strings.TrimSpace(left), strings.TrimSpace(right), true
 }
 
@@ -248,9 +282,11 @@ func sortSessionRecords(records []snapshot.Record, keys []SessionSortKey) {
 				if key.Desc {
 					return cmp > 0
 				}
+
 				return cmp < 0
 			}
 		}
+
 		return records[i].SessionName < records[j].SessionName
 	})
 }
@@ -280,9 +316,11 @@ func compareTime(a, b time.Time) int {
 	if a.Equal(b) {
 		return 0
 	}
+
 	if a.Before(b) {
 		return -1
 	}
+
 	return 1
 }
 
@@ -304,9 +342,11 @@ func sortWindows(windows []snapshot.Window, keys []WindowSortKey) {
 				if key.Desc {
 					return cmp > 0
 				}
+
 				return cmp < 0
 			}
 		}
+
 		return windows[i].Index < windows[j].Index
 	})
 }

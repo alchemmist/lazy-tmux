@@ -43,6 +43,7 @@ exit 0
 	if err := a.SaveCurrent(); err != nil {
 		t.Fatalf("SaveCurrent error: %v", err)
 	}
+
 	if _, err := a.store.LoadSession("demo"); err != nil {
 		t.Fatalf("expected snapshot saved, got %v", err)
 	}
@@ -81,6 +82,7 @@ exit 0
 	if err := a.SaveAll(); err != nil {
 		t.Fatalf("SaveAll error: %v", err)
 	}
+
 	for _, name := range []string{"alpha", "beta"} {
 		if _, err := a.store.LoadSession(name); err != nil {
 			t.Fatalf("expected %s snapshot saved, got %v", name, err)
@@ -104,9 +106,11 @@ if [ "$1" = "has-session" ]; then
 fi
 exit 0
 `)
+
 	t.Setenv("TMUX_LOG", logPath)
 
 	dataDir := t.TempDir()
+
 	a := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),
@@ -128,6 +132,7 @@ exit 0
 	if err != nil {
 		t.Fatalf("LatestRecord: %v", err)
 	}
+
 	if rec.SessionName != "demo" || rec.LastAccessed.IsZero() {
 		t.Fatalf("expected last accessed to be updated, got %+v", rec)
 	}

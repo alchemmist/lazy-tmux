@@ -11,6 +11,7 @@ import (
 
 func filteredTreeRows(sessions []Session, query string, windowSort []WindowSortKey) []pickerRow {
 	rows := make([]pickerRow, 0)
+
 	for _, s := range sessions {
 		windows := make([]snapshot.Window, len(s.Windows))
 		copy(windows, s.Windows)
@@ -18,6 +19,7 @@ func filteredTreeRows(sessions []Session, query string, windowSort []WindowSortK
 
 		sessionMatch := query == "" || fuzzyMatch(query, strings.ToLower(s.Record.SessionName))
 		matchedWindows := make([]snapshot.Window, 0, len(windows))
+
 		for _, w := range windows {
 			target := strings.ToLower(s.Record.SessionName + " " + w.Name)
 			if query == "" || sessionMatch || fuzzyMatch(query, target) {
@@ -43,6 +45,7 @@ func filteredTreeRows(sessions []Session, query string, windowSort []WindowSortK
 			if i == len(matchedWindows)-1 {
 				branch = "╰─"
 			}
+
 			wi := w.Index
 			rows = append(rows, pickerRow{
 				target:     Target{SessionName: s.Record.SessionName, WindowIndex: &wi},
@@ -56,6 +59,7 @@ func filteredTreeRows(sessions []Session, query string, windowSort []WindowSortK
 			})
 		}
 	}
+
 	return rows
 }
 
@@ -63,6 +67,7 @@ func sessionStateIcon(restored bool) string {
 	if restored {
 		return "✓"
 	}
+
 	return ""
 }
 
@@ -70,15 +75,19 @@ func fuzzyMatch(query, target string) bool {
 	if query == "" {
 		return true
 	}
+
 	qr := []rune(query)
 	qi := 0
+
 	for _, r := range target {
 		if qi >= len(qr) {
 			break
 		}
+
 		if r == qr[qi] {
 			qi++
 		}
 	}
+
 	return qi == len(qr)
 }

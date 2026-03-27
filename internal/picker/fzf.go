@@ -16,7 +16,9 @@ func ChooseSessionFZF(records []snapshot.Record) (string, error) {
 	if len(records) == 0 {
 		return "", ErrNoSessions
 	}
+
 	var input bytes.Buffer
+
 	for _, r := range records {
 		line := fmt.Sprintf("%s\t%s\t%dw\n", r.SessionName, r.CapturedAt.Local().Format("2006-01-02 15:04:05"), r.Windows)
 		input.WriteString(line)
@@ -24,6 +26,7 @@ func ChooseSessionFZF(records []snapshot.Record) (string, error) {
 
 	cmd := exec.Command("fzf", "--prompt", "lazy-tmux> ", "--delimiter", "\t", "--with-nth", "1,2,3", "--height", "100%", "--layout", "reverse")
 	cmd.Stdin = &input
+
 	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("fzf selection canceled or failed: %w", err)
@@ -33,9 +36,11 @@ func ChooseSessionFZF(records []snapshot.Record) (string, error) {
 	if selected == "" {
 		return "", fmt.Errorf("no session selected")
 	}
+
 	parts := strings.Split(selected, "\t")
 	if strings.TrimSpace(parts[0]) == "" {
 		return "", fmt.Errorf("invalid fzf output")
 	}
+
 	return parts[0], nil
 }
