@@ -19,11 +19,11 @@ fi
 exit 0
 `)
 
-	a := New(config.Config{DataDir: t.TempDir(), TmuxBin: fake})
+	app := New(config.Config{DataDir: t.TempDir(), TmuxBin: fake})
 	base := time.Date(2026, 3, 10, 10, 0, 0, 0, time.UTC)
 
 	for _, name := range []string{"alpha", "beta"} {
-		if err := a.store.SaveSession(snapshot.SessionSnapshot{
+		if err := app.store.SaveSession(snapshot.SessionSnapshot{
 			Version:     snapshot.FormatVersion,
 			SessionName: name,
 			CapturedAt:  base,
@@ -34,7 +34,7 @@ exit 0
 	}
 
 	// Remove beta snapshot file but keep index record to force skip.
-	path, err := a.store.SessionPath("beta")
+	path, err := app.store.SessionPath("beta")
 	if err != nil {
 		t.Fatalf("SessionPath: %v", err)
 	}
@@ -43,9 +43,9 @@ exit 0
 		t.Fatalf("remove beta snapshot: %v", err)
 	}
 
-	a.tmux = tmux.NewClient(fake)
+	app.tmux = tmux.NewClient(fake)
 
-	sessions, err := a.pickerSessions(DefaultPickerSortOptions())
+	sessions, err := app.pickerSessions(DefaultPickerSortOptions())
 	if err != nil {
 		t.Fatalf("pickerSessions: %v", err)
 	}

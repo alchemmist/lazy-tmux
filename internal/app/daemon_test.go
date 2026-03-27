@@ -31,14 +31,14 @@ if [ "$1" = "display-message" ]; then
 fi
 exit 0
 `)
-	a := &App{
+	app := &App{
 		cfg:  config.Config{SaveInterval: time.Second},
 		tmux: tmux.NewClient(fake),
 	}
 
 	var calls int
 
-	a.saveAllFn = func() error {
+	app.saveAllFn = func() error {
 		calls++
 		if calls == 2 {
 			return fmt.Errorf("boom")
@@ -60,32 +60,32 @@ exit 0
 		return ticker
 	}
 
-	r, w, err := os.Pipe()
+	read, write, err := os.Pipe()
 	if err != nil {
 		t.Fatalf("open pipe: %v", err)
 	}
 
 	origErr := os.Stderr
-	os.Stderr = w
+	os.Stderr = write
 
 	defer func() {
 		os.Stderr = origErr
 
-		w.Close()
+		write.Close()
 	}()
 
-	if err := a.RunDaemon(10 * time.Millisecond); err != nil {
+	if err := app.RunDaemon(10 * time.Millisecond); err != nil {
 		t.Fatalf("RunDaemon error: %v", err)
 	}
 
-	w.Close()
+	write.Close()
 
-	out, err := io.ReadAll(r)
+	out, err := io.ReadAll(read)
 	if err != nil {
 		t.Fatalf("read stderr: %v", err)
 	}
 
-	r.Close()
+	read.Close()
 
 	if !strings.Contains(string(out), "lazy-tmux daemon save error: boom") {
 		t.Fatalf("expected logged error, got %q", string(out))

@@ -90,11 +90,11 @@ exit 0
 
 	dataDir := t.TempDir()
 
-	a := &App{
+	app := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),
 	}
-	if err := a.store.SaveSession(snapshot.SessionSnapshot{
+	if err := app.store.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "demo",
 		CapturedAt:  time.Now().UTC(),
@@ -104,7 +104,7 @@ exit 0
 	}
 
 	idx := 3
-	if err := a.RestoreTarget(
+	if err := app.RestoreTarget(
 		PickerTarget{SessionName: "demo", WindowIndex: &idx},
 		true,
 	); err != nil {
@@ -140,11 +140,11 @@ exit 0
 
 	dataDir := t.TempDir()
 
-	a := &App{
+	app := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),
 	}
-	if err := a.store.SaveSession(snapshot.SessionSnapshot{
+	if err := app.store.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "demo",
 		CapturedAt:  time.Now().UTC(),
@@ -153,7 +153,7 @@ exit 0
 		t.Fatalf("save session: %v", err)
 	}
 
-	if err := a.RestoreTarget(PickerTarget{SessionName: "demo"}, false); err != nil {
+	if err := app.RestoreTarget(PickerTarget{SessionName: "demo"}, false); err != nil {
 		t.Fatalf("RestoreTarget error: %v", err)
 	}
 
@@ -193,7 +193,7 @@ exit 0
 `)
 
 	dataDir := t.TempDir()
-	a := &App{
+	app := &App{
 		cfg: config.Config{
 			Scrollback: config.ScrollbackConfig{Enabled: true, Lines: 200},
 		},
@@ -201,22 +201,22 @@ exit 0
 		tmux:  tmux.NewClient(fake),
 	}
 
-	if err := a.SaveSession("demo"); err != nil {
+	if err := app.SaveSession("demo"); err != nil {
 		t.Fatalf("SaveSession error: %v", err)
 	}
 
-	loaded, err := a.store.LoadSession("demo")
+	loaded, err := app.store.LoadSession("demo")
 	if err != nil {
 		t.Fatalf("LoadSession error: %v", err)
 	}
 
-	sb := loaded.Windows[0].Panes[0].Scrollback
-	if sb == nil {
+	scrollback := loaded.Windows[0].Panes[0].Scrollback
+	if scrollback == nil {
 		t.Fatal("expected shell pane scrollback to be captured")
 	}
 
-	if !strings.Contains(sb.Content, "echo hi") {
-		t.Fatalf("unexpected scrollback content: %q", sb.Content)
+	if !strings.Contains(scrollback.Content, "echo hi") {
+		t.Fatalf("unexpected scrollback content: %q", scrollback.Content)
 	}
 }
 

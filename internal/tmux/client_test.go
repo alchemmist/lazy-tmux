@@ -76,7 +76,7 @@ func TestNormalizedCommand(t *testing.T) {
 }
 
 func TestFirstPanePathUsesCleanPath(t *testing.T) {
-	w := snapshot.Window{
+	win := snapshot.Window{
 		Panes: []snapshot.Pane{
 			{
 				CurrentPath: "/tmp/proj/../proj2",
@@ -86,7 +86,7 @@ func TestFirstPanePathUsesCleanPath(t *testing.T) {
 		},
 	}
 
-	path := firstPanePath(w)
+	path := firstPanePath(win)
 	if path != "/tmp/proj2" {
 		t.Fatalf("unexpected path: %q", path)
 	}
@@ -154,8 +154,8 @@ exit 0
 
 	t.Setenv("TMUX_LOG", logPath)
 
-	c := NewClient(fake)
-	s := snapshot.SessionSnapshot{
+	client := NewClient(fake)
+	snap := snapshot.SessionSnapshot{
 		SessionName: "demo",
 		CurrentWin:  1,
 		CurrentPane: 1,
@@ -181,7 +181,7 @@ exit 0
 		},
 	}
 
-	if err := c.RestoreSession(s); err != nil {
+	if err := client.RestoreSession(snap); err != nil {
 		t.Fatalf("RestoreSession error: %v", err)
 	}
 
@@ -201,7 +201,7 @@ exit 0
 			},
 		},
 	}
-	if err := c.RestoreSession(numeric); err != nil {
+	if err := client.RestoreSession(numeric); err != nil {
 		t.Fatalf("RestoreSession numeric error: %v", err)
 	}
 
@@ -260,8 +260,8 @@ exit 0
 
 	t.Setenv("TMUX_LOG", logPath)
 
-	c := NewClient(fake)
-	s := snapshot.SessionSnapshot{
+	client := NewClient(fake)
+	snapshot := snapshot.SessionSnapshot{
 		SessionName: "demo",
 		CurrentWin:  5,
 		CurrentPane: 0,
@@ -279,7 +279,7 @@ exit 0
 		},
 	}
 
-	if err := c.RestoreSession(s); err != nil {
+	if err := client.RestoreSession(snapshot); err != nil {
 		t.Fatalf("RestoreSession error: %v", err)
 	}
 
@@ -318,8 +318,8 @@ exit 0
 
 	t.Setenv("TMUX_LOG", logPath)
 
-	c := NewClient(fake)
-	s := snapshot.SessionSnapshot{
+	client := NewClient(fake)
+	snapshot := snapshot.SessionSnapshot{
 		SessionName: "demo",
 		CurrentWin:  1,
 		CurrentPane: 0,
@@ -337,7 +337,7 @@ exit 0
 		},
 	}
 
-	if err := c.RestoreSession(s); err != nil {
+	if err := client.RestoreSession(snapshot); err != nil {
 		t.Fatalf("RestoreSession error: %v", err)
 	}
 
@@ -380,8 +380,8 @@ exit 0
 
 	t.Setenv("TMUX_LOG", logPath)
 
-	c := NewClient(fake)
-	s := snapshot.SessionSnapshot{
+	client := NewClient(fake)
+	snapshot := snapshot.SessionSnapshot{
 		SessionName: "demo",
 		CurrentWin:  1,
 		CurrentPane: 0,
@@ -399,7 +399,7 @@ exit 0
 		},
 	}
 
-	if err := c.RestoreSession(s); err != nil {
+	if err := client.RestoreSession(snapshot); err != nil {
 		t.Fatalf("RestoreSession error: %v", err)
 	}
 
@@ -453,8 +453,8 @@ exit 0
 
 	t.Setenv("TMUX_LOG", logPath)
 
-	c := NewClient(fake)
-	s := snapshot.SessionSnapshot{
+	client := NewClient(fake)
+	snapshot := snapshot.SessionSnapshot{
 		SessionName: "demo",
 		CurrentWin:  0,
 		CurrentPane: 0,
@@ -475,7 +475,7 @@ exit 0
 		},
 	}
 
-	if err := c.RestoreSession(s); err != nil {
+	if err := client.RestoreSession(snapshot); err != nil {
 		t.Fatalf("RestoreSession error: %v", err)
 	}
 
@@ -498,12 +498,12 @@ exit 0
 		t.Fatalf("NewWindow error: %v", err)
 	}
 
-	b, err := os.ReadFile(logPath)
+	fileContent, err := os.ReadFile(logPath)
 	if err != nil {
 		t.Fatalf("read log: %v", err)
 	}
 
-	if !strings.Contains(string(b), "new-window -d -t =12: -n ok") {
-		t.Fatalf("expected numeric target to be escaped, got:\n%s", string(b))
+	if !strings.Contains(string(fileContent), "new-window -d -t =12: -n ok") {
+		t.Fatalf("expected numeric target to be escaped, got:\n%s", string(fileContent))
 	}
 }

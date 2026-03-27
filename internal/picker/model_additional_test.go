@@ -53,16 +53,16 @@ func TestPickerModelUpdateWindowSize(t *testing.T) {
 }
 
 func TestPickerModelViewRendersRows(t *testing.T) {
-	m := baseModelForTests()
-	m.visible = []pickerRow{{target: Target{SessionName: "demo"}, selectable: true, item: "demo"}}
-	m.cursor = 0
-	m.width = 60
-	m.height = 10
-	m.viewport.SetWidth(40)
-	m.viewport.SetHeight(3)
-	m.renderViewport()
+	model := baseModelForTests()
+	model.visible = []pickerRow{{target: Target{SessionName: "demo"}, selectable: true, item: "demo"}}
+	model.cursor = 0
+	model.width = 60
+	model.height = 10
+	model.viewport.SetWidth(40)
+	model.viewport.SetHeight(3)
+	model.renderViewport()
 
-	view := m.View()
+	view := model.View()
 	if !strings.Contains(view.Content, "demo") {
 		t.Fatalf("expected demo row, got %s", view.Content)
 	}
@@ -88,20 +88,20 @@ func TestChooseTargetUsesRunner(t *testing.T) {
 }
 
 func TestEnsureCursorVisibleMovesWindow(t *testing.T) {
-	m := baseModelForTests()
-	m.visible = make([]pickerRow, 5)
+	model := baseModelForTests()
+	model.visible = make([]pickerRow, 5)
 
-	for i := range m.visible {
-		m.visible[i].selectable = true
+	for i := range model.visible {
+		model.visible[i].selectable = true
 	}
 
-	m.viewport.SetHeight(2)
-	m.viewport.SetYOffset(0)
-	m.cursor = 4
-	m.renderViewport()
-	m.ensureCursorVisible()
+	model.viewport.SetHeight(2)
+	model.viewport.SetYOffset(0)
+	model.cursor = 4
+	model.renderViewport()
+	model.ensureCursorVisible()
 
-	if m.viewport.YOffset() == 0 {
-		t.Fatalf("expected viewport offset to rise, got %d", m.viewport.YOffset())
+	if model.viewport.YOffset() == 0 {
+		t.Fatalf("expected viewport offset to rise, got %d", model.viewport.YOffset())
 	}
 }

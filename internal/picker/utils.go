@@ -2,19 +2,19 @@
 
 package picker
 
-func trim(s string, n int) string {
-	if n < 0 {
-		n = 0
+func truncateString(input string, maxRunes int) string {
+	if maxRunes < 0 {
+		maxRunes = 0
 	}
 
-	r := []rune(s)
-	if len(r) <= n {
-		return s
+	runes := []rune(input)
+	if len(runes) <= maxRunes {
+		return input
 	}
 
-	if n <= 3 {
-		return string(r[:n])
+	if maxRunes <= 3 {
+		return string(runes[:maxRunes])
 	}
 
-	return string(r[:n-3]) + "..."
+	return string(runes[:maxRunes-3]) + "..."
 }

@@ -226,7 +226,7 @@ func (c *Client) CaptureSession(name string) (snapshot.SessionSnapshot, error) {
 		}
 
 		idx, _ := strconv.Atoi(parts[0])
-		w := snapshot.Window{
+		window := snapshot.Window{
 			Index:    idx,
 			Name:     parts[1],
 			Layout:   parts[2],
@@ -246,31 +246,31 @@ func (c *Client) CaptureSession(name string) (snapshot.SessionSnapshot, error) {
 		}
 
 		for _, pLine := range splitLines(pOut) {
-			p := strings.Split(pLine, fieldSep)
-			if len(p) != 6 {
+			parts := strings.Split(pLine, fieldSep)
+			if len(parts) != 6 {
 				continue
 			}
 
-			pIdx, _ := strconv.Atoi(p[0])
-			panePID, _ := strconv.Atoi(strings.TrimSpace(p[4]))
-			restoreCmd, _ := c.foregroundCommand(p[5], panePID)
+			pIdx, _ := strconv.Atoi(parts[0])
+			panePID, _ := strconv.Atoi(strings.TrimSpace(parts[4]))
+			restoreCmd, _ := c.foregroundCommand(parts[5], panePID)
 
 			pane := snapshot.Pane{
 				Index:       pIdx,
-				CurrentPath: p[1],
-				CurrentCmd:  p[2],
-				IsActive:    p[3] == "1",
+				CurrentPath: parts[1],
+				CurrentCmd:  parts[2],
+				IsActive:    parts[3] == "1",
 				RestoreCmd:  strings.TrimSpace(restoreCmd),
 			}
 			if pane.IsActive {
-				w.ActivePane = pane.Index
+				window.ActivePane = pane.Index
 			}
 
-			w.Panes = append(w.Panes, pane)
+			window.Panes = append(window.Panes, pane)
 		}
 
-		sort.Slice(w.Panes, func(i, j int) bool { return w.Panes[i].Index < w.Panes[j].Index })
-		windows = append(windows, w)
+		sort.Slice(window.Panes, func(i, j int) bool { return window.Panes[i].Index < window.Panes[j].Index })
+		windows = append(windows, window)
 	}
 
 	sort.Slice(windows, func(i, j int) bool { return windows[i].Index < windows[j].Index })
@@ -285,60 +285,60 @@ func (c *Client) CaptureSession(name string) (snapshot.SessionSnapshot, error) {
 	}, nil
 }
 
-func (c *Client) RestoreSession(s snapshot.SessionSnapshot) error {
-	if s.SessionName == "" {
+func (c *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) error {
+	if sessionSnapshot.SessionName == "" {
 		return errors.New("empty session name")
 	}
 
-	if c.SessionExists(s.SessionName) {
+	if c.SessionExists(sessionSnapshot.SessionName) {
 		return ErrSessionExists
 	}
 
-	if len(s.Windows) == 0 {
+	if len(sessionSnapshot.Windows) == 0 {
 		return errors.New("session snapshot has no windows")
 	}
 
-	windows := make([]snapshot.Window, len(s.Windows))
-	copy(windows, s.Windows)
+	windows := make([]snapshot.Window, len(sessionSnapshot.Windows))
+	copy(windows, sessionSnapshot.Windows)
 	sort.Slice(windows, func(i, j int) bool { return windows[i].Index < windows[j].Index })
 
 	first := windows[0]
-	if _, err := c.runWithShellFallback(newSessionArgs(s.SessionName, first), ""); err != nil {
+	if _, err := c.runWithShellFallback(newSessionArgs(sessionSnapshot.SessionName, first), ""); err != nil {
 		return err
 	}
 
 	// tmux creates the first window at server default index (often 0 or 1).
 	// If snapshot index differs (e.g. sparse/non-renumbered windows), move it.
 	if createdIdx, err := c.createdFirstWindowIndex(
-		s.SessionName,
+		sessionSnapshot.SessionName,
 	); err == nil &&
 		createdIdx != first.Index {
 		_, err = c.Output(
 			"move-window",
-			"-s", sessionWindowTarget(s.SessionName, createdIdx),
-			"-t", sessionWindowTarget(s.SessionName, first.Index),
+			"-s", sessionWindowTarget(sessionSnapshot.SessionName, createdIdx),
+			"-t", sessionWindowTarget(sessionSnapshot.SessionName, first.Index),
 		)
 		if err != nil {
 			return err
 		}
 	}
 
-	if err := c.populateWindow(s.SessionName, first, first.Index); err != nil {
+	if err := c.populateWindow(sessionSnapshot.SessionName, first, first.Index); err != nil {
 		return err
 	}
 
 	for i := 1; i < len(windows); i++ {
 		w := windows[i]
-		if err := c.createAndPopulateWindow(s.SessionName, w); err != nil {
+		if err := c.createAndPopulateWindow(sessionSnapshot.SessionName, w); err != nil {
 			return err
 		}
 	}
 
-	_, _ = c.Output("select-window", "-t", sessionWindowTarget(s.SessionName, s.CurrentWin))
+	_, _ = c.Output("select-window", "-t", sessionWindowTarget(sessionSnapshot.SessionName, sessionSnapshot.CurrentWin))
 	_, _ = c.Output(
 		"select-pane",
 		"-t",
-		sessionPaneTarget(s.SessionName, s.CurrentWin, s.CurrentPane),
+		sessionPaneTarget(sessionSnapshot.SessionName, sessionSnapshot.CurrentWin, sessionSnapshot.CurrentPane),
 	)
 
 	return nil
@@ -353,16 +353,16 @@ func newSessionArgs(sessionName string, w snapshot.Window) []string {
 	return args
 }
 
-func newWindowArgs(sessionName string, w snapshot.Window) []string {
+func newWindowArgs(sessionName string, win snapshot.Window) []string {
 	args := []string{
 		"new-window",
 		"-d",
 		"-t",
-		sessionWindowTarget(sessionName, w.Index),
+		sessionWindowTarget(sessionName, win.Index),
 		"-n",
-		w.Name,
+		win.Name,
 	}
-	if path := firstPanePath(w); path != "" {
+	if path := firstPanePath(win); path != "" {
 		args = append(args, "-c", path)
 	}
 
@@ -377,23 +377,23 @@ func (c *Client) createAndPopulateWindow(sessionName string, w snapshot.Window) 
 	return c.populateWindow(sessionName, w, w.Index)
 }
 
-func (c *Client) populateWindow(sessionName string, w snapshot.Window, windowIndex int) error {
-	if err := c.ensurePaneCount(sessionName, w, windowIndex); err != nil {
+func (c *Client) populateWindow(sessionName string, window snapshot.Window, windowIndex int) error {
+	if err := c.ensurePaneCount(sessionName, window, windowIndex); err != nil {
 		return err
 	}
 
-	c.restoreWindowScrollback(sessionName, w, windowIndex)
+	c.restoreWindowScrollback(sessionName, window, windowIndex)
 
-	if err := c.restoreWindowCommands(sessionName, w, windowIndex); err != nil {
+	if err := c.restoreWindowCommands(sessionName, window, windowIndex); err != nil {
 		return err
 	}
 
-	if w.Layout != "" {
+	if window.Layout != "" {
 		_, _ = c.Output(
 			"select-layout",
 			"-t",
 			sessionWindowTarget(sessionName, windowIndex),
-			w.Layout,
+			window.Layout,
 		)
 	}
 
@@ -408,13 +408,13 @@ func (c *Client) CapturePaneScrollback(target string, lines int) (string, error)
 	return c.Output("capture-pane", "-p", "-e", "-S", fmt.Sprintf("-%d", lines), "-t", target)
 }
 
-func (c *Client) ensurePaneCount(sessionName string, w snapshot.Window, windowIndex int) error {
-	if len(w.Panes) <= 1 {
+func (c *Client) ensurePaneCount(sessionName string, window snapshot.Window, windowIndex int) error {
+	if len(window.Panes) <= 1 {
 		return nil
 	}
 
-	for i := 1; i < len(w.Panes); i++ {
-		pane := w.Panes[i]
+	for i := 1; i < len(window.Panes); i++ {
+		pane := window.Panes[i]
 		args := []string{"split-window", "-d", "-t", sessionWindowTarget(sessionName, windowIndex)}
 
 		if pane.CurrentPath != "" {
@@ -499,15 +499,15 @@ func sanitizeCommand(cmd string) string {
 
 func (c *Client) restoreWindowCommands(
 	sessionName string,
-	w snapshot.Window,
+	window snapshot.Window,
 	windowIndex int,
 ) error {
-	if len(w.Panes) == 0 {
+	if len(window.Panes) == 0 {
 		return nil
 	}
 
-	panes := make([]snapshot.Pane, len(w.Panes))
-	copy(panes, w.Panes)
+	panes := make([]snapshot.Pane, len(window.Panes))
+	copy(panes, window.Panes)
 	sort.Slice(panes, func(i, j int) bool { return panes[i].Index < panes[j].Index })
 
 	for _, pane := range panes {
@@ -525,13 +525,13 @@ func (c *Client) restoreWindowCommands(
 	return nil
 }
 
-func (c *Client) restoreWindowScrollback(sessionName string, w snapshot.Window, windowIndex int) {
-	if len(w.Panes) == 0 {
+func (c *Client) restoreWindowScrollback(sessionName string, window snapshot.Window, windowIndex int) {
+	if len(window.Panes) == 0 {
 		return
 	}
 
-	panes := make([]snapshot.Pane, len(w.Panes))
-	copy(panes, w.Panes)
+	panes := make([]snapshot.Pane, len(window.Panes))
+	copy(panes, window.Panes)
 	sort.Slice(panes, func(i, j int) bool { return panes[i].Index < panes[j].Index })
 
 	for _, pane := range panes {
@@ -571,14 +571,14 @@ func writePaneTTY(path, content string) error {
 		return fmt.Errorf("tty path is not a character device: %s", path)
 	}
 
-	f, err := os.OpenFile(path, os.O_WRONLY, 0)
+	ttyFile, err := os.OpenFile(path, os.O_WRONLY, 0)
 	if err != nil {
 		return fmt.Errorf("open tty: %w", err)
 	}
 
-	defer f.Close()
+	defer ttyFile.Close()
 
-	_, err = io.WriteString(f, content)
+	_, err = io.WriteString(ttyFile, content)
 	if err != nil {
 		return fmt.Errorf("write to tty: %w", err)
 	}
@@ -713,13 +713,13 @@ func (c *Client) runWithShellFallback(args []string, cmd string) (string, error)
 func stripOptionPair(args []string, opt string) []string {
 	out := make([]string, 0, len(args))
 
-	for i := 0; i < len(args); i++ {
-		if args[i] == opt {
-			i++ // skip option value
+	for idx := 0; idx < len(args); idx++ {
+		if args[idx] == opt {
+			idx++ // skip option value
 			continue
 		}
 
-		out = append(out, args[i])
+		out = append(out, args[idx])
 	}
 
 	return out

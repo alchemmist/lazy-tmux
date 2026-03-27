@@ -172,14 +172,14 @@ func widestShrinkableColumn(columns []pickerColumnLayout) int {
 	best := -1
 	bestWidth := 0
 
-	for i, col := range columns {
+	for idx, col := range columns {
 		if col.width <= 1 {
 			continue
 		}
 
 		if col.width > bestWidth {
 			bestWidth = col.width
-			best = i
+			best = idx
 		}
 	}
 
@@ -206,14 +206,14 @@ func (l pickerTableLayout) row(row pickerRow) string {
 func (l pickerTableLayout) render(valueFor func(spec pickerColumnSpec) string) string {
 	var out strings.Builder
 
-	for i, col := range l.columns {
+	for idx, col := range l.columns {
 		val := valueFor(col.spec)
 		if col.spec.TrimPrefix != "" {
 			val = strings.TrimPrefix(val, col.spec.TrimPrefix)
 		}
 
-		val = trim(val, col.width)
-		if i == len(l.columns)-1 {
+		val = truncateString(val, col.width)
+		if idx == len(l.columns)-1 {
 			out.WriteString(val)
 			continue
 		}

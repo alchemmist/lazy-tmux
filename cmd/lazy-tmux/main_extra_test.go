@@ -9,19 +9,19 @@ import (
 	"testing"
 )
 
-func captureStdout(t *testing.T, fn func()) string {
+func captureStdout(t *testing.T, action func()) string {
 	t.Helper()
 
 	old := os.Stdout
 
-	r, w, err := os.Pipe()
+	read, write, err := os.Pipe()
 	if err != nil {
 		t.Fatalf("pipe: %v", err)
 	}
 
-	os.Stdout = w
+	os.Stdout = write
 	defer func() { os.Stdout = old }()
-	defer w.Close()
+	defer write.Close()
 
 	defer func() {
 		if rec := recover(); rec != nil {
@@ -29,15 +29,15 @@ func captureStdout(t *testing.T, fn func()) string {
 		}
 	}()
 
-	fn()
-	w.Close()
+	action()
+	write.Close()
 
 	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, r); err != nil {
+	if _, err := io.Copy(&buf, read); err != nil {
 		t.Fatalf("copy: %v", err)
 	}
 
-	r.Close()
+	read.Close()
 
 	return buf.String()
 }

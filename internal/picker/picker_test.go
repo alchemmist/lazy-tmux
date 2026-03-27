@@ -49,7 +49,7 @@ func TestFilteredTreeRowsByWindowNameKeepsSessionParent(t *testing.T) {
 }
 
 func TestMoveSkipsSessionHeaders(t *testing.T) {
-	m := pickerModel{
+	model := pickerModel{
 		visible: []pickerRow{
 			{item: "session-a", selectable: false},
 			{item: "  ├─ [0] editor", selectable: true},
@@ -60,21 +60,21 @@ func TestMoveSkipsSessionHeaders(t *testing.T) {
 		cursor: 2,
 	}
 
-	m.moveNextSelectable()
+	model.moveNextSelectable()
 
-	if got := m.cursor; got != 4 {
+	if got := model.cursor; got != 4 {
 		t.Fatalf("expected jump to first window of next session, got cursor=%d", got)
 	}
 
-	m.movePrevSelectable()
+	model.movePrevSelectable()
 
-	if got := m.cursor; got != 2 {
+	if got := model.cursor; got != 2 {
 		t.Fatalf("expected jump back to previous selectable row, got cursor=%d", got)
 	}
 }
 
 func TestWindowPreviewCommandUsesActivePaneByIndex(t *testing.T) {
-	w := snapshot.Window{
+	win := snapshot.Window{
 		ActivePane: 5,
 		Panes: []snapshot.Pane{
 			{Index: 2, CurrentCmd: "bash"},
@@ -82,14 +82,14 @@ func TestWindowPreviewCommandUsesActivePaneByIndex(t *testing.T) {
 		},
 	}
 
-	got := windowPreviewCommand(w)
+	got := windowPreviewCommand(win)
 	if got != "nvim main.go" {
 		t.Fatalf("expected active pane restore command, got %q", got)
 	}
 }
 
 func TestWindowPreviewCommandFallsBackToFirstPane(t *testing.T) {
-	w := snapshot.Window{
+	win := snapshot.Window{
 		ActivePane: 9,
 		Panes: []snapshot.Pane{
 			{Index: 1, CurrentCmd: "htop"},
@@ -97,7 +97,7 @@ func TestWindowPreviewCommandFallsBackToFirstPane(t *testing.T) {
 		},
 	}
 
-	got := windowPreviewCommand(w)
+	got := windowPreviewCommand(win)
 	if got != "htop" {
 		t.Fatalf("expected fallback to first pane command, got %q", got)
 	}
