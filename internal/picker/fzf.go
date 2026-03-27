@@ -20,11 +20,28 @@ func ChooseSessionFZF(records []snapshot.Record) (string, error) {
 	var input bytes.Buffer
 
 	for _, r := range records {
-		line := fmt.Sprintf("%s\t%s\t%dw\n", r.SessionName, r.CapturedAt.Local().Format("2006-01-02 15:04:05"), r.Windows)
+		line := fmt.Sprintf(
+			"%s\t%s\t%dw\n",
+			r.SessionName,
+			r.CapturedAt.Local().Format("2006-01-02 15:04:05"),
+			r.Windows,
+		)
 		input.WriteString(line)
 	}
 
-	cmd := exec.Command("fzf", "--prompt", "lazy-tmux> ", "--delimiter", "\t", "--with-nth", "1,2,3", "--height", "100%", "--layout", "reverse")
+	cmd := exec.Command(
+		"fzf",
+		"--prompt",
+		"lazy-tmux> ",
+		"--delimiter",
+		"\t",
+		"--with-nth",
+		"1,2,3",
+		"--height",
+		"100%",
+		"--layout",
+		"reverse",
+	)
 	cmd.Stdin = &input
 
 	out, err := cmd.Output()

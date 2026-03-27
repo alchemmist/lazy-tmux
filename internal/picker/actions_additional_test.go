@@ -38,7 +38,13 @@ func TestConfirmDeleteSessionPreparesPrompt(t *testing.T) {
 
 func TestRenameCurrentWindowSetsPrompt(t *testing.T) {
 	m := baseModelForTests()
-	m.visible = []pickerRow{{target: Target{SessionName: "demo", WindowIndex: ptr(2)}, windowName: "logs", selectable: true}}
+	m.visible = []pickerRow{
+		{
+			target:     Target{SessionName: "demo", WindowIndex: ptr(2)},
+			windowName: "logs",
+			selectable: true,
+		},
+	}
 	m.cursor = 0
 	m.renameCurrentWindow()
 

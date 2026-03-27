@@ -101,7 +101,11 @@ func runSave(base config.Config, args []string) error {
 	all := fs.Bool("all", false, "save all sessions")
 	session := fs.String("session", "", "save specific session")
 	scrollback := fs.Bool("scrollback", base.Scrollback.Enabled, "capture shell pane scrollback")
-	scrollbackLines := fs.Int("scrollback-lines", base.Scrollback.Lines, "max shell scrollback lines per pane")
+	scrollbackLines := fs.Int(
+		"scrollback-lines",
+		base.Scrollback.Lines,
+		"max shell scrollback lines per pane",
+	)
 	shared := addSharedFlags(fs, base, true)
 
 	if err := fs.Parse(args); err != nil {
@@ -169,8 +173,16 @@ func runPicker(base config.Config, args []string) error {
 	fs := flag.NewFlagSet("picker", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	fzfEngine := fs.Bool("fzf-engine", false, "use fzf engine instead of built-in TUI")
-	sessionSort := fs.String("session-sort", "", "session sort keys: field[:asc|desc],... (fields: last-used,captured,name,windows,panes)")
-	windowSort := fs.String("window-sort", "", "window sort keys: field[:asc|desc],... (fields: index,name,panes,cmd)")
+	sessionSort := fs.String(
+		"session-sort",
+		"",
+		"session sort keys: field[:asc|desc],... (fields: last-used,captured,name,windows,panes)",
+	)
+	windowSort := fs.String(
+		"window-sort",
+		"",
+		"window sort keys: field[:asc|desc],... (fields: index,name,panes,cmd)",
+	)
 	shared := addSharedFlags(fs, base, true)
 
 	if err := fs.Parse(args); err != nil {
@@ -238,7 +250,11 @@ func runDaemon(base config.Config, args []string) error {
 	fs.SetOutput(io.Discard)
 	interval := fs.Duration("interval", base.SaveInterval, "autosave interval")
 	scrollback := fs.Bool("scrollback", base.Scrollback.Enabled, "capture shell pane scrollback")
-	scrollbackLines := fs.Int("scrollback-lines", base.Scrollback.Lines, "max shell scrollback lines per pane")
+	scrollbackLines := fs.Int(
+		"scrollback-lines",
+		base.Scrollback.Lines,
+		"max shell scrollback lines per pane",
+	)
 	shared := addSharedFlags(fs, base, true)
 
 	if err := fs.Parse(args); err != nil {
@@ -289,7 +305,14 @@ func runList(base config.Config, args []string, stdout io.Writer) error {
 	}
 
 	for _, r := range recs {
-		fmt.Fprintf(stdout, "%s\t%s\t%dw/%dp\n", r.SessionName, r.CapturedAt.Local().Format(time.RFC3339), r.Windows, r.Panes)
+		fmt.Fprintf(
+			stdout,
+			"%s\t%s\t%dw/%dp\n",
+			r.SessionName,
+			r.CapturedAt.Local().Format(time.RFC3339),
+			r.Windows,
+			r.Panes,
+		)
 	}
 
 	return nil
@@ -384,10 +407,14 @@ func setupConfig() {
 }
 
 func setupConfigTo(w io.Writer) {
-	fmt.Fprint(w, `run-shell -b 'lazy-tmux daemon --interval 3m --scrollback>/tmp/lazy-tmux.log 2>&1 || tmux display-message "lazy-tmux daemon already running"'
+	fmt.Fprint(
+		w,
+		`run-shell -b 'lazy-tmux daemon --interval 3m --scrollback>/tmp/lazy-tmux.log 2>&1 `+
+			`|| tmux display-message "lazy-tmux daemon already running"'
 bind-key f display-popup -w 75% -h 85% -E 'lazy-tmux picker'
 bind-key C-s run-shell 'lazy-tmux save --all --scrollback && tmux display-message "All sessions saved successfully!"'
-`)
+`,
+	)
 }
 
 func fatalErr(err error) {

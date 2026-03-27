@@ -119,7 +119,12 @@ exit 1
 	cmd.Stderr = &errOut
 
 	if err := cmd.Run(); err != nil {
-		t.Fatalf("wakeup command failed: %v\nstdout: %s\nstderr: %s", err, out.String(), errOut.String())
+		t.Fatalf(
+			"wakeup command failed: %v\nstdout: %s\nstderr: %s",
+			err,
+			out.String(),
+			errOut.String(),
+		)
 	}
 
 	// Verify session still exists in store after wakeup
@@ -261,7 +266,12 @@ exit 1
 	cmd.Stderr = &errOut
 
 	if err := cmd.Run(); err != nil {
-		t.Fatalf("sleep command failed: %v\nstdout: %s\nstderr: %s", err, out.String(), errOut.String())
+		t.Fatalf(
+			"sleep command failed: %v\nstdout: %s\nstderr: %s",
+			err,
+			out.String(),
+			errOut.String(),
+		)
 	}
 
 	// Verify session still exists in store after sleep

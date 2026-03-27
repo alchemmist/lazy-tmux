@@ -74,7 +74,12 @@ func (c *Client) Output(args ...string) (string, error) {
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("tmux %s: %w (%s)", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+		return "", fmt.Errorf(
+			"tmux %s: %w (%s)",
+			strings.Join(args, " "),
+			err,
+			strings.TrimSpace(string(out)),
+		)
 	}
 
 	return string(out), nil
@@ -175,20 +180,35 @@ func (c *Client) CaptureSession(name string) (snapshot.SessionSnapshot, error) {
 		return snapshot.SessionSnapshot{}, ErrSessionNotFound
 	}
 
-	metaOut, err := c.Output("display-message", "-p", "-t", sessionTarget(name), "#{window_index}"+fieldSep+"#{pane_index}")
+	metaOut, err := c.Output(
+		"display-message",
+		"-p",
+		"-t",
+		sessionTarget(name),
+		"#{window_index}"+fieldSep+"#{pane_index}",
+	)
 	if err != nil {
 		return snapshot.SessionSnapshot{}, err
 	}
 
 	meta := strings.Split(strings.TrimSpace(metaOut), fieldSep)
 	if len(meta) != 2 {
-		return snapshot.SessionSnapshot{}, fmt.Errorf("unexpected session meta format: %q", strings.TrimSpace(metaOut))
+		return snapshot.SessionSnapshot{}, fmt.Errorf(
+			"unexpected session meta format: %q",
+			strings.TrimSpace(metaOut),
+		)
 	}
 
 	currentWin, _ := strconv.Atoi(meta[0])
 	currentPane, _ := strconv.Atoi(meta[1])
 
-	wOut, err := c.Output("list-windows", "-t", sessionTarget(name), "-F", "#{window_index}"+fieldSep+"#{window_name}"+fieldSep+"#{window_layout}"+fieldSep+"#{window_active}")
+	wOut, err := c.Output(
+		"list-windows",
+		"-t",
+		sessionTarget(name),
+		"-F",
+		"#{window_index}"+fieldSep+"#{window_name}"+fieldSep+"#{window_layout}"+fieldSep+"#{window_active}",
+	)
 	if err != nil {
 		return snapshot.SessionSnapshot{}, err
 	}
@@ -285,7 +305,10 @@ func (c *Client) RestoreSession(s snapshot.SessionSnapshot) error {
 
 	// tmux creates the first window at server default index (often 0 or 1).
 	// If snapshot index differs (e.g. sparse/non-renumbered windows), move it.
-	if createdIdx, err := c.createdFirstWindowIndex(s.SessionName); err == nil && createdIdx != first.Index {
+	if createdIdx, err := c.createdFirstWindowIndex(
+		s.SessionName,
+	); err == nil &&
+		createdIdx != first.Index {
 		_, err = c.Output(
 			"move-window",
 			"-s", sessionWindowTarget(s.SessionName, createdIdx),
@@ -308,7 +331,11 @@ func (c *Client) RestoreSession(s snapshot.SessionSnapshot) error {
 	}
 
 	_, _ = c.Output("select-window", "-t", sessionWindowTarget(s.SessionName, s.CurrentWin))
-	_, _ = c.Output("select-pane", "-t", sessionPaneTarget(s.SessionName, s.CurrentWin, s.CurrentPane))
+	_, _ = c.Output(
+		"select-pane",
+		"-t",
+		sessionPaneTarget(s.SessionName, s.CurrentWin, s.CurrentPane),
+	)
 
 	return nil
 }
@@ -323,7 +350,14 @@ func newSessionArgs(sessionName string, w snapshot.Window) []string {
 }
 
 func newWindowArgs(sessionName string, w snapshot.Window) []string {
-	args := []string{"new-window", "-d", "-t", sessionWindowTarget(sessionName, w.Index), "-n", w.Name}
+	args := []string{
+		"new-window",
+		"-d",
+		"-t",
+		sessionWindowTarget(sessionName, w.Index),
+		"-n",
+		w.Name,
+	}
 	if path := firstPanePath(w); path != "" {
 		args = append(args, "-c", path)
 	}
@@ -351,7 +385,12 @@ func (c *Client) populateWindow(sessionName string, w snapshot.Window, windowInd
 	}
 
 	if w.Layout != "" {
-		_, _ = c.Output("select-layout", "-t", sessionWindowTarget(sessionName, windowIndex), w.Layout)
+		_, _ = c.Output(
+			"select-layout",
+			"-t",
+			sessionWindowTarget(sessionName, windowIndex),
+			w.Layout,
+		)
 	}
 
 	return nil
@@ -445,7 +484,8 @@ func executableName(cmd string) string {
 func sanitizeCommand(cmd string) string {
 	cmd = strings.TrimSpace(cmd)
 	if len(cmd) >= 2 {
-		if (cmd[0] == '"' && cmd[len(cmd)-1] == '"') || (cmd[0] == '\'' && cmd[len(cmd)-1] == '\'') {
+		if (cmd[0] == '"' && cmd[len(cmd)-1] == '"') ||
+			(cmd[0] == '\'' && cmd[len(cmd)-1] == '\'') {
 			cmd = strings.TrimSpace(cmd[1 : len(cmd)-1])
 		}
 	}
@@ -453,7 +493,11 @@ func sanitizeCommand(cmd string) string {
 	return cmd
 }
 
-func (c *Client) restoreWindowCommands(sessionName string, w snapshot.Window, windowIndex int) error {
+func (c *Client) restoreWindowCommands(
+	sessionName string,
+	w snapshot.Window,
+	windowIndex int,
+) error {
 	if len(w.Panes) == 0 {
 		return nil
 	}

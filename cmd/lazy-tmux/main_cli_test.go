@@ -169,7 +169,11 @@ func TestRunRestoreSuccess(t *testing.T) {
 		SessionName: "demo",
 		CapturedAt:  time.Now().UTC(),
 		Windows: []snapshot.Window{
-			{Index: 0, Name: "main", Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/tmp", CurrentCmd: "zsh"}}},
+			{
+				Index: 0,
+				Name:  "main",
+				Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/tmp", CurrentCmd: "zsh"}},
+			},
 		},
 	}); err != nil {
 		t.Fatalf("save snapshot: %v", err)
@@ -211,7 +215,11 @@ func TestRunPickerFZFSuccess(t *testing.T) {
 		SessionName: "demo",
 		CapturedAt:  time.Now().UTC(),
 		Windows: []snapshot.Window{
-			{Index: 0, Name: "main", Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/tmp", CurrentCmd: "zsh"}}},
+			{
+				Index: 0,
+				Name:  "main",
+				Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/tmp", CurrentCmd: "zsh"}},
+			},
 		},
 	}); err != nil {
 		t.Fatalf("save snapshot: %v", err)
@@ -230,7 +238,11 @@ exit 0
 	fakeFzfDir := t.TempDir()
 
 	fakeFzf := filepath.Join(fakeFzfDir, "fzf")
-	if err := os.WriteFile(fakeFzf, []byte("#!/bin/sh\nprintf 'demo\t2026-03-10 10:00:00\t1w\n'\n"), 0o755); err != nil {
+	if err := os.WriteFile(
+		fakeFzf,
+		[]byte("#!/bin/sh\nprintf 'demo\t2026-03-10 10:00:00\t1w\n'\n"),
+		0o755,
+	); err != nil {
 		t.Fatalf("write fake fzf: %v", err)
 	}
 
@@ -305,7 +317,11 @@ func TestRunBootstrapRestoresLastSession(t *testing.T) {
 		SessionName: "demo",
 		CapturedAt:  time.Now().UTC(),
 		Windows: []snapshot.Window{
-			{Index: 0, Name: "main", Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/tmp", CurrentCmd: "zsh"}}},
+			{
+				Index: 0,
+				Name:  "main",
+				Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/tmp", CurrentCmd: "zsh"}},
+			},
 		},
 	}); err != nil {
 		t.Fatalf("save snapshot: %v", err)

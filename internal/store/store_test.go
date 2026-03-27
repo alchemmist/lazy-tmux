@@ -401,7 +401,8 @@ func TestLoadSessionAllowsDotDotPrefixSegmentName(t *testing.T) {
 		t.Fatalf("load: %v", err)
 	}
 
-	if loaded.Windows[0].Panes[0].Scrollback == nil || loaded.Windows[0].Panes[0].Scrollback.Content != "ok\n" {
+	if loaded.Windows[0].Panes[0].Scrollback == nil ||
+		loaded.Windows[0].Panes[0].Scrollback.Content != "ok\n" {
 		t.Fatalf("unexpected scrollback content: %#v", loaded.Windows[0].Panes[0].Scrollback)
 	}
 }

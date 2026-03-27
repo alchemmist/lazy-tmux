@@ -104,7 +104,10 @@ exit 0
 	}
 
 	idx := 3
-	if err := a.RestoreTarget(PickerTarget{SessionName: "demo", WindowIndex: &idx}, true); err != nil {
+	if err := a.RestoreTarget(
+		PickerTarget{SessionName: "demo", WindowIndex: &idx},
+		true,
+	); err != nil {
 		t.Fatalf("RestoreTarget error: %v", err)
 	}
 

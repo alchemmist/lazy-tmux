@@ -121,7 +121,11 @@ func (m pickerModel) handlePromptKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case modeRenameWindow:
 			name := strings.TrimSpace(m.promptInput.Value())
 			if name != "" && m.pending.WindowIndex != nil {
-				if err := m.renameWindow(m.pending.SessionName, *m.pending.WindowIndex, name); err != nil {
+				if err := m.renameWindow(
+					m.pending.SessionName,
+					*m.pending.WindowIndex,
+					name,
+				); err != nil {
 					m.setStatus(err.Error())
 				} else {
 					m.clearStatus()
