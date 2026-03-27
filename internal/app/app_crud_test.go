@@ -226,7 +226,8 @@ exit 0
 }
 
 func TestSleepKillsRunningSession(t *testing.T) {
-	markerFile := "/tmp/lazy-tmux-test-kill-marker"
+	tempDir := t.TempDir()
+	markerFile := tempDir + "/kill-marker"
 	fake := writeFakeTmuxForApp(t, `
 if [ "$1" = "has-session" ]; then
   exit 0
