@@ -295,7 +295,11 @@ func (s *Store) loadIndexUnlocked() (snapshot.Index, error) {
 	b, err := os.ReadFile(p)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return snapshot.Index{Version: snapshot.FormatVersion, Updated: time.Now().UTC(), Sessions: map[string]snapshot.Record{}}, nil
+			return snapshot.Index{
+				Version:  snapshot.FormatVersion,
+				Updated:  time.Now().UTC(),
+				Sessions: map[string]snapshot.Record{},
+			}, nil
 		}
 
 		return snapshot.Index{}, err
@@ -344,7 +348,9 @@ type scrollbackEntry struct {
 	Lines    int
 }
 
-func (s *Store) planScrollbackUnlocked(ss *snapshot.SessionSnapshot) (string, []scrollbackEntry, error) {
+func (s *Store) planScrollbackUnlocked(
+	ss *snapshot.SessionSnapshot,
+) (string, []scrollbackEntry, error) {
 	safeName, err := safeScrollbackSessionName(ss.SessionName)
 	if err != nil {
 		return "", nil, err
@@ -385,7 +391,10 @@ func (s *Store) planScrollbackUnlocked(ss *snapshot.SessionSnapshot) (string, []
 	return safeName, entries, nil
 }
 
-func (s *Store) persistScrollbackUnlocked(sessionName, safeName string, entries []scrollbackEntry) error {
+func (s *Store) persistScrollbackUnlocked(
+	sessionName, safeName string,
+	entries []scrollbackEntry,
+) error {
 	scrollRoot := filepath.Clean(filepath.Join(s.baseDir, scrollbackDir))
 	sessionDir := filepath.Clean(filepath.Join(scrollRoot, safeName))
 
@@ -540,7 +549,8 @@ func safeScrollbackPath(baseRoot, baseDir, ref string) (string, error) {
 	}
 
 	cleanRel := filepath.Clean(rel)
-	if filepath.IsAbs(cleanRel) || cleanRel == ".." || strings.HasPrefix(cleanRel, ".."+string(os.PathSeparator)) {
+	if filepath.IsAbs(cleanRel) || cleanRel == ".." ||
+		strings.HasPrefix(cleanRel, ".."+string(os.PathSeparator)) {
 		return "", fmt.Errorf("invalid scrollback ref outside base dir: %s", ref)
 	}
 
@@ -585,7 +595,8 @@ func ensureUnderDir(baseDir, child, ref string) error {
 	}
 
 	cleanRel := filepath.Clean(rel)
-	if filepath.IsAbs(cleanRel) || cleanRel == ".." || strings.HasPrefix(cleanRel, ".."+string(os.PathSeparator)) {
+	if filepath.IsAbs(cleanRel) || cleanRel == ".." ||
+		strings.HasPrefix(cleanRel, ".."+string(os.PathSeparator)) {
 		return fmt.Errorf("invalid path outside base dir: %s", ref)
 	}
 

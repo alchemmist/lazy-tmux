@@ -6,8 +6,6 @@ linters:
   disable:
     - tenv
 
-    - lll
-    - gofumpt
     - gci
     - wrapcheck
     - varnamelen

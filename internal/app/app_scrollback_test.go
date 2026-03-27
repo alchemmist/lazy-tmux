@@ -102,6 +102,9 @@ exit 0
 	a.captureShellScrollback(&snap)
 
 	if snap.Windows[0].Panes[0].Scrollback != nil {
-		t.Fatalf("expected empty scrollback to be skipped, got: %+v", snap.Windows[0].Panes[0].Scrollback)
+		t.Fatalf(
+			"expected empty scrollback to be skipped, got: %+v",
+			snap.Windows[0].Panes[0].Scrollback,
+		)
 	}
 }

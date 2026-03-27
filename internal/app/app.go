@@ -105,7 +105,11 @@ func (a *App) RestoreTarget(target PickerTarget, switchClient bool) error {
 		}
 	}
 
-	if err := a.store.MarkSessionAccessed(session, time.Now().UTC()); err != nil && !errors.Is(err, os.ErrNotExist) {
+	if err := a.store.MarkSessionAccessed(
+		session,
+		time.Now().UTC(),
+	); err != nil &&
+		!errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 
