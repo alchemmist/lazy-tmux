@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -85,7 +86,7 @@ exit 0
 		t.Fatal("expected session to be deleted")
 	}
 
-	if !os.IsNotExist(err) {
+	if !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("expected not-exist error, got %v", err)
 	}
 }

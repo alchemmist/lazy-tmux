@@ -32,7 +32,7 @@ func New(cfg config.Config) *App {
 func (a *App) SaveAll() error {
 	sessions, err := a.tmux.ListSessions()
 	if err != nil {
-		return err
+		return fmt.Errorf("list sessions: %w", err)
 	}
 
 	for _, name := range sessions {
@@ -47,20 +47,24 @@ func (a *App) SaveAll() error {
 func (a *App) SaveSession(session string) error {
 	snap, err := a.tmux.CaptureSession(session)
 	if err != nil {
-		return err
+		return fmt.Errorf("capture session: %w", err)
 	}
 
 	if a.cfg.Scrollback.Enabled {
 		a.captureShellScrollback(&snap)
 	}
 
-	return a.store.SaveSession(snap)
+	if err := a.store.SaveSession(snap); err != nil {
+		return fmt.Errorf("save session: %w", err)
+	}
+
+	return nil
 }
 
 func (a *App) SaveCurrent() error {
 	name, err := a.tmux.CurrentSession()
 	if err != nil {
-		return err
+		return fmt.Errorf("get current session: %w", err)
 	}
 
 	return a.SaveSession(name)
@@ -86,12 +90,12 @@ func (a *App) RestoreTarget(target PickerTarget, switchClient bool) error {
 
 	snap, err := a.store.LoadSession(session)
 	if err != nil {
-		return err
+		return fmt.Errorf("load session: %w", err)
 	}
 
 	err = a.tmux.RestoreSession(snap)
 	if err != nil && err != tmux.ErrSessionExists {
-		return err
+		return fmt.Errorf("restore session: %w", err)
 	}
 
 	if switchClient {
@@ -101,7 +105,7 @@ func (a *App) RestoreTarget(target PickerTarget, switchClient bool) error {
 		}
 
 		if err := a.tmux.SwitchClient(switchTarget); err != nil {
-			return err
+			return fmt.Errorf("switch client: %w", err)
 		}
 	}
 
@@ -110,7 +114,7 @@ func (a *App) RestoreTarget(target PickerTarget, switchClient bool) error {
 		time.Now().UTC(),
 	); err != nil &&
 		!errors.Is(err, os.ErrNotExist) {
-		return err
+		return fmt.Errorf("mark session accessed: %w", err)
 	}
 
 	return nil
@@ -125,7 +129,7 @@ func (a *App) Bootstrap(session string) error {
 				return nil
 			}
 
-			return err
+			return fmt.Errorf("get latest record: %w", err)
 		}
 
 		target = rec.SessionName
@@ -135,7 +139,12 @@ func (a *App) Bootstrap(session string) error {
 }
 
 func (a *App) ListRecords() ([]snapshot.Record, error) {
-	return a.store.ListRecords()
+	records, err := a.store.ListRecords()
+	if err != nil {
+		return nil, fmt.Errorf("list records: %w", err)
+	}
+
+	return records, nil
 }
 
 func (a *App) captureShellScrollback(snap *snapshot.SessionSnapshot) {

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -40,7 +41,7 @@ exit 0
 		t.Fatalf("DeleteSession error: %v", err)
 	}
 
-	if _, err := a.store.LoadSession("demo"); err == nil || !os.IsNotExist(err) {
+	if _, err := a.store.LoadSession("demo"); err == nil || !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("expected session to be deleted, got %v", err)
 	}
 }
@@ -210,7 +211,7 @@ exit 0
 		t.Fatalf("DeleteWindow error: %v", err)
 	}
 
-	if _, err := a.store.LoadSession("demo"); err == nil || !os.IsNotExist(err) {
+	if _, err := a.store.LoadSession("demo"); err == nil || !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("expected session to be deleted, got %v", err)
 	}
 }

@@ -61,7 +61,7 @@ func acquireLock(socketPath string) (func(), error) {
 	}
 
 	if err := os.MkdirAll(runtimeDir, 0o755); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create runtime dir: %w", err)
 	}
 
 	h := fnv.New64a()
@@ -70,7 +70,7 @@ func acquireLock(socketPath string) (func(), error) {
 
 	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o644)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open lock file: %w", err)
 	}
 
 	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {

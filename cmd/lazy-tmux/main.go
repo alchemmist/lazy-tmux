@@ -116,7 +116,7 @@ func runSave(base config.Config, args []string) error {
 			return nil
 		}
 
-		return err
+		return fmt.Errorf("parse save flags: %w", err)
 	}
 
 	if *scrollback && *scrollbackLines <= 0 {
@@ -139,7 +139,11 @@ func runSave(base config.Config, args []string) error {
 		err = a.SaveCurrent()
 	}
 
-	return err
+	if err != nil {
+		return fmt.Errorf("save session: %w", err)
+	}
+
+	return nil
 }
 
 func runRestore(base config.Config, args []string) error {
@@ -157,7 +161,7 @@ func runRestore(base config.Config, args []string) error {
 			return nil
 		}
 
-		return err
+		return fmt.Errorf("parse restore flags: %w", err)
 	}
 
 	if strings.TrimSpace(*session) == "" {
@@ -166,7 +170,11 @@ func runRestore(base config.Config, args []string) error {
 
 	a := app.New(shared.apply(base))
 
-	return a.Restore(strings.TrimSpace(*session), *switchClient)
+	if err := a.Restore(strings.TrimSpace(*session), *switchClient); err != nil {
+		return fmt.Errorf("restore session: %w", err)
+	}
+
+	return nil
 }
 
 func runPicker(base config.Config, args []string) error {
@@ -193,14 +201,14 @@ func runPicker(base config.Config, args []string) error {
 			return nil
 		}
 
-		return err
+		return fmt.Errorf("parse picker flags: %w", err)
 	}
 
 	a := app.New(shared.apply(base))
 
 	sortOpts, err := app.ParsePickerSortOptions(*sessionSort, *windowSort)
 	if err != nil {
-		return err
+		return fmt.Errorf("parse sort options: %w", err)
 	}
 
 	var (
@@ -217,10 +225,14 @@ func runPicker(base config.Config, args []string) error {
 	}
 
 	if selErr != nil {
-		return selErr
+		return fmt.Errorf("select target: %w", selErr)
 	}
 
-	return a.RestoreTarget(target, true)
+	if err := a.RestoreTarget(target, true); err != nil {
+		return fmt.Errorf("restore target: %w", err)
+	}
+
+	return nil
 }
 
 func runBootstrap(base config.Config, args []string) error {
@@ -237,12 +249,16 @@ func runBootstrap(base config.Config, args []string) error {
 			return nil
 		}
 
-		return err
+		return fmt.Errorf("parse bootstrap flags: %w", err)
 	}
 
 	a := app.New(shared.apply(base))
 
-	return a.Bootstrap(*session)
+	if err := a.Bootstrap(*session); err != nil {
+		return fmt.Errorf("bootstrap session: %w", err)
+	}
+
+	return nil
 }
 
 func runDaemon(base config.Config, args []string) error {
@@ -265,7 +281,7 @@ func runDaemon(base config.Config, args []string) error {
 			return nil
 		}
 
-		return err
+		return fmt.Errorf("parse daemon flags: %w", err)
 	}
 
 	if *scrollback && *scrollbackLines <= 0 {
@@ -278,7 +294,11 @@ func runDaemon(base config.Config, args []string) error {
 	cfg.Scrollback.Lines = *scrollbackLines
 	a := app.New(cfg)
 
-	return a.RunDaemon(*interval)
+	if err := a.RunDaemon(*interval); err != nil {
+		return fmt.Errorf("run daemon: %w", err)
+	}
+
+	return nil
 }
 
 func runList(base config.Config, args []string, stdout io.Writer) error {
@@ -294,14 +314,14 @@ func runList(base config.Config, args []string, stdout io.Writer) error {
 			return nil
 		}
 
-		return err
+		return fmt.Errorf("parse list flags: %w", err)
 	}
 
 	a := app.New(shared.apply(base))
 
 	recs, err := a.ListRecords()
 	if err != nil {
-		return err
+		return fmt.Errorf("list records: %w", err)
 	}
 
 	for _, r := range recs {
@@ -332,7 +352,7 @@ func runWakeup(base config.Config, args []string) error {
 			return nil
 		}
 
-		return err
+		return fmt.Errorf("parse wakeup flags: %w", err)
 	}
 
 	if strings.TrimSpace(*session) == "" {
@@ -341,7 +361,11 @@ func runWakeup(base config.Config, args []string) error {
 
 	a := app.New(shared.apply(base))
 
-	return a.Wakeup(strings.TrimSpace(*session))
+	if err := a.Wakeup(strings.TrimSpace(*session)); err != nil {
+		return fmt.Errorf("wakeup session: %w", err)
+	}
+
+	return nil
 }
 
 func runSleep(base config.Config, args []string) error {
@@ -358,7 +382,7 @@ func runSleep(base config.Config, args []string) error {
 			return nil
 		}
 
-		return err
+		return fmt.Errorf("parse sleep flags: %w", err)
 	}
 
 	if strings.TrimSpace(*session) == "" {
@@ -367,7 +391,11 @@ func runSleep(base config.Config, args []string) error {
 
 	a := app.New(shared.apply(base))
 
-	return a.Sleep(strings.TrimSpace(*session))
+	if err := a.Sleep(strings.TrimSpace(*session)); err != nil {
+		return fmt.Errorf("sleep session: %w", err)
+	}
+
+	return nil
 }
 
 func usage() {
