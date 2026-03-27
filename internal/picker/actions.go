@@ -204,6 +204,28 @@ func (m *pickerModel) createWindow(session string, name string) error {
 	return m.actions.NewWindow(session, name)
 }
 
+func (m *pickerModel) wakeupSession() error {
+	row, ok := m.currentRow()
+	if !ok {
+		return fmt.Errorf("select a session to wakeup")
+	}
+	if m.actions.Wakeup == nil {
+		return fmt.Errorf("wakeup not available")
+	}
+	return m.actions.Wakeup(row.target.SessionName)
+}
+
+func (m *pickerModel) sleepSession() error {
+	row, ok := m.currentRow()
+	if !ok {
+		return fmt.Errorf("select a session to sleep")
+	}
+	if m.actions.Sleep == nil {
+		return fmt.Errorf("sleep not available")
+	}
+	return m.actions.Sleep(row.target.SessionName)
+}
+
 func (m *pickerModel) reload() {
 	if m.actions.Reload == nil {
 		return

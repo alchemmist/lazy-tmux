@@ -73,6 +73,8 @@ func (a *App) SelectTargetWithTUISorted(opts PickerSortOptions) (PickerTarget, e
 		RenameSession: a.RenameSession,
 		NewSession:    a.NewSession,
 		NewWindow:     a.NewWindow,
+		Wakeup:        a.Wakeup,
+		Sleep:         a.Sleep,
 		Reload: func() ([]picker.Session, error) {
 			sessions, err := a.pickerSessions(opts)
 			if err != nil {
