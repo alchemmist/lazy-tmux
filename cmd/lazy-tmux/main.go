@@ -66,6 +66,16 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 	case "setup":
 		setupConfigTo(stdout)
 		return 0
+	case "wakeup":
+		if err := runWakeup(cfg, args[1:]); err != nil {
+			return writeFatalErr(stderr, err)
+		}
+		return 0
+	case "sleep":
+		if err := runSleep(cfg, args[1:]); err != nil {
+			return writeFatalErr(stderr, err)
+		}
+		return 0
 	case "help", "-h", "--help":
 		usageTo(stdout)
 		return 0
@@ -247,6 +257,50 @@ func runList(base config.Config, args []string, stdout io.Writer) error {
 	return nil
 }
 
+func runWakeup(base config.Config, args []string) error {
+	fs := flag.NewFlagSet("wakeup", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	session := fs.String("session", "", "session to wakeup")
+	shared := addSharedFlags(fs, base, true)
+
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			fs.SetOutput(os.Stdout)
+			fs.Usage()
+			return nil
+		}
+		return err
+	}
+	if strings.TrimSpace(*session) == "" {
+		return fmt.Errorf("wakeup requires --session")
+	}
+
+	a := app.New(shared.apply(base))
+	return a.Wakeup(strings.TrimSpace(*session))
+}
+
+func runSleep(base config.Config, args []string) error {
+	fs := flag.NewFlagSet("sleep", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	session := fs.String("session", "", "session to sleep")
+	shared := addSharedFlags(fs, base, true)
+
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			fs.SetOutput(os.Stdout)
+			fs.Usage()
+			return nil
+		}
+		return err
+	}
+	if strings.TrimSpace(*session) == "" {
+		return fmt.Errorf("sleep requires --session")
+	}
+
+	a := app.New(shared.apply(base))
+	return a.Sleep(strings.TrimSpace(*session))
+}
+
 func usage() {
 	usageTo(os.Stdout)
 }
@@ -260,6 +314,8 @@ Usage:
 Commands:
   save       Save current or selected sessions
   restore    Restore one session from disk
+  wakeup     Restore a saved session (lazy load) and switch to it
+  sleep      Save and close a running session
   picker     Open session picker and restore selected session (default: TUI)
   bootstrap  Restore one session at tmux startup (default: last)
   daemon     Periodically save all sessions
