@@ -87,7 +87,7 @@ func (a *App) RenameWindow(session string, windowIndex int, name string) error {
 	return a.store.SaveSession(snap)
 }
 
-func (a *App) RenameSession(session string, name string) error {
+func (a *App) RenameSession(session, name string) error {
 	if strings.TrimSpace(name) == "" {
 		return fmt.Errorf("session name is empty")
 	}
@@ -155,7 +155,7 @@ func (a *App) NewSession(name string) error {
 	return nil
 }
 
-func (a *App) NewWindow(session string, name string) error {
+func (a *App) NewWindow(session, name string) error {
 	if strings.TrimSpace(session) == "" {
 		return fmt.Errorf("session name is empty")
 	}

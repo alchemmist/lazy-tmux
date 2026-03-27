@@ -136,7 +136,7 @@ func (c *Client) RenameWindow(session string, windowIndex int, name string) erro
 	return err
 }
 
-func (c *Client) RenameSession(session string, name string) error {
+func (c *Client) RenameSession(session, name string) error {
 	_, err := c.Output("rename-session", "-t", sessionTarget(session), name)
 	return err
 }
@@ -146,7 +146,7 @@ func (c *Client) NewSession(name string) error {
 	return err
 }
 
-func (c *Client) NewWindow(session string, name string) error {
+func (c *Client) NewWindow(session, name string) error {
 	args := []string{"new-window", "-d", "-t", sessionWindowBaseTarget(session)}
 	if strings.TrimSpace(name) != "" {
 		args = append(args, "-n", name)

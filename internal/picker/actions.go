@@ -180,7 +180,7 @@ func (m *pickerModel) renameWindow(session string, windowIndex int, name string)
 	return m.actions.RenameWindow(session, windowIndex, name)
 }
 
-func (m *pickerModel) renameSession(session string, name string) error {
+func (m *pickerModel) renameSession(session, name string) error {
 	if m.actions.RenameSession == nil {
 		return fmt.Errorf("rename session not available")
 	}
@@ -194,7 +194,7 @@ func (m *pickerModel) createSession(name string) error {
 	return m.actions.NewSession(name)
 }
 
-func (m *pickerModel) createWindow(session string, name string) error {
+func (m *pickerModel) createWindow(session, name string) error {
 	if m.actions.NewWindow == nil {
 		return fmt.Errorf("new window not available")
 	}
