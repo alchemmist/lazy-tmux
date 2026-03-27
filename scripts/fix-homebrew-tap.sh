@@ -2,13 +2,13 @@
 set -euo pipefail
 
 if [ -z "${TAP_REPO:-}" ]; then
-    echo "TAP_REPO is not set"
-    exit 1
+  echo "TAP_REPO is not set"
+  exit 1
 fi
 
 if [ -z "${TAP_TOKEN:-}" ]; then
-    echo "TAP_TOKEN is not set"
-    exit 1
+  echo "TAP_TOKEN is not set"
+  exit 1
 fi
 
 tmpdir="$(mktemp -d)"
@@ -22,21 +22,21 @@ mkdir -p Formula
 
 moved=false
 for f in *.rb; do
-    if [ -f "$f" ]; then
-        if [ ! -f "Formula/$f" ]; then
-            git mv "$f" Formula/
-            moved=true
-        else
-            echo "Formula/$f already exists, skipping"
-        fi
+  if [ -f "$f" ]; then
+    # Удаляем старый файл в Formula, если он есть
+    if [ -f "Formula/$f" ]; then
+      git rm -f "Formula/$f"
     fi
+    git mv "$f" Formula/
+    moved=true
+  fi
 done
 
 if [ "$moved" = true ]; then
-    git config user.email "actions@github.com"
-    git config user.name "github-actions"
-    git commit -m "Move Homebrew formulas to Formula directory"
-    git push
+  git config user.email "actions@github.com"
+  git config user.name "github-actions"
+  git commit -m "Move Homebrew formulas to Formula directory and keep latest version"
+  git push
 else
-    echo "No formulas to move"
+  echo "No formulas to move"
 fi
