@@ -121,6 +121,24 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+n":
 			m.newWindow()
 			return m, nil
+		case "alt+w":
+			if err := m.wakeupSession(); err != nil {
+				m.setStatus(err.Error())
+			} else {
+				m.clearStatus()
+			}
+			m.reload()
+			m.renderViewport()
+			return m, nil
+		case "alt+s":
+			if err := m.sleepSession(); err != nil {
+				m.setStatus(err.Error())
+			} else {
+				m.clearStatus()
+			}
+			m.reload()
+			m.renderViewport()
+			return m, nil
 		case "ctrl+k":
 			m.movePrevSelectable()
 			m.ensureCursorVisible()

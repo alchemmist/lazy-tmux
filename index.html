@@ -514,6 +514,14 @@
               <td>List saved sessions</td>
             </tr>
             <tr>
+              <td><code>wakeup --session NAME</code></td>
+              <td>Restore a saved session (lazy load) that is not currently running</td>
+            </tr>
+            <tr>
+              <td><code>sleep --session NAME</code></td>
+              <td>Save session state and close a running session</td>
+            </tr>
+            <tr>
               <td><code>--fzf-engine</code></td>
               <td>Use fzf backend instead of built-in TUI</td>
             </tr>
@@ -707,6 +715,14 @@ lazy-tmux daemon --interval 5m --scrollback --scrollback-lines 5000</code></pre>
             <tr>
               <td><code>&lt;Alt-n&gt;</code></td>
               <td>Create new session. Enter session name.</td>
+            </tr>
+            <tr>
+              <td><code>&lt;Alt-w&gt;</code></td>
+              <td>Wakeup: Restore a saved session that is not currently running.</td>
+            </tr>
+            <tr>
+              <td><code>&lt;Alt-s&gt;</code></td>
+              <td>Sleep: Save session state and close a running session.</td>
             </tr>
           </tbody>
         </table>

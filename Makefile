@@ -9,7 +9,7 @@ BINARY := lazy-tmux
 
 .PHONY: help check build build-fzf build-all test test-race test-cov test-integration fmt fmt-check vet staticcheck golangci-lint lint tidy install clean dist dist-tui dist-fzf tag
 
-check: fmt-check lint test build
+check: build fmt-check lint test test-cov test-integration
 
 build:
 	go build -o bin/$(BINARY) ./cmd/$(BINARY)
@@ -107,7 +107,7 @@ clean:
 
 help:
 	@printf "Available targets:\n\n"
-	@printf "  check       - run fmt-check, lint, test, build\n"
+	@printf "  check       - run build, fmt-check, lint, test, test-cov, test-integration\n"
 	@printf "  build       - build binary into ./bin\n"
 	@printf "  build-fzf   - build fzf-only binary into ./bin\n"
 	@printf "  build-all   - build both tui and fzf-only binaries into ./bin\n"
