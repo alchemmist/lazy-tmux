@@ -15,9 +15,11 @@ func (m *pickerModel) deleteCurrentWindow() error {
 	if !ok || row.target.WindowIndex == nil {
 		return fmt.Errorf("select a window row to delete")
 	}
+
 	if m.actions.DeleteWindow == nil {
 		return fmt.Errorf("delete window not available")
 	}
+
 	return m.actions.DeleteWindow(row.target.SessionName, *row.target.WindowIndex)
 }
 
@@ -27,6 +29,7 @@ func (m *pickerModel) confirmDeleteSession() {
 		m.setStatus("select a session to delete")
 		return
 	}
+
 	m.pending = row.target
 	m.mode = modeConfirmDeleteSession
 	m.promptInput = textinput.New()
@@ -41,6 +44,7 @@ func (m *pickerModel) renameCurrentWindow() {
 		m.setStatus("select a window row to rename")
 		return
 	}
+
 	m.pending = row.target
 	m.mode = modeRenameWindow
 	m.promptInput = textinput.New()
@@ -57,6 +61,7 @@ func (m *pickerModel) renameCurrentSession() {
 		m.setStatus("select a session to rename")
 		return
 	}
+
 	m.pending = row.target
 	m.mode = modeRenameSession
 	m.promptInput = textinput.New()
@@ -82,6 +87,7 @@ func (m *pickerModel) newWindow() {
 		m.setStatus("select a session to create a window")
 		return
 	}
+
 	m.pending = row.target
 	m.mode = modeNewWindow
 	m.promptInput = textinput.New()
@@ -96,6 +102,7 @@ func (m pickerModel) handlePromptKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.mode = modeBrowse
 		m.promptInput.Blur()
 		m.resize()
+
 		return m, nil
 	case "enter":
 		switch m.mode {
@@ -107,6 +114,7 @@ func (m pickerModel) handlePromptKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				} else {
 					m.clearStatus()
 				}
+
 				m.reload()
 				m.renderViewport()
 			}
@@ -118,6 +126,7 @@ func (m pickerModel) handlePromptKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				} else {
 					m.clearStatus()
 				}
+
 				m.reload()
 				m.renderViewport()
 			}
@@ -129,6 +138,7 @@ func (m pickerModel) handlePromptKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				} else {
 					m.clearStatus()
 				}
+
 				m.reload()
 				m.renderViewport()
 			}
@@ -140,6 +150,7 @@ func (m pickerModel) handlePromptKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				} else {
 					m.clearStatus()
 				}
+
 				m.reload()
 				m.renderViewport()
 			}
@@ -150,16 +161,21 @@ func (m pickerModel) handlePromptKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			} else {
 				m.clearStatus()
 			}
+
 			m.reload()
 			m.renderViewport()
 		}
+
 		m.mode = modeBrowse
 		m.promptInput.Blur()
 		m.resize()
+
 		return m, nil
 	}
+
 	var cmd tea.Cmd
 	m.promptInput, cmd = m.promptInput.Update(msg)
+
 	return m, cmd
 }
 
@@ -167,9 +183,11 @@ func (m *pickerModel) deleteSession(session string) error {
 	if m.actions.DeleteSession == nil {
 		return fmt.Errorf("delete session not available")
 	}
+
 	if strings.TrimSpace(session) == "" {
 		return fmt.Errorf("select a session to delete")
 	}
+
 	return m.actions.DeleteSession(session)
 }
 
@@ -177,6 +195,7 @@ func (m *pickerModel) renameWindow(session string, windowIndex int, name string)
 	if m.actions.RenameWindow == nil {
 		return fmt.Errorf("rename window not available")
 	}
+
 	return m.actions.RenameWindow(session, windowIndex, name)
 }
 
@@ -184,6 +203,7 @@ func (m *pickerModel) renameSession(session, name string) error {
 	if m.actions.RenameSession == nil {
 		return fmt.Errorf("rename session not available")
 	}
+
 	return m.actions.RenameSession(session, name)
 }
 
@@ -191,6 +211,7 @@ func (m *pickerModel) createSession(name string) error {
 	if m.actions.NewSession == nil {
 		return fmt.Errorf("new session not available")
 	}
+
 	return m.actions.NewSession(name)
 }
 
@@ -198,9 +219,11 @@ func (m *pickerModel) createWindow(session, name string) error {
 	if m.actions.NewWindow == nil {
 		return fmt.Errorf("new window not available")
 	}
+
 	if strings.TrimSpace(session) == "" {
 		return fmt.Errorf("select a session to create a window")
 	}
+
 	return m.actions.NewWindow(session, name)
 }
 
@@ -209,9 +232,11 @@ func (m *pickerModel) wakeupSession() error {
 	if !ok {
 		return fmt.Errorf("select a session to wakeup")
 	}
+
 	if m.actions.Wakeup == nil {
 		return fmt.Errorf("wakeup not available")
 	}
+
 	return m.actions.Wakeup(row.target.SessionName)
 }
 
@@ -220,9 +245,11 @@ func (m *pickerModel) sleepSession() error {
 	if !ok {
 		return fmt.Errorf("select a session to sleep")
 	}
+
 	if m.actions.Sleep == nil {
 		return fmt.Errorf("sleep not available")
 	}
+
 	return m.actions.Sleep(row.target.SessionName)
 }
 
@@ -230,11 +257,13 @@ func (m *pickerModel) reload() {
 	if m.actions.Reload == nil {
 		return
 	}
+
 	sessions, err := m.actions.Reload()
 	if err != nil {
 		m.setStatus(err.Error())
 		return
 	}
+
 	m.sessions = sessions
 	m.applyFilter()
 	m.ensureCursorVisible()
@@ -244,6 +273,7 @@ func (m *pickerModel) currentRow() (pickerRow, bool) {
 	if len(m.visible) == 0 || m.cursor < 0 || m.cursor >= len(m.visible) {
 		return pickerRow{}, false
 	}
+
 	return m.visible[m.cursor], true
 }
 
@@ -261,6 +291,7 @@ func (m *pickerModel) statusHeight() int {
 	if m.statusMsg == "" {
 		return 0
 	}
+
 	return 1
 }
 
@@ -268,22 +299,27 @@ func nearestSelectableRow(rows []pickerRow, from int) int {
 	if len(rows) == 0 {
 		return 0
 	}
+
 	if from < 0 {
 		from = 0
 	}
+
 	if from >= len(rows) {
 		from = len(rows) - 1
 	}
+
 	for i := from; i >= 0; i-- {
 		if rows[i].selectable {
 			return i
 		}
 	}
+
 	for i := from + 1; i < len(rows); i++ {
 		if rows[i].selectable {
 			return i
 		}
 	}
+
 	return 0
 }
 
@@ -291,6 +327,7 @@ func (m *pickerModel) moveNextSelectable() {
 	if len(m.visible) == 0 {
 		return
 	}
+
 	for i := m.cursor + 1; i < len(m.visible); i++ {
 		if m.visible[i].selectable {
 			m.cursor = i
@@ -303,6 +340,7 @@ func (m *pickerModel) movePrevSelectable() {
 	if len(m.visible) == 0 {
 		return
 	}
+
 	for i := m.cursor - 1; i >= 0; i-- {
 		if m.visible[i].selectable {
 			m.cursor = i

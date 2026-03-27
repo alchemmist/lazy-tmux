@@ -30,15 +30,19 @@ func TestFilteredTreeRowsByWindowNameKeepsSessionParent(t *testing.T) {
 	if len(rows) != 2 {
 		t.Fatalf("expected 2 rows (session + matched window), got %d", len(rows))
 	}
+
 	if rows[0].target.SessionName != "work" || rows[0].target.WindowIndex != nil {
 		t.Fatalf("unexpected parent row target: %+v", rows[0].target)
 	}
+
 	if rows[0].selectable {
 		t.Fatalf("session row must be non-selectable")
 	}
+
 	if rows[1].target.WindowIndex == nil || *rows[1].target.WindowIndex != 1 {
 		t.Fatalf("expected selected window index 1, got %+v", rows[1].target)
 	}
+
 	if !rows[1].selectable {
 		t.Fatalf("window row must be selectable")
 	}
@@ -57,11 +61,13 @@ func TestMoveSkipsSessionHeaders(t *testing.T) {
 	}
 
 	m.moveNextSelectable()
+
 	if got := m.cursor; got != 4 {
 		t.Fatalf("expected jump to first window of next session, got cursor=%d", got)
 	}
 
 	m.movePrevSelectable()
+
 	if got := m.cursor; got != 2 {
 		t.Fatalf("expected jump back to previous selectable row, got cursor=%d", got)
 	}
@@ -107,6 +113,7 @@ func TestBuildPickerTableLayoutWideShowsAllColumns(t *testing.T) {
 		"wins",
 		"state",
 	}
+
 	if fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Fatalf("unexpected columns for wide layout: got %v want %v", got, want)
 	}
@@ -119,6 +126,7 @@ func TestBuildPickerTableLayoutNarrowHidesLowPriorityColumns(t *testing.T) {
 		"item",
 		"cmd",
 	}
+
 	if fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Fatalf("unexpected columns for narrow layout: got %v want %v", got, want)
 	}
@@ -129,9 +137,11 @@ func TestBuildPickerTableLayoutKeepsRequiredItemColumn(t *testing.T) {
 	layout := buildPickerTableLayout(width)
 	got := columnIDs(layout)
 	want := []pickerColumnID{"item"}
+
 	if fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Fatalf("required item column must remain visible: got %v want %v", got, want)
 	}
+
 	if gotWidth := len([]rune(layout.header())); gotWidth > width {
 		t.Fatalf("layout width exceeds budget: got %d want <= %d", gotWidth, width)
 	}
@@ -142,5 +152,6 @@ func columnIDs(layout pickerTableLayout) []pickerColumnID {
 	for _, col := range layout.columns {
 		out = append(out, col.spec.ID)
 	}
+
 	return out
 }

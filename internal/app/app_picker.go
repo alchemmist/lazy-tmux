@@ -15,10 +15,13 @@ func (a *App) pickerRecords(opts PickerSortOptions) ([]snapshot.Record, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if len(records) == 0 {
 		return nil, errNoSavedSessions
 	}
+
 	picker.SortSessionRecords(records, opts.Session)
+
 	return records, nil
 }
 
@@ -27,22 +30,26 @@ func (a *App) pickerSessions(opts PickerSortOptions) ([]picker.Session, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	liveSessions, err := a.tmux.ListSessions()
 	if err != nil {
 		return nil, err
 	}
+
 	live := make(map[string]struct{}, len(liveSessions))
 	for _, name := range liveSessions {
 		live[name] = struct{}{}
 	}
 
 	sessions := make([]picker.Session, 0, len(records))
+
 	for _, rec := range records {
 		snap, err := a.store.LoadSession(rec.SessionName)
 		if err != nil {
 			log.Printf("picker: skip session %s: %v", rec.SessionName, err)
 			continue
 		}
+
 		_, restored := live[rec.SessionName]
 		sessions = append(sessions, picker.Session{
 			Record:   rec,
@@ -50,6 +57,7 @@ func (a *App) pickerSessions(opts PickerSortOptions) ([]picker.Session, error) {
 			Restored: restored,
 		})
 	}
+
 	return sessions, nil
 }
 
@@ -66,6 +74,7 @@ func (a *App) SelectTargetWithTUISorted(opts PickerSortOptions) (PickerTarget, e
 			return PickerTarget{}, err
 		}
 	}
+
 	actions := picker.Actions{
 		DeleteWindow:  a.DeleteWindow,
 		DeleteSession: a.DeleteSession,
@@ -86,6 +95,7 @@ func (a *App) SelectTargetWithTUISorted(opts PickerSortOptions) (PickerTarget, e
 			return sessions, nil
 		},
 	}
+
 	return picker.ChooseTarget(sessions, opts.Window, actions)
 }
 
@@ -94,6 +104,7 @@ func (a *App) SelectWithTUI() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return target.SessionName, nil
 }
 
@@ -106,5 +117,6 @@ func (a *App) SelectWithFZFSorted(opts PickerSortOptions) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return picker.ChooseSessionFZF(records)
 }

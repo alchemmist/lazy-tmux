@@ -19,6 +19,7 @@ fi
 exit 0
 `)
 	dataDir := t.TempDir()
+
 	a := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),
@@ -43,9 +44,11 @@ exit 0
 	if err != nil {
 		t.Fatalf("load session: %v", err)
 	}
+
 	if len(snap.Windows) != 1 {
 		t.Fatalf("expected 1 window, got %d", len(snap.Windows))
 	}
+
 	if snap.Windows[0].Index != 1 {
 		t.Fatalf("expected remaining window index 1, got %d", snap.Windows[0].Index)
 	}
@@ -59,6 +62,7 @@ fi
 exit 0
 `)
 	dataDir := t.TempDir()
+
 	a := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),
@@ -80,6 +84,7 @@ exit 0
 	if err == nil {
 		t.Fatal("expected session to be deleted")
 	}
+
 	if !os.IsNotExist(err) {
 		t.Fatalf("expected not-exist error, got %v", err)
 	}
@@ -93,6 +98,7 @@ fi
 exit 0
 `)
 	dataDir := t.TempDir()
+
 	a := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),
@@ -114,6 +120,7 @@ exit 0
 	if err != nil {
 		t.Fatalf("ListRecords error: %v", err)
 	}
+
 	if len(recs) != 1 || recs[0].SessionName != "foo/bar" {
 		t.Fatalf("unexpected records: %+v", recs)
 	}
@@ -127,6 +134,7 @@ fi
 exit 0
 `)
 	dataDir := t.TempDir()
+
 	a := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),
@@ -150,6 +158,7 @@ exit 0
 	if err != nil {
 		t.Fatalf("ListRecords error: %v", err)
 	}
+
 	if len(recs) != 2 {
 		t.Fatalf("expected 2 records, got %d", len(recs))
 	}
@@ -163,6 +172,7 @@ fi
 exit 0
 `)
 	dataDir := t.TempDir()
+
 	a := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),
@@ -207,6 +217,7 @@ fi
 exit 0
 `)
 	dataDir := t.TempDir()
+
 	a := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),
@@ -271,6 +282,7 @@ fi
 exit 0
 `)
 	dataDir := t.TempDir()
+
 	a := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),
@@ -299,6 +311,7 @@ exit 0
 	if err != nil {
 		t.Fatalf("expected kill-session to be called (marker file missing): %v", err)
 	}
+
 	if !strings.Contains(string(data), "killed") {
 		t.Fatalf("expected 'killed' in marker file, got: %s", string(data))
 	}

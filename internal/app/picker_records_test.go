@@ -17,6 +17,7 @@ func TestPickerRecordsEmpty(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for empty records")
 	}
+
 	if !strings.Contains(err.Error(), "no saved sessions found") {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -41,12 +42,14 @@ func TestPickerRecordsSortedByCapturedAt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pickerRecords: %v", err)
 	}
+
 	if len(recs) != 3 {
 		t.Fatalf("expected 3 records, got %d", len(recs))
 	}
 
 	got := []string{recs[0].SessionName, recs[1].SessionName, recs[2].SessionName}
 	want := []string{"latest", "new", "old"}
+
 	if fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Fatalf("unexpected order: got %v want %v", got, want)
 	}
@@ -69,6 +72,7 @@ func TestPickerRecordsSortedByLastAccessed(t *testing.T) {
 	if err := a.store.MarkSessionAccessed("beta", base.Add(2*time.Hour)); err != nil {
 		t.Fatalf("mark beta: %v", err)
 	}
+
 	if err := a.store.MarkSessionAccessed("alpha", base.Add(3*time.Hour)); err != nil {
 		t.Fatalf("mark alpha: %v", err)
 	}
@@ -77,9 +81,11 @@ func TestPickerRecordsSortedByLastAccessed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pickerRecords: %v", err)
 	}
+
 	if len(recs) != 2 {
 		t.Fatalf("expected 2 records, got %d", len(recs))
 	}
+
 	if recs[0].SessionName != "alpha" || recs[1].SessionName != "beta" {
 		t.Fatalf("unexpected order by last_accessed: %#v", recs)
 	}

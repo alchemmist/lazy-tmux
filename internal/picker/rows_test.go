@@ -29,9 +29,11 @@ func TestFilteredTreeRowsSessionMatchIncludesAllWindows(t *testing.T) {
 	if len(rows) != 3 {
 		t.Fatalf("expected session row + 2 window rows, got %d", len(rows))
 	}
+
 	if rows[1].windowName != "editor" {
 		t.Fatalf("expected windows to be sorted by index, got first window %q", rows[1].windowName)
 	}
+
 	if rows[2].windowName != "logs" {
 		t.Fatalf("unexpected second window: %q", rows[2].windowName)
 	}

@@ -38,21 +38,26 @@ exit 0
 	if err != nil {
 		t.Fatalf("SessionPath: %v", err)
 	}
+
 	if err := os.Remove(path); err != nil {
 		t.Fatalf("remove beta snapshot: %v", err)
 	}
 
 	a.tmux = tmux.NewClient(fake)
+
 	sessions, err := a.pickerSessions(DefaultPickerSortOptions())
 	if err != nil {
 		t.Fatalf("pickerSessions: %v", err)
 	}
+
 	if len(sessions) != 1 {
 		t.Fatalf("expected 1 session (missing snapshot skipped), got %d", len(sessions))
 	}
+
 	if sessions[0].Record.SessionName != "alpha" {
 		t.Fatalf("unexpected session name: %s", sessions[0].Record.SessionName)
 	}
+
 	if !sessions[0].Restored {
 		t.Fatal("expected alpha to be marked as restored")
 	}

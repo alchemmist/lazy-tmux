@@ -34,11 +34,13 @@ func (a *App) SaveAll() error {
 	if err != nil {
 		return err
 	}
+
 	for _, name := range sessions {
 		if err := a.SaveSession(name); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -47,9 +49,11 @@ func (a *App) SaveSession(session string) error {
 	if err != nil {
 		return err
 	}
+
 	if a.cfg.Scrollback.Enabled {
 		a.captureShellScrollback(&snap)
 	}
+
 	return a.store.SaveSession(snap)
 }
 
@@ -58,6 +62,7 @@ func (a *App) SaveCurrent() error {
 	if err != nil {
 		return err
 	}
+
 	return a.SaveSession(name)
 }
 
@@ -65,6 +70,7 @@ func (a *App) runDaemonSaveAll() error {
 	if a.saveAllFn != nil {
 		return a.saveAllFn()
 	}
+
 	return a.SaveAll()
 }
 
@@ -82,22 +88,27 @@ func (a *App) RestoreTarget(target PickerTarget, switchClient bool) error {
 	if err != nil {
 		return err
 	}
+
 	err = a.tmux.RestoreSession(snap)
 	if err != nil && err != tmux.ErrSessionExists {
 		return err
 	}
+
 	if switchClient {
 		switchTarget := session
 		if target.WindowIndex != nil {
 			switchTarget = fmt.Sprintf("%s:%d", session, *target.WindowIndex)
 		}
+
 		if err := a.tmux.SwitchClient(switchTarget); err != nil {
 			return err
 		}
 	}
+
 	if err := a.store.MarkSessionAccessed(session, time.Now().UTC()); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
+
 	return nil
 }
 
@@ -109,10 +120,13 @@ func (a *App) Bootstrap(session string) error {
 			if os.IsNotExist(err) {
 				return nil
 			}
+
 			return err
 		}
+
 		target = rec.SessionName
 	}
+
 	return a.Restore(target, true)
 }
 
@@ -132,15 +146,19 @@ func (a *App) captureShellScrollback(snap *snapshot.SessionSnapshot) {
 			if strings.TrimSpace(pane.RestoreCmd) != "" || !isShellCommandName(pane.CurrentCmd) {
 				continue
 			}
+
 			target := tmux.PaneTarget(snap.SessionName, snap.Windows[wi].Index, pane.Index)
+
 			out, err := a.tmux.CapturePaneScrollback(target, lines)
 			if err != nil {
 				continue
 			}
+
 			out = strings.TrimRight(out, "\n")
 			if strings.TrimSpace(out) == "" {
 				continue
 			}
+
 			pane.Scrollback = &snapshot.ScrollbackRef{
 				Content: out + "\n",
 			}
@@ -153,6 +171,7 @@ func isShellCommandName(cmd string) bool {
 	if len(fields) == 0 {
 		return false
 	}
+
 	base := strings.TrimPrefix(filepath.Base(fields[0]), "-")
 	switch base {
 	case "bash", "zsh", "fish", "sh", "ksh":

@@ -35,6 +35,7 @@ func TestCaptureShellScrollbackSkipsNonShellAndRestoreCmd(t *testing.T) {
 echo "$*" >> "$TMUX_LOG"
 exit 0
 `)
+
 	t.Setenv("TMUX_LOG", logPath)
 
 	a := &App{
@@ -60,9 +61,11 @@ exit 0
 	if snap.Windows[0].Panes[0].Scrollback != nil {
 		t.Fatal("expected non-shell pane to skip scrollback capture")
 	}
+
 	if snap.Windows[0].Panes[1].Scrollback != nil {
 		t.Fatal("expected restore cmd pane to skip scrollback capture")
 	}
+
 	if _, err := os.Stat(logPath); err == nil {
 		t.Fatal("tmux capture-pane must not be called for skipped panes")
 	} else if !os.IsNotExist(err) {

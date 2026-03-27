@@ -12,15 +12,18 @@ import (
 
 func TestRunNoArgs(t *testing.T) {
 	var out bytes.Buffer
+
 	var errOut bytes.Buffer
 
 	code := runCLI(nil, &out, &errOut)
 	if code != 2 {
 		t.Fatalf("expected exit code 2, got %d", code)
 	}
+
 	if !strings.Contains(out.String(), "Usage:") {
 		t.Fatalf("expected usage in stdout, got: %s", out.String())
 	}
+
 	if errOut.Len() != 0 {
 		t.Fatalf("expected empty stderr, got: %s", errOut.String())
 	}
@@ -28,15 +31,18 @@ func TestRunNoArgs(t *testing.T) {
 
 func TestRunHelp(t *testing.T) {
 	var out bytes.Buffer
+
 	var errOut bytes.Buffer
 
 	code := runCLI([]string{"help"}, &out, &errOut)
 	if code != 0 {
 		t.Fatalf("expected exit code 0, got %d", code)
 	}
+
 	if !strings.Contains(out.String(), "lazy-tmux - tmux session snapshots with lazy restore") {
 		t.Fatalf("expected help text, got: %s", out.String())
 	}
+
 	if errOut.Len() != 0 {
 		t.Fatalf("expected empty stderr, got: %s", errOut.String())
 	}
@@ -44,12 +50,14 @@ func TestRunHelp(t *testing.T) {
 
 func TestRunUnknownCommand(t *testing.T) {
 	var out bytes.Buffer
+
 	var errOut bytes.Buffer
 
 	code := runCLI([]string{"wat"}, &out, &errOut)
 	if code != 1 {
 		t.Fatalf("expected exit code 1, got %d", code)
 	}
+
 	if !strings.Contains(errOut.String(), "unknown command: wat") {
 		t.Fatalf("unexpected stderr: %s", errOut.String())
 	}
@@ -57,12 +65,14 @@ func TestRunUnknownCommand(t *testing.T) {
 
 func TestRunRestoreRequiresSession(t *testing.T) {
 	var out bytes.Buffer
+
 	var errOut bytes.Buffer
 
 	code := runCLI([]string{"restore"}, &out, &errOut)
 	if code != 1 {
 		t.Fatalf("expected exit code 1, got %d", code)
 	}
+
 	if !strings.Contains(errOut.String(), "restore requires --session") {
 		t.Fatalf("unexpected stderr: %s", errOut.String())
 	}
@@ -70,7 +80,9 @@ func TestRunRestoreRequiresSession(t *testing.T) {
 
 func TestRunBootstrapLastOnEmptyStore(t *testing.T) {
 	var out bytes.Buffer
+
 	var errOut bytes.Buffer
+
 	dir := t.TempDir()
 
 	code := runCLI([]string{"bootstrap", "--session", "last", "--data-dir", dir}, &out, &errOut)
@@ -81,7 +93,9 @@ func TestRunBootstrapLastOnEmptyStore(t *testing.T) {
 
 func TestRunListPrintsSavedRecords(t *testing.T) {
 	var out bytes.Buffer
+
 	var errOut bytes.Buffer
+
 	dir := t.TempDir()
 	s := store.New(dir)
 
@@ -93,6 +107,7 @@ func TestRunListPrintsSavedRecords(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("save alpha: %v", err)
 	}
+
 	if err := s.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "beta",
@@ -115,12 +130,14 @@ func TestRunListPrintsSavedRecords(t *testing.T) {
 
 func TestRunWakeupRequiresSession(t *testing.T) {
 	var out bytes.Buffer
+
 	var errOut bytes.Buffer
 
 	code := runCLI([]string{"wakeup"}, &out, &errOut)
 	if code != 1 {
 		t.Fatalf("expected exit code 1, got %d", code)
 	}
+
 	if !strings.Contains(errOut.String(), "wakeup requires --session") {
 		t.Fatalf("unexpected stderr: %s", errOut.String())
 	}
@@ -128,13 +145,16 @@ func TestRunWakeupRequiresSession(t *testing.T) {
 
 func TestRunWakeupOnNonexistentSessionFails(t *testing.T) {
 	var out bytes.Buffer
+
 	var errOut bytes.Buffer
+
 	dir := t.TempDir()
 
 	code := runCLI([]string{"wakeup", "--session", "nonexistent", "--data-dir", dir}, &out, &errOut)
 	if code != 1 {
 		t.Fatalf("expected exit code 1, got %d", code)
 	}
+
 	if !strings.Contains(errOut.String(), "not found") {
 		t.Fatalf("unexpected stderr: %s", errOut.String())
 	}
@@ -142,12 +162,14 @@ func TestRunWakeupOnNonexistentSessionFails(t *testing.T) {
 
 func TestRunSleepRequiresSession(t *testing.T) {
 	var out bytes.Buffer
+
 	var errOut bytes.Buffer
 
 	code := runCLI([]string{"sleep"}, &out, &errOut)
 	if code != 1 {
 		t.Fatalf("expected exit code 1, got %d", code)
 	}
+
 	if !strings.Contains(errOut.String(), "sleep requires --session") {
 		t.Fatalf("unexpected stderr: %s", errOut.String())
 	}
@@ -155,7 +177,9 @@ func TestRunSleepRequiresSession(t *testing.T) {
 
 func TestRunSleepOnNonrunningSessionFails(t *testing.T) {
 	var out bytes.Buffer
+
 	var errOut bytes.Buffer
+
 	dir := t.TempDir()
 	s := store.New(dir)
 
@@ -172,6 +196,7 @@ func TestRunSleepOnNonrunningSessionFails(t *testing.T) {
 	if code != 1 {
 		t.Fatalf("expected exit code 1, got %d", code)
 	}
+
 	if !strings.Contains(errOut.String(), "not running") {
 		t.Fatalf("unexpected stderr: %s", errOut.String())
 	}
