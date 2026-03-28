@@ -14,7 +14,7 @@ func TestRunNoArgs(t *testing.T) {
 	var out bytes.Buffer
 	var errOut bytes.Buffer
 
-	code := run(nil, &out, &errOut)
+	code := runCLI(nil, &out, &errOut)
 	if code != 2 {
 		t.Fatalf("expected exit code 2, got %d", code)
 	}
@@ -30,7 +30,7 @@ func TestRunHelp(t *testing.T) {
 	var out bytes.Buffer
 	var errOut bytes.Buffer
 
-	code := run([]string{"help"}, &out, &errOut)
+	code := runCLI([]string{"help"}, &out, &errOut)
 	if code != 0 {
 		t.Fatalf("expected exit code 0, got %d", code)
 	}
@@ -46,7 +46,7 @@ func TestRunUnknownCommand(t *testing.T) {
 	var out bytes.Buffer
 	var errOut bytes.Buffer
 
-	code := run([]string{"wat"}, &out, &errOut)
+	code := runCLI([]string{"wat"}, &out, &errOut)
 	if code != 1 {
 		t.Fatalf("expected exit code 1, got %d", code)
 	}
@@ -59,7 +59,7 @@ func TestRunRestoreRequiresSession(t *testing.T) {
 	var out bytes.Buffer
 	var errOut bytes.Buffer
 
-	code := run([]string{"restore"}, &out, &errOut)
+	code := runCLI([]string{"restore"}, &out, &errOut)
 	if code != 1 {
 		t.Fatalf("expected exit code 1, got %d", code)
 	}
@@ -73,7 +73,7 @@ func TestRunBootstrapLastOnEmptyStore(t *testing.T) {
 	var errOut bytes.Buffer
 	dir := t.TempDir()
 
-	code := run([]string{"bootstrap", "--session", "last", "--data-dir", dir}, &out, &errOut)
+	code := runCLI([]string{"bootstrap", "--session", "last", "--data-dir", dir}, &out, &errOut)
 	if code != 0 {
 		t.Fatalf("expected exit code 0, got %d, stderr=%s", code, errOut.String())
 	}
@@ -102,7 +102,7 @@ func TestRunListPrintsSavedRecords(t *testing.T) {
 		t.Fatalf("save beta: %v", err)
 	}
 
-	code := run([]string{"list", "--data-dir", dir}, &out, &errOut)
+	code := runCLI([]string{"list", "--data-dir", dir}, &out, &errOut)
 	if code != 0 {
 		t.Fatalf("expected exit code 0, got %d, stderr=%s", code, errOut.String())
 	}
@@ -110,5 +110,69 @@ func TestRunListPrintsSavedRecords(t *testing.T) {
 	text := out.String()
 	if !strings.Contains(text, "alpha\t") || !strings.Contains(text, "beta\t") {
 		t.Fatalf("expected both records in output, got:\n%s", text)
+	}
+}
+
+func TestRunWakeupRequiresSession(t *testing.T) {
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+
+	code := runCLI([]string{"wakeup"}, &out, &errOut)
+	if code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
+	}
+	if !strings.Contains(errOut.String(), "wakeup requires --session") {
+		t.Fatalf("unexpected stderr: %s", errOut.String())
+	}
+}
+
+func TestRunWakeupOnNonexistentSessionFails(t *testing.T) {
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	dir := t.TempDir()
+
+	code := runCLI([]string{"wakeup", "--session", "nonexistent", "--data-dir", dir}, &out, &errOut)
+	if code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
+	}
+	if !strings.Contains(errOut.String(), "not found") {
+		t.Fatalf("unexpected stderr: %s", errOut.String())
+	}
+}
+
+func TestRunSleepRequiresSession(t *testing.T) {
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+
+	code := runCLI([]string{"sleep"}, &out, &errOut)
+	if code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
+	}
+	if !strings.Contains(errOut.String(), "sleep requires --session") {
+		t.Fatalf("unexpected stderr: %s", errOut.String())
+	}
+}
+
+func TestRunSleepOnNonrunningSessionFails(t *testing.T) {
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	dir := t.TempDir()
+	s := store.New(dir)
+
+	if err := s.SaveSession(snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: "demo",
+		CapturedAt:  time.Now().UTC(),
+		Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
+	}); err != nil {
+		t.Fatalf("save session: %v", err)
+	}
+
+	code := runCLI([]string{"sleep", "--session", "demo", "--data-dir", dir}, &out, &errOut)
+	if code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
+	}
+	if !strings.Contains(errOut.String(), "not running") {
+		t.Fatalf("unexpected stderr: %s", errOut.String())
 	}
 }

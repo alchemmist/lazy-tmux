@@ -6,18 +6,10 @@ MAKEFLAGS += --warn-undefined-variables
 MAKEFLAGS += --no-builtin-rules
 
 BINARY := lazy-tmux
-GO_PACKAGES := ./...
-GOFMT_PATHS := ./cmd ./internal
-GOBIN := $(shell go env GOPATH)/bin
-STATICCHECK := $(GOBIN)/staticcheck
-GOLANGCI_LINT := $(GOBIN)/golangci-lint
 
-.PHONY: help check build build-fzf build-all test test-race test-cov fmt fmt-check vet staticcheck golangci-lint lint tidy install clean dist dist-tui dist-fzf tag
+.PHONY: help check build build-fzf build-all test test-race test-cov test-integration fmt fmt-check vet staticcheck golangci-lint lint tidy install clean dist dist-tui dist-fzf tag
 
-GORELEASER ?= goreleaser
-TYPE ?= patch
-
-check: fmt-check lint staticcheck test build
+check: build fmt-check lint test test-cov test-integration
 
 build:
 	go build -o bin/$(BINARY) ./cmd/$(BINARY)
@@ -28,21 +20,28 @@ build-fzf:
 build-all: build build-fzf
 
 test:
-	go test $(GO_PACKAGES)
+	go install gotest.tools/gotestsum@v1.13.0
+	gotestsum -- ./...
 
 test-race:
-	go test -race $(GO_PACKAGES)
+	go install gotest.tools/gotestsum@v1.13.0
+	gotestsum -- -race ./...
 
-test-cov: 
-	go install github.com/vladopajic/go-test-coverage/v2@latest
-	go test ./... -coverprofile=./cover.out -covermode=atomic -coverpkg=./...
-	${GOBIN}/go-test-coverage --config=./.testcoverage.yml
+test-cov:
+	go install gotest.tools/gotestsum@v1.13.0
+	go install github.com/vladopajic/go-test-coverage/v2@v2.18.4
+	gotestsum -- -coverprofile=cover.out -covermode=atomic -coverpkg=./... ./...
+	go-test-coverage --config=./.testcoverage.yml
+
+test-integration:
+	docker build -f docker/integration.Dockerfile -t lazy-tmux-integration .
+	docker run --rm lazy-tmux-integration
 
 fmt:
-	gofmt -w $(GOFMT_PATHS)
+	gofmt -w ./cmd ./internal
 
 fmt-check:
-	@unformatted="$$(gofmt -l $(GOFMT_PATHS))"; \
+	@unformatted="$$(gofmt -l ./cmd ./internal)"; \
 	if [ -n "$$unformatted" ]; then \
 		echo "gofmt required for:"; \
 		echo "$$unformatted"; \
@@ -50,15 +49,15 @@ fmt-check:
 	fi
 
 vet:
-	go vet $(GO_PACKAGES)
+	go vet ./...
 
 staticcheck:
-	go install honnef.co/go/tools/cmd/staticcheck@latest
-	$(STATICCHECK) $(GO_PACKAGES)
+	go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
+	staticcheck ./...
 
 golangci-lint:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-	$(GOLANGCI_LINT) run ./...
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+	golangci-lint run ./...
 
 lint: vet staticcheck golangci-lint
 
@@ -69,13 +68,13 @@ install: build
 	go install ./cmd/$(BINARY)
 
 dist:
-	$(GORELEASER) release --snapshot --clean
+	goreleaser release --snapshot --clean
 
 dist-tui:
-	$(GORELEASER) release --snapshot --clean --id lazy-tmux
+	goreleaser release --snapshot --clean --id lazy-tmux
 
 dist-fzf:
-	$(GORELEASER) release --snapshot --clean --id lazy-tmux-fzf
+	goreleaser release --snapshot --clean --id lazy-tmux-fzf
 
 tag:
 	@if ! git diff --quiet || ! git diff --cached --quiet; then \
@@ -88,7 +87,7 @@ tag:
 	else \
 		ver="$${latest#v}"; \
 		IFS=. read -r major minor patch <<< "$$ver"; \
-		case "$(TYPE)" in \
+		case "$${TYPE:-patch}" in \
 			patch) patch=$$((patch+1));; \
 			minor) minor=$$((minor+1)); patch=0;; \
 			major) major=$$((major+1)); minor=0; patch=0;; \
@@ -108,13 +107,14 @@ clean:
 
 help:
 	@printf "Available targets:\n\n"
-	@printf "  check       - run fmt-check, lint, test, build\n"
+	@printf "  check       - run build, fmt-check, lint, test, test-cov, test-integration\n"
 	@printf "  build       - build binary into ./bin\n"
 	@printf "  build-fzf   - build fzf-only binary into ./bin\n"
 	@printf "  build-all   - build both tui and fzf-only binaries into ./bin\n"
 	@printf "  test        - run all tests\n"
 	@printf "  test-race   - run tests with race detector\n"
-	@printf "  cover       - run tests with coverage profile\n"
+	@printf "  test-cov       - run tests with coverage profile\n"
+	@printf "  test-integration - run integration tests (tmux + TUI)\n"
 	@printf "  fmt         - format Go sources with gofmt\n"
 	@printf "  fmt-check   - verify Go sources are formatted\n"
 	@printf "  vet         - run go vet\n"

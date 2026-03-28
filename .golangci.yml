@@ -2,7 +2,7 @@ run:
   timeout: 5m
 
 linters:
-  disable-all: true
+  disable-all: false
   enable:
     - errcheck
     - gofmt
