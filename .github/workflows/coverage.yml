@@ -1,4 +1,4 @@
-name: staticcheck
+name: coverage
 
 permissions:
   contents: read
@@ -9,7 +9,7 @@ on:
   pull_request:
 
 jobs:
-  staticcheck:
+  coverage:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -18,5 +18,5 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Staticcheck
-        run: make staticcheck
+      - name: Coverage
+        run: make test-cov

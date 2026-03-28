@@ -23,6 +23,10 @@ mkdir -p Formula
 moved=false
 for f in *.rb; do
   if [ -f "$f" ]; then
+    # Удаляем старый файл в Formula, если он есть
+    if [ -f "Formula/$f" ]; then
+      git rm -f "Formula/$f"
+    fi
     git mv "$f" Formula/
     moved=true
   fi
@@ -31,7 +35,7 @@ done
 if [ "$moved" = true ]; then
   git config user.email "actions@github.com"
   git config user.name "github-actions"
-  git commit -m "Move Homebrew formulas to Formula directory"
+  git commit -m "Move Homebrew formulas to Formula directory and keep latest version"
   git push
 else
   echo "No formulas to move"

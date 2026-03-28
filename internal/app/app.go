@@ -15,9 +15,10 @@ import (
 )
 
 type App struct {
-	cfg   config.Config
-	store *store.Store
-	tmux  *tmux.Client
+	cfg       config.Config
+	store     *store.Store
+	tmux      *tmux.Client
+	saveAllFn func() error
 }
 
 func New(cfg config.Config) *App {
@@ -58,6 +59,13 @@ func (a *App) SaveCurrent() error {
 		return err
 	}
 	return a.SaveSession(name)
+}
+
+func (a *App) runDaemonSaveAll() error {
+	if a.saveAllFn != nil {
+		return a.saveAllFn()
+	}
+	return a.SaveAll()
 }
 
 func (a *App) Restore(session string, switchClient bool) error {

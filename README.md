@@ -1,222 +1,32 @@
-<h2><img src="./assets/logo.svg" alt="Favicon Preview" width="50" align="center">&nbsp;&nbsp;&nbsp;lazy-tmux</h2>
+<h2><img src="./assets/logo.svg" alt="Favicon Preview" width="60" align="center">&nbsp;&nbsp;&nbsp;lazy-tmux</h2>
 
-`lazy-tmux` is a Go CLI that snapshots tmux sessions to disk and restores them lazily on demand.
+![Static Badge](https://img.shields.io/badge/website-red?style=flat&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPD94bWwgdmVyc2lvbj0iMS4wIiA%2FPgoNPCEtLSBVcGxvYWRlZCB0bzogU1ZHIFJlcG8sIHd3dy5zdmdyZXBvLmNvbSwgR2VuZXJhdG9yOiBTVkcgUmVwbyBNaXhlciBUb29scyAtLT4KPHN2ZyBmaWxsPSIjMDAwMDAwIiB3aWR0aD0iODAwcHgiIGhlaWdodD0iODAwcHgiIHZpZXdCb3g9IjAgMCA0MDAgNDAwIiBpZD0iTmlnaHQiIHZlcnNpb249IjEuMSIgeG1sOnNwYWNlPSJwcmVzZXJ2ZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayI%2BCg08ZyBpZD0iWE1MSURfNDJfIj4KDTxwb2x5Z29uIGlkPSJYTUxJRF80NF8iIHBvaW50cz0iMTMzLjMsNTMuMyAxMzMuMywyNi43IDEwNi43LDI2LjcgODAsMjYuNyA4MCw1My4zIDEwNi43LDUzLjMgICIvPgoNPHBvbHlnb24gaWQ9IlhNTElEXzY0XyIgcG9pbnRzPSIxNjAsNTMuMyAxODYuNyw1My4zIDE4Ni43LDI2LjcgMjEzLjMsMjYuNyAyMTMuMywwIDE4Ni43LDAgMTYwLDAgMTMzLjMsMCAxMzMuMywyNi43IDE2MCwyNi43ICAgICAiLz4KDTxyZWN0IGhlaWdodD0iMjYuNyIgaWQ9IlhNTElEXzY1XyIgd2lkdGg9IjI2LjciIHg9IjUzLjMiIHk9IjUzLjMiLz4KDTxyZWN0IGhlaWdodD0iMjYuNyIgaWQ9IlhNTElEXzY2XyIgd2lkdGg9IjI2LjciIHg9IjEzMy4zIiB5PSI1My4zIi8%2BCg08cG9seWdvbiBpZD0iWE1MSURfOTBfIiBwb2ludHM9IjEwNi43LDEwNi43IDEwNi43LDEzMy4zIDEwNi43LDE2MCAxMDYuNywxODYuNyAxMDYuNywyMTMuMyAxMzMuMywyMTMuMyAxMzMuMywxODYuNyAxMzMuMywxNjAgICAgMTMzLjMsMTMzLjMgMTMzLjMsMTA2LjcgMTMzLjMsODAgMTA2LjcsODAgICIvPgoNPHBvbHlnb24gaWQ9IlhNTElEXzkxXyIgcG9pbnRzPSI1My4zLDEwNi43IDUzLjMsODAgMjYuNyw4MCAyNi43LDEwNi43IDI2LjcsMTMzLjMgNTMuMywxMzMuMyAgIi8%2BCg08cG9seWdvbiBpZD0iWE1MSURfOTJfIiBwb2ludHM9IjM3My4zLDE4Ni43IDM3My4zLDIxMy4zIDM0Ni43LDIxMy4zIDM0Ni43LDI0MCAzNzMuMywyNDAgMzczLjMsMjY2LjcgNDAwLDI2Ni43IDQwMCwyNDAgICAgNDAwLDIxMy4zIDQwMCwxODYuNyAgIi8%2BCg08cG9seWdvbiBpZD0iWE1MSURfOTNfIiBwb2ludHM9IjI2LjcsMjEzLjMgMjYuNywxODYuNyAyNi43LDE2MCAyNi43LDEzMy4zIDAsMTMzLjMgMCwxNjAgMCwxODYuNyAwLDIxMy4zIDAsMjQwIDAsMjY2LjcgICAgMjYuNywyNjYuNyAyNi43LDI0MCAgIi8%2BCg08cmVjdCBoZWlnaHQ9IjI2LjciIGlkPSJYTUxJRF85NF8iIHdpZHRoPSIyNi43IiB4PSIxMzMuMyIgeT0iMjEzLjMiLz4KDTxyZWN0IGhlaWdodD0iMjYuNyIgaWQ9IlhNTElEXzk1XyIgd2lkdGg9IjI2LjciIHg9IjE2MCIgeT0iMjQwIi8%2BCg08cmVjdCBoZWlnaHQ9IjI2LjciIGlkPSJYTUxJRF85Nl8iIHdpZHRoPSIyNi43IiB4PSIzMjAiIHk9IjI0MCIvPgoNPHBvbHlnb24gaWQ9IlhNTElEXzk3XyIgcG9pbnRzPSI1My4zLDI2Ni43IDI2LjcsMjY2LjcgMjYuNywyOTMuMyAyNi43LDMyMCA1My4zLDMyMCA1My4zLDI5My4zICAiLz4KDTxwb2x5Z29uIGlkPSJYTUxJRF85OF8iIHBvaW50cz0iMjEzLjMsMjkzLjMgMjQwLDI5My4zIDI2Ni43LDI5My4zIDI5My4zLDI5My4zIDMyMCwyOTMuMyAzMjAsMjY2LjcgMjkzLjMsMjY2LjcgMjY2LjcsMjY2LjcgICAgMjQwLDI2Ni43IDIxMy4zLDI2Ni43IDE4Ni43LDI2Ni43IDE4Ni43LDI5My4zICAiLz4KDTxwb2x5Z29uIGlkPSJYTUxJRF85OV8iIHBvaW50cz0iMzQ2LjcsMjkzLjMgMzQ2LjcsMzIwIDM3My4zLDMyMCAzNzMuMywyOTMuMyAzNzMuMywyNjYuNyAzNDYuNywyNjYuNyAgIi8%2BCg08cmVjdCBoZWlnaHQ9IjI2LjciIGlkPSJYTUxJRF8xMDBfIiB3aWR0aD0iMjYuNyIgeD0iNTMuMyIgeT0iMzIwIi8%2BCg08cmVjdCBoZWlnaHQ9IjI2LjciIGlkPSJYTUxJRF8xMDFfIiB3aWR0aD0iMjYuNyIgeD0iMzIwIiB5PSIzMjAiLz4KDTxwb2x5Z29uIGlkPSJYTUxJRF8xMDJfIiBwb2ludHM9IjEwNi43LDM0Ni43IDgwLDM0Ni43IDgwLDM3My4zIDEwNi43LDM3My4zIDEzMy4zLDM3My4zIDEzMy4zLDM0Ni43ICAiLz4KDTxwb2x5Z29uIGlkPSJYTUxJRF8xMDNfIiBwb2ludHM9IjI2Ni43LDM0Ni43IDI2Ni43LDM3My4zIDI5My4zLDM3My4zIDMyMCwzNzMuMyAzMjAsMzQ2LjcgMjkzLjMsMzQ2LjcgICIvPgoNPHBvbHlnb24gaWQ9IlhNTElEXzEwNF8iIHBvaW50cz0iMjEzLjMsMzczLjMgMTg2LjcsMzczLjMgMTYwLDM3My4zIDEzMy4zLDM3My4zIDEzMy4zLDQwMCAxNjAsNDAwIDE4Ni43LDQwMCAyMTMuMyw0MDAgMjQwLDQwMCAgICAyNjYuNyw0MDAgMjY2LjcsMzczLjMgMjQwLDM3My4zICAiLz4KDTwvZz4KDTwvc3ZnPg%3D%3D&color=%23add8e6&link=https%3A%2F%2Flazy-tmux.xyz)
+![License](https://img.shields.io/github/license/alchemmist/devsyringe?style=flat)
+![Contributors](https://img.shields.io/github/contributors/alchemmist/devsyringe?style=flat)
+![Go](https://img.shields.io/badge/1.25-default?label=Go)
+[![Build](https://github.com/alchemmist/lazy-tmux/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/alchemmist/lazy-tmux/actions/workflows/build.yml)
 
-## Why
+Project architect: [@alchemmist](https://github.com/alchemmist)
 
-- Keeps session state across reboots.
-- Restores only the session you choose (no eager full restore).
-- Supports periodic autosave and manual save.
+Cli written on Go for saving and restoring tmux sessions lazy. Key features:
 
-## Features
+- Save sessions: current, specific, or all — including windows, panes, layouts, running commands, and scrollback history.
+- Lazy restore: restore only what you need, avoiding high RAM usage (unlike tmux-resurrect).
+- Autosave daemon: periodically snapshots all sessions in the background (single instance, no conflicts).
+- Interactive TUI browser: tree view (sessions/windows) + table (commands, snapshot time, counts, status) with fuzzy search.
+- Keyboard-driven picker for fast search, navigation, and manage sessions and windows directly inside picker tree.
+- Flexible sorting via `--session-sort` or `--window-sort` (by last-used, time, size, name, command, etc.).
+- Optional `fzf` integration via `--fzf-engine` (lighter and no dependencies binary, but without full keyboard control and TUI picker).
+- Bootstrap restore on tmux startup: auto-restore latest or specific session.
+- Full environment snapshots: restore pane layout and commands (e.g. `npm`, `docker-compose`, `nvim`).
+- Optional scrollback capture: preserve and replay previous terminal output.
 
-- `save` current session, specific session, or all sessions.
-- `daemon` mode for periodic autosave (single-instance lock per tmux socket).
-- `picker` with built-in TUI tree (`session -> windows`) and fuzzy search in a tmux popup (default).
-- Optional `fzf` picker backend via `--fzf-engine`.
-- Optional shell pane scrollback capture/replay (`--scrollback`, `--scrollback-lines`).
-- `restore` exactly one selected session from disk.
-- `bootstrap` on tmux startup to restore latest or named session.
+Chekout [lazy-tmux.xyz](https://lazy-tmux.xyz) for more informaiton about installation and usage!
 
-## Install
-
-### From source
-
-```bash
-make install
-```
-
-or
-
-```bash
-go install ./cmd/lazy-tmux
-```
-
-### Build local binary
+Just for bulding from source you need to have installed go and cloned this project. After that run:
 
 ```bash
 make build
 ```
 
-Binary path: `bin/lazy-tmux`.
-
-## tmux setup
-
-Add this to your `~/.tmux.conf`:
-
-```tmux
-# Start lazy autosave daemon (every 5 minutes)
-run-shell -b 'lazy-tmux daemon --interval 5m >/tmp/lazy-tmux.log 2>&1'
-
-# Restore one session on startup (latest snapshot)
-run-shell -b 'lazy-tmux bootstrap --session last >/tmp/lazy-tmux-bootstrap.log 2>&1'
-
-# Manual save
-bind-key s run-shell 'lazy-tmux save --all'
-
-```
-
-# Installation
-
-Install with builtin powerful TUI picker:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/alchemmist/lazy-tmux/main/install.sh | sh
-```
-
-Install pure, no-deps, lightweight binary (fzf required):
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/alchemmist/lazy-tmux/main/install.sh | sh -s -- --fzf-engine
-```
-
-Homebrew:
-
-```bash
-brew install alchemmist/tap/lazy-tmux
-```
-
-AUR (yay):
-
-```bash
-yay -S lazy-tmux
-```
-
-# Lazy restore picker in popup
-```tmux
-bind-key f display-popup -E -w 100% -h 100% 'lazy-tmux picker'
-```
-
-After reloading tmux config (`tmux source-file ~/.tmux.conf`):
-
-- `prefix + s` saves snapshots.
-- `prefix + f` opens TUI picker from saved sessions/windows (`--fzf-engine` for `fzf` backend).
-- selected session is restored only when selected.
-
-## CLI
-
-```bash
-lazy-tmux save [--all] [--session NAME] [--data-dir DIR] [--scrollback] [--scrollback-lines N]
-lazy-tmux restore --session NAME [--switch=true]
-lazy-tmux picker [--fzf-engine] [--session-sort EXPR] [--window-sort EXPR]
-lazy-tmux bootstrap [--session last|NAME]
-lazy-tmux daemon [--interval 5m] [--scrollback] [--scrollback-lines N]
-lazy-tmux list
-```
-
-## Picker sorting
-
-`picker` supports configurable multi-key sorting with priority control.
-
-Flags:
-
-- `--session-sort EXPR` controls session order.
-- `--window-sort EXPR` controls window order inside each session.
-
-Expression format:
-
-- `EXPR` is a comma-separated list of keys.
-- each key is `field` or `field:asc` or `field:desc`.
-- order of keys in `EXPR` is the sort priority (leftmost key is highest priority).
-
-Examples:
-
-```bash
-# Sort sessions by name, then by captured time (newest first)
-lazy-tmux picker --session-sort "name:asc,captured:desc"
-
-# Sort windows by pane count, then by name
-lazy-tmux picker --window-sort "panes:desc,name:asc"
-
-# Use same sorting with fzf backend
-lazy-tmux picker --fzf-engine --session-sort "last-used:desc,name:asc"
-```
-
-Session sort fields:
-
-- `last-used` (alias: `last-accessed`, `last_accessed`)
-- `captured` (alias: `captured-at`, `captured_at`)
-- `name`
-- `windows`
-- `panes`
-
-Window sort fields:
-
-- `index`
-- `name`
-- `panes`
-- `cmd`
-
-Default directions (when `:asc|:desc` is omitted):
-
-- sessions: `name=asc`, all other session fields = `desc`
-- windows: `index=asc`, `name=asc`, all other window fields = `desc`
-
-Current defaults (if no sort flags are passed):
-
-- sessions: `last-used:desc,captured:desc,name:asc`
-- windows: `index:asc,name:asc`
-
-Validation behavior:
-
-- unknown fields are rejected with an error.
-- invalid direction values are rejected (`asc` and `desc` only).
-- duplicate fields in one expression are rejected.
-
-## Shell scrollback
-
-By default, scrollback capture is disabled.
-
-Enable it explicitly:
-
-```bash
-lazy-tmux save --all --scrollback --scrollback-lines 5000
-lazy-tmux daemon --interval 5m --scrollback --scrollback-lines 5000
-```
-
-Behavior:
-
-- captures tmux pane scrollback only for panes that currently run an interactive shell (no detected foreground app command).
-- stores scrollback as sidecar files and references them from session snapshots.
-- on restore, writes captured scrollback back into pane tty before command replay.
-
-Storage layout:
-
-- `~/.local/share/lazy-tmux/sessions/*.json`
-- `~/.local/share/lazy-tmux/scrollback/<session>/*.log`
-
-## Storage
-
-Default directory:
-
-- `~/.local/share/lazy-tmux/index.json`
-- `~/.local/share/lazy-tmux/sessions/*.json`
-- `~/.local/share/lazy-tmux/scrollback/*`
-
-Override via:
-
-- env: `LAZY_TMUX_DATA_DIR`
-- flag: `--data-dir`
-
-## Important behavior notes
-
-- This tool restores tmux structure (sessions/windows/panes/layouts and pane commands when available).
-- It does **not** checkpoint process memory state; long-running interactive processes are restarted only if tmux exposes enough pane command metadata for recreation.
-
-## Development
-
-```bash
-make fmt
-make lint
-make test
-make build
-make check
-```
-
-## Release
-
-`goreleaser` config is included.
-
-```bash
-goreleaser release --snapshot --clean
-```
+Binary will compiled in `bin/lazy-tmux`. For more development options run `make help`.
