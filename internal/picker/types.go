@@ -21,4 +21,6 @@ type Actions struct {
 	NewSession    func(name string) error
 	NewWindow     func(session string, name string) error
 	Reload        func() ([]Session, error)
+	Wakeup        func(session string) error
+	Sleep         func(session string) error
 }

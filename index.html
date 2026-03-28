@@ -3,8 +3,46 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>lazy-tmux</title>
+
+    <title>
+      lazy-tmux: lazy tmux session manager with scrollback restore – alternative
+      to tmux-resurrect & tmux-continuum without bugs
+    </title>
+
+    <meta
+      property="og:title"
+      content="lazy-tmux: lazy tmux session manager with scrollback restore"
+    />
+    <meta
+      property="og:description"
+      content="Forget bugs of tmux-resurrect and tmux-continuum. lazy-tmux restores only the sessions you need, preserves scrollback history, and works instantly."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://lazy-tmux.xyz" />
+    <meta
+      property="og:image"
+      content="https://lazy-tmux.xyz/assets/banner.png"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+
     <link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
+    <link
+      rel="icon"
+      type="image/png"
+      href="/assets/favicon-96x96.png"
+      sizes="96x96"
+    />
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+    <link rel="shortcut icon" href="/assets/favicon.ico" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/assets/apple-touch-icon.png"
+    />
+    <link rel="manifest" href="/assets/site.webmanifest" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -15,11 +53,34 @@
       href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap"
       rel="stylesheet"
     />
+
     <script
       defer
       src="https://umami.alchemmist.xyz/script.js"
       data-website-id="1d4c3792-8068-4e17-a321-f5ecd6eeea4e"
     ></script>
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "lazy-tmux",
+        "description": "Lazy tmux session manager with scrollback restore, alternative to tmux-resurrect and tmux-continuum without bugs",
+        "applicationCategory": "Utility",
+        "operatingSystem": "Linux, macOS, BSD",
+        "url": "https://lazy-tmux.xyz",
+        "sameAs": "https://github.com/alchemmist/lazy-tmux",
+        "screenshot": "https://lazy-tmux.xyz/assets/demo.mp4",
+        "featureList": "https://lazy-tmux.alchemmist.xyz/#features",
+        "downloadUrl": "https://github.com/alchemmist/lazy-tmux/releases",
+        "author": {
+          "@type": "Person",
+          "name": "Anton Grishin (alchemmist)",
+          "email": "anton.ingrish@gmail.com"
+        }
+      }
+    </script>
+
     <style>
       :root {
         --bg: #070707;
@@ -29,11 +90,9 @@
         --line: #202020;
         --accent: #ffffff;
       }
-
       * {
         box-sizing: border-box;
       }
-
       body {
         margin: 0;
         font-family: "JetBrains Mono", monospace;
@@ -49,11 +108,9 @@
         min-height: 100vh;
         background-blend-mode: screen;
       }
-
       body::-webkit-scrollbar {
         display: none;
       }
-
       .grid {
         position: fixed;
         inset: 0;
@@ -69,7 +126,6 @@
           rgba(0, 0, 0, 0.1)
         );
       }
-
       .container {
         width: min(980px, 92vw);
         margin: 0 auto;
@@ -77,7 +133,6 @@
         position: relative;
         z-index: 1;
       }
-
       .hero {
         border: 1px solid var(--line);
         background: linear-gradient(
@@ -88,7 +143,6 @@
         padding: 26px;
         margin-bottom: 18px;
       }
-
       h1 {
         margin: 0 0 8px;
         font-size: 55px;
@@ -96,20 +150,17 @@
         letter-spacing: 1px;
         font-family: "Pixelify Sans", monospace;
       }
-
       .subtitle {
         color: var(--muted);
         font-size: 19px;
         margin: 0;
       }
-
       .actions {
         display: flex;
         flex-wrap: wrap;
         gap: 10px;
         margin-top: 18px;
       }
-
       .btn {
         display: inline-block;
         border: 1px solid var(--text);
@@ -119,46 +170,38 @@
         text-decoration: none;
         font-size: 16px;
       }
-
       .btn.alt {
         background: transparent;
         color: var(--text);
         border-color: var(--line);
       }
-
       .section {
         margin-top: 16px;
         border: 1px solid var(--line);
         background: var(--panel);
         padding: 18px;
       }
-
       h2 {
         margin: 0 0 12px;
         font-size: 26px;
         letter-spacing: 0.4px;
         font-family: "Pixelify Sans", monospace;
       }
-
       ul {
         margin: 0;
         padding-left: 20px;
       }
-
       li {
         margin: 12px 0;
       }
-
       video {
         border-radius: 10px;
       }
-
       .split {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 12px;
       }
-
       pre {
         margin: 0;
         padding: 12px;
@@ -170,19 +213,15 @@
         scrollbar-width: none;
         -ms-overflow-style: none;
       }
-
       pre::-webkit-scrollbar {
         display: none;
       }
-
       .muted {
         color: var(--muted);
       }
-
       .muted a {
         color: rgb(228, 242, 247);
       }
-
       footer {
         margin-top: 16px;
         color: var(--muted);
@@ -190,7 +229,6 @@
         border-top: 1px solid var(--line);
         padding-top: 14px;
       }
-
       code {
         color: #fff;
         background: rgba(255, 255, 255, 0.1);
@@ -199,7 +237,6 @@
         font-size: 0.9em;
         font-family: "JetBrains Mono", monospace;
       }
-
       @media (max-width: 760px) {
         .split {
           grid-template-columns: 1fr;
@@ -216,23 +253,45 @@
       table th {
         padding: 10px 6px;
       }
+      .cli-table th:first-child,
+      .cli-table td:first-child {
+        width: 260px;
+      }
+      .comparison-note {
+        background: rgba(255, 255, 255, 0.03);
+        padding: 1em;
+        border-left: 3px solid var(--accent);
+        margin-top: 1em;
+      }
+      .cli-subtitle {
+        margin: 25px 0 8px;
+        font-size: 20px;
+      }
     </style>
   </head>
   <body>
     <div class="grid" aria-hidden="true"></div>
     <main class="container">
       <section class="hero">
-        <div style="display: flex; gap: 2em; margin-bottom: 2em">
+        <div
+          style="
+            display: flex;
+            gap: 2em;
+            margin-bottom: 2em;
+            align-items: center;
+          "
+        >
           <img
             src="/assets/logo-white.svg"
             style="width: 60px; height: auto"
-            alt="lazy-tmux logo"
+            alt="lazy-tmux logo – lazy tmux session manager with scrollback restore"
           />
           <h1>lazy-tmux</h1>
         </div>
-        <p class="subtitle">
-          CLI that snapshots tmux sessions and restores them lazily and
-          seamlessly when you select one.
+        <p class="subtitle" style="font-size: 1.2rem; margin-bottom: 0.5rem">
+          Session manager with scrollback restore. CLI that snapshots tmux
+          sessions with runed processes and scrollback and restores them lazily
+          and seamlessly when you select one.
         </p>
         <div class="actions">
           <a
@@ -243,26 +302,25 @@
             >GitHub</a
           >
           <a class="btn alt" href="#install">Install</a>
+          <a class="btn alt" href="#cli">Docs</a>
         </div>
       </section>
 
-      <section class="section">
+      <section class="section" id="features">
         <h2>Features</h2>
         <ul>
           <li>
             Save current session, or a specific session, or all sessions to disk
             using <code>save</code>. Snapshots preserve windows, panes, layouts,
-            running shell commands and shell scrollback history for later
-            restoration.
+            running shell commands and
+            <strong>shell scrollback history</strong> for later restoration.
           </li>
-
           <li>
-            Lazy restore only the session you pick with
+            <strong>Lazy restore</strong> only the session you pick with
             <code>restore</code> command or interactively with
             <code>picker</code>. You don’t need to spend RAM for all sessions at
-            startup.
+            startup – unlike tmux-resurrect which restores everything at once.
           </li>
-
           <li>
             Interactive TUI session browser combining a deep tree view of
             sessions, windows, and panes with a table showing additional
@@ -270,43 +328,36 @@
             of windows/panes per session, and session status (restored or not).
             Fuzzy search makes it lightning fast to locate any window or pane.
           </li>
-
           <li>
             Keyboard-driven picker that lets you search, navigate, and restore
             sessions without leaving tmux.
           </li>
-
           <li>
             Flexible session and window sorting through
             <code>--session-sort</code> and <code>--window-sort</code> flags.
             Sort by last-used, captured time, number of windows/panes, names,
             commands, or any combination.
           </li>
-
           <li>
             Use <code>--fzf-engine</code> to replace the built-in TUI with
             <code>fzf</code>. Can be set at install time for a lighter binary;
             note that keyboard-driven session/window control is unavailable.
           </li>
-
           <li>
             Autosave daemon mode periodically snapshots all sessions in the
             background, keeping session state safe across reboots. Only one
             autosave process runs at a time to avoid conflicts.
           </li>
-
           <li>
             Bootstrap restore at tmux startup allows restoring the latest or a
             specific session automatically, useful for automation after startup.
           </li>
-
           <li>
             Snapshot includes window and pane structure along with pane
             commands, enabling seamless reconstruction of your working
             environment. For example starting npm dev server, docker-compose,
             nvim, or any editor.
           </li>
-
           <li>
             Optional shell pane scrollback capture lets you save and replay
             previous output, preserving context for restored sessions.
@@ -340,7 +391,8 @@
         <ul>
           <li>
             <strong>Lazy restoration:</strong> Only load what you need, keep
-            memory and startup time low.
+            memory and startup time low. No more waiting for all sessions to
+            restore like with tmux-resurrect.
           </li>
           <li>
             <strong>Deep visibility:</strong> Tree + table view shows sessions,
@@ -352,23 +404,23 @@
           </li>
           <li>
             <strong>Durable context:</strong> Optional scrollback capture keeps
-            logs and output across restarts.
+            logs and output across restarts – something tmux-continuum lacks.
           </li>
         </ul>
         <p>
           The result is a lightweight, tmux-native workflow that feels instant
-          and predictable even across reboots.
+          and predictable even across reboots. No bugs, no surprises.
         </p>
       </section>
 
       <section class="section" id="install">
         <h2>Installation</h2>
         <p>Install with builtin powerful TUI picker:</p>
-        <pre><code>curl -fsSL https://raw.githubusercontent.com/alchemmist/lazy-tmux/main/install.sh | sh</code></pre>
+        <pre><code>curl -fsSL https://lazy-tmux.xyz/install.sh | sh</code></pre>
         <p>
           Install pure, no-deps, lightweight binary (<code>fzf</code> required):
         </p>
-        <pre><code>curl -fsSL https://raw.githubusercontent.com/alchemmist/lazy-tmux/main/install.sh | sh -s -- --fzf-engine</code></pre>
+        <pre><code>curl -fsSL https://lazy-tmux.xyz/install.sh | sh -s -- --fzf-engine</code></pre>
         <br />
         <p>Or use your package manager. Arch:</p>
         <pre><code>yay -S lazy-tmux</code></pre>
@@ -379,7 +431,7 @@
       <section class="section">
         <h2>Quick tmux setup</h2>
         <p>Keep your tmux config clean with an include file:</p>
-        <pre><code>lazy-tmux setup &gt;&gt; ~/.tmux.conf</code></pre>
+        <pre><code>lazy-tmux setup >> ~/.tmux.conf</code></pre>
         <p>
           This command puts some rules to the end of your tmux config. After
           reloading tmux config:
@@ -401,16 +453,17 @@
         </p>
         <pre><code>bind-key f display-popup -w 65% -h 75% -E 'lazy-tmux picker'</code></pre>
         <p>Or edit time interval:</p>
-        <pre><code>run-shell -b 'lazy-tmux daemon --interval 5m --scrollback&gt;/tmp/lazy-tmux.log 2&gt;&amp;1 || tmux display-message "lazy-tmux daemon already running"'</code></pre>
+        <pre><code>run-shell -b 'lazy-tmux daemon --interval 5m --scrollback > /tmp/lazy-tmux.log 2>&1 || tmux display-message "lazy-tmux daemon already running"'</code></pre>
         <p>Or up scrollback lines limit:</p>
-        <pre><code>run-shell -b 'lazy-tmux daemon --interval 3m --scrollback --scrollback-lines 8000&gt;/tmp/lazy-tmux.log 2&gt;&amp;1 || tmux display-message "lazy-tmux daemon already running"'</code></pre>
+        <pre><code>run-shell -b 'lazy-tmux daemon --interval 3m --scrollback --scrollback-lines 8000 > /tmp/lazy-tmux.log 2>&1 || tmux display-message "lazy-tmux daemon already running"'</code></pre>
         <p>Or remap saving shortcut:</p>
-        <pre><code>bind-key C-S run-shell 'lazy-tmux save --all --scrollback &amp;&amp; tmux display-message "All sessions saved successfully!"'</code></pre>
+        <pre><code>bind-key C-S run-shell 'lazy-tmux save --all --scrollback && tmux display-message "All sessions saved successfully!"'</code></pre>
       </section>
 
+      <!-- CLI (без изменений) -->
       <section class="section">
-        <h2>CLI</h2>
-        <table style="width: 100%; border-collapse: collapse">
+        <h2 id="cli">CLI</h2>
+        <table class="cli-table" style="width: 100%; border-collapse: collapse">
           <thead>
             <tr>
               <th
@@ -461,6 +514,14 @@
               <td>List saved sessions</td>
             </tr>
             <tr>
+              <td><code>wakeup --session NAME</code></td>
+              <td>Restore a saved session (lazy load) that is not currently running</td>
+            </tr>
+            <tr>
+              <td><code>sleep --session NAME</code></td>
+              <td>Save session state and close a running session</td>
+            </tr>
+            <tr>
               <td><code>--fzf-engine</code></td>
               <td>Use fzf backend instead of built-in TUI</td>
             </tr>
@@ -488,8 +549,90 @@
             </tr>
           </tbody>
         </table>
+        <h3 class="cli-subtitle">Sorting examples</h3>
+        <pre><code># Sort sessions by name, then by captured time (newest first)
+lazy-tmux picker --session-sort "name:asc,captured:desc"
+
+# Sort windows by pane count, then by name
+lazy-tmux picker --window-sort "panes:desc,name:asc"
+
+# Use same sorting with fzf backend
+lazy-tmux picker --fzf-engine --session-sort "last-used:desc,name:asc"</code></pre>
+        <h3 class="cli-subtitle">Sorting behavior</h3>
+        <p class="muted" style="margin: 0 0 8px">
+          Default directions (when <code>:asc|:desc</code> is omitted):
+        </p>
+        <ul>
+          <li>
+            sessions: <code>name=asc</code>, all other session fields =
+            <code>desc</code>
+          </li>
+          <li>
+            windows: <code>index=asc</code>, <code>name=asc</code>, all other
+            window fields = <code>desc</code>
+          </li>
+        </ul>
+        <p class="muted" style="margin: 12px 0 8px">
+          Current defaults (if no sort flags are passed):
+        </p>
+        <ul>
+          <li>sessions: <code>last-used:desc,captured:desc,name:asc</code></li>
+          <li>windows: <code>index:asc,name:asc</code></li>
+        </ul>
+        <p class="muted" style="margin: 12px 0 8px">Validation behavior:</p>
+        <ul>
+          <li>unknown fields are rejected with an error.</li>
+          <li>
+            invalid direction values are rejected (<code>asc</code> and
+            <code>desc</code> only).
+          </li>
+          <li>duplicate fields in one expression are rejected.</li>
+        </ul>
+        <h3 class="cli-subtitle">Scrollback capture</h3>
+        <p class="muted" style="margin: 0 0 8px">
+          By default, scrollback capture is disabled. Enable it explicitly:
+        </p>
+        <pre><code>lazy-tmux save --all --scrollback --scrollback-lines 5000
+lazy-tmux daemon --interval 5m --scrollback --scrollback-lines 5000</code></pre>
+        <p class="muted" style="margin: 12px 0 8px">Behavior:</p>
+        <ul>
+          <li>
+            captures tmux pane scrollback only for panes that currently run an
+            interactive shell (no detected foreground app command).
+          </li>
+          <li>
+            stores scrollback as sidecar files and references them from session
+            snapshots.
+          </li>
+          <li>
+            on restore, writes captured scrollback back into pane tty before
+            command replay.
+          </li>
+        </ul>
+        <p class="muted" style="margin: 12px 0 8px">Storage layout:</p>
+        <ul>
+          <li><code>~/.local/share/lazy-tmux/sessions/*.json</code></li>
+          <li>
+            <code
+              >~/.local/share/lazy-tmux/scrollback/&lt;session&gt;/*.log</code
+            >
+          </li>
+        </ul>
+        <h3 class="cli-subtitle">Storage</h3>
+        <p class="muted" style="margin: 0 0 8px">Default directory:</p>
+        <ul>
+          <li><code>~/.local/share/lazy-tmux/index.json</code></li>
+          <li><code>~/.local/share/lazy-tmux/sessions/*.json</code></li>
+          <li><code>~/.local/share/lazy-tmux/scrollback/*</code></li>
+        </ul>
+        <p class="muted" style="margin: 12px 0 8px">Override via:</p>
+        <ul>
+          <li>env: <code>LAZY_TMUX_DATA_DIR</code></li>
+          <li>flag: <code>--data-dir</code></li>
+        </ul>
       </section>
 
+      <!-- TUI picker (без изменений) -->
       <section class="section">
         <h2>TUI picker</h2>
         <video controls autoplay muted loop preload="metadata" width="100%">
@@ -507,7 +650,7 @@
                   width: 200px;
                 "
               >
-                Command / Flag
+                Key
               </th>
               <th
                 style="
@@ -516,7 +659,7 @@
                   padding: 6px;
                 "
               >
-                Description
+                Action
               </th>
             </tr>
           </thead>
@@ -551,7 +694,7 @@
             <tr>
               <td><code>&lt;Alt-d&gt;</code></td>
               <td>
-                Delete session, that have window under cursor. Confirming via
+                Delete session that have window under cursor. Confirming via
                 typing "y"
               </td>
             </tr>
@@ -561,7 +704,7 @@
             </tr>
             <tr>
               <td><code>&lt;Alt-r&gt;</code></td>
-              <td>Rename session, that have window under cursor</td>
+              <td>Rename session that have window under cursor</td>
             </tr>
             <tr>
               <td><code>&lt;C-n&gt;</code></td>
@@ -572,6 +715,14 @@
             <tr>
               <td><code>&lt;Alt-n&gt;</code></td>
               <td>Create new session. Enter session name.</td>
+            </tr>
+            <tr>
+              <td><code>&lt;Alt-w&gt;</code></td>
+              <td>Wakeup: Restore a saved session that is not currently running.</td>
+            </tr>
+            <tr>
+              <td><code>&lt;Alt-s&gt;</code></td>
+              <td>Sleep: Save session state and close a running session.</td>
             </tr>
           </tbody>
         </table>
