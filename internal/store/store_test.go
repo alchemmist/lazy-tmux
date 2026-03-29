@@ -465,3 +465,45 @@ func TestDeleteSessionRemovesIndexEntry(t *testing.T) {
 		t.Fatalf("expected no records, got %d", len(recs))
 	}
 }
+
+func TestSessionPathEmptyName(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := New(tmpDir)
+
+	tests := []struct {
+		name    string
+		wantErr bool
+	}{
+		{"", true},
+		{"   ", true},
+		{"valid-session", false},
+	}
+
+	for _, tt := range tests {
+		_, err := store.SessionPath(tt.name)
+		if (err != nil) != tt.wantErr {
+			t.Fatalf("SessionPath(%q) error = %v, wantErr %v", tt.name, err, tt.wantErr)
+		}
+	}
+}
+
+func TestSessionExistsEmptyName(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := New(tmpDir)
+
+	tests := []struct {
+		name    string
+		wantErr bool
+	}{
+		{"", true},
+		{"   ", true},
+		{"valid-session", false},
+	}
+
+	for _, tt := range tests {
+		_, err := store.SessionExists(tt.name)
+		if (err != nil) != tt.wantErr {
+			t.Fatalf("SessionExists(%q) error = %v, wantErr %v", tt.name, err, tt.wantErr)
+		}
+	}
+}

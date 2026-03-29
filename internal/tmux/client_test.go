@@ -100,3 +100,226 @@ func TestPickForegroundCommandFallbackNonShell(t *testing.T) {
 		t.Fatalf("unexpected fallback command: %q", got)
 	}
 }
+
+func TestExecutableName(t *testing.T) {
+	tests := []struct {
+		cmd  string
+		want string
+	}{
+		{cmd: "bash", want: "bash"},
+		{cmd: "-zsh", want: "zsh"},
+		{cmd: "/bin/bash -l", want: "bash"},
+		{cmd: "/usr/bin/nvim main.go", want: "nvim"},
+		{cmd: "", want: ""},
+		{cmd: "   ", want: ""},
+	}
+
+	for _, tt := range tests {
+		if got := executableName(tt.cmd); got != tt.want {
+			t.Fatalf("executableName(%q) = %q, want %q", tt.cmd, got, tt.want)
+		}
+	}
+}
+
+func TestSanitizeCommand(t *testing.T) {
+	tests := []struct {
+		cmd  string
+		want string
+	}{
+		{cmd: `"nvim main.py"`, want: "nvim main.py"},
+		{cmd: `'ssh user@host'`, want: "ssh user@host"},
+		{cmd: `'single'`, want: "single"},
+		{cmd: `"double"`, want: "double"},
+		{cmd: `plain command`, want: "plain command"},
+		{cmd: `  spaces  `, want: "spaces"},
+		{cmd: `"mismatched'`, want: `"mismatched'`},
+		{cmd: `''`, want: ""},
+		{cmd: `""`, want: ""},
+	}
+
+	for _, tt := range tests {
+		if got := sanitizeCommand(tt.cmd); got != tt.want {
+			t.Fatalf("sanitizeCommand(%q) = %q, want %q", tt.cmd, got, tt.want)
+		}
+	}
+}
+
+func TestStripOptionPair(t *testing.T) {
+	tests := []struct {
+		args []string
+		opt  string
+		want []string
+	}{
+		{
+			args: []string{"-c", "/tmp", "-n", "name", "rest"},
+			opt:  "-c",
+			want: []string{"-n", "name", "rest"},
+		},
+		{
+			args: []string{"-n", "name"},
+			opt:  "-n",
+			want: []string{},
+		},
+		{
+			args: []string{"a", "b", "c"},
+			opt:  "-x",
+			want: []string{"a", "b", "c"},
+		},
+		{
+			args: []string{},
+			opt:  "-c",
+			want: []string{},
+		},
+	}
+
+	for _, testCase := range tests {
+		got := stripOptionPair(testCase.args, testCase.opt)
+		if len(got) != len(testCase.want) {
+			t.Fatalf(
+				"stripOptionPair(%v, %q) length mismatch: got %d, want %d",
+				testCase.args,
+				testCase.opt,
+				len(got),
+				len(testCase.want),
+			)
+		}
+
+		for idx, val := range got {
+			if val != testCase.want[idx] {
+				t.Fatalf(
+					"stripOptionPair(%v, %q)[%d] = %q, want %q",
+					testCase.args,
+					testCase.opt,
+					idx,
+					val,
+					testCase.want[idx],
+				)
+			}
+		}
+	}
+}
+
+func TestSessionTarget(t *testing.T) {
+	tests := []struct {
+		name string
+		want string
+	}{
+		{name: "demo", want: "=demo"},
+		{name: "=demo", want: "=demo"},
+		{name: " demo ", want: "=demo"},
+		{name: "", want: "="},
+	}
+
+	for _, tt := range tests {
+		if got := sessionTarget(tt.name); got != tt.want {
+			t.Fatalf("sessionTarget(%q) = %q, want %q", tt.name, got, tt.want)
+		}
+	}
+}
+
+func TestSessionWindowTarget(t *testing.T) {
+	tests := []struct {
+		name        string
+		windowIndex int
+		want        string
+	}{
+		{name: "demo", windowIndex: 0, want: "=demo:0"},
+		{name: "test", windowIndex: 5, want: "=test:5"},
+		{name: "=session", windowIndex: 1, want: "=session:1"},
+	}
+
+	for _, testCase := range tests {
+		if got := sessionWindowTarget(testCase.name, testCase.windowIndex); got != testCase.want {
+			t.Fatalf(
+				"sessionWindowTarget(%q, %d) = %q, want %q",
+				testCase.name,
+				testCase.windowIndex,
+				got,
+				testCase.want,
+			)
+		}
+	}
+}
+
+func TestSessionPaneTarget(t *testing.T) {
+	tests := []struct {
+		name        string
+		windowIndex int
+		paneIndex   int
+		want        string
+	}{
+		{name: "demo", windowIndex: 0, paneIndex: 0, want: "=demo:0.0"},
+		{name: "test", windowIndex: 2, paneIndex: 1, want: "=test:2.1"},
+		{name: "=session", windowIndex: 0, paneIndex: 3, want: "=session:0.3"},
+	}
+
+	for _, testCase := range tests {
+		got := sessionPaneTarget(testCase.name, testCase.windowIndex, testCase.paneIndex)
+		if got != testCase.want {
+			t.Fatalf(
+				"sessionPaneTarget(%q, %d, %d) = %q, want %q",
+				testCase.name,
+				testCase.windowIndex,
+				testCase.paneIndex,
+				got,
+				testCase.want,
+			)
+		}
+	}
+}
+
+func TestParsePSLineHelper(t *testing.T) {
+	tests := []struct {
+		line     string
+		wantPID  int
+		wantStat string
+		wantCmd  string
+		wantOK   bool
+	}{
+		{
+			line:     "1234 S- bash",
+			wantPID:  1234,
+			wantStat: "S-",
+			wantCmd:  "bash",
+			wantOK:   true,
+		},
+		{
+			line:     "2002 R+ docker compose up",
+			wantPID:  2002,
+			wantStat: "R+",
+			wantCmd:  "docker compose up",
+			wantOK:   true,
+		},
+		{
+			line:   "invalid",
+			wantOK: false,
+		},
+		{
+			line:   "",
+			wantOK: false,
+		},
+	}
+
+	for _, testCase := range tests {
+		pid, stat, cmd, ok := parsePSLine(testCase.line)
+		if ok != testCase.wantOK {
+			t.Fatalf("parsePSLine(%q) ok = %v, want %v", testCase.line, ok, testCase.wantOK)
+		}
+
+		if !ok {
+			continue
+		}
+
+		if pid != testCase.wantPID {
+			t.Fatalf("parsePSLine(%q) pid = %d, want %d", testCase.line, pid, testCase.wantPID)
+		}
+
+		if stat != testCase.wantStat {
+			t.Fatalf("parsePSLine(%q) stat = %q, want %q", testCase.line, stat, testCase.wantStat)
+		}
+
+		if cmd != testCase.wantCmd {
+			t.Fatalf("parsePSLine(%q) cmd = %q, want %q", testCase.line, cmd, testCase.wantCmd)
+		}
+	}
+}
