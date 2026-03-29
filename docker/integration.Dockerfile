@@ -16,8 +16,8 @@ USER appuser
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY . .
-
 RUN go install gotest.tools/gotestsum@v1.13.0
+
+COPY . .
 
 CMD ["gotestsum", "--", "-tags=integration", "./..."]

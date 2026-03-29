@@ -10,15 +10,19 @@ func TestDefault(t *testing.T) {
 	if cfg.TmuxBin != "tmux" {
 		t.Fatalf("expected tmux binary, got %q", cfg.TmuxBin)
 	}
+
 	if cfg.DataDir == "" {
 		t.Fatal("expected non-empty data dir")
 	}
+
 	if cfg.SaveInterval != 5*time.Minute {
 		t.Fatalf("expected 5m interval, got %s", cfg.SaveInterval)
 	}
+
 	if cfg.Scrollback.Enabled {
 		t.Fatal("expected scrollback disabled by default")
 	}
+
 	if cfg.Scrollback.Lines != 5000 {
 		t.Fatalf("expected default scrollback lines 5000, got %d", cfg.Scrollback.Lines)
 	}

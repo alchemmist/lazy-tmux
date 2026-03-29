@@ -8,8 +8,7 @@ import (
 
 	"charm.land/bubbles/v2/textinput"
 	"charm.land/bubbles/v2/viewport"
-	"charm.land/bubbletea/v2"
-
+	tea "charm.land/bubbletea/v2"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
@@ -24,67 +23,77 @@ func TestNearestSelectableRow(t *testing.T) {
 	if got := nearestSelectableRow(rows, 0); got != 1 {
 		t.Fatalf("expected nearest selectable from 0 to be 1, got %d", got)
 	}
+
 	if got := nearestSelectableRow(rows, 3); got != 2 {
 		t.Fatalf("expected nearest selectable from 3 to be 2, got %d", got)
 	}
+
 	if got := nearestSelectableRow(nil, 2); got != 0 {
 		t.Fatalf("expected 0 for empty rows, got %d", got)
 	}
 }
 
 func TestCurrentRowOutOfRange(t *testing.T) {
-	m := pickerModel{
+	model := pickerModel{
 		visible: []pickerRow{{item: "ok", selectable: true}},
 		cursor:  2,
 	}
-	if _, ok := m.currentRow(); ok {
+	if _, ok := model.currentRow(); ok {
 		t.Fatal("expected currentRow to fail when cursor is out of range")
 	}
 }
 
 func TestDeleteSessionValidatesActionAndName(t *testing.T) {
-	m := pickerModel{}
-	if err := m.deleteSession("demo"); err == nil {
+	model := pickerModel{}
+	if err := model.deleteSession("demo"); err == nil {
 		t.Fatal("expected error when delete action is nil")
 	}
 
 	called := false
-	m.actions.DeleteSession = func(session string) error {
+
+	model.actions.DeleteSession = func(session string) error {
 		called = true
 		return nil
 	}
-	if err := m.deleteSession(" "); err == nil {
+	if err := model.deleteSession(" "); err == nil {
 		t.Fatal("expected error when session name is empty")
 	}
+
 	if called {
 		t.Fatal("delete action must not be called on empty session")
 	}
-	if err := m.deleteSession("demo"); err != nil {
+
+	if err := model.deleteSession("demo"); err != nil {
 		t.Fatalf("unexpected delete error: %v", err)
 	}
 }
 
 func TestCreateWindowValidatesActionAndSession(t *testing.T) {
-	m := pickerModel{}
-	if err := m.createWindow("demo", ""); err == nil {
+	model := pickerModel{}
+	if err := model.createWindow("demo", ""); err == nil {
 		t.Fatal("expected error when create window action is nil")
 	}
 
 	called := false
-	m.actions.NewWindow = func(session, name string) error {
+
+	model.actions.NewWindow = func(session, name string) error {
 		called = true
+
 		if session == "" {
 			t.Fatal("session must not be empty")
 		}
+
 		return nil
 	}
-	if err := m.createWindow(" ", ""); err == nil {
+	if err := model.createWindow(" ", ""); err == nil {
 		t.Fatal("expected error when session is empty")
 	}
+
 	if called {
 		t.Fatal("new window action must not be called on empty session")
 	}
-	if err := m.createWindow("demo", "win"); err != nil {
+
+	if err := model.createWindow("demo", "win"); err != nil {
 		t.Fatalf("unexpected create window error: %v", err)
 	}
 }
@@ -101,25 +110,26 @@ func TestApplyFilterMovesCursorToSelectableRow(t *testing.T) {
 	}
 
 	input := textinput.New()
-	m := pickerModel{
+	model := pickerModel{
 		sessions:   sessions,
 		windowSort: DefaultSortOptions().Window,
 		queryInput: input,
 		cursor:     0, // session row (non-selectable)
 	}
-	m.applyFilter()
+	model.applyFilter()
 
-	if len(m.visible) < 2 {
-		t.Fatalf("expected at least 2 rows, got %d", len(m.visible))
+	if len(model.visible) < 2 {
+		t.Fatalf("expected at least 2 rows, got %d", len(model.visible))
 	}
-	if m.cursor != 1 {
-		t.Fatalf("expected cursor to move to selectable row, got %d", m.cursor)
+
+	if model.cursor != 1 {
+		t.Fatalf("expected cursor to move to selectable row, got %d", model.cursor)
 	}
 }
 
 func TestDeleteCurrentWindowInvokesAction(t *testing.T) {
 	called := false
-	m := pickerModel{
+	model := pickerModel{
 		visible: []pickerRow{
 			{
 				target:     Target{SessionName: "demo", WindowIndex: ptr(2)},
@@ -138,9 +148,10 @@ func TestDeleteCurrentWindowInvokesAction(t *testing.T) {
 		},
 	}
 
-	if err := m.deleteCurrentWindow(); err != nil {
+	if err := model.deleteCurrentWindow(); err != nil {
 		t.Fatalf("deleteCurrentWindow error: %v", err)
 	}
+
 	if !called {
 		t.Fatal("expected DeleteWindow to be called")
 	}
@@ -158,7 +169,7 @@ func TestHandlePromptKeyConfirmDeleteSession(t *testing.T) {
 		},
 	}
 
-	m := pickerModel{
+	model := pickerModel{
 		windowSort: DefaultSortOptions().Window,
 		viewport:   viewport.New(),
 		width:      80,
@@ -184,15 +195,16 @@ func TestHandlePromptKeyConfirmDeleteSession(t *testing.T) {
 			},
 		},
 	}
-	m.resize()
-	m.visible = filteredTreeRows(sessions, "", m.windowSort)
+	model.resize()
+	model.visible = filteredTreeRows(sessions, "", model.windowSort)
 
-	next, _ := m.handlePromptKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	next, _ := model.handlePromptKey(tea.KeyPressMsg{Code: tea.KeyEnter})
 	out := next.(pickerModel)
 
 	if !deleted {
 		t.Fatal("expected delete session to be called")
 	}
+
 	if out.mode != modeBrowse {
 		t.Fatalf("expected mode to return to browse, got %v", out.mode)
 	}
@@ -200,7 +212,7 @@ func TestHandlePromptKeyConfirmDeleteSession(t *testing.T) {
 
 func TestHandlePromptKeyRenameWindow(t *testing.T) {
 	called := false
-	m := pickerModel{
+	model := pickerModel{
 		windowSort: DefaultSortOptions().Window,
 		viewport:   viewport.New(),
 		width:      80,
@@ -224,13 +236,15 @@ func TestHandlePromptKeyRenameWindow(t *testing.T) {
 			Reload: func() ([]Session, error) { return nil, nil },
 		},
 	}
-	m.resize()
+	model.resize()
 
-	next, _ := m.handlePromptKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	next, _ := model.handlePromptKey(tea.KeyPressMsg{Code: tea.KeyEnter})
 	out := next.(pickerModel)
+
 	if !called {
 		t.Fatal("expected RenameWindow to be called")
 	}
+
 	if out.mode != modeBrowse {
 		t.Fatalf("expected mode to return to browse, got %v", out.mode)
 	}
@@ -238,7 +252,7 @@ func TestHandlePromptKeyRenameWindow(t *testing.T) {
 
 func TestHandlePromptKeyNewSession(t *testing.T) {
 	called := false
-	m := pickerModel{
+	model := pickerModel{
 		windowSort: DefaultSortOptions().Window,
 		viewport:   viewport.New(),
 		width:      80,
@@ -262,20 +276,22 @@ func TestHandlePromptKeyNewSession(t *testing.T) {
 			Reload: func() ([]Session, error) { return nil, nil },
 		},
 	}
-	m.resize()
+	model.resize()
 
-	next, _ := m.handlePromptKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	next, _ := model.handlePromptKey(tea.KeyPressMsg{Code: tea.KeyEnter})
 	out := next.(pickerModel)
+
 	if !called {
 		t.Fatal("expected NewSession to be called")
 	}
+
 	if out.mode != modeBrowse {
 		t.Fatalf("expected mode to return to browse, got %v", out.mode)
 	}
 }
 
 func TestHandlePromptKeyEscCancelsPrompt(t *testing.T) {
-	m := pickerModel{
+	model := pickerModel{
 		viewport:    viewport.New(),
 		width:       80,
 		height:      20,
@@ -283,9 +299,10 @@ func TestHandlePromptKeyEscCancelsPrompt(t *testing.T) {
 		promptInput: textinput.New(),
 		mode:        modeRenameSession,
 	}
-	m.resize()
+	model.resize()
 
-	next, _ := m.handlePromptKey(tea.KeyPressMsg{Code: tea.KeyEsc})
+	next, _ := model.handlePromptKey(tea.KeyPressMsg{Code: tea.KeyEsc})
+
 	out := next.(pickerModel)
 	if out.mode != modeBrowse {
 		t.Fatalf("expected mode to return to browse, got %v", out.mode)

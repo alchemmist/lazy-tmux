@@ -35,9 +35,10 @@ func TestCaptureShellScrollbackSkipsNonShellAndRestoreCmd(t *testing.T) {
 echo "$*" >> "$TMUX_LOG"
 exit 0
 `)
+
 	t.Setenv("TMUX_LOG", logPath)
 
-	a := &App{
+	app := &App{
 		cfg:  config.Config{Scrollback: config.ScrollbackConfig{Enabled: true, Lines: 10}},
 		tmux: tmux.NewClient(fake),
 	}
@@ -55,14 +56,16 @@ exit 0
 		},
 	}
 
-	a.captureShellScrollback(&snap)
+	app.captureShellScrollback(&snap)
 
 	if snap.Windows[0].Panes[0].Scrollback != nil {
 		t.Fatal("expected non-shell pane to skip scrollback capture")
 	}
+
 	if snap.Windows[0].Panes[1].Scrollback != nil {
 		t.Fatal("expected restore cmd pane to skip scrollback capture")
 	}
+
 	if _, err := os.Stat(logPath); err == nil {
 		t.Fatal("tmux capture-pane must not be called for skipped panes")
 	} else if !os.IsNotExist(err) {
@@ -79,7 +82,7 @@ fi
 exit 0
 `)
 
-	a := &App{
+	app := &App{
 		cfg:  config.Config{Scrollback: config.ScrollbackConfig{Enabled: true, Lines: 10}},
 		tmux: tmux.NewClient(fake),
 	}
@@ -96,9 +99,12 @@ exit 0
 		},
 	}
 
-	a.captureShellScrollback(&snap)
+	app.captureShellScrollback(&snap)
 
 	if snap.Windows[0].Panes[0].Scrollback != nil {
-		t.Fatalf("expected empty scrollback to be skipped, got: %+v", snap.Windows[0].Panes[0].Scrollback)
+		t.Fatalf(
+			"expected empty scrollback to be skipped, got: %+v",
+			snap.Windows[0].Panes[0].Scrollback,
+		)
 	}
 }

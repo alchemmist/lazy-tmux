@@ -18,6 +18,9 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Setup tools
+        run: make setup-env
+
       - name: Test
         run: make test
 
@@ -29,6 +32,9 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+
+      - name: Setup tools
+        run: make setup-env
 
       - name: Integration tests
         run: make test-integration

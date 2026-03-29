@@ -65,129 +65,163 @@ func ParseSortOptions(sessionExpr, windowExpr string) (SortOptions, error) {
 		if err != nil {
 			return SortOptions{}, err
 		}
+
 		opts.Session = keys
 	}
+
 	if strings.TrimSpace(windowExpr) != "" {
 		keys, err := parseWindowSortKeys(windowExpr)
 		if err != nil {
 			return SortOptions{}, err
 		}
+
 		opts.Window = keys
 	}
+
 	return opts, nil
 }
 
 func parseSessionSortKeys(expr string) ([]SessionSortKey, error) {
 	seen := map[SessionSortField]struct{}{}
+
 	parts, err := splitSortExpr(expr)
 	if err != nil {
 		return nil, fmt.Errorf("session sort: %w", err)
 	}
+
 	keys := make([]SessionSortKey, 0, len(parts))
+
 	for _, part := range parts {
 		field, desc, err := parseSessionSortPart(part)
 		if err != nil {
 			return nil, err
 		}
+
 		if _, ok := seen[field]; ok {
 			return nil, fmt.Errorf("duplicate session sort field: %s", field)
 		}
+
 		seen[field] = struct{}{}
+
 		keys = append(keys, SessionSortKey{Field: field, Desc: desc})
 	}
+
 	if len(keys) == 0 {
 		return nil, fmt.Errorf("empty session sort expression")
 	}
+
 	return keys, nil
 }
 
 func parseWindowSortKeys(expr string) ([]WindowSortKey, error) {
 	seen := map[WindowSortField]struct{}{}
+
 	parts, err := splitSortExpr(expr)
 	if err != nil {
 		return nil, fmt.Errorf("window sort: %w", err)
 	}
+
 	keys := make([]WindowSortKey, 0, len(parts))
+
 	for _, part := range parts {
 		field, desc, err := parseWindowSortPart(part)
 		if err != nil {
 			return nil, err
 		}
+
 		if _, ok := seen[field]; ok {
 			return nil, fmt.Errorf("duplicate window sort field: %s", field)
 		}
+
 		seen[field] = struct{}{}
+
 		keys = append(keys, WindowSortKey{Field: field, Desc: desc})
 	}
+
 	if len(keys) == 0 {
 		return nil, fmt.Errorf("empty window sort expression")
 	}
+
 	return keys, nil
 }
 
 func splitSortExpr(expr string) ([]string, error) {
 	chunks := strings.Split(expr, ",")
 	out := make([]string, 0, len(chunks))
+
 	for _, ch := range chunks {
 		v := strings.TrimSpace(ch)
 		if v == "" {
 			return nil, fmt.Errorf("empty sort term in expression")
 		}
+
 		out = append(out, v)
 	}
+
 	return out, nil
 }
 
 func parseSessionSortPart(part string) (SessionSortField, bool, error) {
 	name, descToken, hasDesc := splitSortPart(part)
 	field, ok := parseSessionField(name)
+
 	if !ok {
 		return "", false, fmt.Errorf("unknown session sort field: %s", name)
 	}
+
 	desc := defaultSessionDirection(field)
+
 	if hasDesc {
 		v, err := parseDirection(descToken)
 		if err != nil {
 			return "", false, fmt.Errorf("session %s: %w", name, err)
 		}
+
 		desc = v
 	}
+
 	return field, desc, nil
 }
 
 func parseWindowSortPart(part string) (WindowSortField, bool, error) {
 	name, descToken, hasDesc := splitSortPart(part)
 	field, ok := parseWindowField(name)
+
 	if !ok {
 		return "", false, fmt.Errorf("unknown window sort field: %s", name)
 	}
+
 	desc := defaultWindowDirection(field)
+
 	if hasDesc {
 		v, err := parseDirection(descToken)
 		if err != nil {
 			return "", false, fmt.Errorf("window %s: %w", name, err)
 		}
+
 		desc = v
 	}
+
 	return field, desc, nil
 }
 
-func splitSortPart(part string) (name string, dir string, hasDir bool) {
+func splitSortPart(part string) (name, dir string, hasDir bool) {
 	left, right, ok := strings.Cut(strings.TrimSpace(part), ":")
 	if !ok {
 		return strings.TrimSpace(part), "", false
 	}
+
 	return strings.TrimSpace(left), strings.TrimSpace(right), true
 }
 
-func parseDirection(in string) (bool, error) {
-	switch strings.ToLower(strings.TrimSpace(in)) {
+func parseDirection(directionStr string) (bool, error) {
+	switch strings.ToLower(strings.TrimSpace(directionStr)) {
 	case "asc":
 		return false, nil
 	case "desc":
 		return true, nil
 	default:
-		return false, fmt.Errorf("invalid direction %q (expected asc|desc)", in)
+		return false, fmt.Errorf("invalid direction %q (expected asc|desc)", directionStr)
 	}
 }
 
@@ -242,16 +276,18 @@ func defaultWindowDirection(field WindowSortField) bool {
 }
 
 func sortSessionRecords(records []snapshot.Record, keys []SessionSortKey) {
-	sort.Slice(records, func(i, j int) bool {
+	sort.Slice(records, func(recordIndexI, recordIndexJ int) bool {
 		for _, key := range keys {
-			if cmp := compareSessionField(records[i], records[j], key.Field); cmp != 0 {
+			if cmp := compareSessionField(records[recordIndexI], records[recordIndexJ], key.Field); cmp != 0 {
 				if key.Desc {
 					return cmp > 0
 				}
+
 				return cmp < 0
 			}
 		}
-		return records[i].SessionName < records[j].SessionName
+
+		return records[recordIndexI].SessionName < records[recordIndexJ].SessionName
 	})
 }
 
@@ -259,7 +295,7 @@ func SortSessionRecords(records []snapshot.Record, keys []SessionSortKey) {
 	sortSessionRecords(records, keys)
 }
 
-func compareSessionField(a, b snapshot.Record, field SessionSortField) int {
+func compareSessionField(a, b snapshot.Record, field SessionSortField) int { //nolint:varnamelen
 	switch field {
 	case SessionSortLastUsed:
 		return compareTime(a.LastAccessed, b.LastAccessed)
@@ -280,9 +316,11 @@ func compareTime(a, b time.Time) int {
 	if a.Equal(b) {
 		return 0
 	}
+
 	if a.Before(b) {
 		return -1
 	}
+
 	return 1
 }
 
@@ -298,16 +336,18 @@ func compareInt(a, b int) int {
 }
 
 func sortWindows(windows []snapshot.Window, keys []WindowSortKey) {
-	sort.Slice(windows, func(i, j int) bool {
+	sort.Slice(windows, func(windowIndexI, windowIndexJ int) bool {
 		for _, key := range keys {
-			if cmp := compareWindowField(windows[i], windows[j], key.Field); cmp != 0 {
+			if cmp := compareWindowField(windows[windowIndexI], windows[windowIndexJ], key.Field); cmp != 0 {
 				if key.Desc {
 					return cmp > 0
 				}
+
 				return cmp < 0
 			}
 		}
-		return windows[i].Index < windows[j].Index
+
+		return windows[windowIndexI].Index < windows[windowIndexJ].Index
 	})
 }
 
@@ -315,16 +355,16 @@ func SortWindows(windows []snapshot.Window, keys []WindowSortKey) {
 	sortWindows(windows, keys)
 }
 
-func compareWindowField(a, b snapshot.Window, field WindowSortField) int {
+func compareWindowField(windowA, windowB snapshot.Window, field WindowSortField) int {
 	switch field {
 	case WindowSortIndex:
-		return compareInt(a.Index, b.Index)
+		return compareInt(windowA.Index, windowB.Index)
 	case WindowSortName:
-		return strings.Compare(a.Name, b.Name)
+		return strings.Compare(windowA.Name, windowB.Name)
 	case WindowSortPanes:
-		return compareInt(len(a.Panes), len(b.Panes))
+		return compareInt(len(windowA.Panes), len(windowB.Panes))
 	case WindowSortCmd:
-		return strings.Compare(windowPreviewCommand(a), windowPreviewCommand(b))
+		return strings.Compare(windowPreviewCommand(windowA), windowPreviewCommand(windowB))
 	default:
 		return 0
 	}
