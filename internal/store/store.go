@@ -76,7 +76,11 @@ func (s *Store) SaveSession(sessionSnapshot snapshot.SessionSnapshot) error {
 
 	defer func() { _ = os.Remove(jsonTmp) }()
 
-	if err := s.persistScrollbackUnlocked(sessionSnapshot.SessionName, safeName, entries); err != nil {
+	if err := s.persistScrollbackUnlocked(
+		sessionSnapshot.SessionName,
+		safeName,
+		entries,
+	); err != nil {
 		return err
 	}
 
@@ -371,7 +375,11 @@ func (s *Store) planScrollbackUnlocked(
 				continue
 			}
 
-			fileName := fmt.Sprintf("w%d_p%d.log", sessionSnapshot.Windows[windowIndex].Index, pane.Index)
+			fileName := fmt.Sprintf(
+				"w%d_p%d.log",
+				sessionSnapshot.Windows[windowIndex].Index,
+				pane.Index,
+			)
 			ref := filepath.Join(scrollbackDir, safeName, fileName)
 			pane.Scrollback.Ref = ref
 			pane.Scrollback.Bytes = len(content)

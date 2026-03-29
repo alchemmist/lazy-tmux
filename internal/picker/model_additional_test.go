@@ -54,7 +54,9 @@ func TestPickerModelUpdateWindowSize(t *testing.T) {
 
 func TestPickerModelViewRendersRows(t *testing.T) {
 	model := baseModelForTests()
-	model.visible = []pickerRow{{target: Target{SessionName: "demo"}, selectable: true, item: "demo"}}
+	model.visible = []pickerRow{
+		{target: Target{SessionName: "demo"}, selectable: true, item: "demo"},
+	}
 	model.cursor = 0
 	model.width = 60
 	model.height = 10

@@ -269,7 +269,11 @@ func (c *Client) CaptureSession(name string) (snapshot.SessionSnapshot, error) {
 			window.Panes = append(window.Panes, pane)
 		}
 
-		sort.Slice(window.Panes, func(i, j int) bool { return window.Panes[i].Index < window.Panes[j].Index })
+		sort.Slice(
+			window.Panes,
+			func(i, j int) bool { return window.Panes[i].Index < window.Panes[j].Index },
+		)
+
 		windows = append(windows, window)
 	}
 
@@ -303,7 +307,10 @@ func (c *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) error 
 	sort.Slice(windows, func(i, j int) bool { return windows[i].Index < windows[j].Index })
 
 	first := windows[0]
-	if _, err := c.runWithShellFallback(newSessionArgs(sessionSnapshot.SessionName, first), ""); err != nil {
+	if _, err := c.runWithShellFallback(
+		newSessionArgs(sessionSnapshot.SessionName, first),
+		"",
+	); err != nil {
 		return err
 	}
 
@@ -334,11 +341,19 @@ func (c *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) error 
 		}
 	}
 
-	_, _ = c.Output("select-window", "-t", sessionWindowTarget(sessionSnapshot.SessionName, sessionSnapshot.CurrentWin))
+	_, _ = c.Output(
+		"select-window",
+		"-t",
+		sessionWindowTarget(sessionSnapshot.SessionName, sessionSnapshot.CurrentWin),
+	)
 	_, _ = c.Output(
 		"select-pane",
 		"-t",
-		sessionPaneTarget(sessionSnapshot.SessionName, sessionSnapshot.CurrentWin, sessionSnapshot.CurrentPane),
+		sessionPaneTarget(
+			sessionSnapshot.SessionName,
+			sessionSnapshot.CurrentWin,
+			sessionSnapshot.CurrentPane,
+		),
 	)
 
 	return nil
@@ -408,7 +423,11 @@ func (c *Client) CapturePaneScrollback(target string, lines int) (string, error)
 	return c.Output("capture-pane", "-p", "-e", "-S", fmt.Sprintf("-%d", lines), "-t", target)
 }
 
-func (c *Client) ensurePaneCount(sessionName string, window snapshot.Window, windowIndex int) error {
+func (c *Client) ensurePaneCount(
+	sessionName string,
+	window snapshot.Window,
+	windowIndex int,
+) error {
 	if len(window.Panes) <= 1 {
 		return nil
 	}
@@ -525,7 +544,11 @@ func (c *Client) restoreWindowCommands(
 	return nil
 }
 
-func (c *Client) restoreWindowScrollback(sessionName string, window snapshot.Window, windowIndex int) {
+func (c *Client) restoreWindowScrollback(
+	sessionName string,
+	window snapshot.Window,
+	windowIndex int,
+) {
 	if len(window.Panes) == 0 {
 		return
 	}
