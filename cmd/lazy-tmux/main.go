@@ -100,7 +100,11 @@ func runSave(base config.Config, args []string) error {
 	saveFlags.SetOutput(io.Discard)
 	all := saveFlags.Bool("all", false, "save all sessions")
 	session := saveFlags.String("session", "", "save specific session")
-	scrollback := saveFlags.Bool("scrollback", base.Scrollback.Enabled, "capture shell pane scrollback")
+	scrollback := saveFlags.Bool(
+		"scrollback",
+		base.Scrollback.Enabled,
+		"capture shell pane scrollback",
+	)
 	scrollbackLines := saveFlags.Int(
 		"scrollback-lines",
 		base.Scrollback.Lines,
@@ -265,7 +269,11 @@ func runDaemon(base config.Config, args []string) error {
 	daemonFlags := flag.NewFlagSet("daemon", flag.ContinueOnError)
 	daemonFlags.SetOutput(io.Discard)
 	interval := daemonFlags.Duration("interval", base.SaveInterval, "autosave interval")
-	scrollback := daemonFlags.Bool("scrollback", base.Scrollback.Enabled, "capture shell pane scrollback")
+	scrollback := daemonFlags.Bool(
+		"scrollback",
+		base.Scrollback.Enabled,
+		"capture shell pane scrollback",
+	)
 	scrollbackLines := daemonFlags.Int(
 		"scrollback-lines",
 		base.Scrollback.Lines,

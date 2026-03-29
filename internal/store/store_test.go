@@ -208,7 +208,11 @@ func TestSaveAndLoadSessionWithScrollbackSidecar(t *testing.T) {
 	}
 
 	if scrollback.Bytes == 0 || scrollback.Lines == 0 {
-		t.Fatalf("expected non-zero scrollback metadata, got lines=%d bytes=%d", scrollback.Lines, scrollback.Bytes)
+		t.Fatalf(
+			"expected non-zero scrollback metadata, got lines=%d bytes=%d",
+			scrollback.Lines,
+			scrollback.Bytes,
+		)
 	}
 }
 
