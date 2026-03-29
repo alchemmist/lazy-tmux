@@ -108,6 +108,10 @@ setup-env:
 	go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
 	go install github.com/vladopajic/go-test-coverage/v2@v2.18.4
 
+sandbox:
+	docker build -t lazy-tmux:latest -f docker/sandbox.Dockerfile ./docker
+	docker run -it --rm lazy-tmux
+
 clean:
 	rm -rf bin dist coverage.out
 
