@@ -18,5 +18,8 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Setup tools
+        run: make setup-env
+
       - name: GolangCI-Lint
         run: make golangci-lint
