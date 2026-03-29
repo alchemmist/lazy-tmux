@@ -1,6 +1,10 @@
 package app
 
-import "github.com/alchemmist/lazy-tmux/internal/picker"
+import (
+	"fmt"
+
+	"github.com/alchemmist/lazy-tmux/internal/picker"
+)
 
 type PickerSortOptions = picker.SortOptions
 
@@ -32,5 +36,10 @@ func DefaultPickerSortOptions() PickerSortOptions {
 }
 
 func ParsePickerSortOptions(sessionExpr, windowExpr string) (PickerSortOptions, error) {
-	return picker.ParseSortOptions(sessionExpr, windowExpr)
+	opts, err := picker.ParseSortOptions(sessionExpr, windowExpr)
+	if err != nil {
+		return picker.SortOptions{}, fmt.Errorf("parse sort options: %w", err)
+	}
+
+	return opts, nil
 }

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -19,11 +20,12 @@ fi
 exit 0
 `)
 	dataDir := t.TempDir()
-	a := &App{
+
+	app := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),
 	}
-	if err := a.store.SaveSession(snapshot.SessionSnapshot{
+	if err := app.store.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "demo",
 		CapturedAt:  time.Now().UTC(),
@@ -35,17 +37,19 @@ exit 0
 		t.Fatalf("save session: %v", err)
 	}
 
-	if err := a.DeleteWindow("demo", 3); err != nil {
+	if err := app.DeleteWindow("demo", 3); err != nil {
 		t.Fatalf("DeleteWindow error: %v", err)
 	}
 
-	snap, err := a.store.LoadSession("demo")
+	snap, err := app.store.LoadSession("demo")
 	if err != nil {
 		t.Fatalf("load session: %v", err)
 	}
+
 	if len(snap.Windows) != 1 {
 		t.Fatalf("expected 1 window, got %d", len(snap.Windows))
 	}
+
 	if snap.Windows[0].Index != 1 {
 		t.Fatalf("expected remaining window index 1, got %d", snap.Windows[0].Index)
 	}
@@ -59,11 +63,12 @@ fi
 exit 0
 `)
 	dataDir := t.TempDir()
-	a := &App{
+
+	app := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),
 	}
-	if err := a.store.SaveSession(snapshot.SessionSnapshot{
+	if err := app.store.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "demo",
 		CapturedAt:  time.Now().UTC(),
@@ -72,15 +77,16 @@ exit 0
 		t.Fatalf("save session: %v", err)
 	}
 
-	if err := a.DeleteWindow("demo", 0); err != nil {
+	if err := app.DeleteWindow("demo", 0); err != nil {
 		t.Fatalf("DeleteWindow error: %v", err)
 	}
 
-	_, err := a.store.LoadSession("demo")
+	_, err := app.store.LoadSession("demo")
 	if err == nil {
 		t.Fatal("expected session to be deleted")
 	}
-	if !os.IsNotExist(err) {
+
+	if !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("expected not-exist error, got %v", err)
 	}
 }
@@ -93,11 +99,12 @@ fi
 exit 0
 `)
 	dataDir := t.TempDir()
-	a := &App{
+
+	app := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),
 	}
-	if err := a.store.SaveSession(snapshot.SessionSnapshot{
+	if err := app.store.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "foo/bar",
 		CapturedAt:  time.Now().UTC(),
@@ -106,14 +113,15 @@ exit 0
 		t.Fatalf("save session: %v", err)
 	}
 
-	if err := a.RenameSession("foo/bar", "foo_bar"); err != nil {
+	if err := app.RenameSession("foo/bar", "foo_bar"); err != nil {
 		t.Fatalf("RenameSession error: %v", err)
 	}
 
-	recs, err := a.store.ListRecords()
+	recs, err := app.store.ListRecords()
 	if err != nil {
 		t.Fatalf("ListRecords error: %v", err)
 	}
+
 	if len(recs) != 1 || recs[0].SessionName != "foo/bar" {
 		t.Fatalf("unexpected records: %+v", recs)
 	}
@@ -127,12 +135,13 @@ fi
 exit 0
 `)
 	dataDir := t.TempDir()
-	a := &App{
+
+	app := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),
 	}
 	for _, name := range []string{"alpha", "beta"} {
-		if err := a.store.SaveSession(snapshot.SessionSnapshot{
+		if err := app.store.SaveSession(snapshot.SessionSnapshot{
 			Version:     snapshot.FormatVersion,
 			SessionName: name,
 			CapturedAt:  time.Now().UTC(),
@@ -142,14 +151,15 @@ exit 0
 		}
 	}
 
-	if err := a.RenameSession("alpha", "beta"); err == nil {
+	if err := app.RenameSession("alpha", "beta"); err == nil {
 		t.Fatal("expected rename collision error")
 	}
 
-	recs, err := a.store.ListRecords()
+	recs, err := app.store.ListRecords()
 	if err != nil {
 		t.Fatalf("ListRecords error: %v", err)
 	}
+
 	if len(recs) != 2 {
 		t.Fatalf("expected 2 records, got %d", len(recs))
 	}
@@ -163,11 +173,12 @@ fi
 exit 0
 `)
 	dataDir := t.TempDir()
-	a := &App{
+
+	app := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),
 	}
-	if err := a.store.SaveSession(snapshot.SessionSnapshot{
+	if err := app.store.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "demo",
 		CapturedAt:  time.Now().UTC(),
@@ -176,7 +187,7 @@ exit 0
 		t.Fatalf("save session: %v", err)
 	}
 
-	if err := a.Wakeup("demo"); err == nil {
+	if err := app.Wakeup("demo"); err == nil {
 		t.Fatal("expected error for already running session")
 	}
 }
@@ -207,11 +218,12 @@ fi
 exit 0
 `)
 	dataDir := t.TempDir()
-	a := &App{
+
+	app := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),
 	}
-	if err := a.store.SaveSession(snapshot.SessionSnapshot{
+	if err := app.store.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "demo",
 		CapturedAt:  time.Now().UTC(),
@@ -220,7 +232,7 @@ exit 0
 		t.Fatalf("save session: %v", err)
 	}
 
-	if err := a.Sleep("demo"); err == nil {
+	if err := app.Sleep("demo"); err == nil {
 		t.Fatal("expected error for nonrunning session")
 	}
 }
@@ -271,11 +283,12 @@ fi
 exit 0
 `)
 	dataDir := t.TempDir()
-	a := &App{
+
+	app := &App{
 		store: store.New(dataDir),
 		tmux:  tmux.NewClient(fake),
 	}
-	if err := a.store.SaveSession(snapshot.SessionSnapshot{
+	if err := app.store.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "demo",
 		CapturedAt:  time.Now().UTC(),
@@ -284,12 +297,12 @@ exit 0
 		t.Fatalf("save session: %v", err)
 	}
 
-	if err := a.Sleep("demo"); err != nil {
+	if err := app.Sleep("demo"); err != nil {
 		t.Fatalf("Sleep error: %v", err)
 	}
 
 	// Session should still be in store after sleep
-	_, err := a.store.LoadSession("demo")
+	_, err := app.store.LoadSession("demo")
 	if err != nil {
 		t.Fatalf("expected session to remain in store: %v", err)
 	}
@@ -299,6 +312,7 @@ exit 0
 	if err != nil {
 		t.Fatalf("expected kill-session to be called (marker file missing): %v", err)
 	}
+
 	if !strings.Contains(string(data), "killed") {
 		t.Fatalf("expected 'killed' in marker file, got: %s", string(data))
 	}

@@ -20,16 +20,12 @@ build-fzf:
 build-all: build build-fzf
 
 test:
-	go install gotest.tools/gotestsum@v1.13.0
 	gotestsum -- ./...
 
 test-race:
-	go install gotest.tools/gotestsum@v1.13.0
 	gotestsum -- -race ./...
 
 test-cov:
-	go install gotest.tools/gotestsum@v1.13.0
-	go install github.com/vladopajic/go-test-coverage/v2@v2.18.4
 	gotestsum -- -coverprofile=cover.out -covermode=atomic -coverpkg=./... ./...
 	go-test-coverage --config=./.testcoverage.yml
 
@@ -38,7 +34,11 @@ test-integration:
 	docker run --rm lazy-tmux-integration
 
 fmt:
-	gofmt -w ./cmd ./internal
+	gofmt -w -s .
+	goimports -w .
+	gofumpt -w -extra $$(find . -type f -name '*.go' -not -path './.cache/*' -not -path './.git/*')
+	golangci-lint run --fix --issues-exit-code=0 >/dev/null 2>&1
+	golines -w .
 
 fmt-check:
 	@unformatted="$$(gofmt -l ./cmd ./internal)"; \
@@ -52,11 +52,9 @@ vet:
 	go vet ./...
 
 staticcheck:
-	go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
 	staticcheck ./...
 
 golangci-lint:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
 	golangci-lint run ./...
 
 lint: vet staticcheck golangci-lint
@@ -101,6 +99,14 @@ tag:
 	fi; \
 	echo "tagging $$next"; \
 	git tag -a "$$next" -m "release $$next"
+
+setup-env:
+	go install gotest.tools/gotestsum@v1.13.0
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+	go install mvdan.cc/gofumpt@v0.9.2
+	go install github.com/golangci/golines@latest
+	go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
+	go install github.com/vladopajic/go-test-coverage/v2@v2.18.4
 
 clean:
 	rm -rf bin dist coverage.out

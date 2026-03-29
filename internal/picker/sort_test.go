@@ -7,9 +7,11 @@ func TestParsePickerSortOptions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseSortOptions error: %v", err)
 	}
+
 	if len(opts.Session) != 2 || opts.Session[0].Field != SessionSortName || !opts.Session[1].Desc {
 		t.Fatalf("unexpected session sort options: %+v", opts.Session)
 	}
+
 	if len(opts.Window) != 2 || opts.Window[0].Field != WindowSortName || !opts.Window[0].Desc {
 		t.Fatalf("unexpected window sort options: %+v", opts.Window)
 	}
@@ -62,6 +64,7 @@ func TestParsePickerSortOptionsDefaultDirections(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseSessionSortPart: %v", err)
 	}
+
 	if sess != SessionSortLastUsed || !desc {
 		t.Fatalf("expected last-used to default to desc, got %v desc=%v", sess, desc)
 	}
@@ -70,6 +73,7 @@ func TestParsePickerSortOptionsDefaultDirections(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseSessionSortPart: %v", err)
 	}
+
 	if sess != SessionSortName || desc {
 		t.Fatalf("expected name to default to asc, got %v desc=%v", sess, desc)
 	}
@@ -78,6 +82,7 @@ func TestParsePickerSortOptionsDefaultDirections(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseWindowSortPart: %v", err)
 	}
+
 	if win != WindowSortPanes || !wdesc {
 		t.Fatalf("expected panes to default to desc, got %v desc=%v", win, wdesc)
 	}
@@ -86,6 +91,7 @@ func TestParsePickerSortOptionsDefaultDirections(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseWindowSortPart: %v", err)
 	}
+
 	if win != WindowSortIndex || wdesc {
 		t.Fatalf("expected index to default to asc, got %v desc=%v", win, wdesc)
 	}

@@ -12,7 +12,7 @@ import (
 )
 
 func TestPickerModelUpdateMovesCursor(t *testing.T) {
-	m := pickerModel{
+	model := pickerModel{
 		visible: []pickerRow{
 			{item: "one", selectable: true},
 			{item: "two", selectable: true},
@@ -24,10 +24,11 @@ func TestPickerModelUpdateMovesCursor(t *testing.T) {
 		width:      80,
 		height:     20,
 	}
-	m.viewport.SetWidth(78)
-	m.viewport.SetHeight(10)
+	model.viewport.SetWidth(78)
+	model.viewport.SetHeight(10)
 
-	next, _ := m.Update(tea.KeyPressMsg{Code: 'j', Mod: tea.ModCtrl})
+	next, _ := model.Update(tea.KeyPressMsg{Code: 'j', Mod: tea.ModCtrl})
+
 	out := next.(pickerModel)
 	if out.cursor != 1 {
 		t.Fatalf("expected cursor to move to 1, got %d", out.cursor)
@@ -35,17 +36,18 @@ func TestPickerModelUpdateMovesCursor(t *testing.T) {
 }
 
 func TestPickerModelUpdateCancel(t *testing.T) {
-	m := pickerModel{
+	model := pickerModel{
 		mode:       modeBrowse,
 		viewport:   viewport.New(),
 		queryInput: textinput.New(),
 		width:      80,
 		height:     20,
 	}
-	m.viewport.SetWidth(78)
-	m.viewport.SetHeight(10)
+	model.viewport.SetWidth(78)
+	model.viewport.SetHeight(10)
 
-	next, _ := m.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
+	next, _ := model.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
+
 	out := next.(pickerModel)
 	if !out.cancelled {
 		t.Fatal("expected cancelled to be true")
@@ -53,13 +55,14 @@ func TestPickerModelUpdateCancel(t *testing.T) {
 }
 
 func TestPickerModelViewNoVisible(t *testing.T) {
-	m := pickerModel{
+	model := pickerModel{
 		mode:       modeBrowse,
 		visible:    nil,
 		queryInput: textinput.New(),
 		viewport:   viewport.New(),
 	}
-	view := m.View()
+
+	view := model.View()
 	if !strings.Contains(view.Content, "No sessions or windows match query") {
 		t.Fatalf("unexpected view output: %s", view.Content)
 	}

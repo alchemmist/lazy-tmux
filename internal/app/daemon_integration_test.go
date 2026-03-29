@@ -87,7 +87,12 @@ exit 0
 
 	path := filepath.Join(dataDir, "sessions", "demo.json")
 	if _, err := os.Stat(path); err != nil {
-		t.Fatalf("expected snapshot to be created, got %v; log:\n%s\nTMUX log:\n%s", err, logBuf.String(), string(logData))
+		t.Fatalf(
+			"expected snapshot to be created, got %v; log:\n%s\nTMUX log:\n%s",
+			err,
+			logBuf.String(),
+			string(logData),
+		)
 	}
 }
 
