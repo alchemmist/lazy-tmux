@@ -2,8 +2,10 @@ package picker
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -29,19 +31,23 @@ func ChooseSessionFZF(records []snapshot.Record) (string, error) {
 		input.WriteString(line)
 	}
 
-	cmd := exec.Command(
+	args := []string{
 		"fzf",
-		"--prompt",
-		"lazy-tmux> ",
-		"--delimiter",
-		"\t",
-		"--with-nth",
-		"1,2,3",
-		"--height",
-		"100%",
-		"--layout",
-		"reverse",
-	)
+		"--delimiter", "\t",
+		"--with-nth", "1,2,3",
+	}
+
+	if isTerminal(os.Stdout) {
+		args = append(args,
+			"--prompt", "lazy-tmux> ",
+			"--height", "100%",
+			"--layout", "reverse",
+		)
+	} else {
+		args = append(args, "--filter", "")
+	}
+
+	cmd := exec.CommandContext(context.Background(), args[0], args[1:]...)
 	cmd.Stdin = &input
 
 	out, err := cmd.Output()

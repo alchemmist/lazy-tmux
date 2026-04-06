@@ -2,6 +2,7 @@ package tmux
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -24,8 +25,35 @@ var (
 
 var paneTTYWriter = writePaneTTY
 
+type commandResult struct {
+	stdout string
+	err    error
+}
+
+type commandRunner interface {
+	run(args ...string) commandResult
+}
+
+type execRunner struct{}
+
+func (execRunner) run(args ...string) commandResult {
+	cmd := exec.CommandContext(context.Background(), args[0], args[1:]...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return commandResult{"", fmt.Errorf(
+			"tmux %s: %w (%s)",
+			strings.Join(args[1:], " "),
+			err,
+			strings.TrimSpace(string(out)),
+		)}
+	}
+
+	return commandResult{string(out), nil}
+}
+
 type Client struct {
-	bin string
+	bin    string
+	runner commandRunner
 }
 
 func NewClient(bin string) *Client {
@@ -33,7 +61,22 @@ func NewClient(bin string) *Client {
 		bin = "tmux"
 	}
 
-	return &Client{bin: bin}
+	return &Client{bin: bin, runner: execRunner{}}
+}
+
+func NewClientWithRunner(bin string, r commandRunner) *Client {
+	if strings.TrimSpace(bin) == "" {
+		bin = "tmux"
+	}
+
+	c := &Client{bin: bin}
+	if r != nil {
+		c.runner = r
+	} else {
+		c.runner = execRunner{}
+	}
+
+	return c
 }
 
 func sessionTarget(name string) string {
@@ -62,11 +105,12 @@ func sessionWindowBaseTarget(name string) string {
 }
 
 func (c *Client) Run(args ...string) error {
-	cmd := exec.Command(c.bin, args...)
+	cmd := exec.CommandContext(context.Background(), c.bin, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	if err := cmd.Run(); err != nil {
+	err := cmd.Run()
+	if err != nil {
 		return fmt.Errorf("run tmux: %w", err)
 	}
 
@@ -74,23 +118,15 @@ func (c *Client) Run(args ...string) error {
 }
 
 func (c *Client) Output(args ...string) (string, error) {
-	cmd := exec.Command(c.bin, args...)
+	allArgs := append([]string{c.bin}, args...)
+	res := c.runner.run(allArgs...)
 
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf(
-			"tmux %s: %w (%s)",
-			strings.Join(args, " "),
-			err,
-			strings.TrimSpace(string(out)),
-		)
-	}
-
-	return string(out), nil
+	return res.stdout, res.err
 }
 
 func (c *Client) SessionExists(name string) bool {
-	err := exec.Command(c.bin, "has-session", "-t", sessionTarget(name)).Run()
+	_, err := c.Output("has-session", "-t", sessionTarget(name))
+
 	return err == nil
 }
 
@@ -307,18 +343,19 @@ func (c *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) error 
 	sort.Slice(windows, func(i, j int) bool { return windows[i].Index < windows[j].Index })
 
 	first := windows[0]
-	if _, err := c.runWithShellFallback(
+
+	_, err := c.runWithShellFallback(
 		newSessionArgs(sessionSnapshot.SessionName, first),
 		"",
-	); err != nil {
+	)
+	if err != nil {
 		return err
 	}
 
-	// tmux creates the first window at server default index (often 0 or 1).
-	// If snapshot index differs (e.g. sparse/non-renumbered windows), move it.
-	if createdIdx, err := c.createdFirstWindowIndex(
+	createdIdx, err := c.createdFirstWindowIndex(
 		sessionSnapshot.SessionName,
-	); err == nil &&
+	)
+	if err == nil &&
 		createdIdx != first.Index {
 		_, err = c.Output(
 			"move-window",
@@ -330,23 +367,25 @@ func (c *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) error 
 		}
 	}
 
-	if err := c.populateWindow(sessionSnapshot.SessionName, first, first.Index); err != nil {
+	err = c.populateWindow(sessionSnapshot.SessionName, first, first.Index)
+	if err != nil {
 		return err
 	}
 
 	for i := 1; i < len(windows); i++ {
 		w := windows[i]
-		if err := c.createAndPopulateWindow(sessionSnapshot.SessionName, w); err != nil {
+
+		err := c.createAndPopulateWindow(sessionSnapshot.SessionName, w)
+		if err != nil {
 			return err
 		}
 	}
 
-	_, _ = c.Output(
-		"select-window",
-		"-t",
-		sessionWindowTarget(sessionSnapshot.SessionName, sessionSnapshot.CurrentWin),
-	)
-	_, _ = c.Output(
+	if _, err := c.Output("select-window", "-t", sessionWindowTarget(sessionSnapshot.SessionName, sessionSnapshot.CurrentWin)); err != nil {
+		return fmt.Errorf("select window: %w", err)
+	}
+
+	if _, err := c.Output(
 		"select-pane",
 		"-t",
 		sessionPaneTarget(
@@ -354,7 +393,9 @@ func (c *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) error 
 			sessionSnapshot.CurrentWin,
 			sessionSnapshot.CurrentPane,
 		),
-	)
+	); err != nil {
+		return fmt.Errorf("select pane: %w", err)
+	}
 
 	return nil
 }
@@ -384,22 +425,33 @@ func newWindowArgs(sessionName string, win snapshot.Window) []string {
 	return args
 }
 
-func (c *Client) createAndPopulateWindow(sessionName string, w snapshot.Window) error {
-	if _, err := c.runWithShellFallback(newWindowArgs(sessionName, w), ""); err != nil {
+func (c *Client) CapturePaneScrollback(target string, lines int) (string, error) {
+	if lines <= 0 {
+		lines = 5000
+	}
+
+	return c.Output("capture-pane", "-p", "-e", "-S", fmt.Sprintf("-%d", lines), "-t", target)
+}
+
+func (c *Client) createAndPopulateWindow(sessionName string, win snapshot.Window) error {
+	_, err := c.runWithShellFallback(newWindowArgs(sessionName, win), "")
+	if err != nil {
 		return err
 	}
 
-	return c.populateWindow(sessionName, w, w.Index)
+	return c.populateWindow(sessionName, win, win.Index)
 }
 
 func (c *Client) populateWindow(sessionName string, window snapshot.Window, windowIndex int) error {
-	if err := c.ensurePaneCount(sessionName, window, windowIndex); err != nil {
+	err := c.ensurePaneCount(sessionName, window, windowIndex)
+	if err != nil {
 		return err
 	}
 
 	c.restoreWindowScrollback(sessionName, window, windowIndex)
 
-	if err := c.restoreWindowCommands(sessionName, window, windowIndex); err != nil {
+	err = c.restoreWindowCommands(sessionName, window, windowIndex)
+	if err != nil {
 		return err
 	}
 
@@ -413,14 +465,6 @@ func (c *Client) populateWindow(sessionName string, window snapshot.Window, wind
 	}
 
 	return nil
-}
-
-func (c *Client) CapturePaneScrollback(target string, lines int) (string, error) {
-	if lines <= 0 {
-		lines = 5000
-	}
-
-	return c.Output("capture-pane", "-p", "-e", "-S", fmt.Sprintf("-%d", lines), "-t", target)
 }
 
 func (c *Client) ensurePaneCount(
@@ -440,7 +484,8 @@ func (c *Client) ensurePaneCount(
 			args = append(args, "-c", pane.CurrentPath)
 		}
 
-		if _, err := c.runWithShellFallback(args, ""); err != nil {
+		_, err := c.runWithShellFallback(args, "")
+		if err != nil {
 			return err
 		}
 	}
@@ -457,7 +502,8 @@ func firstPanePath(w snapshot.Window) string {
 
 	path := pane.CurrentPath
 	if path == "" {
-		if home, err := os.UserHomeDir(); err == nil {
+		home, err := os.UserHomeDir()
+		if err == nil {
 			path = home
 		}
 	}
@@ -536,7 +582,9 @@ func (c *Client) restoreWindowCommands(
 		}
 
 		target := sessionPaneTarget(sessionName, windowIndex, pane.Index)
-		if _, err := c.Output("send-keys", "-t", target, cmd, "C-m"); err != nil {
+
+		_, err := c.Output("send-keys", "-t", target, cmd, "C-m")
+		if err != nil {
 			return err
 		}
 	}
@@ -569,7 +617,8 @@ func (c *Client) restoreWindowScrollback(
 			continue
 		}
 
-		if err := paneTTYWriter(strings.TrimSpace(tty), pane.Scrollback.Content); err != nil {
+		err = paneTTYWriter(strings.TrimSpace(tty), pane.Scrollback.Content)
+		if err != nil {
 			continue
 		}
 	}
@@ -599,7 +648,7 @@ func writePaneTTY(path, content string) error {
 		return fmt.Errorf("open tty: %w", err)
 	}
 
-	defer ttyFile.Close()
+	defer func() { _ = ttyFile.Close() }()
 
 	_, err = io.WriteString(ttyFile, content)
 	if err != nil {
@@ -617,7 +666,7 @@ func (c *Client) foregroundCommand(paneTTY string, panePID int) (string, error) 
 
 	// "ps -t" may accept tty with or without "/dev/" prefix depending on platform.
 	candidates := []string{tty}
-	if b := strings.TrimPrefix(tty, "/dev/"); b != tty {
+	if b, ok := strings.CutPrefix(tty, "/dev/"); ok {
 		candidates = append(candidates, b)
 	}
 
@@ -630,7 +679,18 @@ func (c *Client) foregroundCommand(paneTTY string, panePID int) (string, error) 
 	var err error
 
 	for _, t := range candidates {
-		cmd := exec.Command("ps", "-t", t, "-o", "pid=", "-o", "stat=", "-o", "command=")
+		cmd := exec.CommandContext(
+			context.Background(),
+			"ps",
+			"-t",
+			t,
+			"-o",
+			"pid=",
+			"-o",
+			"stat=",
+			"-o",
+			"command=",
+		)
 
 		out, err = cmd.Output()
 		if err == nil {
@@ -717,7 +777,9 @@ func (c *Client) runWithShellFallback(args []string, cmd string) (string, error)
 	withoutCmd := args
 	if strings.TrimSpace(cmd) != "" && len(args) > 0 {
 		withoutCmd = args[:len(args)-1]
-		if out2, err2 := c.Output(withoutCmd...); err2 == nil {
+
+		out2, err2 := c.Output(withoutCmd...)
+		if err2 == nil {
 			return out2, nil
 		}
 	}
@@ -725,7 +787,8 @@ func (c *Client) runWithShellFallback(args []string, cmd string) (string, error)
 	// 2) If directory is broken, retry without "-c <path>" too.
 	minimal := stripOptionPair(withoutCmd, "-c")
 	if len(minimal) > 0 {
-		if out3, err3 := c.Output(minimal...); err3 == nil {
+		out3, err3 := c.Output(minimal...)
+		if err3 == nil {
 			return out3, nil
 		}
 	}

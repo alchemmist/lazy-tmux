@@ -72,6 +72,7 @@ func TestPickerModelViewRendersRows(t *testing.T) {
 
 func TestChooseTargetUsesRunner(t *testing.T) {
 	orig := newPickerRunner
+
 	defer func() { newPickerRunner = orig }()
 
 	newPickerRunner = func(m pickerModel) pickerRunner {

@@ -34,19 +34,8 @@ test-integration:
 	docker run --rm lazy-tmux-integration
 
 fmt:
-	gofmt -w -s .
-	goimports -w .
-	gofumpt -w -extra $$(find . -type f -name '*.go' -not -path './.cache/*' -not -path './.git/*')
-	golangci-lint run --fix --issues-exit-code=0 >/dev/null 2>&1
-	golines -w .
-
-fmt-check:
-	@unformatted="$$(gofmt -l ./cmd ./internal)"; \
-	if [ -n "$$unformatted" ]; then \
-		echo "gofmt required for:"; \
-		echo "$$unformatted"; \
-		exit 1; \
-	fi
+	golangci-lint fmt
+	golangci-lint run --fix --issues-exit-code=0 --output.text.path=/dev/null --show-stats=false
 
 vet:
 	go vet ./...

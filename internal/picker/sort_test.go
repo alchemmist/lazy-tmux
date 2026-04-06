@@ -128,11 +128,21 @@ func TestParseSessionField(t *testing.T) {
 	for _, testCase := range tests {
 		field, ok := parseSessionField(testCase.input)
 		if ok != testCase.success {
-			t.Fatalf("parseSessionField(%q) success = %v, want %v", testCase.input, ok, testCase.success)
+			t.Fatalf(
+				"parseSessionField(%q) success = %v, want %v",
+				testCase.input,
+				ok,
+				testCase.success,
+			)
 		}
 
 		if ok && field != testCase.field {
-			t.Fatalf("parseSessionField(%q) field = %v, want %v", testCase.input, field, testCase.field)
+			t.Fatalf(
+				"parseSessionField(%q) field = %v, want %v",
+				testCase.input,
+				field,
+				testCase.field,
+			)
 		}
 	}
 }
@@ -159,11 +169,21 @@ func TestParseWindowField(t *testing.T) {
 	for _, testCase := range tests {
 		field, ok := parseWindowField(testCase.input)
 		if ok != testCase.success {
-			t.Fatalf("parseWindowField(%q) success = %v, want %v", testCase.input, ok, testCase.success)
+			t.Fatalf(
+				"parseWindowField(%q) success = %v, want %v",
+				testCase.input,
+				ok,
+				testCase.success,
+			)
 		}
 
 		if ok && field != testCase.field {
-			t.Fatalf("parseWindowField(%q) field = %v, want %v", testCase.input, field, testCase.field)
+			t.Fatalf(
+				"parseWindowField(%q) field = %v, want %v",
+				testCase.input,
+				field,
+				testCase.field,
+			)
 		}
 	}
 }
@@ -228,16 +248,25 @@ func TestCompareSessionField(t *testing.T) {
 }
 
 func TestCompareWindowField(t *testing.T) {
-	win1 := snapshot.Window{Index: 1, Name: "aaa", Panes: []snapshot.Pane{{}, {}}}
-	win2 := snapshot.Window{Index: 2, Name: "bbb", Panes: []snapshot.Pane{{}, {}, {}}}
+	win1 := snapshot.Window{
+		Index: 1,
+		Name:  "aaa",
+		Panes: []snapshot.Pane{{Index: 0, RestoreCmd: "ls"}},
+	}
+	win2 := snapshot.Window{
+		Index: 2,
+		Name:  "bbb",
+		Panes: []snapshot.Pane{{Index: 0, RestoreCmd: "bash"}},
+	}
 
 	tests := []struct {
 		field WindowSortField
 		want  int
 	}{
-		{WindowSortIndex, -1},           // 1 < 2
-		{WindowSortName, -1},            // "aaa" < "bbb"
-		{WindowSortPanes, -1},           // 2 < 3 panes
+		{WindowSortIndex, -1},            // 1 < 2
+		{WindowSortName, -1},             // "aaa" < "bbb"
+		{WindowSortPanes, 0},             // 1 == 1 pane
+		{WindowSortCmd, 1},               // "ls" > "bash"
 		{WindowSortField("invalid"), 0}, // unknown field
 	}
 

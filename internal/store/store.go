@@ -58,7 +58,8 @@ func (s *Store) SaveSession(sessionSnapshot snapshot.SessionSnapshot) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if err := s.ensureLayout(); err != nil {
+	err := s.ensureLayout()
+	if err != nil {
 		return err
 	}
 
@@ -76,15 +77,17 @@ func (s *Store) SaveSession(sessionSnapshot snapshot.SessionSnapshot) error {
 
 	defer func() { _ = os.Remove(jsonTmp) }()
 
-	if err := s.persistScrollbackUnlocked(
+	err = s.persistScrollbackUnlocked(
 		sessionSnapshot.SessionName,
 		safeName,
 		entries,
-	); err != nil {
+	)
+	if err != nil {
 		return err
 	}
 
-	if err := os.Rename(jsonTmp, path); err != nil {
+	err = os.Rename(jsonTmp, path)
+	if err != nil {
 		return fmt.Errorf("rename tmp file: %w", err)
 	}
 
@@ -121,7 +124,9 @@ func (s *Store) DeleteSession(name string) error {
 	defer s.mu.Unlock()
 
 	path := s.sessionPath(name)
-	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+
+	err := os.Remove(path)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("remove session file: %w", err)
 	}
 
@@ -133,11 +138,13 @@ func (s *Store) DeleteSession(name string) error {
 	scrollRoot := filepath.Clean(filepath.Join(s.baseDir, scrollbackDir))
 	sessionDir := filepath.Clean(filepath.Join(scrollRoot, safeName))
 
-	if err := ensureUnderDir(scrollRoot, sessionDir, name); err != nil {
+	err = ensureUnderDir(scrollRoot, sessionDir, name)
+	if err != nil {
 		return err
 	}
 
-	if err := os.RemoveAll(sessionDir); err != nil {
+	err = os.RemoveAll(sessionDir)
+	if err != nil {
 		return fmt.Errorf("remove scrollback dir: %w", err)
 	}
 
@@ -168,11 +175,13 @@ func (s *Store) LoadSession(name string) (snapshot.SessionSnapshot, error) {
 		return out, fmt.Errorf("read session file: %w", err)
 	}
 
-	if err := json.Unmarshal(b, &out); err != nil {
+	err = json.Unmarshal(b, &out)
+	if err != nil {
 		return out, fmt.Errorf("unmarshal session: %w", err)
 	}
 
-	if err := s.hydrateScrollback(&out); err != nil {
+	err = s.hydrateScrollback(&out)
+	if err != nil {
 		return out, err
 	}
 
@@ -198,7 +207,9 @@ func (s *Store) SessionExists(name string) (bool, error) {
 	defer s.mu.Unlock()
 
 	path := s.sessionPath(name)
-	if _, err := os.Stat(path); err != nil {
+
+	_, err := os.Stat(path)
+	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return false, nil
 		}
@@ -282,11 +293,13 @@ func (s *Store) MarkSessionAccessed(name string, accessTime time.Time) error {
 }
 
 func (s *Store) ensureLayout() error {
-	if err := os.MkdirAll(filepath.Join(s.baseDir, sessionsDirName), defaultDirPerm); err != nil {
+	err := os.MkdirAll(filepath.Join(s.baseDir, sessionsDirName), defaultDirPerm)
+	if err != nil {
 		return fmt.Errorf("create sessions dir: %w", err)
 	}
 
-	if err := os.MkdirAll(filepath.Join(s.baseDir, scrollbackDir), scrollbackDirPerm); err != nil {
+	err = os.MkdirAll(filepath.Join(s.baseDir, scrollbackDir), scrollbackDirPerm)
+	if err != nil {
 		return fmt.Errorf("create scrollback dir: %w", err)
 	}
 
@@ -310,7 +323,9 @@ func (s *Store) loadIndexUnlocked() (snapshot.Index, error) {
 	}
 
 	var idx snapshot.Index
-	if err := json.Unmarshal(fileContent, &idx); err != nil {
+
+	err = json.Unmarshal(fileContent, &idx)
+	if err != nil {
 		return snapshot.Index{}, fmt.Errorf("decode index: %w", err)
 	}
 
@@ -406,7 +421,8 @@ func (s *Store) persistScrollbackUnlocked(
 	scrollRoot := filepath.Clean(filepath.Join(s.baseDir, scrollbackDir))
 	sessionDir := filepath.Clean(filepath.Join(scrollRoot, safeName))
 
-	if err := ensureUnderDir(scrollRoot, sessionDir, sessionName); err != nil {
+	err := ensureUnderDir(scrollRoot, sessionDir, sessionName)
+	if err != nil {
 		return err
 	}
 
@@ -422,18 +438,22 @@ func (s *Store) persistScrollbackUnlocked(
 		return nil
 	}
 
-	if err := os.MkdirAll(stageDir, scrollbackDirPerm); err != nil {
+	err = os.MkdirAll(stageDir, scrollbackDirPerm)
+	if err != nil {
 		return fmt.Errorf("create stage dir: %w", err)
 	}
 
 	for _, ent := range entries {
 		path := filepath.Join(stageDir, ent.FileName)
-		if err := os.WriteFile(path, []byte(ent.Content), scrollbackFilePerm); err != nil {
+
+		err := os.WriteFile(path, []byte(ent.Content), scrollbackFilePerm)
+		if err != nil {
 			return fmt.Errorf("write scrollback file: %w", err)
 		}
 	}
 
-	if err := promoteScrollbackStage(sessionDir, stageDir); err != nil {
+	err = promoteScrollbackStage(sessionDir, stageDir)
+	if err != nil {
 		return err
 	}
 
@@ -445,19 +465,23 @@ func promoteScrollbackStage(sessionDir, stageDir string) error {
 	_ = os.RemoveAll(backupDir)
 
 	hadSessionDir := false
-	if _, err := os.Stat(sessionDir); err == nil {
+
+	_, err := os.Stat(sessionDir)
+	if err == nil {
 		hadSessionDir = true
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("stat session dir: %w", err)
 	}
 
 	if hadSessionDir {
-		if err := os.Rename(sessionDir, backupDir); err != nil {
+		err := os.Rename(sessionDir, backupDir)
+		if err != nil {
 			return fmt.Errorf("backup session dir: %w", err)
 		}
 	}
 
-	if err := os.Rename(stageDir, sessionDir); err != nil {
+	err = os.Rename(stageDir, sessionDir)
+	if err != nil {
 		if hadSessionDir {
 			_ = os.Rename(backupDir, sessionDir)
 		}
@@ -625,7 +649,8 @@ func writeJSONAtomic(path string, v any) error {
 		return err
 	}
 
-	if err := os.Rename(tmp, path); err != nil {
+	err = os.Rename(tmp, path)
+	if err != nil {
 		return fmt.Errorf("rename tmp file: %w", err)
 	}
 
@@ -639,7 +664,9 @@ func writeJSONTemp(path string, v any, perm os.FileMode) (string, error) {
 	}
 
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, append(jsonData, '\n'), perm); err != nil {
+
+	err = os.WriteFile(tmp, append(jsonData, '\n'), perm)
+	if err != nil {
 		return "", fmt.Errorf("write temp file: %w", err)
 	}
 
