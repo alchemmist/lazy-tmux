@@ -252,10 +252,10 @@ func TestCompareWindowField(t *testing.T) {
 		field WindowSortField
 		want  int
 	}{
-		{WindowSortIndex, -1},            // 1 < 2
-		{WindowSortName, -1},             // "aaa" < "bbb"
-		{WindowSortPanes, 0},             // 1 == 1 pane
-		{WindowSortCmd, 1},               // "ls" > "bash"
+		{WindowSortIndex, -1},           // 1 < 2
+		{WindowSortName, -1},            // "aaa" < "bbb"
+		{WindowSortPanes, 0},            // 1 == 1 pane
+		{WindowSortCmd, 1},              // "ls" > "bash"
 		{WindowSortField("invalid"), 0}, // unknown field
 	}
 

@@ -22,7 +22,7 @@ func newFakeRunner() *fakeRunner {
 	}
 }
 
-func (f *fakeRunner) run(args ...string) commandResult {
+func (f *fakeRunner) runCommand(args ...string) commandResult {
 	joined := strings.Join(args, " ")
 	f.commands = append(f.commands, joined)
 
@@ -52,20 +52,24 @@ func (f *fakeRunner) setResponse(prefix, stdout, errMsg string) {
 }
 
 func TestRestoreSessionCommandSequence(t *testing.T) {
-	r := newFakeRunner()
+	runner := newFakeRunner()
 
 	// Session does not exist
-	r.setResponse("tmux has-session", "", "no server")
+	runner.setResponse("tmux has-session", "", "no server")
 	// Meta: current window and pane
-	r.setResponse("tmux display-message", "2\x1f1", "")
+	runner.setResponse("tmux display-message", "2\x1f1", "")
 	// List windows
-	r.setResponse("tmux list-windows", "0\x1fmain\x1feven-horizontal\x1f0\n1\x1flogs\x1feven-horizontal\x1f1\n", "")
+	runner.setResponse(
+		"tmux list-windows",
+		"0\x1fmain\x1feven-horizontal\x1f0\n1\x1flogs\x1feven-horizontal\x1f1\n",
+		"",
+	)
 	// List panes for window 0
-	r.setResponse("tmux list-panes", "0\x1f/tmp\x1fbash\x1f1\x1f1001\x1f/dev/pts/0\n", "")
+	runner.setResponse("tmux list-panes", "0\x1f/tmp\x1fbash\x1f1\x1f1001\x1f/dev/pts/0\n", "")
 	// List panes for window 1
-	r.setResponse("tmux list-panes -t", "0\x1f/var\x1fzsh\x1f0\x1f1002\x1f/dev/pts/1\n", "")
+	runner.setResponse("tmux list-panes -t", "0\x1f/var\x1fzsh\x1f0\x1f1002\x1f/dev/pts/1\n", "")
 
-	client := NewClientWithRunner("tmux", r)
+	client := NewClientWithRunner("tmux", runner)
 
 	snap := snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
@@ -79,7 +83,13 @@ func TestRestoreSessionCommandSequence(t *testing.T) {
 				Layout:   "even-horizontal",
 				IsActive: false,
 				Panes: []snapshot.Pane{
-					{Index: 0, CurrentPath: "/tmp", CurrentCmd: "bash", RestoreCmd: "nvim", IsActive: true},
+					{
+						Index:       0,
+						CurrentPath: "/tmp",
+						CurrentCmd:  "bash",
+						RestoreCmd:  "nvim",
+						IsActive:    true,
+					},
 				},
 			},
 			{
@@ -88,7 +98,13 @@ func TestRestoreSessionCommandSequence(t *testing.T) {
 				Layout:   "even-horizontal",
 				IsActive: true,
 				Panes: []snapshot.Pane{
-					{Index: 0, CurrentPath: "/var", CurrentCmd: "zsh", RestoreCmd: "docker compose up", IsActive: false},
+					{
+						Index:       0,
+						CurrentPath: "/var",
+						CurrentCmd:  "zsh",
+						RestoreCmd:  "docker compose up",
+						IsActive:    false,
+					},
 				},
 			},
 		},
@@ -100,18 +116,19 @@ func TestRestoreSessionCommandSequence(t *testing.T) {
 	}
 
 	// Verify the command sequence
-	if len(r.commands) == 0 {
+	if len(runner.commands) == 0 {
 		t.Fatal("no commands were recorded")
 	}
 
 	// First command should be has-session
-	if !strings.Contains(r.commands[0], "has-session") {
-		t.Fatalf("expected has-session first, got: %s", r.commands[0])
+	if !strings.Contains(runner.commands[0], "has-session") {
+		t.Fatalf("expected has-session first, got: %s", runner.commands[0])
 	}
 
 	// Verify new-session was called
 	hasNewSession := false
-	for _, cmd := range r.commands {
+
+	for _, cmd := range runner.commands {
 		if strings.Contains(cmd, "new-session") {
 			hasNewSession = true
 			break
@@ -119,12 +136,13 @@ func TestRestoreSessionCommandSequence(t *testing.T) {
 	}
 
 	if !hasNewSession {
-		t.Fatal("expected new-session command, got: " + fmt.Sprint(r.commands))
+		t.Fatal("expected new-session command, got: " + fmt.Sprint(runner.commands))
 	}
 
 	// Verify select-window was called with correct target
 	hasSelectWindow := false
-	for _, cmd := range r.commands {
+
+	for _, cmd := range runner.commands {
 		if strings.Contains(cmd, "select-window") && strings.Contains(cmd, "=test-session:2") {
 			hasSelectWindow = true
 			break
@@ -132,15 +150,15 @@ func TestRestoreSessionCommandSequence(t *testing.T) {
 	}
 
 	if !hasSelectWindow {
-		t.Fatal("expected select-window for =test-session:2, got: " + fmt.Sprint(r.commands))
+		t.Fatal("expected select-window for =test-session:2, got: " + fmt.Sprint(runner.commands))
 	}
 }
 
 func TestListSessionsWithFakeRunner(t *testing.T) {
-	r := newFakeRunner()
-	r.setResponse("tmux list-sessions", "dev\nprod\nstaging\n", "")
+	runner := newFakeRunner()
+	runner.setResponse("tmux list-sessions", "dev\nprod\nstaging\n", "")
 
-	client := NewClientWithRunner("tmux", r)
+	client := NewClientWithRunner("tmux", runner)
 
 	sessions, err := client.ListSessions()
 	if err != nil {
@@ -160,10 +178,10 @@ func TestListSessionsWithFakeRunner(t *testing.T) {
 }
 
 func TestNewWindowWithFakeRunner(t *testing.T) {
-	r := newFakeRunner()
-	r.setResponse("tmux new-window", "", "")
+	runner := newFakeRunner()
+	runner.setResponse("tmux new-window", "", "")
 
-	client := NewClientWithRunner("tmux", r)
+	client := NewClientWithRunner("tmux", runner)
 
 	err := client.NewWindow("my-session", "editor")
 	if err != nil {
@@ -172,7 +190,8 @@ func TestNewWindowWithFakeRunner(t *testing.T) {
 
 	// Verify the command was issued correctly
 	found := false
-	for _, cmd := range r.commands {
+
+	for _, cmd := range runner.commands {
 		if strings.Contains(cmd, "new-window") &&
 			strings.Contains(cmd, "my-session") &&
 			strings.Contains(cmd, "editor") {
@@ -182,7 +201,213 @@ func TestNewWindowWithFakeRunner(t *testing.T) {
 	}
 
 	if !found {
-		t.Fatalf("expected new-window for my-session/editor, got: %v", r.commands)
+		t.Fatalf("expected new-window for my-session/editor, got: %v", runner.commands)
+	}
+}
+
+func TestSwitchClientWithFakeRunner(t *testing.T) {
+	runner := newFakeRunner()
+	runner.setResponse("tmux switch-client", "", "")
+
+	client := NewClientWithRunner("tmux", runner)
+
+	err := client.SwitchClient("my-session:0")
+	if err != nil {
+		t.Fatalf("SwitchClient: %v", err)
+	}
+
+	found := false
+
+	for _, cmd := range runner.commands {
+		if strings.Contains(cmd, "switch-client") && strings.Contains(cmd, "my-session:0") {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected switch-client for my-session:0, got: %v", runner.commands)
+	}
+}
+
+func TestKillSessionWithFakeRunner(t *testing.T) {
+	runner := newFakeRunner()
+	runner.setResponse("tmux kill-session", "", "")
+
+	client := NewClientWithRunner("tmux", runner)
+
+	err := client.KillSession("old-session")
+	if err != nil {
+		t.Fatalf("KillSession: %v", err)
+	}
+
+	found := false
+
+	for _, cmd := range runner.commands {
+		if strings.Contains(cmd, "kill-session") && strings.Contains(cmd, "old-session") {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected kill-session for old-session, got: %v", runner.commands)
+	}
+}
+
+func TestKillWindowWithFakeRunner(t *testing.T) {
+	runner := newFakeRunner()
+	runner.setResponse("tmux kill-window", "", "")
+
+	client := NewClientWithRunner("tmux", runner)
+
+	err := client.KillWindow("my-session", 3)
+	if err != nil {
+		t.Fatalf("KillWindow: %v", err)
+	}
+
+	found := false
+
+	for _, cmd := range runner.commands {
+		if strings.Contains(cmd, "kill-window") && strings.Contains(cmd, "my-session:3") {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected kill-window for my-session:3, got: %v", runner.commands)
+	}
+}
+
+func TestRenameSessionWithFakeRunner(t *testing.T) {
+	runner := newFakeRunner()
+	runner.setResponse("tmux rename-session", "", "")
+
+	client := NewClientWithRunner("tmux", runner)
+
+	err := client.RenameSession("old-name", "new-name")
+	if err != nil {
+		t.Fatalf("RenameSession: %v", err)
+	}
+
+	found := false
+
+	for _, cmd := range runner.commands {
+		if strings.Contains(cmd, "rename-session") && strings.Contains(cmd, "new-name") {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected rename-session for new-name, got: %v", runner.commands)
+	}
+}
+
+func TestRenameWindowWithFakeRunner(t *testing.T) {
+	runner := newFakeRunner()
+	runner.setResponse("tmux rename-window", "", "")
+
+	client := NewClientWithRunner("tmux", runner)
+
+	err := client.RenameWindow("my-session", 1, "new-name")
+	if err != nil {
+		t.Fatalf("RenameWindow: %v", err)
+	}
+
+	found := false
+
+	for _, cmd := range runner.commands {
+		if strings.Contains(cmd, "rename-window") && strings.Contains(cmd, "new-name") {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected rename-window, got: %v", runner.commands)
+	}
+}
+
+func TestSessionExistsWithFakeRunner(t *testing.T) {
+	runner := newFakeRunner()
+	runner.setResponse("tmux has-session", "", "")
+
+	client := NewClientWithRunner("tmux", runner)
+
+	exists := client.SessionExists("running")
+	if !exists {
+		t.Fatal("expected session to exist")
+	}
+
+	found := false
+
+	for _, cmd := range runner.commands {
+		if strings.Contains(cmd, "has-session") {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected has-session, got: %v", runner.commands)
+	}
+}
+
+func TestCurrentSessionWithFakeRunner(t *testing.T) {
+	runner := newFakeRunner()
+	runner.setResponse("tmux display-message", "my-session\n", "")
+
+	client := NewClientWithRunner("tmux", runner)
+
+	name, err := client.CurrentSession()
+	if err != nil {
+		t.Fatalf("CurrentSession: %v", err)
+	}
+
+	if name != "my-session" {
+		t.Fatalf("expected my-session, got %q", name)
+	}
+}
+
+func TestCapturePaneScrollbackWithFakeRunner(t *testing.T) {
+	runner := newFakeRunner()
+	runner.setResponse("tmux capture-pane", "line1\nline2\n", "")
+
+	client := NewClientWithRunner("tmux", runner)
+
+	out, err := client.CapturePaneScrollback("=sess:0.0", 100)
+	if err != nil {
+		t.Fatalf("CapturePaneScrollback: %v", err)
+	}
+
+	if !strings.Contains(out, "line1") {
+		t.Fatalf("expected scrollback output, got: %q", out)
+	}
+}
+
+func TestSocketPathWithFakeRunner(t *testing.T) {
+	runner := newFakeRunner()
+	runner.setResponse("tmux display-message", "/tmp/tmux-1000/default\n", "")
+
+	client := NewClientWithRunner("tmux", runner)
+
+	path := client.SocketPath()
+	if path != "/tmp/tmux-1000/default" {
+		t.Fatalf("expected /tmp/tmux-1000/default, got %q", path)
+	}
+}
+
+func TestSocketPathFallback(t *testing.T) {
+	runner := newFakeRunner()
+	runner.setResponse("tmux display-message", "", "display-message: not found")
+
+	client := NewClientWithRunner("tmux", runner)
+
+	path := client.SocketPath()
+	if path != "default" {
+		t.Fatalf("expected default fallback, got %q", path)
 	}
 }
 

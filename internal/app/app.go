@@ -14,10 +14,27 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/tmux"
 )
 
+type tmuxClient interface {
+	ListSessions() ([]string, error)
+	CurrentSession() (string, error)
+	CaptureSession(name string) (snapshot.SessionSnapshot, error)
+	RestoreSession(snap snapshot.SessionSnapshot) error
+	SwitchClient(target string) error
+	CapturePaneScrollback(target string, lines int) (string, error)
+	NewSession(name string) error
+	NewWindow(session, name string) error
+	KillWindow(session string, windowIndex int) error
+	KillSession(session string) error
+	RenameWindow(session string, windowIndex int, name string) error
+	RenameSession(session, name string) error
+	SessionExists(name string) bool
+	SocketPath() string
+}
+
 type App struct {
 	cfg       config.Config
 	store     *store.Store
-	tmux      *tmux.Client
+	tmux      tmuxClient
 	saveAllFn func() error
 }
 
@@ -26,6 +43,14 @@ func New(cfg config.Config) *App {
 		cfg:   cfg,
 		store: store.New(cfg.DataDir),
 		tmux:  tmux.NewClient(cfg.TmuxBin),
+	}
+}
+
+func NewWithTmux(cfg config.Config, client tmuxClient) *App {
+	return &App{
+		cfg:   cfg,
+		store: store.New(cfg.DataDir),
+		tmux:  client,
 	}
 }
 

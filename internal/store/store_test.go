@@ -508,20 +508,20 @@ func TestSessionPathEmptyName(t *testing.T) {
 		{"valid-session", false},
 	}
 
-	for _, tt := range tests {
-		path, err := store.SessionPath(tt.name)
-		if (err != nil) != tt.wantErr {
-			t.Fatalf("SessionPath(%q) error = %v, wantErr %v", tt.name, err, tt.wantErr)
+	for _, caseItem := range tests {
+		path, err := store.SessionPath(caseItem.name)
+		if (err != nil) != caseItem.wantErr {
+			t.Fatalf("SessionPath(%q) error = %v, wantErr %v", caseItem.name, err, caseItem.wantErr)
 		}
 
-		if !tt.wantErr {
+		if !caseItem.wantErr {
 			if path == "" {
-				t.Fatalf("SessionPath(%q) returned empty path", tt.name)
+				t.Fatalf("SessionPath(%q) returned empty path", caseItem.name)
 			}
 
 			expectedBase := "valid-session.json"
 			if filepath.Base(path) != expectedBase {
-				t.Fatalf("SessionPath(%q) = %q, want base %q", tt.name, path, expectedBase)
+				t.Fatalf("SessionPath(%q) = %q, want base %q", caseItem.name, path, expectedBase)
 			}
 		}
 	}
@@ -540,14 +540,14 @@ func TestSessionExistsEmptyName(t *testing.T) {
 		{"valid-session", false},
 	}
 
-	for _, tt := range tests {
-		exists, err := store.SessionExists(tt.name)
-		if (err != nil) != tt.wantErr {
-			t.Fatalf("SessionExists(%q) error = %v, wantErr %v", tt.name, err, tt.wantErr)
+	for _, caseItem := range tests {
+		exists, err := store.SessionExists(caseItem.name)
+		if (err != nil) != caseItem.wantErr {
+			t.Fatalf("SessionExists(%q) error = %v, wantErr %v", caseItem.name, err, caseItem.wantErr)
 		}
 
-		if !tt.wantErr && exists {
-			t.Fatalf("SessionExists(%q) = true, want false for non-existent session", tt.name)
+		if !caseItem.wantErr && exists {
+			t.Fatalf("SessionExists(%q) = true, want false for non-existent session", caseItem.name)
 		}
 	}
 }
