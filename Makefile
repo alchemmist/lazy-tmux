@@ -34,7 +34,6 @@ test-integration:
 	docker run --rm lazy-tmux-integration
 
 fmt:
-	golangci-lint fmt
 	golangci-lint run --fix --issues-exit-code=0 --output.text.path=/dev/null --show-stats=false
 
 vet:
@@ -91,7 +90,7 @@ tag:
 
 setup-env:
 	go install gotest.tools/gotestsum@v1.13.0
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 	go install mvdan.cc/gofumpt@v0.9.2
 	go install github.com/golangci/golines@latest
 	go install honnef.co/go/tools/cmd/staticcheck@v0.7.0

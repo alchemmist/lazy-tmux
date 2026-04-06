@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
@@ -47,11 +48,18 @@ func ChooseSessionFZF(records []snapshot.Record) (string, error) {
 		args = append(args, "--filter", "")
 	}
 
-	cmd := exec.CommandContext(context.Background(), args[0], args[1:]...)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	cmd.Stdin = &input
 
 	out, err := cmd.Output()
 	if err != nil {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return "", fmt.Errorf("fzf selection timed out")
+		}
+
 		return "", fmt.Errorf("fzf selection canceled or failed: %w", err)
 	}
 

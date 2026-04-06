@@ -139,10 +139,11 @@ func TestApplyFilterMovesCursorToSelectableRow(t *testing.T) {
 
 func TestDeleteCurrentWindowInvokesAction(t *testing.T) {
 	called := false
+	winIdx := 2
 	model := pickerModel{
 		visible: []pickerRow{
 			{
-				target:     Target{SessionName: "demo", WindowIndex: new(2)},
+				target:     Target{SessionName: "demo", WindowIndex: &winIdx},
 				selectable: true,
 			},
 		},
@@ -241,7 +242,7 @@ func TestHandlePromptKeyRenameWindow(t *testing.T) {
 			return in
 		}(),
 		mode:    modeRenameWindow,
-		pending: Target{SessionName: "demo", WindowIndex: new(1)},
+		pending: Target{SessionName: "demo", WindowIndex: func() *int { v := 1; return &v }()},
 		actions: Actions{
 			RenameWindow: func(session string, windowIndex int, name string) error {
 				called = true

@@ -1,6 +1,7 @@
 package picker
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -125,25 +126,17 @@ func TestParseSessionField(t *testing.T) {
 		{"unknown-field", "", false},
 	}
 
-	for _, testCase := range tests {
-		field, ok := parseSessionField(testCase.input)
-		if ok != testCase.success {
-			t.Fatalf(
-				"parseSessionField(%q) success = %v, want %v",
-				testCase.input,
-				ok,
-				testCase.success,
-			)
-		}
+	for i, testCase := range tests {
+		t.Run(fmt.Sprintf("%d-%s", i, testCase.input), func(t *testing.T) {
+			field, ok := parseSessionField(testCase.input)
+			if ok != testCase.success {
+				t.Fatalf("success = %v, want %v", ok, testCase.success)
+			}
 
-		if ok && field != testCase.field {
-			t.Fatalf(
-				"parseSessionField(%q) field = %v, want %v",
-				testCase.input,
-				field,
-				testCase.field,
-			)
-		}
+			if ok && field != testCase.field {
+				t.Fatalf("field = %v, want %v", field, testCase.field)
+			}
+		})
 	}
 }
 
@@ -166,25 +159,17 @@ func TestParseWindowField(t *testing.T) {
 		{"unknown-field", "", false},
 	}
 
-	for _, testCase := range tests {
-		field, ok := parseWindowField(testCase.input)
-		if ok != testCase.success {
-			t.Fatalf(
-				"parseWindowField(%q) success = %v, want %v",
-				testCase.input,
-				ok,
-				testCase.success,
-			)
-		}
+	for i, testCase := range tests {
+		t.Run(fmt.Sprintf("%d-%s", i, testCase.input), func(t *testing.T) {
+			field, ok := parseWindowField(testCase.input)
+			if ok != testCase.success {
+				t.Fatalf("success = %v, want %v", ok, testCase.success)
+			}
 
-		if ok && field != testCase.field {
-			t.Fatalf(
-				"parseWindowField(%q) field = %v, want %v",
-				testCase.input,
-				field,
-				testCase.field,
-			)
-		}
+			if ok && field != testCase.field {
+				t.Fatalf("field = %v, want %v", field, testCase.field)
+			}
+		})
 	}
 }
 
@@ -202,9 +187,11 @@ func TestCompareInt(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		if got := compareInt(tt.a, tt.b); got != tt.want {
-			t.Fatalf("compareInt(%d, %d) = %d, want %d", tt.a, tt.b, got, tt.want)
-		}
+		t.Run(fmt.Sprintf("%d-%d", tt.a, tt.b), func(t *testing.T) {
+			if got := compareInt(tt.a, tt.b); got != tt.want {
+				t.Fatalf("got = %d, want %d", got, tt.want)
+			}
+		})
 	}
 }
 
@@ -241,9 +228,11 @@ func TestCompareSessionField(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		if got := compareSessionField(rec1, rec2, tt.field); got != tt.want {
-			t.Fatalf("compareSessionField(..., %q) = %d, want %d", tt.field, got, tt.want)
-		}
+		t.Run(string(tt.field), func(t *testing.T) {
+			if got := compareSessionField(rec1, rec2, tt.field); got != tt.want {
+				t.Fatalf("got = %d, want %d", got, tt.want)
+			}
+		})
 	}
 }
 
@@ -271,9 +260,11 @@ func TestCompareWindowField(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		if got := compareWindowField(win1, win2, tt.field); got != tt.want {
-			t.Fatalf("compareWindowField(..., %q) = %d, want %d", tt.field, got, tt.want)
-		}
+		t.Run(string(tt.field), func(t *testing.T) {
+			if got := compareWindowField(win1, win2, tt.field); got != tt.want {
+				t.Fatalf("got = %d, want %d", got, tt.want)
+			}
+		})
 	}
 }
 

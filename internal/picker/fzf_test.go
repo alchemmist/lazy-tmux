@@ -10,19 +10,40 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
-func TestChooseSessionFZFSelectsFirst(t *testing.T) {
-	records := []snapshot.Record{
-		{SessionName: "alpha", CapturedAt: time.Now().UTC(), Windows: 1, Panes: 1},
-		{SessionName: "beta", CapturedAt: time.Now().UTC(), Windows: 2, Panes: 3},
+func TestChooseSessionFZF(t *testing.T) {
+	tests := []struct {
+		name    string
+		records []snapshot.Record
+		want    string
+	}{
+		{
+			name:    "selects first record",
+			records: []snapshot.Record{{SessionName: "alpha", CapturedAt: time.Now().UTC(), Windows: 1, Panes: 1}, {SessionName: "beta", CapturedAt: time.Now().UTC(), Windows: 2, Panes: 3}},
+			want:    "alpha",
+		},
+		{
+			name:    "preserves input order",
+			records: []snapshot.Record{{SessionName: "gamma", CapturedAt: time.Now().UTC(), Windows: 1, Panes: 1}, {SessionName: "delta", CapturedAt: time.Now().UTC(), Windows: 2, Panes: 3}, {SessionName: "alpha", CapturedAt: time.Now().UTC(), Windows: 3, Panes: 5}},
+			want:    "gamma",
+		},
+		{
+			name:    "single record",
+			records: []snapshot.Record{{SessionName: "solo", CapturedAt: time.Now().UTC(), Windows: 1, Panes: 1}},
+			want:    "solo",
+		},
 	}
 
-	selected, err := ChooseSessionFZF(records)
-	if err != nil {
-		t.Fatalf("ChooseSessionFZF: %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			selected, err := ChooseSessionFZF(tt.records)
+			if err != nil {
+				t.Fatalf("ChooseSessionFZF: %v", err)
+			}
 
-	if selected != "alpha" {
-		t.Fatalf("expected alpha, got %q", selected)
+			if selected != tt.want {
+				t.Fatalf("expected %q, got %q", tt.want, selected)
+			}
+		})
 	}
 }
 
@@ -34,22 +55,5 @@ func TestChooseSessionFZFNoSessions(t *testing.T) {
 
 	if !strings.Contains(err.Error(), "no sessions") {
 		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestChooseSessionFZFOrderPreserved(t *testing.T) {
-	records := []snapshot.Record{
-		{SessionName: "gamma", CapturedAt: time.Now().UTC(), Windows: 1, Panes: 1},
-		{SessionName: "delta", CapturedAt: time.Now().UTC(), Windows: 2, Panes: 3},
-		{SessionName: "alpha", CapturedAt: time.Now().UTC(), Windows: 3, Panes: 5},
-	}
-
-	selected, err := ChooseSessionFZF(records)
-	if err != nil {
-		t.Fatalf("ChooseSessionFZF: %v", err)
-	}
-
-	if selected != "gamma" {
-		t.Fatalf("expected gamma (first in input), got %q", selected)
 	}
 }

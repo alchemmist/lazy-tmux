@@ -23,16 +23,22 @@ func newFakeRunner() *fakeRunner {
 }
 
 func (f *fakeRunner) run(args ...string) commandResult {
-	f.commands = append(f.commands, strings.Join(args, " "))
+	joined := strings.Join(args, " ")
+	f.commands = append(f.commands, joined)
 
-	for prefix, out := range f.outputs {
-		if strings.Join(args, " ")[:len(prefix)] == prefix {
-			if err := f.errors[prefix]; err != "" {
-				return commandResult{"", fmt.Errorf("%s", err)}
-			}
-
-			return commandResult{out, nil}
+	bestPrefix := ""
+	for prefix := range f.outputs {
+		if strings.HasPrefix(joined, prefix) && len(prefix) > len(bestPrefix) {
+			bestPrefix = prefix
 		}
+	}
+
+	if bestPrefix != "" {
+		if err := f.errors[bestPrefix]; err != "" {
+			return commandResult{"", fmt.Errorf("%s", err)}
+		}
+
+		return commandResult{f.outputs[bestPrefix], nil}
 	}
 
 	return commandResult{"", nil}
