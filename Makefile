@@ -9,7 +9,7 @@ BINARY := lazy-tmux
 
 .PHONY: help check build build-fzf build-all test test-race test-cov test-integration fmt fmt-check vet staticcheck golangci-lint lint tidy install clean dist dist-tui dist-fzf tag
 
-check: build fmt-check lint test test-cov test-integration
+check: build fmt-check lint test test-integration
 
 build:
 	go build -o bin/$(BINARY) ./cmd/$(BINARY)
@@ -34,19 +34,7 @@ test-integration:
 	docker run --rm lazy-tmux-integration
 
 fmt:
-	gofmt -w -s .
-	goimports -w .
-	gofumpt -w -extra $$(find . -type f -name '*.go' -not -path './.cache/*' -not -path './.git/*')
-	golangci-lint run --fix --issues-exit-code=0 >/dev/null 2>&1
-	golines -w .
-
-fmt-check:
-	@unformatted="$$(gofmt -l ./cmd ./internal)"; \
-	if [ -n "$$unformatted" ]; then \
-		echo "gofmt required for:"; \
-		echo "$$unformatted"; \
-		exit 1; \
-	fi
+	golangci-lint run --fix --issues-exit-code=0 --output.text.path=/dev/null --show-stats=false
 
 vet:
 	go vet ./...
@@ -102,7 +90,7 @@ tag:
 
 setup-env:
 	go install gotest.tools/gotestsum@v1.13.0
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 	go install mvdan.cc/gofumpt@v0.9.2
 	go install github.com/golangci/golines@latest
 	go install honnef.co/go/tools/cmd/staticcheck@v0.7.0

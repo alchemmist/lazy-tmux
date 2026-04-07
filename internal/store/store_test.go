@@ -25,7 +25,8 @@ func TestSaveAndLoadSession(t *testing.T) {
 		},
 	}
 
-	if err := store.SaveSession(sessionSnapshot); err != nil {
+	err := store.SaveSession(sessionSnapshot)
+	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
 
@@ -91,21 +92,23 @@ func TestListRecordsSortedByCapturedAtDesc(t *testing.T) {
 	store := New(t.TempDir())
 	base := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
 
-	if err := store.SaveSession(snapshot.SessionSnapshot{
+	err := store.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "old",
 		CapturedAt:  base,
 		Windows:     []snapshot.Window{{Index: 0}},
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("save old: %v", err)
 	}
 
-	if err := store.SaveSession(snapshot.SessionSnapshot{
+	err = store.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "new",
 		CapturedAt:  base.Add(1 * time.Hour),
 		Windows:     []snapshot.Window{{Index: 0}},
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("save new: %v", err)
 	}
 
@@ -135,17 +138,20 @@ func TestMarkSessionAccessed(t *testing.T) {
 	store := New(t.TempDir())
 	base := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
 
-	if err := store.SaveSession(snapshot.SessionSnapshot{
+	err := store.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "demo",
 		CapturedAt:  base,
 		Windows:     []snapshot.Window{{Index: 0}},
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("save demo: %v", err)
 	}
 
 	accessedAt := base.Add(30 * time.Minute)
-	if err := store.MarkSessionAccessed("demo", accessedAt); err != nil {
+
+	err = store.MarkSessionAccessed("demo", accessedAt)
+	if err != nil {
 		t.Fatalf("mark accessed: %v", err)
 	}
 
@@ -185,7 +191,8 @@ func TestSaveAndLoadSessionWithScrollbackSidecar(t *testing.T) {
 		},
 	}
 
-	if err := store.SaveSession(sessionSnapshot); err != nil {
+	err := store.SaveSession(sessionSnapshot)
+	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
 
@@ -208,7 +215,11 @@ func TestSaveAndLoadSessionWithScrollbackSidecar(t *testing.T) {
 	}
 
 	if scrollback.Bytes == 0 || scrollback.Lines == 0 {
-		t.Fatalf("expected non-zero scrollback metadata, got lines=%d bytes=%d", scrollback.Lines, scrollback.Bytes)
+		t.Fatalf(
+			"expected non-zero scrollback metadata, got lines=%d bytes=%d",
+			scrollback.Lines,
+			scrollback.Bytes,
+		)
 	}
 }
 
@@ -229,12 +240,15 @@ func TestSaveSessionWithoutScrollbackDoesNotCreateSessionScrollbackDir(t *testin
 		},
 	}
 
-	if err := store.SaveSession(sessionSnapshot); err != nil {
+	err := store.SaveSession(sessionSnapshot)
+	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
 
 	sessionDir := filepath.Join(base, scrollbackDir, sanitizeName("plain"))
-	if _, err := os.Stat(sessionDir); !errors.Is(err, os.ErrNotExist) {
+
+	_, err = os.Stat(sessionDir)
+	if !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("expected no scrollback dir, got err=%v", err)
 	}
 }
@@ -267,11 +281,13 @@ func TestLoadSessionRejectsScrollbackPathTraversal(t *testing.T) {
 		t.Fatalf("marshal: %v", err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(store.sessionPath("evil")), 0o755); err != nil {
+	err = os.MkdirAll(filepath.Dir(store.sessionPath("evil")), 0o755)
+	if err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 
-	if err := os.WriteFile(store.sessionPath("evil"), jsonData, 0o644); err != nil {
+	err = os.WriteFile(store.sessionPath("evil"), jsonData, 0o644)
+	if err != nil {
 		t.Fatalf("write snapshot: %v", err)
 	}
 
@@ -292,17 +308,23 @@ func TestLoadSessionRejectsScrollbackSymlinkEscape(t *testing.T) {
 	outsideDir := t.TempDir()
 
 	outsideFile := filepath.Join(outsideDir, "outside.log")
-	if err := os.WriteFile(outsideFile, []byte("secret\n"), 0o644); err != nil {
+
+	err := os.WriteFile(outsideFile, []byte("secret\n"), 0o644)
+	if err != nil {
 		t.Fatalf("write outside file: %v", err)
 	}
 
 	linkDir := filepath.Join(base, scrollbackDir, sanitizeName("evil"))
-	if err := os.MkdirAll(linkDir, 0o755); err != nil {
+
+	err = os.MkdirAll(linkDir, 0o755)
+	if err != nil {
 		t.Fatalf("mkdir link dir: %v", err)
 	}
 
 	linkPath := filepath.Join(linkDir, "w0_p0.log")
-	if err := os.Symlink(outsideFile, linkPath); err != nil {
+
+	err = os.Symlink(outsideFile, linkPath)
+	if err != nil {
 		t.Fatalf("create symlink: %v", err)
 	}
 
@@ -331,11 +353,13 @@ func TestLoadSessionRejectsScrollbackSymlinkEscape(t *testing.T) {
 		t.Fatalf("marshal: %v", err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(store.sessionPath("evil")), 0o755); err != nil {
+	err = os.MkdirAll(filepath.Dir(store.sessionPath("evil")), 0o755)
+	if err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 
-	if err := os.WriteFile(store.sessionPath("evil"), jsonData, 0o644); err != nil {
+	err = os.WriteFile(store.sessionPath("evil"), jsonData, 0o644)
+	if err != nil {
 		t.Fatalf("write snapshot: %v", err)
 	}
 
@@ -354,12 +378,16 @@ func TestLoadSessionAllowsDotDotPrefixSegmentName(t *testing.T) {
 	store := New(base)
 
 	scrollDir := filepath.Join(base, scrollbackDir, "..cache")
-	if err := os.MkdirAll(scrollDir, 0o755); err != nil {
+
+	err := os.MkdirAll(scrollDir, 0o755)
+	if err != nil {
 		t.Fatalf("mkdir scroll dir: %v", err)
 	}
 
 	logPath := filepath.Join(scrollDir, "w0_p0.log")
-	if err := os.WriteFile(logPath, []byte("ok\n"), 0o600); err != nil {
+
+	err = os.WriteFile(logPath, []byte("ok\n"), 0o600)
+	if err != nil {
 		t.Fatalf("write log: %v", err)
 	}
 
@@ -388,11 +416,13 @@ func TestLoadSessionAllowsDotDotPrefixSegmentName(t *testing.T) {
 		t.Fatalf("marshal: %v", err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(store.sessionPath("demo")), 0o755); err != nil {
+	err = os.MkdirAll(filepath.Dir(store.sessionPath("demo")), 0o755)
+	if err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 
-	if err := os.WriteFile(store.sessionPath("demo"), jsonData, 0o644); err != nil {
+	err = os.WriteFile(store.sessionPath("demo"), jsonData, 0o644)
+	if err != nil {
 		t.Fatalf("write snapshot: %v", err)
 	}
 
@@ -439,16 +469,19 @@ func TestSaveSessionRejectsInvalidScrollbackSessionName(t *testing.T) {
 
 func TestDeleteSessionRemovesIndexEntry(t *testing.T) {
 	store := New(t.TempDir())
-	if err := store.SaveSession(snapshot.SessionSnapshot{
+
+	err := store.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "demo",
 		CapturedAt:  time.Now().UTC(),
 		Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
 
-	if err := store.DeleteSession("demo"); err != nil {
+	err = store.DeleteSession("demo")
+	if err != nil {
 		t.Fatalf("delete: %v", err)
 	}
 
@@ -459,5 +492,67 @@ func TestDeleteSessionRemovesIndexEntry(t *testing.T) {
 
 	if len(recs) != 0 {
 		t.Fatalf("expected no records, got %d", len(recs))
+	}
+}
+
+func TestSessionPathEmptyName(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := New(tmpDir)
+
+	tests := []struct {
+		name    string
+		wantErr bool
+	}{
+		{"", true},
+		{"   ", true},
+		{"valid-session", false},
+	}
+
+	for _, caseItem := range tests {
+		path, err := store.SessionPath(caseItem.name)
+		if (err != nil) != caseItem.wantErr {
+			t.Fatalf("SessionPath(%q) error = %v, wantErr %v", caseItem.name, err, caseItem.wantErr)
+		}
+
+		if !caseItem.wantErr {
+			if path == "" {
+				t.Fatalf("SessionPath(%q) returned empty path", caseItem.name)
+			}
+
+			expectedBase := "valid-session.json"
+			if filepath.Base(path) != expectedBase {
+				t.Fatalf("SessionPath(%q) = %q, want base %q", caseItem.name, path, expectedBase)
+			}
+		}
+	}
+}
+
+func TestSessionExistsEmptyName(t *testing.T) {
+	tmpDir := t.TempDir()
+	store := New(tmpDir)
+
+	tests := []struct {
+		name    string
+		wantErr bool
+	}{
+		{"", true},
+		{"   ", true},
+		{"valid-session", false},
+	}
+
+	for _, caseItem := range tests {
+		exists, err := store.SessionExists(caseItem.name)
+		if (err != nil) != caseItem.wantErr {
+			t.Fatalf(
+				"SessionExists(%q) error = %v, wantErr %v",
+				caseItem.name,
+				err,
+				caseItem.wantErr,
+			)
+		}
+
+		if !caseItem.wantErr && exists {
+			t.Fatalf("SessionExists(%q) = true, want false for non-existent session", caseItem.name)
+		}
 	}
 }

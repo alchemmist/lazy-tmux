@@ -48,7 +48,8 @@ func TestPickerRecordsSortedByCapturedAt(t *testing.T) {
 		},
 	}
 	for _, s := range snaps {
-		if err := app.store.SaveSession(s); err != nil {
+		err := app.store.SaveSession(s)
+		if err != nil {
 			t.Fatalf("save session %q: %v", s.SessionName, err)
 		}
 	}
@@ -88,17 +89,20 @@ func TestPickerRecordsSortedByLastAccessed(t *testing.T) {
 			Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
 		},
 	} {
-		if err := app.store.SaveSession(snap); err != nil {
+		err := app.store.SaveSession(snap)
+		if err != nil {
 			t.Fatalf("save session %q: %v", snap.SessionName, err)
 		}
 	}
 
 	// Access alpha later than beta: alpha should be listed first in picker.
-	if err := app.store.MarkSessionAccessed("beta", base.Add(2*time.Hour)); err != nil {
+	err := app.store.MarkSessionAccessed("beta", base.Add(2*time.Hour))
+	if err != nil {
 		t.Fatalf("mark beta: %v", err)
 	}
 
-	if err := app.store.MarkSessionAccessed("alpha", base.Add(3*time.Hour)); err != nil {
+	err = app.store.MarkSessionAccessed("alpha", base.Add(3*time.Hour))
+	if err != nil {
 		t.Fatalf("mark alpha: %v", err)
 	}
 

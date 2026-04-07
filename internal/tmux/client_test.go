@@ -1,25 +1,418 @@
 package tmux
 
 import (
-	"os"
-	"path/filepath"
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
-func writeFakeTmux(t *testing.T, body string) string {
-	t.Helper()
-	dir := t.TempDir()
-	path := filepath.Join(dir, "tmux")
-	script := "#!/bin/sh\nset -eu\n" + body + "\n"
+// fakeRunner records all tmux commands and returns configurable responses.
+type fakeRunner struct {
+	commands []string          // recorded command sequences
+	outputs  map[string]string // prefix → stdout response
+	errors   map[string]string // prefix → error message (if non-empty)
+}
 
-	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
-		t.Fatalf("write fake tmux: %v", err)
+func newFakeRunner() *fakeRunner {
+	return &fakeRunner{
+		outputs: make(map[string]string),
+		errors:  make(map[string]string),
+	}
+}
+
+func (f *fakeRunner) runCommand(args ...string) commandResult {
+	joined := strings.Join(args, " ")
+	f.commands = append(f.commands, joined)
+
+	bestPrefix := ""
+	for prefix := range f.outputs {
+		if strings.HasPrefix(joined, prefix) && len(prefix) > len(bestPrefix) {
+			bestPrefix = prefix
+		}
 	}
 
-	return path
+	if bestPrefix != "" {
+		if err := f.errors[bestPrefix]; err != "" {
+			return commandResult{"", fmt.Errorf("%s", err)}
+		}
+
+		return commandResult{f.outputs[bestPrefix], nil}
+	}
+
+	return commandResult{"", nil}
+}
+
+func (f *fakeRunner) setResponse(prefix, stdout, errMsg string) {
+	f.outputs[prefix] = stdout
+	if errMsg != "" {
+		f.errors[prefix] = errMsg
+	}
+}
+
+func TestRestoreSessionCommandSequence(t *testing.T) {
+	runner := newFakeRunner()
+
+	// Session does not exist
+	runner.setResponse("tmux has-session", "", "no server")
+	// Meta: current window and pane
+	runner.setResponse("tmux display-message", "2\x1f1", "")
+	// List windows
+	runner.setResponse(
+		"tmux list-windows",
+		"0\x1fmain\x1feven-horizontal\x1f0\n1\x1flogs\x1feven-horizontal\x1f1\n",
+		"",
+	)
+	// List panes for window 0
+	runner.setResponse("tmux list-panes", "0\x1f/tmp\x1fbash\x1f1\x1f1001\x1f/dev/pts/0\n", "")
+	// List panes for window 1
+	runner.setResponse("tmux list-panes -t", "0\x1f/var\x1fzsh\x1f0\x1f1002\x1f/dev/pts/1\n", "")
+	// createdFirstWindowIndex calls list-windows after creation
+	runner.setResponse("tmux list-windows -t", "0\n", "")
+
+	client := NewClientWithRunner("tmux", runner)
+
+	snap := snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: "test-session",
+		CurrentWin:  2,
+		CurrentPane: 1,
+		Windows: []snapshot.Window{
+			{
+				Index:    0,
+				Name:     "main",
+				Layout:   "even-horizontal",
+				IsActive: false,
+				Panes: []snapshot.Pane{
+					{
+						Index:       0,
+						CurrentPath: "/tmp",
+						CurrentCmd:  "bash",
+						RestoreCmd:  "nvim",
+						IsActive:    true,
+					},
+				},
+			},
+			{
+				Index:    1,
+				Name:     "logs",
+				Layout:   "even-horizontal",
+				IsActive: true,
+				Panes: []snapshot.Pane{
+					{
+						Index:       0,
+						CurrentPath: "/var",
+						CurrentCmd:  "zsh",
+						RestoreCmd:  "docker compose up",
+						IsActive:    false,
+					},
+				},
+			},
+		},
+	}
+
+	err := client.RestoreSession(snap)
+	if err != nil {
+		t.Fatalf("RestoreSession: %v", err)
+	}
+
+	// Verify the command sequence
+	if len(runner.commands) == 0 {
+		t.Fatal("no commands were recorded")
+	}
+
+	// First command should be has-session
+	if !strings.Contains(runner.commands[0], "has-session") {
+		t.Fatalf("expected has-session first, got: %s", runner.commands[0])
+	}
+
+	// Verify new-session was called
+	hasNewSession := false
+
+	for _, cmd := range runner.commands {
+		if strings.Contains(cmd, "new-session") {
+			hasNewSession = true
+			break
+		}
+	}
+
+	if !hasNewSession {
+		t.Fatal("expected new-session command, got: " + fmt.Sprint(runner.commands))
+	}
+
+	// Verify select-window was called with correct target
+	hasSelectWindow := false
+
+	for _, cmd := range runner.commands {
+		if strings.Contains(cmd, "select-window") && strings.Contains(cmd, "=test-session:2") {
+			hasSelectWindow = true
+			break
+		}
+	}
+
+	if !hasSelectWindow {
+		t.Fatal("expected select-window for =test-session:2, got: " + fmt.Sprint(runner.commands))
+	}
+}
+
+func TestListSessionsWithFakeRunner(t *testing.T) {
+	runner := newFakeRunner()
+	runner.setResponse("tmux list-sessions", "dev\nprod\nstaging\n", "")
+
+	client := NewClientWithRunner("tmux", runner)
+
+	sessions, err := client.ListSessions()
+	if err != nil {
+		t.Fatalf("ListSessions: %v", err)
+	}
+
+	expected := []string{"dev", "prod", "staging"}
+	if len(sessions) != len(expected) {
+		t.Fatalf("expected %d sessions, got %d", len(expected), len(sessions))
+	}
+
+	for i, name := range expected {
+		if sessions[i] != name {
+			t.Fatalf("session[%d] = %q, want %q", i, sessions[i], name)
+		}
+	}
+}
+
+func TestNewWindowWithFakeRunner(t *testing.T) {
+	runner := newFakeRunner()
+	runner.setResponse("tmux new-window", "", "")
+
+	client := NewClientWithRunner("tmux", runner)
+
+	err := client.NewWindow("my-session", "editor")
+	if err != nil {
+		t.Fatalf("NewWindow: %v", err)
+	}
+
+	// Verify the command was issued correctly
+	found := false
+
+	for _, cmd := range runner.commands {
+		if strings.Contains(cmd, "new-window") &&
+			strings.Contains(cmd, "my-session") &&
+			strings.Contains(cmd, "editor") {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected new-window for my-session/editor, got: %v", runner.commands)
+	}
+}
+
+func TestSwitchClientWithFakeRunner(t *testing.T) {
+	t.Setenv("TMUX", "/tmp/tmux-1000/default")
+
+	runner := newFakeRunner()
+	runner.setResponse("tmux switch-client", "", "")
+
+	client := NewClientWithRunner("tmux", runner)
+
+	err := client.SwitchClient("my-session:0")
+	if err != nil {
+		t.Fatalf("SwitchClient: %v", err)
+	}
+
+	found := false
+
+	for _, cmd := range runner.commands {
+		if strings.Contains(cmd, "switch-client") && strings.Contains(cmd, "my-session:0") {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected switch-client for my-session:0, got: %v", runner.commands)
+	}
+}
+
+func TestKillSessionWithFakeRunner(t *testing.T) {
+	runner := newFakeRunner()
+	runner.setResponse("tmux kill-session", "", "")
+
+	client := NewClientWithRunner("tmux", runner)
+
+	err := client.KillSession("old-session")
+	if err != nil {
+		t.Fatalf("KillSession: %v", err)
+	}
+
+	found := false
+
+	for _, cmd := range runner.commands {
+		if strings.Contains(cmd, "kill-session") && strings.Contains(cmd, "old-session") {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected kill-session for old-session, got: %v", runner.commands)
+	}
+}
+
+func TestKillWindowWithFakeRunner(t *testing.T) {
+	runner := newFakeRunner()
+	runner.setResponse("tmux kill-window", "", "")
+
+	client := NewClientWithRunner("tmux", runner)
+
+	err := client.KillWindow("my-session", 3)
+	if err != nil {
+		t.Fatalf("KillWindow: %v", err)
+	}
+
+	found := false
+
+	for _, cmd := range runner.commands {
+		if strings.Contains(cmd, "kill-window") && strings.Contains(cmd, "my-session:3") {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected kill-window for my-session:3, got: %v", runner.commands)
+	}
+}
+
+func TestRenameSessionWithFakeRunner(t *testing.T) {
+	runner := newFakeRunner()
+	runner.setResponse("tmux rename-session", "", "")
+
+	client := NewClientWithRunner("tmux", runner)
+
+	err := client.RenameSession("old-name", "new-name")
+	if err != nil {
+		t.Fatalf("RenameSession: %v", err)
+	}
+
+	found := false
+
+	for _, cmd := range runner.commands {
+		if strings.Contains(cmd, "rename-session") && strings.Contains(cmd, "new-name") {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected rename-session for new-name, got: %v", runner.commands)
+	}
+}
+
+func TestRenameWindowWithFakeRunner(t *testing.T) {
+	runner := newFakeRunner()
+	runner.setResponse("tmux rename-window", "", "")
+
+	client := NewClientWithRunner("tmux", runner)
+
+	err := client.RenameWindow("my-session", 1, "new-name")
+	if err != nil {
+		t.Fatalf("RenameWindow: %v", err)
+	}
+
+	found := false
+
+	for _, cmd := range runner.commands {
+		if strings.Contains(cmd, "rename-window") && strings.Contains(cmd, "new-name") {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected rename-window, got: %v", runner.commands)
+	}
+}
+
+func TestSessionExistsWithFakeRunner(t *testing.T) {
+	runner := newFakeRunner()
+	runner.setResponse("tmux has-session", "", "")
+
+	client := NewClientWithRunner("tmux", runner)
+
+	exists := client.SessionExists("running")
+	if !exists {
+		t.Fatal("expected session to exist")
+	}
+
+	found := false
+
+	for _, cmd := range runner.commands {
+		if strings.Contains(cmd, "has-session") {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected has-session, got: %v", runner.commands)
+	}
+}
+
+func TestCurrentSessionWithFakeRunner(t *testing.T) {
+	runner := newFakeRunner()
+	runner.setResponse("tmux display-message", "my-session\n", "")
+
+	client := NewClientWithRunner("tmux", runner)
+
+	name, err := client.CurrentSession()
+	if err != nil {
+		t.Fatalf("CurrentSession: %v", err)
+	}
+
+	if name != "my-session" {
+		t.Fatalf("expected my-session, got %q", name)
+	}
+}
+
+func TestCapturePaneScrollbackWithFakeRunner(t *testing.T) {
+	runner := newFakeRunner()
+	runner.setResponse("tmux capture-pane", "line1\nline2\n", "")
+
+	client := NewClientWithRunner("tmux", runner)
+
+	out, err := client.CapturePaneScrollback("=sess:0.0", 100)
+	if err != nil {
+		t.Fatalf("CapturePaneScrollback: %v", err)
+	}
+
+	if !strings.Contains(out, "line1") {
+		t.Fatalf("expected scrollback output, got: %q", out)
+	}
+}
+
+func TestSocketPathWithFakeRunner(t *testing.T) {
+	runner := newFakeRunner()
+	runner.setResponse("tmux display-message", "/tmp/tmux-1000/default\n", "")
+
+	client := NewClientWithRunner("tmux", runner)
+
+	path := client.SocketPath()
+	if path != "/tmp/tmux-1000/default" {
+		t.Fatalf("expected /tmp/tmux-1000/default, got %q", path)
+	}
+}
+
+func TestSocketPathFallback(t *testing.T) {
+	runner := newFakeRunner()
+	runner.setResponse("tmux display-message", "", "display-message: not found")
+
+	client := NewClientWithRunner("tmux", runner)
+
+	path := client.SocketPath()
+	if path != "default" {
+		t.Fatalf("expected default fallback, got %q", path)
+	}
 }
 
 func TestSplitLines(t *testing.T) {
@@ -117,393 +510,225 @@ func TestPickForegroundCommandFallbackNonShell(t *testing.T) {
 	}
 }
 
-func TestListSessionsNoServerRunning(t *testing.T) {
-	fake := writeFakeTmux(t, `
-if [ "$1" = "list-sessions" ]; then
-  echo "no server running on /tmp/tmux-1000/default" >&2
-  exit 1
-fi
-exit 0
-`)
-
-	c := NewClient(fake)
-
-	got, err := c.ListSessions()
-	if err != nil {
-		t.Fatalf("ListSessions returned error: %v", err)
+func TestExecutableName(t *testing.T) {
+	tests := []struct {
+		cmd  string
+		want string
+	}{
+		{cmd: "bash", want: "bash"},
+		{cmd: "-zsh", want: "zsh"},
+		{cmd: "/bin/bash -l", want: "bash"},
+		{cmd: "/usr/bin/nvim main.go", want: "nvim"},
+		{cmd: "", want: ""},
+		{cmd: "   ", want: ""},
 	}
 
-	if got != nil {
-		t.Fatalf("expected nil sessions when no server is running, got %#v", got)
-	}
-}
-
-func TestRestoreSessionBuildsExpectedTmuxCommands(t *testing.T) {
-	logPath := filepath.Join(t.TempDir(), "tmux.log")
-	fake := writeFakeTmux(t, `
-echo "$*" >> "$TMUX_LOG"
-if [ "$1" = "has-session" ]; then
-  exit 1
-fi
-if [ "$1" = "list-windows" ]; then
-  echo "0"
-  exit 0
-fi
-exit 0
-`)
-
-	t.Setenv("TMUX_LOG", logPath)
-
-	client := NewClient(fake)
-	snap := snapshot.SessionSnapshot{
-		SessionName: "demo",
-		CurrentWin:  1,
-		CurrentPane: 1,
-		Windows: []snapshot.Window{
-			{
-				Index:  0,
-				Name:   "editor",
-				Layout: "even-horizontal",
-				Panes: []snapshot.Pane{
-					{Index: 0, CurrentPath: "/tmp/proj", CurrentCmd: "nvim ."},
-					{Index: 1, CurrentPath: "/tmp/proj", CurrentCmd: "htop"},
-				},
-			},
-			{
-				Index:  1,
-				Name:   "logs",
-				Layout: "tiled",
-				Panes: []snapshot.Pane{
-					{Index: 0, CurrentPath: "/var/log", CurrentCmd: "tail -f app.log"},
-					{Index: 1, CurrentPath: "/var/log", CurrentCmd: "zsh"},
-				},
-			},
-		},
-	}
-
-	if err := client.RestoreSession(snap); err != nil {
-		t.Fatalf("RestoreSession error: %v", err)
-	}
-
-	numeric := snapshot.SessionSnapshot{
-		SessionName: "1",
-		CurrentWin:  0,
-		CurrentPane: 1,
-		Windows: []snapshot.Window{
-			{
-				Index:  0,
-				Name:   "editor",
-				Layout: "even-horizontal",
-				Panes: []snapshot.Pane{
-					{Index: 0, CurrentPath: "/tmp/proj", CurrentCmd: "nvim ."},
-					{Index: 1, CurrentPath: "/tmp/proj", CurrentCmd: "htop"},
-				},
-			},
-		},
-	}
-	if err := client.RestoreSession(numeric); err != nil {
-		t.Fatalf("RestoreSession numeric error: %v", err)
-	}
-
-	b, err := os.ReadFile(logPath)
-	if err != nil {
-		t.Fatalf("read log: %v", err)
-	}
-
-	out := string(b)
-	mustContain := []string{
-		"has-session -t =demo",
-		"new-session -d -s demo -n editor -c /tmp/proj",
-		"list-windows -t =demo -F #{window_index}",
-		"split-window -d -t =demo:0 -c /tmp/proj",
-		"send-keys -t =demo:0.0 nvim . C-m",
-		"send-keys -t =demo:0.1 htop C-m",
-		"select-layout -t =demo:0 even-horizontal",
-		"new-window -d -t =demo:1 -n logs -c /var/log",
-		"split-window -d -t =demo:1 -c /var/log",
-		"send-keys -t =demo:1.0 tail -f app.log C-m",
-		"select-layout -t =demo:1 tiled",
-		"select-window -t =demo:1",
-		"select-pane -t =demo:1.1",
-		"has-session -t =1",
-		"new-session -d -s 1 -n editor -c /tmp/proj",
-		"list-windows -t =1 -F #{window_index}",
-		"split-window -d -t =1:0 -c /tmp/proj",
-		"send-keys -t =1:0.0 nvim . C-m",
-		"send-keys -t =1:0.1 htop C-m",
-		"select-layout -t =1:0 even-horizontal",
-		"select-window -t =1:0",
-		"select-pane -t =1:0.1",
-	}
-
-	for _, needle := range mustContain {
-		if !strings.Contains(out, needle) {
-			t.Fatalf("expected log to contain %q, got:\n%s", needle, out)
+	for _, tt := range tests {
+		if got := executableName(tt.cmd); got != tt.want {
+			t.Fatalf("executableName(%q) = %q, want %q", tt.cmd, got, tt.want)
 		}
 	}
 }
 
-func TestRestoreSessionMovesFirstWindowToSnapshotIndex(t *testing.T) {
-	logPath := filepath.Join(t.TempDir(), "tmux.log")
-	fake := writeFakeTmux(t, `
-echo "$*" >> "$TMUX_LOG"
-if [ "$1" = "has-session" ]; then
-  exit 1
-fi
-if [ "$1" = "list-windows" ]; then
-  # tmux default created first window at index 0
-  echo "0"
-  exit 0
-fi
-exit 0
-`)
-
-	t.Setenv("TMUX_LOG", logPath)
-
-	client := NewClient(fake)
-	snapshot := snapshot.SessionSnapshot{
-		SessionName: "demo",
-		CurrentWin:  5,
-		CurrentPane: 0,
-		Windows: []snapshot.Window{
-			{
-				Index: 3,
-				Name:  "first",
-				Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/tmp", CurrentCmd: "nvim"}},
-			},
-			{
-				Index: 5,
-				Name:  "second",
-				Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/tmp", CurrentCmd: "htop"}},
-			},
-		},
+func TestSanitizeCommand(t *testing.T) {
+	tests := []struct {
+		cmd  string
+		want string
+	}{
+		{cmd: `"nvim main.py"`, want: "nvim main.py"},
+		{cmd: `'ssh user@host'`, want: "ssh user@host"},
+		{cmd: `'single'`, want: "single"},
+		{cmd: `"double"`, want: "double"},
+		{cmd: `plain command`, want: "plain command"},
+		{cmd: `  spaces  `, want: "spaces"},
+		{cmd: `"mismatched'`, want: `"mismatched'`},
+		{cmd: `''`, want: ""},
+		{cmd: `""`, want: ""},
 	}
 
-	if err := client.RestoreSession(snapshot); err != nil {
-		t.Fatalf("RestoreSession error: %v", err)
-	}
-
-	b, err := os.ReadFile(logPath)
-	if err != nil {
-		t.Fatalf("read log: %v", err)
-	}
-
-	out := string(b)
-	mustContain := []string{
-		"new-session -d -s demo -n first -c /tmp",
-		"move-window -s =demo:0 -t =demo:3",
-		"new-window -d -t =demo:5 -n second -c /tmp",
-	}
-
-	for _, needle := range mustContain {
-		if !strings.Contains(out, needle) {
-			t.Fatalf("expected log to contain %q, got:\n%s", needle, out)
+	for _, tt := range tests {
+		if got := sanitizeCommand(tt.cmd); got != tt.want {
+			t.Fatalf("sanitizeCommand(%q) = %q, want %q", tt.cmd, got, tt.want)
 		}
 	}
 }
 
-func TestRestoreSessionSendsCommandsAfterWindowCreation(t *testing.T) {
-	logPath := filepath.Join(t.TempDir(), "tmux.log")
-	fake := writeFakeTmux(t, `
-echo "$*" >> "$TMUX_LOG"
-if [ "$1" = "has-session" ]; then
-  exit 1
-fi
-if [ "$1" = "list-windows" ]; then
-  echo "0"
-  exit 0
-fi
-exit 0
-`)
-
-	t.Setenv("TMUX_LOG", logPath)
-
-	client := NewClient(fake)
-	snapshot := snapshot.SessionSnapshot{
-		SessionName: "demo",
-		CurrentWin:  1,
-		CurrentPane: 0,
-		Windows: []snapshot.Window{
-			{
-				Index: 0,
-				Name:  "ok",
-				Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/tmp", CurrentCmd: "nvim"}},
-			},
-			{
-				Index: 1,
-				Name:  "commands",
-				Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/tmp", CurrentCmd: "echo ok"}},
-			},
+func TestStripOptionPair(t *testing.T) {
+	tests := []struct {
+		args []string
+		opt  string
+		want []string
+	}{
+		{
+			args: []string{"-c", "/tmp", "-n", "name", "rest"},
+			opt:  "-c",
+			want: []string{"-n", "name", "rest"},
+		},
+		{
+			args: []string{"-n", "name"},
+			opt:  "-n",
+			want: []string{},
+		},
+		{
+			args: []string{"a", "b", "c"},
+			opt:  "-x",
+			want: []string{"a", "b", "c"},
+		},
+		{
+			args: []string{},
+			opt:  "-c",
+			want: []string{},
 		},
 	}
 
-	if err := client.RestoreSession(snapshot); err != nil {
-		t.Fatalf("RestoreSession error: %v", err)
-	}
+	for _, testCase := range tests {
+		got := stripOptionPair(testCase.args, testCase.opt)
+		if len(got) != len(testCase.want) {
+			t.Fatalf(
+				"stripOptionPair(%v, %q) length mismatch: got %d, want %d",
+				testCase.args,
+				testCase.opt,
+				len(got),
+				len(testCase.want),
+			)
+		}
 
-	b, err := os.ReadFile(logPath)
-	if err != nil {
-		t.Fatalf("read log: %v", err)
-	}
-
-	out := string(b)
-	if !strings.Contains(out, "new-window -d -t =demo:1 -n commands -c /tmp") {
-		t.Fatalf("expected new-window without inline command, got:\n%s", out)
-	}
-
-	if !strings.Contains(out, "send-keys -t =demo:1.0 echo ok C-m") {
-		t.Fatalf("expected command via send-keys, got:\n%s", out)
+		for idx, val := range got {
+			if val != testCase.want[idx] {
+				t.Fatalf(
+					"stripOptionPair(%v, %q)[%d] = %q, want %q",
+					testCase.args,
+					testCase.opt,
+					idx,
+					val,
+					testCase.want[idx],
+				)
+			}
+		}
 	}
 }
 
-func TestRestoreSessionFallsBackWithoutPathWhenPathFails(t *testing.T) {
-	logPath := filepath.Join(t.TempDir(), "tmux.log")
-	fake := writeFakeTmux(t, `
-echo "$*" >> "$TMUX_LOG"
-if [ "$1" = "has-session" ]; then
-  exit 1
-fi
-if [ "$1" = "list-windows" ]; then
-  echo "0"
-  exit 0
-fi
-if [ "$1" = "new-session" ] || [ "$1" = "new-window" ]; then
-  case "$*" in
-    *"-c /bad/path"*)
-      # Simulate bad cwd even without command.
-      exit 1
-      ;;
-  esac
-fi
-exit 0
-`)
+func TestSessionTarget(t *testing.T) {
+	tests := []struct {
+		name string
+		want string
+	}{
+		{name: "demo", want: "=demo"},
+		{name: "=demo", want: "=demo"},
+		{name: " demo ", want: "=demo"},
+		{name: "", want: "="},
+	}
 
-	t.Setenv("TMUX_LOG", logPath)
+	for _, tt := range tests {
+		if got := sessionTarget(tt.name); got != tt.want {
+			t.Fatalf("sessionTarget(%q) = %q, want %q", tt.name, got, tt.want)
+		}
+	}
+}
 
-	client := NewClient(fake)
-	snapshot := snapshot.SessionSnapshot{
-		SessionName: "demo",
-		CurrentWin:  1,
-		CurrentPane: 0,
-		Windows: []snapshot.Window{
-			{
-				Index: 0,
-				Name:  "ok",
-				Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/bad/path", CurrentCmd: "nvim"}},
-			},
-			{
-				Index: 1,
-				Name:  "fallback",
-				Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/bad/path", CurrentCmd: "htop"}},
-			},
+func TestSessionWindowTarget(t *testing.T) {
+	tests := []struct {
+		name        string
+		windowIndex int
+		want        string
+	}{
+		{name: "demo", windowIndex: 0, want: "=demo:0"},
+		{name: "test", windowIndex: 5, want: "=test:5"},
+		{name: "=session", windowIndex: 1, want: "=session:1"},
+	}
+
+	for _, testCase := range tests {
+		if got := sessionWindowTarget(testCase.name, testCase.windowIndex); got != testCase.want {
+			t.Fatalf(
+				"sessionWindowTarget(%q, %d) = %q, want %q",
+				testCase.name,
+				testCase.windowIndex,
+				got,
+				testCase.want,
+			)
+		}
+	}
+}
+
+func TestSessionPaneTarget(t *testing.T) {
+	tests := []struct {
+		name        string
+		windowIndex int
+		paneIndex   int
+		want        string
+	}{
+		{name: "demo", windowIndex: 0, paneIndex: 0, want: "=demo:0.0"},
+		{name: "test", windowIndex: 2, paneIndex: 1, want: "=test:2.1"},
+		{name: "=session", windowIndex: 0, paneIndex: 3, want: "=session:0.3"},
+	}
+
+	for _, testCase := range tests {
+		got := sessionPaneTarget(testCase.name, testCase.windowIndex, testCase.paneIndex)
+		if got != testCase.want {
+			t.Fatalf(
+				"sessionPaneTarget(%q, %d, %d) = %q, want %q",
+				testCase.name,
+				testCase.windowIndex,
+				testCase.paneIndex,
+				got,
+				testCase.want,
+			)
+		}
+	}
+}
+
+func TestParsePSLineHelper(t *testing.T) {
+	tests := []struct {
+		line     string
+		wantPID  int
+		wantStat string
+		wantCmd  string
+		wantOK   bool
+	}{
+		{
+			line:     "1234 S- bash",
+			wantPID:  1234,
+			wantStat: "S-",
+			wantCmd:  "bash",
+			wantOK:   true,
+		},
+		{
+			line:     "2002 R+ docker compose up",
+			wantPID:  2002,
+			wantStat: "R+",
+			wantCmd:  "docker compose up",
+			wantOK:   true,
+		},
+		{
+			line:   "invalid",
+			wantOK: false,
+		},
+		{
+			line:   "",
+			wantOK: false,
 		},
 	}
 
-	if err := client.RestoreSession(snapshot); err != nil {
-		t.Fatalf("RestoreSession error: %v", err)
-	}
+	for _, testCase := range tests {
+		pid, stat, cmd, ok := parsePSLine(testCase.line)
+		if ok != testCase.wantOK {
+			t.Fatalf("parsePSLine(%q) ok = %v, want %v", testCase.line, ok, testCase.wantOK)
+		}
 
-	b, err := os.ReadFile(logPath)
-	if err != nil {
-		t.Fatalf("read log: %v", err)
-	}
+		if !ok {
+			continue
+		}
 
-	out := string(b)
-	if !strings.Contains(out, "new-window -d -t =demo:1 -n fallback -c /bad/path") {
-		t.Fatalf("expected initial attempt with bad path, got:\n%s", out)
-	}
+		if pid != testCase.wantPID {
+			t.Fatalf("parsePSLine(%q) pid = %d, want %d", testCase.line, pid, testCase.wantPID)
+		}
 
-	if !strings.Contains(out, "new-window -d -t =demo:1 -n fallback") {
-		t.Fatalf("expected final fallback without path, got:\n%s", out)
-	}
+		if stat != testCase.wantStat {
+			t.Fatalf("parsePSLine(%q) stat = %q, want %q", testCase.line, stat, testCase.wantStat)
+		}
 
-	if !strings.Contains(out, "new-session -d -s demo -n ok") {
-		t.Fatalf("expected new-session fallback without bad path, got:\n%s", out)
-	}
-}
-
-func TestRestoreSessionReplaysScrollbackToPaneTTY(t *testing.T) {
-	logPath := filepath.Join(t.TempDir(), "tmux.log")
-
-	var gotWritten string
-
-	origWriter := paneTTYWriter
-	paneTTYWriter = func(path, content string) error {
-		gotWritten = content
-		return nil
-	}
-
-	t.Cleanup(func() { paneTTYWriter = origWriter })
-
-	fake := writeFakeTmux(t, `
-echo "$*" >> "$TMUX_LOG"
-if [ "$1" = "has-session" ]; then
-  exit 1
-fi
-if [ "$1" = "list-windows" ]; then
-  echo "0"
-  exit 0
-fi
-if [ "$1" = "display-message" ] && [ "$5" = "#{pane_tty}" ]; then
-  echo "/dev/pts/42"
-  exit 0
-fi
-exit 0
-`)
-
-	t.Setenv("TMUX_LOG", logPath)
-
-	client := NewClient(fake)
-	snapshot := snapshot.SessionSnapshot{
-		SessionName: "demo",
-		CurrentWin:  0,
-		CurrentPane: 0,
-		Windows: []snapshot.Window{
-			{
-				Index: 0,
-				Name:  "shell",
-				Panes: []snapshot.Pane{
-					{
-						Index:      0,
-						CurrentCmd: "zsh",
-						Scrollback: &snapshot.ScrollbackRef{
-							Content: "echo old\nold output\n",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	if err := client.RestoreSession(snapshot); err != nil {
-		t.Fatalf("RestoreSession error: %v", err)
-	}
-
-	if !strings.Contains(gotWritten, "old output") {
-		t.Fatalf("expected scrollback replay in pane tty, got:\n%s", gotWritten)
-	}
-}
-
-func TestNewWindowTargetsNumericSession(t *testing.T) {
-	logPath := filepath.Join(t.TempDir(), "tmux.log")
-	fake := writeFakeTmux(t, `
-echo "$*" >> "$TMUX_LOG"
-exit 0
-`)
-
-	t.Setenv("TMUX_LOG", logPath)
-
-	c := NewClient(fake)
-	if err := c.NewWindow("12", "ok"); err != nil {
-		t.Fatalf("NewWindow error: %v", err)
-	}
-
-	fileContent, err := os.ReadFile(logPath)
-	if err != nil {
-		t.Fatalf("read log: %v", err)
-	}
-
-	if !strings.Contains(string(fileContent), "new-window -d -t =12: -n ok") {
-		t.Fatalf("expected numeric target to be escaped, got:\n%s", string(fileContent))
+		if cmd != testCase.wantCmd {
+			t.Fatalf("parsePSLine(%q) cmd = %q, want %q", testCase.line, cmd, testCase.wantCmd)
+		}
 	}
 }

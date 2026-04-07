@@ -1,11 +1,12 @@
+version: "2"
+
 run:
   timeout: 5m
 
 linters:
-  enable-all: true
-  disable:
-    - tenv
+  default: all
 
+  disable:
     - testpackage
     - unparam
     - tagliatelle
@@ -34,3 +35,27 @@ linters:
     - revive
     - gosec
     - gocognit
+
+    - wsl
+
+  settings:
+    exhaustruct:
+      allow-empty: true
+    varnamelen:
+      ignore-names:
+        - ok
+
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - gci
+    - golines
+
+  settings:
+    gofumpt:
+      module-path: github.com/alchemmist/lazy-tmux
+      extra-rules: true
+    goimports:
+      local-prefixes:
+        - github.com/alchemmist/lazy-tmux
