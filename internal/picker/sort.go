@@ -278,7 +278,11 @@ func defaultWindowDirection(field WindowSortField) bool {
 func sortSessionRecords(records []snapshot.Record, keys []SessionSortKey) {
 	sort.Slice(records, func(recordIndexI, recordIndexJ int) bool {
 		for _, key := range keys {
-			if cmp := compareSessionField(records[recordIndexI], records[recordIndexJ], key.Field); cmp != 0 {
+			if cmp := compareSessionField(
+				records[recordIndexI],
+				records[recordIndexJ],
+				key.Field,
+			); cmp != 0 {
 				if key.Desc {
 					return cmp > 0
 				}
@@ -338,7 +342,11 @@ func compareInt(a, b int) int {
 func sortWindows(windows []snapshot.Window, keys []WindowSortKey) {
 	sort.Slice(windows, func(windowIndexI, windowIndexJ int) bool {
 		for _, key := range keys {
-			if cmp := compareWindowField(windows[windowIndexI], windows[windowIndexJ], key.Field); cmp != 0 {
+			if cmp := compareWindowField(
+				windows[windowIndexI],
+				windows[windowIndexJ],
+				key.Field,
+			); cmp != 0 {
 				if key.Desc {
 					return cmp > 0
 				}

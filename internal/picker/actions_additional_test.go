@@ -143,7 +143,7 @@ func TestHandlePromptKeyRenamesWindow(t *testing.T) {
 	renamed := false
 	model := baseModelForTests()
 	model.mode = modeRenameWindow
-	model.pending = Target{SessionName: "demo", WindowIndex: ptr(1)}
+	model.pending = Target{SessionName: "demo", WindowIndex: new(1)}
 	model.promptInput.SetValue("new")
 	model.actions.RenameWindow = func(session string, windowIndex int, name string) error {
 		renamed = true

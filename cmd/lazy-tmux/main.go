@@ -37,37 +37,43 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 
 	switch args[0] {
 	case "save":
-		if err := runSave(cfg, args[1:]); err != nil {
+		err := runSave(cfg, args[1:])
+		if err != nil {
 			return writeFatalErr(stderr, err)
 		}
 
 		return 0
 	case "restore":
-		if err := runRestore(cfg, args[1:]); err != nil {
+		err := runRestore(cfg, args[1:])
+		if err != nil {
 			return writeFatalErr(stderr, err)
 		}
 
 		return 0
 	case "picker":
-		if err := runPicker(cfg, args[1:]); err != nil {
+		err := runPicker(cfg, args[1:])
+		if err != nil {
 			return writeFatalErr(stderr, err)
 		}
 
 		return 0
 	case "bootstrap":
-		if err := runBootstrap(cfg, args[1:]); err != nil {
+		err := runBootstrap(cfg, args[1:])
+		if err != nil {
 			return writeFatalErr(stderr, err)
 		}
 
 		return 0
 	case "daemon":
-		if err := runDaemon(cfg, args[1:]); err != nil {
+		err := runDaemon(cfg, args[1:])
+		if err != nil {
 			return writeFatalErr(stderr, err)
 		}
 
 		return 0
 	case "list":
-		if err := runList(cfg, args[1:], stdout); err != nil {
+		err := runList(cfg, args[1:], stdout)
+		if err != nil {
 			return writeFatalErr(stderr, err)
 		}
 
@@ -76,13 +82,15 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 		setupConfigTo(stdout)
 		return 0
 	case "wakeup":
-		if err := runWakeup(cfg, args[1:]); err != nil {
+		err := runWakeup(cfg, args[1:])
+		if err != nil {
 			return writeFatalErr(stderr, err)
 		}
 
 		return 0
 	case "sleep":
-		if err := runSleep(cfg, args[1:]); err != nil {
+		err := runSleep(cfg, args[1:])
+		if err != nil {
 			return writeFatalErr(stderr, err)
 		}
 
@@ -100,7 +108,11 @@ func runSave(base config.Config, args []string) error {
 	saveFlags.SetOutput(io.Discard)
 	all := saveFlags.Bool("all", false, "save all sessions")
 	session := saveFlags.String("session", "", "save specific session")
-	scrollback := saveFlags.Bool("scrollback", base.Scrollback.Enabled, "capture shell pane scrollback")
+	scrollback := saveFlags.Bool(
+		"scrollback",
+		base.Scrollback.Enabled,
+		"capture shell pane scrollback",
+	)
 	scrollbackLines := saveFlags.Int(
 		"scrollback-lines",
 		base.Scrollback.Lines,
@@ -108,7 +120,8 @@ func runSave(base config.Config, args []string) error {
 	)
 	shared := addSharedFlags(saveFlags, base, true)
 
-	if err := saveFlags.Parse(args); err != nil {
+	err := saveFlags.Parse(args)
+	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			saveFlags.SetOutput(os.Stdout)
 			saveFlags.Usage()
@@ -127,8 +140,6 @@ func runSave(base config.Config, args []string) error {
 	cfg.Scrollback.Enabled = *scrollback
 	cfg.Scrollback.Lines = *scrollbackLines
 	tmuxApp := app.New(cfg)
-
-	var err error
 
 	switch {
 	case *all:
@@ -153,7 +164,8 @@ func runRestore(base config.Config, args []string) error {
 	switchClient := restoreFlags.Bool("switch", true, "switch active client to restored session")
 	shared := addSharedFlags(restoreFlags, base, true)
 
-	if err := restoreFlags.Parse(args); err != nil {
+	err := restoreFlags.Parse(args)
+	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			restoreFlags.SetOutput(os.Stdout)
 			restoreFlags.Usage()
@@ -170,7 +182,8 @@ func runRestore(base config.Config, args []string) error {
 
 	tmuxApp := app.New(shared.apply(base))
 
-	if err := tmuxApp.Restore(strings.TrimSpace(*session), *switchClient); err != nil {
+	err = tmuxApp.Restore(strings.TrimSpace(*session), *switchClient)
+	if err != nil {
 		return fmt.Errorf("restore session: %w", err)
 	}
 
@@ -193,7 +206,8 @@ func runPicker(base config.Config, args []string) error {
 	)
 	shared := addSharedFlags(pickerFlags, base, true)
 
-	if err := pickerFlags.Parse(args); err != nil {
+	err := pickerFlags.Parse(args)
+	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			pickerFlags.SetOutput(os.Stdout)
 			pickerFlags.Usage()
@@ -228,7 +242,8 @@ func runPicker(base config.Config, args []string) error {
 		return fmt.Errorf("select target: %w", selErr)
 	}
 
-	if err := tmuxApp.RestoreTarget(target, true); err != nil {
+	err = tmuxApp.RestoreTarget(target, true)
+	if err != nil {
 		return fmt.Errorf("restore target: %w", err)
 	}
 
@@ -241,7 +256,8 @@ func runBootstrap(base config.Config, args []string) error {
 	session := bootstrapFlags.String("session", "last", "session name or 'last'")
 	shared := addSharedFlags(bootstrapFlags, base, true)
 
-	if err := bootstrapFlags.Parse(args); err != nil {
+	err := bootstrapFlags.Parse(args)
+	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			bootstrapFlags.SetOutput(os.Stdout)
 			bootstrapFlags.Usage()
@@ -254,7 +270,8 @@ func runBootstrap(base config.Config, args []string) error {
 
 	a := app.New(shared.apply(base))
 
-	if err := a.Bootstrap(*session); err != nil {
+	err = a.Bootstrap(*session)
+	if err != nil {
 		return fmt.Errorf("bootstrap session: %w", err)
 	}
 
@@ -265,7 +282,11 @@ func runDaemon(base config.Config, args []string) error {
 	daemonFlags := flag.NewFlagSet("daemon", flag.ContinueOnError)
 	daemonFlags.SetOutput(io.Discard)
 	interval := daemonFlags.Duration("interval", base.SaveInterval, "autosave interval")
-	scrollback := daemonFlags.Bool("scrollback", base.Scrollback.Enabled, "capture shell pane scrollback")
+	scrollback := daemonFlags.Bool(
+		"scrollback",
+		base.Scrollback.Enabled,
+		"capture shell pane scrollback",
+	)
 	scrollbackLines := daemonFlags.Int(
 		"scrollback-lines",
 		base.Scrollback.Lines,
@@ -273,7 +294,8 @@ func runDaemon(base config.Config, args []string) error {
 	)
 	shared := addSharedFlags(daemonFlags, base, true)
 
-	if err := daemonFlags.Parse(args); err != nil {
+	err := daemonFlags.Parse(args)
+	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			daemonFlags.SetOutput(os.Stdout)
 			daemonFlags.Usage()
@@ -294,7 +316,8 @@ func runDaemon(base config.Config, args []string) error {
 	cfg.Scrollback.Lines = *scrollbackLines
 	a := app.New(cfg)
 
-	if err := a.RunDaemon(*interval); err != nil {
+	err = a.RunDaemon(*interval)
+	if err != nil {
 		return fmt.Errorf("run daemon: %w", err)
 	}
 
@@ -306,7 +329,8 @@ func runList(base config.Config, args []string, stdout io.Writer) error {
 	listFlags.SetOutput(io.Discard)
 	shared := addSharedFlags(listFlags, base, false)
 
-	if err := listFlags.Parse(args); err != nil {
+	err := listFlags.Parse(args)
+	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			listFlags.SetOutput(os.Stdout)
 			listFlags.Usage()
@@ -325,7 +349,7 @@ func runList(base config.Config, args []string, stdout io.Writer) error {
 	}
 
 	for _, record := range recs {
-		fmt.Fprintf(
+		_, _ = fmt.Fprintf(
 			stdout,
 			"%s\t%s\t%dw/%dp\n",
 			record.SessionName,
@@ -344,7 +368,8 @@ func runWakeup(base config.Config, args []string) error {
 	session := wakeupFlags.String("session", "", "session to wakeup")
 	shared := addSharedFlags(wakeupFlags, base, true)
 
-	if err := wakeupFlags.Parse(args); err != nil {
+	err := wakeupFlags.Parse(args)
+	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			wakeupFlags.SetOutput(os.Stdout)
 			wakeupFlags.Usage()
@@ -361,7 +386,8 @@ func runWakeup(base config.Config, args []string) error {
 
 	a := app.New(shared.apply(base))
 
-	if err := a.Wakeup(strings.TrimSpace(*session)); err != nil {
+	err = a.Wakeup(strings.TrimSpace(*session))
+	if err != nil {
 		return fmt.Errorf("wakeup session: %w", err)
 	}
 
@@ -374,7 +400,8 @@ func runSleep(base config.Config, args []string) error {
 	session := sleepFlags.String("session", "", "session to sleep")
 	shared := addSharedFlags(sleepFlags, base, true)
 
-	if err := sleepFlags.Parse(args); err != nil {
+	err := sleepFlags.Parse(args)
+	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			sleepFlags.SetOutput(os.Stdout)
 			sleepFlags.Usage()
@@ -391,7 +418,8 @@ func runSleep(base config.Config, args []string) error {
 
 	a := app.New(shared.apply(base))
 
-	if err := a.Sleep(strings.TrimSpace(*session)); err != nil {
+	err = a.Sleep(strings.TrimSpace(*session))
+	if err != nil {
 		return fmt.Errorf("sleep session: %w", err)
 	}
 
@@ -403,7 +431,7 @@ func usage() {
 }
 
 func usageTo(w io.Writer) {
-	fmt.Fprint(w, `lazy-tmux - tmux session snapshots with lazy restore
+	_, _ = fmt.Fprint(w, `lazy-tmux - tmux session snapshots with lazy restore
 
 Usage:
   lazy-tmux <command> [flags]
@@ -435,7 +463,7 @@ func setupConfig() {
 }
 
 func setupConfigTo(w io.Writer) {
-	fmt.Fprint(
+	_, _ = fmt.Fprint(
 		w,
 		`run-shell -b 'lazy-tmux daemon --interval 3m --scrollback>/tmp/lazy-tmux.log 2>&1 `+
 			`|| tmux display-message "lazy-tmux daemon already running"'
@@ -454,17 +482,18 @@ func fatalErr(err error) {
 }
 
 func fatalf(format string, args ...any) {
-	fmt.Fprintf(fatalOutput, "lazy-tmux: "+format+"\n", args...)
+	_, _ = fmt.Fprintf(fatalOutput, "lazy-tmux: "+format+"\n", args...)
+
 	exitFunc(1)
 }
 
 func writeFatalErr(writer io.Writer, err error) int {
 	if errors.Is(err, os.ErrNotExist) {
-		fmt.Fprintf(writer, "lazy-tmux: not found: %v\n", err)
+		_, _ = fmt.Fprintf(writer, "lazy-tmux: not found: %v\n", err)
 		return 1
 	}
 
-	fmt.Fprintf(writer, "lazy-tmux: %v\n", err)
+	_, _ = fmt.Fprintf(writer, "lazy-tmux: %v\n", err)
 
 	return 1
 }

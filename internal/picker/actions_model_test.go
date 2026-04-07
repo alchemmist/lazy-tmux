@@ -45,7 +45,9 @@ func TestCurrentRowOutOfRange(t *testing.T) {
 
 func TestDeleteSessionValidatesActionAndName(t *testing.T) {
 	model := pickerModel{}
-	if err := model.deleteSession("demo"); err == nil {
+
+	err := model.deleteSession("demo")
+	if err == nil {
 		t.Fatal("expected error when delete action is nil")
 	}
 
@@ -55,7 +57,9 @@ func TestDeleteSessionValidatesActionAndName(t *testing.T) {
 		called = true
 		return nil
 	}
-	if err := model.deleteSession(" "); err == nil {
+
+	err = model.deleteSession(" ")
+	if err == nil {
 		t.Fatal("expected error when session name is empty")
 	}
 
@@ -63,14 +67,17 @@ func TestDeleteSessionValidatesActionAndName(t *testing.T) {
 		t.Fatal("delete action must not be called on empty session")
 	}
 
-	if err := model.deleteSession("demo"); err != nil {
+	err = model.deleteSession("demo")
+	if err != nil {
 		t.Fatalf("unexpected delete error: %v", err)
 	}
 }
 
 func TestCreateWindowValidatesActionAndSession(t *testing.T) {
 	model := pickerModel{}
-	if err := model.createWindow("demo", ""); err == nil {
+
+	err := model.createWindow("demo", "")
+	if err == nil {
 		t.Fatal("expected error when create window action is nil")
 	}
 
@@ -85,7 +92,9 @@ func TestCreateWindowValidatesActionAndSession(t *testing.T) {
 
 		return nil
 	}
-	if err := model.createWindow(" ", ""); err == nil {
+
+	err = model.createWindow(" ", "")
+	if err == nil {
 		t.Fatal("expected error when session is empty")
 	}
 
@@ -93,7 +102,8 @@ func TestCreateWindowValidatesActionAndSession(t *testing.T) {
 		t.Fatal("new window action must not be called on empty session")
 	}
 
-	if err := model.createWindow("demo", "win"); err != nil {
+	err = model.createWindow("demo", "win")
+	if err != nil {
 		t.Fatalf("unexpected create window error: %v", err)
 	}
 }
@@ -129,10 +139,11 @@ func TestApplyFilterMovesCursorToSelectableRow(t *testing.T) {
 
 func TestDeleteCurrentWindowInvokesAction(t *testing.T) {
 	called := false
+	winIdx := 2
 	model := pickerModel{
 		visible: []pickerRow{
 			{
-				target:     Target{SessionName: "demo", WindowIndex: ptr(2)},
+				target:     Target{SessionName: "demo", WindowIndex: &winIdx},
 				selectable: true,
 			},
 		},
@@ -140,15 +151,18 @@ func TestDeleteCurrentWindowInvokesAction(t *testing.T) {
 		actions: Actions{
 			DeleteWindow: func(session string, windowIndex int) error {
 				called = true
+
 				if session != "demo" || windowIndex != 2 {
 					t.Fatalf("unexpected args: %s %d", session, windowIndex)
 				}
+
 				return nil
 			},
 		},
 	}
 
-	if err := model.deleteCurrentWindow(); err != nil {
+	err := model.deleteCurrentWindow()
+	if err != nil {
 		t.Fatalf("deleteCurrentWindow error: %v", err)
 	}
 
@@ -178,6 +192,7 @@ func TestHandlePromptKeyConfirmDeleteSession(t *testing.T) {
 		promptInput: func() textinput.Model {
 			in := textinput.New()
 			in.SetValue("y")
+
 			return in
 		}(),
 		mode:    modeConfirmDeleteSession,
@@ -185,9 +200,11 @@ func TestHandlePromptKeyConfirmDeleteSession(t *testing.T) {
 		actions: Actions{
 			DeleteSession: func(session string) error {
 				deleted = true
+
 				if session != "demo" {
 					t.Fatalf("unexpected session: %s", session)
 				}
+
 				return nil
 			},
 			Reload: func() ([]Session, error) {
@@ -221,16 +238,19 @@ func TestHandlePromptKeyRenameWindow(t *testing.T) {
 		promptInput: func() textinput.Model {
 			in := textinput.New()
 			in.SetValue("new-name")
+
 			return in
 		}(),
 		mode:    modeRenameWindow,
-		pending: Target{SessionName: "demo", WindowIndex: ptr(1)},
+		pending: Target{SessionName: "demo", WindowIndex: func() *int { v := 1; return &v }()},
 		actions: Actions{
 			RenameWindow: func(session string, windowIndex int, name string) error {
 				called = true
+
 				if session != "demo" || windowIndex != 1 || name != "new-name" {
 					t.Fatalf("unexpected args: %s %d %s", session, windowIndex, name)
 				}
+
 				return nil
 			},
 			Reload: func() ([]Session, error) { return nil, nil },
@@ -261,6 +281,7 @@ func TestHandlePromptKeyNewSession(t *testing.T) {
 		promptInput: func() textinput.Model {
 			in := textinput.New()
 			in.SetValue("work")
+
 			return in
 		}(),
 		mode:    modeNewSession,
@@ -268,9 +289,11 @@ func TestHandlePromptKeyNewSession(t *testing.T) {
 		actions: Actions{
 			NewSession: func(name string) error {
 				called = true
+
 				if name != "work" {
 					t.Fatalf("unexpected name: %s", name)
 				}
+
 				return nil
 			},
 			Reload: func() ([]Session, error) { return nil, nil },
@@ -307,8 +330,4 @@ func TestHandlePromptKeyEscCancelsPrompt(t *testing.T) {
 	if out.mode != modeBrowse {
 		t.Fatalf("expected mode to return to browse, got %v", out.mode)
 	}
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }
