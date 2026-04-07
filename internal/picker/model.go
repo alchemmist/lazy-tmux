@@ -101,7 +101,8 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cancelled = true
 			return m, tea.Quit
 		case "ctrl+d":
-			if err := m.deleteCurrentWindow(); err != nil {
+			err := m.deleteCurrentWindow()
+			if err != nil {
 				m.setStatus(err.Error())
 			} else {
 				m.clearStatus()
@@ -127,7 +128,8 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.newWindow()
 			return m, nil
 		case "alt+w":
-			if err := m.wakeupSession(); err != nil {
+			err := m.wakeupSession()
+			if err != nil {
 				m.setStatus(err.Error())
 			} else {
 				m.clearStatus()
@@ -138,7 +140,8 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			return m, nil
 		case "alt+s":
-			if err := m.sleepSession(); err != nil {
+			err := m.sleepSession()
+			if err != nil {
 				m.setStatus(err.Error())
 			} else {
 				m.clearStatus()
@@ -303,10 +306,7 @@ func (m *pickerModel) ensureCursorVisible() {
 	bottom := top + m.viewport.Height() - 1
 
 	if m.cursor < top+scrollMargin {
-		newTop := m.cursor - scrollMargin
-		if newTop < 0 {
-			newTop = 0
-		}
+		newTop := max(m.cursor-scrollMargin, 0)
 
 		m.viewport.SetYOffset(newTop)
 
@@ -314,14 +314,7 @@ func (m *pickerModel) ensureCursorVisible() {
 	}
 
 	if m.cursor > bottom-scrollMargin {
-		newTop := m.cursor - (m.viewport.Height() - 1 - scrollMargin)
-		if newTop < 0 {
-			newTop = 0
-		}
-
-		if newTop > maxOffset {
-			newTop = maxOffset
-		}
+		newTop := min(max(m.cursor-(m.viewport.Height()-1-scrollMargin), 0), maxOffset)
 
 		m.viewport.SetYOffset(newTop)
 	}

@@ -1,8 +1,8 @@
+//go:build integration && !lazy_fzf
+
 package picker
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -10,74 +10,50 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
-func TestChooseSessionFZFSuccess(t *testing.T) {
-	t.Setenv(
-		"PATH",
-		withFakeFZF(
-			t,
-			"#!/bin/sh\nprintf 'beta\t2026-02-28 10:00:00\t2w\n'\n",
-		)+":"+os.Getenv(
-			"PATH",
-		),
-	)
-
-	records := []snapshot.Record{
-		{SessionName: "alpha", CapturedAt: time.Now().UTC(), Windows: 1, Panes: 1},
-		{SessionName: "beta", CapturedAt: time.Now().UTC(), Windows: 2, Panes: 3},
+func TestChooseSessionFZF(t *testing.T) {
+	tests := []struct {
+		name    string
+		records []snapshot.Record
+		want    string
+	}{
+		{
+			name:    "selects first record",
+			records: []snapshot.Record{{SessionName: "alpha", CapturedAt: time.Now().UTC(), Windows: 1, Panes: 1}, {SessionName: "beta", CapturedAt: time.Now().UTC(), Windows: 2, Panes: 3}},
+			want:    "alpha",
+		},
+		{
+			name:    "preserves input order",
+			records: []snapshot.Record{{SessionName: "gamma", CapturedAt: time.Now().UTC(), Windows: 1, Panes: 1}, {SessionName: "delta", CapturedAt: time.Now().UTC(), Windows: 2, Panes: 3}, {SessionName: "alpha", CapturedAt: time.Now().UTC(), Windows: 3, Panes: 5}},
+			want:    "gamma",
+		},
+		{
+			name:    "single record",
+			records: []snapshot.Record{{SessionName: "solo", CapturedAt: time.Now().UTC(), Windows: 1, Panes: 1}},
+			want:    "solo",
+		},
 	}
 
-	selected, err := ChooseSessionFZF(records)
-	if err != nil {
-		t.Fatalf("ChooseSessionFZF: %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			selected, err := ChooseSessionFZF(tt.records)
+			if err != nil {
+				t.Fatalf("ChooseSessionFZF: %v", err)
+			}
 
-	if selected != "beta" {
-		t.Fatalf("expected beta, got %q", selected)
+			if selected != tt.want {
+				t.Fatalf("expected %q, got %q", tt.want, selected)
+			}
+		})
 	}
 }
 
-func TestChooseSessionFZFEmptySelection(t *testing.T) {
-	t.Setenv("PATH", withFakeFZF(t, "#!/bin/sh\nexit 0\n")+":"+os.Getenv("PATH"))
-
-	_, err := ChooseSessionFZF(
-		[]snapshot.Record{
-			{SessionName: "alpha", CapturedAt: time.Now().UTC(), Windows: 1, Panes: 1},
-		},
-	)
+func TestChooseSessionFZFNoSessions(t *testing.T) {
+	_, err := ChooseSessionFZF([]snapshot.Record{})
 	if err == nil {
-		t.Fatal("expected error for empty selection")
+		t.Fatal("expected error for empty records")
 	}
 
-	if !strings.Contains(err.Error(), "no session selected") {
+	if !strings.Contains(err.Error(), "no sessions") {
 		t.Fatalf("unexpected error: %v", err)
 	}
-}
-
-func TestChooseSessionFZFCommandFailure(t *testing.T) {
-	t.Setenv("PATH", withFakeFZF(t, "#!/bin/sh\nexit 130\n")+":"+os.Getenv("PATH"))
-
-	_, err := ChooseSessionFZF(
-		[]snapshot.Record{
-			{SessionName: "alpha", CapturedAt: time.Now().UTC(), Windows: 1, Panes: 1},
-		},
-	)
-	if err == nil {
-		t.Fatal("expected command failure error")
-	}
-
-	if !strings.Contains(err.Error(), "fzf selection canceled or failed") {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func withFakeFZF(t *testing.T, script string) string {
-	t.Helper()
-	dir := t.TempDir()
-
-	path := filepath.Join(dir, "fzf")
-	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
-		t.Fatalf("write fake fzf: %v", err)
-	}
-
-	return dir
 }

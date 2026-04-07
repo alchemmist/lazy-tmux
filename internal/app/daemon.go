@@ -18,7 +18,7 @@ type realDaemonTicker struct {
 	*time.Ticker
 }
 
-func (t *realDaemonTicker) Chan() <-chan time.Time { return t.Ticker.C }
+func (t *realDaemonTicker) Chan() <-chan time.Time { return t.C }
 
 func (t *realDaemonTicker) Stop() { t.Ticker.Stop() }
 
@@ -41,12 +41,14 @@ func (a *App) RunDaemon(interval time.Duration) error {
 	ticker := newDaemonTicker(interval)
 	defer ticker.Stop()
 
-	if err := a.runDaemonSaveAll(); err != nil {
+	err = a.runDaemonSaveAll()
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "lazy-tmux daemon save error: %v\n", err)
 	}
 
 	for range ticker.Chan() {
-		if err := a.runDaemonSaveAll(); err != nil {
+		err := a.runDaemonSaveAll()
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "lazy-tmux daemon save error: %v\n", err)
 		}
 	}
@@ -60,7 +62,8 @@ func acquireLock(socketPath string) (func(), error) {
 		runtimeDir = os.TempDir()
 	}
 
-	if err := os.MkdirAll(runtimeDir, 0o755); err != nil {
+	err := os.MkdirAll(runtimeDir, 0o755)
+	if err != nil {
 		return nil, fmt.Errorf("create runtime dir: %w", err)
 	}
 
@@ -73,7 +76,8 @@ func acquireLock(socketPath string) (func(), error) {
 		return nil, fmt.Errorf("open lock file: %w", err)
 	}
 
-	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+	err = syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+	if err != nil {
 		_ = file.Close()
 		return nil, fmt.Errorf("daemon already running")
 	}

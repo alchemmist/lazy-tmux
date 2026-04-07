@@ -20,8 +20,9 @@ func captureStdout(t *testing.T, action func()) string {
 	}
 
 	os.Stdout = write
+
 	defer func() { os.Stdout = old }()
-	defer write.Close()
+	defer func() { _ = write.Close() }()
 
 	defer func() {
 		if rec := recover(); rec != nil {
@@ -30,14 +31,17 @@ func captureStdout(t *testing.T, action func()) string {
 	}()
 
 	action()
-	write.Close()
+
+	_ = write.Close()
 
 	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, read); err != nil {
+
+	_, err = io.Copy(&buf, read)
+	if err != nil {
 		t.Fatalf("copy: %v", err)
 	}
 
-	read.Close()
+	_ = read.Close()
 
 	return buf.String()
 }
@@ -55,6 +59,7 @@ func TestMainUsesExitFunc(t *testing.T) {
 	os.Args = []string{"lazy-tmux", "help"}
 
 	defer func() { os.Args = origArgs }()
+
 	main()
 
 	if exitCode != 0 {
@@ -67,6 +72,7 @@ func TestFatalErrNotFound(t *testing.T) {
 	origExit := exitFunc
 
 	var buf bytes.Buffer
+
 	fatalOutput = &buf
 	exitFunc = func(code int) { panic(code) }
 
@@ -79,6 +85,7 @@ func TestFatalErrNotFound(t *testing.T) {
 			t.Fatalf("expected exit code 1, got %v", r)
 		}
 	}()
+
 	fatalErr(os.ErrNotExist)
 }
 
@@ -87,6 +94,7 @@ func TestFatalErrGeneric(t *testing.T) {
 	origExit := exitFunc
 
 	var buf bytes.Buffer
+
 	fatalOutput = &buf
 	exitFunc = func(code int) { panic(code) }
 
@@ -99,6 +107,7 @@ func TestFatalErrGeneric(t *testing.T) {
 			t.Fatalf("expected exit code 1, got %v", r)
 		}
 	}()
+
 	fatalErr(errors.New("boom"))
 
 	if !strings.Contains(buf.String(), "boom") {

@@ -109,7 +109,8 @@ func (m pickerModel) handlePromptKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case modeConfirmDeleteSession:
 			val := strings.TrimSpace(m.promptInput.Value())
 			if strings.EqualFold(val, "y") {
-				if err := m.deleteSession(m.pending.SessionName); err != nil {
+				err := m.deleteSession(m.pending.SessionName)
+				if err != nil {
 					m.setStatus(err.Error())
 				} else {
 					m.clearStatus()
@@ -121,11 +122,12 @@ func (m pickerModel) handlePromptKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case modeRenameWindow:
 			name := strings.TrimSpace(m.promptInput.Value())
 			if name != "" && m.pending.WindowIndex != nil {
-				if err := m.renameWindow(
+				err := m.renameWindow(
 					m.pending.SessionName,
 					*m.pending.WindowIndex,
 					name,
-				); err != nil {
+				)
+				if err != nil {
 					m.setStatus(err.Error())
 				} else {
 					m.clearStatus()
@@ -137,7 +139,8 @@ func (m pickerModel) handlePromptKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case modeRenameSession:
 			name := strings.TrimSpace(m.promptInput.Value())
 			if name != "" {
-				if err := m.renameSession(m.pending.SessionName, name); err != nil {
+				err := m.renameSession(m.pending.SessionName, name)
+				if err != nil {
 					m.setStatus(err.Error())
 				} else {
 					m.clearStatus()
@@ -149,7 +152,8 @@ func (m pickerModel) handlePromptKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case modeNewSession:
 			name := strings.TrimSpace(m.promptInput.Value())
 			if name != "" {
-				if err := m.createSession(name); err != nil {
+				err := m.createSession(name)
+				if err != nil {
 					m.setStatus(err.Error())
 				} else {
 					m.clearStatus()
@@ -160,7 +164,9 @@ func (m pickerModel) handlePromptKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			}
 		case modeNewWindow:
 			name := strings.TrimSpace(m.promptInput.Value())
-			if err := m.createWindow(m.pending.SessionName, name); err != nil {
+
+			err := m.createWindow(m.pending.SessionName, name)
+			if err != nil {
 				m.setStatus(err.Error())
 			} else {
 				m.clearStatus()
@@ -178,6 +184,7 @@ func (m pickerModel) handlePromptKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
+
 	m.promptInput, cmd = m.promptInput.Update(msg)
 
 	return m, cmd
