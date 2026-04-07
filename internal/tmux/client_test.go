@@ -68,6 +68,8 @@ func TestRestoreSessionCommandSequence(t *testing.T) {
 	runner.setResponse("tmux list-panes", "0\x1f/tmp\x1fbash\x1f1\x1f1001\x1f/dev/pts/0\n", "")
 	// List panes for window 1
 	runner.setResponse("tmux list-panes -t", "0\x1f/var\x1fzsh\x1f0\x1f1002\x1f/dev/pts/1\n", "")
+	// createdFirstWindowIndex calls list-windows after creation
+	runner.setResponse("tmux list-windows -t", "0\n", "")
 
 	client := NewClientWithRunner("tmux", runner)
 

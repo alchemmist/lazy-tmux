@@ -269,15 +269,70 @@ func TestCompareWindowField(t *testing.T) {
 }
 
 func TestSortWindows(t *testing.T) {
-	windows := []snapshot.Window{
-		{Index: 2, Name: "zzz"},
-		{Index: 1, Name: "aaa"},
-		{Index: 3, Name: "bbb"},
-	}
+	t.Run("ascending by name", func(t *testing.T) {
+		windows := []snapshot.Window{
+			{Index: 2, Name: "zzz"},
+			{Index: 1, Name: "aaa"},
+			{Index: 3, Name: "bbb"},
+		}
 
-	SortWindows(windows, []WindowSortKey{{Field: WindowSortName, Desc: false}})
+		SortWindows(windows, []WindowSortKey{{Field: WindowSortName, Desc: false}})
 
-	if windows[0].Name != "aaa" || windows[1].Name != "bbb" || windows[2].Name != "zzz" {
-		t.Fatalf("SortWindows by name failed: got %v", windows)
-	}
+		if windows[0].Name != "aaa" || windows[1].Name != "bbb" || windows[2].Name != "zzz" {
+			t.Fatalf("SortWindows by name failed: got %v", windows)
+		}
+	})
+
+	t.Run("descending by name", func(t *testing.T) {
+		windows := []snapshot.Window{
+			{Index: 2, Name: "aaa"},
+			{Index: 1, Name: "zzz"},
+			{Index: 3, Name: "bbb"},
+		}
+
+		SortWindows(windows, []WindowSortKey{{Field: WindowSortName, Desc: true}})
+
+		if windows[0].Name != "zzz" || windows[1].Name != "bbb" || windows[2].Name != "aaa" {
+			t.Fatalf("SortWindows desc by name failed: got %v", windows)
+		}
+	})
+
+	t.Run("multi-key sort", func(t *testing.T) {
+		windows := []snapshot.Window{
+			{Index: 2, Name: "editor", Panes: []snapshot.Pane{{}, {}}},
+			{Index: 1, Name: "editor", Panes: []snapshot.Pane{{}}},
+			{Index: 3, Name: "aaa", Panes: []snapshot.Pane{{}}},
+		}
+
+		SortWindows(windows, []WindowSortKey{
+			{Field: WindowSortName, Desc: false},
+			{Field: WindowSortPanes, Desc: true},
+		})
+
+		if windows[0].Name != "aaa" {
+			t.Fatalf("first should be aaa, got %s", windows[0].Name)
+		}
+
+		if windows[1].Name != "editor" || len(windows[1].Panes) != 2 {
+			t.Fatalf("second should editor with 2 panes, got %+v", windows[1])
+		}
+	})
+
+	t.Run("empty slice", func(t *testing.T) {
+		windows := []snapshot.Window{}
+		SortWindows(windows, []WindowSortKey{{Field: WindowSortName, Desc: false}})
+
+		if len(windows) != 0 {
+			t.Fatalf("expected empty slice, got %d elements", len(windows))
+		}
+	})
+
+	t.Run("single element", func(t *testing.T) {
+		windows := []snapshot.Window{{Index: 5, Name: "solo"}}
+		SortWindows(windows, []WindowSortKey{{Field: WindowSortName, Desc: false}})
+
+		if len(windows) != 1 || windows[0].Name != "solo" {
+			t.Fatalf("expected single element unchanged, got %+v", windows)
+		}
+	})
 }

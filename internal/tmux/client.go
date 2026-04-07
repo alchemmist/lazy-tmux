@@ -356,8 +356,11 @@ func (client *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) e
 	createdIdx, err := client.createdFirstWindowIndex(
 		sessionSnapshot.SessionName,
 	)
-	if err == nil &&
-		createdIdx != first.Index {
+	if err != nil {
+		return err
+	}
+
+	if createdIdx != first.Index {
 		_, err = client.Output(
 			"move-window",
 			"-s", sessionWindowTarget(sessionSnapshot.SessionName, createdIdx),
@@ -410,7 +413,7 @@ func (client *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) e
 func newSessionArgs(sessionName string, w snapshot.Window) []string {
 	args := []string{"new-session", "-d", "-s", sessionName, "-n", w.Name}
 	if path := firstPanePath(w); path != "" {
-		args = append(args, "-client", path)
+		args = append(args, "-c", path)
 	}
 
 	return args
@@ -426,7 +429,7 @@ func newWindowArgs(sessionName string, win snapshot.Window) []string {
 		win.Name,
 	}
 	if path := firstPanePath(win); path != "" {
-		args = append(args, "-client", path)
+		args = append(args, "-c", path)
 	}
 
 	return args
@@ -492,7 +495,7 @@ func (client *Client) ensurePaneCount(
 		args := []string{"split-window", "-d", "-t", sessionWindowTarget(sessionName, windowIndex)}
 
 		if pane.CurrentPath != "" {
-			args = append(args, "-client", pane.CurrentPath)
+			args = append(args, "-c", pane.CurrentPath)
 		}
 
 		_, err := client.runWithShellFallback(args, "")
@@ -795,8 +798,8 @@ func (client *Client) runWithShellFallback(args []string, cmd string) (string, e
 		}
 	}
 
-	// 2) If directory is broken, retry without "-client <path>" too.
-	minimal := stripOptionPair(withoutCmd, "-client")
+	// 2) If directory is broken, retry without "-c <path>" too.
+	minimal := stripOptionPair(withoutCmd, "-c")
 	if len(minimal) > 0 {
 		out3, err3 := client.Output(minimal...)
 		if err3 == nil {
