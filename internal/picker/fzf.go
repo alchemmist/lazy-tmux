@@ -2,10 +2,13 @@ package picker
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
@@ -29,23 +32,34 @@ func ChooseSessionFZF(records []snapshot.Record) (string, error) {
 		input.WriteString(line)
 	}
 
-	cmd := exec.Command(
+	args := []string{
 		"fzf",
-		"--prompt",
-		"lazy-tmux> ",
-		"--delimiter",
-		"\t",
-		"--with-nth",
-		"1,2,3",
-		"--height",
-		"100%",
-		"--layout",
-		"reverse",
-	)
+		"--delimiter", "\t",
+		"--with-nth", "1,2,3",
+	}
+
+	if isTerminal(os.Stdout) {
+		args = append(args,
+			"--prompt", "lazy-tmux> ",
+			"--height", "100%",
+			"--layout", "reverse",
+		)
+	} else {
+		args = append(args, "--filter", "")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	cmd.Stdin = &input
 
 	out, err := cmd.Output()
 	if err != nil {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return "", fmt.Errorf("fzf selection timed out")
+		}
+
 		return "", fmt.Errorf("fzf selection canceled or failed: %w", err)
 	}
 

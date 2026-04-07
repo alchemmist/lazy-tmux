@@ -7,7 +7,7 @@ const FormatVersion = 1
 type SessionSnapshot struct {
 	Version     int       `json:"version"`
 	SessionName string    `json:"session_name"`
-	CapturedAt  time.Time `json:"captured_at"`
+	CapturedAt  time.Time `json:"captured_at,omitzero"`
 	CurrentWin  int       `json:"current_window"`
 	CurrentPane int       `json:"current_pane"`
 	Windows     []Window  `json:"windows"`
@@ -40,15 +40,15 @@ type ScrollbackRef struct {
 
 type Index struct {
 	Version  int               `json:"version"`
-	Updated  time.Time         `json:"updated"`
+	Updated  time.Time         `json:"updated,omitzero"`
 	Sessions map[string]Record `json:"sessions"`
 }
 
 type Record struct {
 	SessionName  string    `json:"session_name"`
 	File         string    `json:"file"`
-	CapturedAt   time.Time `json:"captured_at"`
-	LastAccessed time.Time `json:"last_accessed,omitempty"`
+	CapturedAt   time.Time `json:"captured_at,omitzero"`
+	LastAccessed time.Time `json:"last_accessed,omitzero"`
 	Windows      int       `json:"windows"`
 	Panes        int       `json:"panes"`
 }

@@ -91,8 +91,10 @@ func (a *App) SelectTargetWithTUISorted(opts PickerSortOptions) (PickerTarget, e
 				if errors.Is(err, errNoSavedSessions) {
 					return []picker.Session{}, nil
 				}
+
 				return nil, err
 			}
+
 			return sessions, nil
 		},
 	}

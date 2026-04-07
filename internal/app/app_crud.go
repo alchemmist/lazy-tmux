@@ -12,14 +12,16 @@ import (
 
 func (a *App) DeleteWindow(session string, windowIndex int) error {
 	if a.tmux.SessionExists(session) {
-		if err := a.tmux.KillWindow(session, windowIndex); err != nil {
+		err := a.tmux.KillWindow(session, windowIndex)
+		if err != nil {
 			var exitErr *exec.ExitError
 			if !errors.As(err, &exitErr) {
 				return fmt.Errorf("kill window: %w", err)
 			}
 		} else {
 			if !a.tmux.SessionExists(session) {
-				if err := a.store.DeleteSession(session); err != nil {
+				err := a.store.DeleteSession(session)
+				if err != nil {
 					return fmt.Errorf("delete session: %w", err)
 				}
 
@@ -56,7 +58,8 @@ func (a *App) DeleteWindow(session string, windowIndex int) error {
 	}
 
 	if len(windows) == 0 {
-		if err := a.store.DeleteSession(session); err != nil {
+		err := a.store.DeleteSession(session)
+		if err != nil {
 			return fmt.Errorf("delete session: %w", err)
 		}
 
@@ -65,7 +68,8 @@ func (a *App) DeleteWindow(session string, windowIndex int) error {
 
 	snap.Windows = windows
 
-	if err := a.store.SaveSession(snap); err != nil {
+	err = a.store.SaveSession(snap)
+	if err != nil {
 		return fmt.Errorf("save session: %w", err)
 	}
 
@@ -74,12 +78,14 @@ func (a *App) DeleteWindow(session string, windowIndex int) error {
 
 func (a *App) DeleteSession(session string) error {
 	if a.tmux.SessionExists(session) {
-		if err := a.tmux.KillSession(session); err != nil {
+		err := a.tmux.KillSession(session)
+		if err != nil {
 			return fmt.Errorf("kill session: %w", err)
 		}
 	}
 
-	if err := a.store.DeleteSession(session); err != nil {
+	err := a.store.DeleteSession(session)
+	if err != nil {
 		return fmt.Errorf("delete session: %w", err)
 	}
 
@@ -92,7 +98,8 @@ func (a *App) RenameWindow(session string, windowIndex int, name string) error {
 	}
 
 	if a.tmux.SessionExists(session) {
-		if err := a.tmux.RenameWindow(session, windowIndex, name); err != nil {
+		err := a.tmux.RenameWindow(session, windowIndex, name)
+		if err != nil {
 			return fmt.Errorf("rename window: %w", err)
 		}
 	}
@@ -117,7 +124,8 @@ func (a *App) RenameWindow(session string, windowIndex int, name string) error {
 		return fmt.Errorf("window not found in snapshot")
 	}
 
-	if err := a.store.SaveSession(snap); err != nil {
+	err = a.store.SaveSession(snap)
+	if err != nil {
 		return fmt.Errorf("save session: %w", err)
 	}
 
@@ -168,16 +176,19 @@ func (a *App) RenameSession(session, name string) error {
 	snap.SessionName = name
 
 	if a.tmux.SessionExists(session) {
-		if err := a.tmux.RenameSession(session, name); err != nil {
+		err := a.tmux.RenameSession(session, name)
+		if err != nil {
 			return fmt.Errorf("rename tmux session: %w", err)
 		}
 	}
 
-	if err := a.store.SaveSession(snap); err != nil {
+	err = a.store.SaveSession(snap)
+	if err != nil {
 		return fmt.Errorf("save session: %w", err)
 	}
 
-	if err := a.store.DeleteSession(session); err != nil {
+	err = a.store.DeleteSession(session)
+	if err != nil {
 		return fmt.Errorf("delete old session: %w", err)
 	}
 
@@ -189,13 +200,15 @@ func (a *App) NewSession(name string) error {
 		return fmt.Errorf("session name is empty")
 	}
 
-	if exists, err := a.store.SessionExists(name); err != nil {
+	exists, err := a.store.SessionExists(name)
+	if err != nil {
 		return fmt.Errorf("check session exists: %w", err)
 	} else if exists {
 		return fmt.Errorf("session %q already exists in storage", name)
 	}
 
-	if err := a.tmux.NewSession(name); err != nil {
+	err = a.tmux.NewSession(name)
+	if err != nil {
 		return fmt.Errorf("create new session: %w", err)
 	}
 
@@ -205,7 +218,8 @@ func (a *App) NewSession(name string) error {
 		return fmt.Errorf("capture session: %w", err)
 	}
 
-	if err := a.store.SaveSession(snap); err != nil {
+	err = a.store.SaveSession(snap)
+	if err != nil {
 		_ = a.tmux.KillSession(name)
 		return fmt.Errorf("save session: %w", err)
 	}
@@ -219,7 +233,8 @@ func (a *App) NewWindow(session, name string) error {
 	}
 
 	if a.tmux.SessionExists(session) {
-		if err := a.tmux.NewWindow(session, name); err != nil {
+		err := a.tmux.NewWindow(session, name)
+		if err != nil {
 			return fmt.Errorf("create new window: %w", err)
 		}
 
@@ -228,7 +243,8 @@ func (a *App) NewWindow(session, name string) error {
 			return fmt.Errorf("capture session: %w", err)
 		}
 
-		if err := a.store.SaveSession(snap); err != nil {
+		err = a.store.SaveSession(snap)
+		if err != nil {
 			return fmt.Errorf("save session: %w", err)
 		}
 
@@ -254,7 +270,8 @@ func (a *App) NewWindow(session, name string) error {
 		},
 	})
 
-	if err := a.store.SaveSession(snap); err != nil {
+	err = a.store.SaveSession(snap)
+	if err != nil {
 		return fmt.Errorf("save session: %w", err)
 	}
 
@@ -293,11 +310,13 @@ func (a *App) Sleep(session string) error {
 		return fmt.Errorf("session %q is not running", session)
 	}
 	// Save the session first
-	if err := a.SaveSession(session); err != nil {
+	err := a.SaveSession(session)
+	if err != nil {
 		return err
 	}
 	// Then kill it
-	if err := a.tmux.KillSession(session); err != nil {
+	err = a.tmux.KillSession(session)
+	if err != nil {
 		return fmt.Errorf("kill session: %w", err)
 	}
 

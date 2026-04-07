@@ -3,7 +3,7 @@ FROM golang:1.26
 ENV PATH=/usr/local/go/bin:/go/bin:$PATH
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends tmux && \
+    apt-get install -y --no-install-recommends tmux fzf && \
     rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -s /bin/bash appuser && \

@@ -99,21 +99,23 @@ func TestRunListPrintsSavedRecords(t *testing.T) {
 	dir := t.TempDir()
 	store := store.New(dir)
 
-	if err := store.SaveSession(snapshot.SessionSnapshot{
+	err := store.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "alpha",
 		CapturedAt:  time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC),
 		Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("save alpha: %v", err)
 	}
 
-	if err := store.SaveSession(snapshot.SessionSnapshot{
+	err = store.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "beta",
 		CapturedAt:  time.Date(2026, 1, 1, 11, 0, 0, 0, time.UTC),
 		Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}, {Index: 1}}}},
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("save beta: %v", err)
 	}
 
@@ -183,12 +185,13 @@ func TestRunSleepOnNonrunningSessionFails(t *testing.T) {
 	dir := t.TempDir()
 	s := store.New(dir)
 
-	if err := s.SaveSession(snapshot.SessionSnapshot{
+	err := s.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "demo",
 		CapturedAt:  time.Now().UTC(),
 		Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("save session: %v", err)
 	}
 

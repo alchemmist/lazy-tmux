@@ -14,10 +14,43 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/tmux"
 )
 
+type tmuxSessionManager interface {
+	ListSessions() ([]string, error)
+	CurrentSession() (string, error)
+	SessionExists(name string) bool
+	SocketPath() string
+}
+
+type tmuxSessionCapturer interface {
+	CaptureSession(name string) (snapshot.SessionSnapshot, error)
+	CapturePaneScrollback(target string, lines int) (string, error)
+}
+
+type tmuxSessionRestorer interface {
+	RestoreSession(snap snapshot.SessionSnapshot) error
+	SwitchClient(target string) error
+}
+
+type tmuxSessionMutator interface {
+	NewSession(name string) error
+	NewWindow(session, name string) error
+	KillWindow(session string, windowIndex int) error
+	KillSession(session string) error
+	RenameWindow(session string, windowIndex int, name string) error
+	RenameSession(session, name string) error
+}
+
+type tmuxClient interface {
+	tmuxSessionManager
+	tmuxSessionCapturer
+	tmuxSessionRestorer
+	tmuxSessionMutator
+}
+
 type App struct {
 	cfg       config.Config
 	store     *store.Store
-	tmux      *tmux.Client
+	tmux      tmuxClient
 	saveAllFn func() error
 }
 
@@ -29,6 +62,14 @@ func New(cfg config.Config) *App {
 	}
 }
 
+func NewWithTmux(cfg config.Config, client tmuxClient) *App {
+	return &App{
+		cfg:   cfg,
+		store: store.New(cfg.DataDir),
+		tmux:  client,
+	}
+}
+
 func (a *App) SaveAll() error {
 	sessions, err := a.tmux.ListSessions()
 	if err != nil {
@@ -36,7 +77,8 @@ func (a *App) SaveAll() error {
 	}
 
 	for _, name := range sessions {
-		if err := a.SaveSession(name); err != nil {
+		err := a.SaveSession(name)
+		if err != nil {
 			return err
 		}
 	}
@@ -54,7 +96,8 @@ func (a *App) SaveSession(session string) error {
 		a.captureShellScrollback(&snap)
 	}
 
-	if err := a.store.SaveSession(snap); err != nil {
+	err = a.store.SaveSession(snap)
+	if err != nil {
 		return fmt.Errorf("save session: %w", err)
 	}
 
@@ -68,14 +111,6 @@ func (a *App) SaveCurrent() error {
 	}
 
 	return a.SaveSession(name)
-}
-
-func (a *App) runDaemonSaveAll() error {
-	if a.saveAllFn != nil {
-		return a.saveAllFn()
-	}
-
-	return a.SaveAll()
 }
 
 func (a *App) Restore(session string, switchClient bool) error {
@@ -104,15 +139,17 @@ func (a *App) RestoreTarget(target PickerTarget, switchClient bool) error {
 			switchTarget = fmt.Sprintf("%s:%d", session, *target.WindowIndex)
 		}
 
-		if err := a.tmux.SwitchClient(switchTarget); err != nil {
+		err := a.tmux.SwitchClient(switchTarget)
+		if err != nil {
 			return fmt.Errorf("switch client: %w", err)
 		}
 	}
 
-	if err := a.store.MarkSessionAccessed(
+	err = a.store.MarkSessionAccessed(
 		session,
 		time.Now().UTC(),
-	); err != nil &&
+	)
+	if err != nil &&
 		!errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("mark session accessed: %w", err)
 	}
@@ -145,6 +182,14 @@ func (a *App) ListRecords() ([]snapshot.Record, error) {
 	}
 
 	return records, nil
+}
+
+func (a *App) runDaemonSaveAll() error {
+	if a.saveAllFn != nil {
+		return a.saveAllFn()
+	}
+
+	return a.SaveAll()
 }
 
 func (a *App) captureShellScrollback(snap *snapshot.SessionSnapshot) {
