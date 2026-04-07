@@ -1,0 +1,8 @@
+set -g default-terminal "tmux-256color"
+setw -g xterm-keys on
+
+run-shell "/root/.tmux/themes/nord-tmux/nord.tmux"
+
+run-shell -b 'lazy-tmux daemon --interval 1m --scrollback > /tmp/lazy-tmux.log 2>&1 || tmux display-message "lazy-tmux daemon already running"'
+bind-key f display-popup -w 75% -h 85% -E 'lazy-tmux picker'
+bind-key C-s run-shell 'lazy-tmux save --all --scrollback && tmux display-message "All sessions saved successfully!"'
