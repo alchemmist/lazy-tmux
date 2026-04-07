@@ -97,8 +97,8 @@ setup-env:
 	go install github.com/vladopajic/go-test-coverage/v2@v2.18.4
 
 sandbox:
-	docker build -t lazy-tmux:latest -f docker/sandbox.Dockerfile ./docker
-	docker run -it --rm lazy-tmux
+	docker build -t lazy-tmux:local -f docker/sandbox.Dockerfile ./docker
+	docker run -it --rm lazy-tmux:local
 
 clean:
 	rm -rf bin dist coverage.out
