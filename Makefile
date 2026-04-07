@@ -9,7 +9,7 @@ BINARY := lazy-tmux
 
 .PHONY: help check build build-fzf build-all test test-race test-cov test-integration fmt fmt-check vet staticcheck golangci-lint lint tidy install clean dist dist-tui dist-fzf tag
 
-check: build fmt-check lint test test-cov test-integration
+check: build fmt-check lint test test-integration
 
 build:
 	go build -o bin/$(BINARY) ./cmd/$(BINARY)

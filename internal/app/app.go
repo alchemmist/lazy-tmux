@@ -14,21 +14,37 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/tmux"
 )
 
-type tmuxClient interface {
+type tmuxSessionManager interface {
 	ListSessions() ([]string, error)
 	CurrentSession() (string, error)
+	SessionExists(name string) bool
+	SocketPath() string
+}
+
+type tmuxSessionCapturer interface {
 	CaptureSession(name string) (snapshot.SessionSnapshot, error)
+	CapturePaneScrollback(target string, lines int) (string, error)
+}
+
+type tmuxSessionRestorer interface {
 	RestoreSession(snap snapshot.SessionSnapshot) error
 	SwitchClient(target string) error
-	CapturePaneScrollback(target string, lines int) (string, error)
+}
+
+type tmuxSessionMutator interface {
 	NewSession(name string) error
 	NewWindow(session, name string) error
 	KillWindow(session string, windowIndex int) error
 	KillSession(session string) error
 	RenameWindow(session string, windowIndex int, name string) error
 	RenameSession(session, name string) error
-	SessionExists(name string) bool
-	SocketPath() string
+}
+
+type tmuxClient interface {
+	tmuxSessionManager
+	tmuxSessionCapturer
+	tmuxSessionRestorer
+	tmuxSessionMutator
 }
 
 type App struct {

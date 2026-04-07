@@ -382,15 +382,16 @@ func (client *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) e
 		}
 	}
 
-	if _, err := client.Output(
+	_, err = client.Output(
 		"select-window",
 		"-t",
 		sessionWindowTarget(sessionSnapshot.SessionName, sessionSnapshot.CurrentWin),
-	); err != nil {
+	)
+	if err != nil {
 		return fmt.Errorf("select window: %w", err)
 	}
 
-	if _, err := client.Output(
+	_, err = client.Output(
 		"select-pane",
 		"-t",
 		sessionPaneTarget(
@@ -398,7 +399,8 @@ func (client *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) e
 			sessionSnapshot.CurrentWin,
 			sessionSnapshot.CurrentPane,
 		),
-	); err != nil {
+	)
+	if err != nil {
 		return fmt.Errorf("select pane: %w", err)
 	}
 
@@ -447,7 +449,11 @@ func (client *Client) createAndPopulateWindow(sessionName string, win snapshot.W
 	return client.populateWindow(sessionName, win, win.Index)
 }
 
-func (client *Client) populateWindow(sessionName string, window snapshot.Window, windowIndex int) error {
+func (client *Client) populateWindow(
+	sessionName string,
+	window snapshot.Window,
+	windowIndex int,
+) error {
 	err := client.ensurePaneCount(sessionName, window, windowIndex)
 	if err != nil {
 		return err

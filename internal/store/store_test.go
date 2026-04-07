@@ -543,7 +543,12 @@ func TestSessionExistsEmptyName(t *testing.T) {
 	for _, caseItem := range tests {
 		exists, err := store.SessionExists(caseItem.name)
 		if (err != nil) != caseItem.wantErr {
-			t.Fatalf("SessionExists(%q) error = %v, wantErr %v", caseItem.name, err, caseItem.wantErr)
+			t.Fatalf(
+				"SessionExists(%q) error = %v, wantErr %v",
+				caseItem.name,
+				err,
+				caseItem.wantErr,
+			)
 		}
 
 		if !caseItem.wantErr && exists {

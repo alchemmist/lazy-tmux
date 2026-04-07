@@ -206,6 +206,8 @@ func TestNewWindowWithFakeRunner(t *testing.T) {
 }
 
 func TestSwitchClientWithFakeRunner(t *testing.T) {
+	t.Setenv("TMUX", "/tmp/tmux-1000/default")
+
 	runner := newFakeRunner()
 	runner.setResponse("tmux switch-client", "", "")
 

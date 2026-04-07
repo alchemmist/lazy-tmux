@@ -8,12 +8,7 @@ import (
 
 	"github.com/alchemmist/lazy-tmux/internal/config"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
-	"github.com/alchemmist/lazy-tmux/internal/store"
 )
-
-func newTestStore(dir string) *store.Store {
-	return store.New(dir)
-}
 
 type fakeTmuxClient struct {
 	sessions        []string
@@ -26,6 +21,7 @@ type fakeTmuxClient struct {
 	paneScrollErr   error
 	listSessionsErr error
 	currentSessErr  error
+	sessionExists   bool
 }
 
 func (f *fakeTmuxClient) ListSessions() ([]string, error) {
@@ -40,8 +36,10 @@ func (f *fakeTmuxClient) CaptureSession(name string) (snapshot.SessionSnapshot, 
 	if f.captureErr != nil {
 		return snapshot.SessionSnapshot{}, f.captureErr
 	}
+
 	snap := f.captureSnap
 	snap.SessionName = name
+
 	return snap, nil
 }
 
@@ -57,20 +55,20 @@ func (f *fakeTmuxClient) CapturePaneScrollback(target string, lines int) (string
 	return f.paneScrollback, f.paneScrollErr
 }
 
-func (f *fakeTmuxClient) NewSession(name string) error { return nil }
-func (f *fakeTmuxClient) NewWindow(session, name string) error { return nil }
+func (f *fakeTmuxClient) NewSession(name string) error                     { return nil }
+func (f *fakeTmuxClient) NewWindow(session, name string) error             { return nil }
 func (f *fakeTmuxClient) KillWindow(session string, windowIndex int) error { return nil }
-func (f *fakeTmuxClient) KillSession(session string) error { return nil }
+func (f *fakeTmuxClient) KillSession(session string) error                 { return nil }
 func (f *fakeTmuxClient) RenameWindow(session string, windowIndex int, name string) error {
 	return nil
 }
 func (f *fakeTmuxClient) RenameSession(session, name string) error { return nil }
 func (f *fakeTmuxClient) SessionExists(name string) bool {
-	return name == "running-session"
+	return f.sessionExists
 }
 func (f *fakeTmuxClient) SocketPath() string { return "/tmp/tmux-1000/default" }
 
-func baseConfig() config.Config {
+func testConfig() config.Config {
 	return config.Config{
 		TmuxBin:    "tmux",
 		DataDir:    "",
@@ -93,7 +91,8 @@ func TestSaveAllIteratesSessions(t *testing.T) {
 		Scrollback: config.ScrollbackConfig{Enabled: false, Lines: 5000},
 	}, tmuxClient)
 
-	if err := testApp.SaveAll(); err != nil {
+	err := testApp.SaveAll()
+	if err != nil {
 		t.Fatalf("SaveAll: %v", err)
 	}
 
@@ -113,7 +112,7 @@ func TestSaveAllPropagatesListError(t *testing.T) {
 		listSessionsErr: fmt.Errorf("no server"),
 	}
 
-	testApp := NewWithTmux(baseConfig(), tmuxClient)
+	testApp := NewWithTmux(testConfig(), tmuxClient)
 	testApp.store = newTestStore(dir)
 
 	err := testApp.SaveAll()
@@ -136,10 +135,11 @@ func TestSaveSessionStoresSnapshot(t *testing.T) {
 		},
 	}
 
-	testApp := NewWithTmux(baseConfig(), tmuxClient)
+	testApp := NewWithTmux(testConfig(), tmuxClient)
 	testApp.store = newTestStore(dir)
 
-	if err := testApp.SaveSession("my-session"); err != nil {
+	err := testApp.SaveSession("my-session")
+	if err != nil {
 		t.Fatalf("SaveSession: %v", err)
 	}
 
@@ -162,7 +162,7 @@ func TestSaveSessionPropagatesCaptureError(t *testing.T) {
 		captureErr: fmt.Errorf("capture failed"),
 	}
 
-	testApp := NewWithTmux(baseConfig(), tmuxClient)
+	testApp := NewWithTmux(testConfig(), tmuxClient)
 
 	err := testApp.SaveSession("test")
 	if err == nil {
@@ -183,10 +183,11 @@ func TestSaveCurrentGetsCurrentSession(t *testing.T) {
 		},
 	}
 
-	testApp := NewWithTmux(baseConfig(), tmuxClient)
+	testApp := NewWithTmux(testConfig(), tmuxClient)
 	testApp.store = newTestStore(dir)
 
-	if err := testApp.SaveCurrent(); err != nil {
+	err := testApp.SaveCurrent()
+	if err != nil {
 		t.Fatalf("SaveCurrent: %v", err)
 	}
 
@@ -205,7 +206,7 @@ func TestSaveCurrentPropagatesError(t *testing.T) {
 		currentSessErr: fmt.Errorf("no current"),
 	}
 
-	testApp := NewWithTmux(baseConfig(), tmuxClient)
+	testApp := NewWithTmux(testConfig(), tmuxClient)
 
 	err := testApp.SaveCurrent()
 	if err == nil {
@@ -226,15 +227,16 @@ func TestRestoreTargetLoadsAndRestores(t *testing.T) {
 		Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
 	}
 
-	if err := testStore.SaveSession(snap); err != nil {
+	err := testStore.SaveSession(snap)
+	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
 
 	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(baseConfig(), tmuxClient)
+	testApp := NewWithTmux(testConfig(), tmuxClient)
 	testApp.store = testStore
 
-	err := testApp.RestoreTarget(PickerTarget{SessionName: "restore-me"}, true)
+	err = testApp.RestoreTarget(PickerTarget{SessionName: "restore-me"}, true)
 	if err != nil {
 		t.Fatalf("RestoreTarget: %v", err)
 	}
@@ -242,7 +244,7 @@ func TestRestoreTargetLoadsAndRestores(t *testing.T) {
 
 func TestRestoreTargetRejectsEmptyName(t *testing.T) {
 	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(baseConfig(), tmuxClient)
+	testApp := NewWithTmux(testConfig(), tmuxClient)
 
 	err := testApp.RestoreTarget(PickerTarget{}, true)
 	if err == nil {
@@ -257,7 +259,7 @@ func TestRestoreTargetRejectsEmptyName(t *testing.T) {
 func TestRestoreTargetPropagatesLoadError(t *testing.T) {
 	dir := t.TempDir()
 	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(baseConfig(), tmuxClient)
+	testApp := NewWithTmux(testConfig(), tmuxClient)
 	testApp.store = newTestStore(dir)
 
 	err := testApp.RestoreTarget(PickerTarget{SessionName: "nonexistent"}, true)
@@ -279,16 +281,20 @@ func TestRestoreTargetWithWindowIndex(t *testing.T) {
 		Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
 	}
 
-	if err := testStore.SaveSession(snap); err != nil {
+	err := testStore.SaveSession(snap)
+	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
 
 	winIdx := 2
 	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(baseConfig(), tmuxClient)
+	testApp := NewWithTmux(testConfig(), tmuxClient)
 	testApp.store = testStore
 
-	err := testApp.RestoreTarget(PickerTarget{SessionName: "win-target", WindowIndex: &winIdx}, true)
+	err = testApp.RestoreTarget(
+		PickerTarget{SessionName: "win-target", WindowIndex: &winIdx},
+		true,
+	)
 	if err != nil {
 		t.Fatalf("RestoreTarget with window index: %v", err)
 	}
@@ -297,7 +303,7 @@ func TestRestoreTargetWithWindowIndex(t *testing.T) {
 func TestBootstrapLastWithNoRecords(t *testing.T) {
 	dir := t.TempDir()
 	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(baseConfig(), tmuxClient)
+	testApp := NewWithTmux(testConfig(), tmuxClient)
 	testApp.store = newTestStore(dir)
 
 	err := testApp.Bootstrap("last")
@@ -316,15 +322,16 @@ func TestBootstrapLastWithRecords(t *testing.T) {
 		Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
 	}
 
-	if err := testStore.SaveSession(snap); err != nil {
+	err := testStore.SaveSession(snap)
+	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
 
 	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(baseConfig(), tmuxClient)
+	testApp := NewWithTmux(testConfig(), tmuxClient)
 	testApp.store = testStore
 
-	err := testApp.Bootstrap("last")
+	err = testApp.Bootstrap("last")
 	if err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
@@ -340,15 +347,16 @@ func TestBootstrapSpecificSession(t *testing.T) {
 		Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
 	}
 
-	if err := testStore.SaveSession(snap); err != nil {
+	err := testStore.SaveSession(snap)
+	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
 
 	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(baseConfig(), tmuxClient)
+	testApp := NewWithTmux(testConfig(), tmuxClient)
 	testApp.store = testStore
 
-	err := testApp.Bootstrap("specific-sess")
+	err = testApp.Bootstrap("specific-sess")
 	if err != nil {
 		t.Fatalf("Bootstrap specific: %v", err)
 	}
@@ -363,12 +371,13 @@ func TestListRecordsDelegatesToStore(t *testing.T) {
 		Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
 	}
 
-	if err := testStore.SaveSession(snap); err != nil {
+	err := testStore.SaveSession(snap)
+	if err != nil {
 		t.Fatalf("save: %v", err)
 	}
 
 	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(baseConfig(), tmuxClient)
+	testApp := NewWithTmux(testConfig(), tmuxClient)
 	testApp.store = testStore
 
 	recs, err := testApp.ListRecords()
@@ -539,7 +548,7 @@ func TestRunDaemonSaveAllFallsBackToSaveAll(t *testing.T) {
 		},
 	}
 
-	testApp := NewWithTmux(baseConfig(), tmuxClient)
+	testApp := NewWithTmux(testConfig(), tmuxClient)
 	testApp.store = newTestStore(dir)
 
 	err := testApp.runDaemonSaveAll()
