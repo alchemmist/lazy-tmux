@@ -97,9 +97,10 @@ setup-env:
 	go install github.com/vladopajic/go-test-coverage/v2@v2.18.4
 
 docker-hub:
-	docker build -t lazy-tmux:latest -f docker/sandbox.Dockerfile ./docker
-	docker tag lazy-tmux:latest alchemmist/lazy-tmux:latest
-	docker push alchemmist/lazy-tmux:latest
+	SANDBOX_TAG=$${SANDBOX_TAG:-latest}; \
+	docker build -t lazy-tmux:$$SANDBOX_TAG -f docker/sandbox.Dockerfile ./docker; \
+	docker tag lazy-tmux:$$SANDBOX_TAG alchemmist/lazy-tmux:$$SANDBOX_TAG; \
+	docker push alchemmist/lazy-tmux:$$SANDBOX_TAG
 
 sandbox:
 	docker build -t lazy-tmux:local -f docker/sandbox.Dockerfile ./docker
