@@ -47,6 +47,9 @@ RUN chmod +x /root/.tmux/welcome.sh
 
 RUN curl -fsSL https://lazy-tmux.xyz/install.sh | sh
 
+COPY scripts/test-versions-inner.sh /test-versions-inner.sh
+RUN chmod +x /test-versions-inner.sh
+
 ENV TERM=xterm-256color
 
-ENTRYPOINT ["zsh", "-c", "tmux attach || tmux new; exec zsh"]
+ENTRYPOINT ["zsh", "-i", "-c", "clear; tmux attach 2>/dev/null || tmux new; clear; exec zsh -i"]
