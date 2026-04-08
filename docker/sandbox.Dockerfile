@@ -30,17 +30,9 @@ RUN cp /root/.oh-my-zsh/templates/zshrc.zsh-template /root/.zshrc
 
 ENV SHELL=/usr/bin/zsh
 
-ARG TMUX_VERSION=3.6a
+COPY install-tmux.sh .
 
-RUN cd /tmp && \
-    wget https://github.com/tmux/tmux/releases/download/${TMUX_VERSION}/tmux-${TMUX_VERSION}.tar.gz && \
-    tar -xzf tmux-${TMUX_VERSION}.tar.gz && \
-    cd tmux-${TMUX_VERSION} && \
-    ./configure && \
-    make && \
-    make install && \
-    cd / && \
-    rm -rf /tmp/tmux-${TMUX_VERSION}*
+RUN TMUX_VERSION=3.6a ./install-tmux.sh
 
 WORKDIR /root
 
@@ -55,9 +47,6 @@ RUN chmod +x /root/.tmux/welcome.sh
 
 RUN curl -fsSL https://lazy-tmux.xyz/install.sh | sh
 
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
 ENV TERM=xterm-256color
 
-ENTRYPOINT ["tmux"]
+ENTRYPOINT ["zsh", "-c", "tmux attach || tmux new; exec zsh"]
