@@ -7,7 +7,7 @@ MAKEFLAGS += --no-builtin-rules
 
 BINARY := lazy-tmux
 
-.PHONY: help check build build-fzf build-all test test-race test-cov test-integration fmt fmt-check vet staticcheck golangci-lint lint tidy install clean dist dist-tui dist-fzf tag sandbox
+.PHONY: help check build build-fzf build-all test test-race test-cov test-integration fmt fmt-check vet staticcheck golangci-lint lint tidy install clean dist dist-tui dist-fzf tag sandbox docker-hub
 
 check: build fmt-check lint test test-integration
 
