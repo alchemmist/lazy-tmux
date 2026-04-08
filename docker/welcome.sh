@@ -9,6 +9,7 @@ cat <<'BANNER'
   Autosave daemon   → running (every 1m)
   Open picker       → prefix + f
   Save all          → prefix + C-s
+  Get more info     → run `lazy-tmux --help`
  ──────────────────────────────────────────────
 
 BANNER
