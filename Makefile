@@ -7,7 +7,7 @@ MAKEFLAGS += --no-builtin-rules
 
 BINARY := lazy-tmux
 
-.PHONY: help check build build-fzf build-all test test-race test-cov test-integration fmt fmt-check vet staticcheck golangci-lint lint tidy install clean dist dist-tui dist-fzf tag
+.PHONY: help check build build-fzf build-all test test-race test-cov test-integration fmt fmt-check vet staticcheck golangci-lint lint tidy install clean dist dist-tui dist-fzf tag sandbox docker-hub
 
 check: build fmt-check lint test test-integration
 
@@ -95,6 +95,16 @@ setup-env:
 	go install github.com/golangci/golines@latest
 	go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
 	go install github.com/vladopajic/go-test-coverage/v2@v2.18.4
+
+docker-hub:
+	SANDBOX_TAG=$${SANDBOX_TAG:-latest}; \
+	docker build -t lazy-tmux:$$SANDBOX_TAG -f docker/sandbox.Dockerfile ./docker; \
+	docker tag lazy-tmux:$$SANDBOX_TAG alchemmist/lazy-tmux:$$SANDBOX_TAG; \
+	docker push alchemmist/lazy-tmux:$$SANDBOX_TAG
+
+sandbox:
+	docker build -t lazy-tmux:local -f docker/sandbox.Dockerfile ./docker
+	docker run -it --rm lazy-tmux:local
 
 clean:
 	rm -rf bin dist coverage.out
