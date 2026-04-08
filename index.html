@@ -277,9 +277,11 @@
         .container {
           padding-top: 28px;
         }
-        .hero,
-        .section {
+        .hero {
           padding: 14px;
+        }
+        .section {
+          padding: 0;
         }
         details.section > summary {
           padding: 14px;
@@ -831,5 +833,17 @@ lazy-tmux daemon --interval 5m --scrollback --scrollback-lines 5000</code></pre>
         <p class="muted">© 2026 lazy-tmux</p>
       </footer>
     </main>
+    <script>
+      function handleHashChange() {
+        var hash = window.location.hash;
+        if (!hash) return;
+        var el = document.querySelector(hash);
+        if (el && el.tagName === "DETAILS") {
+          el.open = true;
+        }
+      }
+      window.addEventListener("hashchange", handleHashChange);
+      window.addEventListener("DOMContentLoaded", handleHashChange);
+    </script>
   </body>
 </html>
