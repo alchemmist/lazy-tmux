@@ -1,7 +1,7 @@
 #!/bin/sh
 cat <<'BANNER'
 
- 🌙 Welcome to  lazy-tmux!
+ 🌙  Welcome to lazy-tmux!
 
  Fast tmux session snapshots with lazy restore
 
