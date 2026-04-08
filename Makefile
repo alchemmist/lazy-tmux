@@ -96,6 +96,11 @@ setup-env:
 	go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
 	go install github.com/vladopajic/go-test-coverage/v2@v2.18.4
 
+docker-hub:
+	docker build -t lazy-tmux:latest -f docker/sandbox.Dockerfile ./docker
+	docker tag lazy-tmux:latest alchemmist/lazy-tmux:latest
+	docker push alchemmist/lazy-tmux:latest
+
 sandbox:
 	docker build -t lazy-tmux:local -f docker/sandbox.Dockerfile ./docker
 	docker run -it --rm lazy-tmux:local
