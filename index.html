@@ -175,11 +175,44 @@
         color: var(--text);
         border-color: var(--line);
       }
-      .section {
+      details.section {
         margin-top: 16px;
         border: 1px solid var(--line);
         background: var(--panel);
+      }
+      details.section > summary {
+        cursor: pointer;
+        list-style: none;
         padding: 18px;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      details.section > summary::-webkit-details-marker {
+        display: none;
+      }
+      details.section > summary::before {
+        content: "▸";
+        display: inline-block;
+        transition: transform 0.15s ease;
+        font-size: 18px;
+        color: var(--muted);
+      }
+      details.section[open] > summary::before {
+        content: "▾";
+      }
+      details.section > summary:hover {
+        background: rgba(255, 255, 255, 0.02);
+      }
+      details.section > summary h2 {
+        margin: 0;
+        font-size: 26px;
+        letter-spacing: 0.4px;
+        font-family: "Pixelify Sans", monospace;
+      }
+      details.section > .detail-body {
+        padding: 0 18px 18px;
       }
       h2 {
         margin: 0 0 12px;
@@ -244,9 +277,20 @@
         .container {
           padding-top: 28px;
         }
-        .hero,
-        .section {
+        .hero {
           padding: 14px;
+        }
+        .section {
+          padding: 0;
+        }
+        details.section > summary {
+          padding: 14px;
+        }
+        details.section > summary h2 {
+          font-size: 22px;
+        }
+        details.section > .detail-body {
+          padding: 0 14px 14px;
         }
       }
       table td,
@@ -304,10 +348,17 @@
           <a class="btn alt" href="#install">Install</a>
           <a class="btn alt" href="#cli">Docs</a>
         </div>
+        <p style="margin-top: 16px; font-size: 15px; color: var(--muted)">
+          Try lazy-tmux right now:
+          <code
+            >docker run -it --rm alchemmist/lazy-tmux:latest</code
+          >
+        </p>
       </section>
 
-      <section class="section" id="features">
-        <h2>Features</h2>
+      <details class="section" id="features">
+        <summary><h2>Features</h2></summary>
+        <div class="detail-body">
         <ul>
           <li>
             Save current session, or a specific session, or all sessions to disk
@@ -318,7 +369,7 @@
           <li>
             <strong>Lazy restore</strong> only the session you pick with
             <code>restore</code> command or interactively with
-            <code>picker</code>. You don’t need to spend RAM for all sessions at
+            <code>picker</code>. You don't need to spend RAM for all sessions at
             startup – unlike tmux-resurrect which restores everything at once.
           </li>
           <li>
@@ -363,10 +414,12 @@
             previous output, preserving context for restored sessions.
           </li>
         </ul>
-      </section>
+        </div>
+      </details>
 
-      <section class="section">
-        <h2>Demo Preview</h2>
+      <details class="section">
+        <summary><h2>Demo Preview</h2></summary>
+        <div class="detail-body">
         <video controls autoplay muted loop preload="metadata" width="100%">
           <source src="/assets/demo.mp4" type="video/mp4" />
           Your browser does not support the video tag.
@@ -378,10 +431,12 @@
           TUI picker shows whether each session is restored, while still letting
           you attach as if it were already loaded.
         </p>
-      </section>
+        </div>
+      </details>
 
-      <section class="section">
-        <h2>Why?</h2>
+      <details class="section">
+        <summary><h2>Why?</h2></summary>
+        <div class="detail-body">
         <p>
           Most tmux session tools either restore everything at once or stay
           shallow. lazy-tmux is built for real workflows: it restores only what
@@ -411,10 +466,12 @@
           The result is a lightweight, tmux-native workflow that feels instant
           and predictable even across reboots. No bugs, no surprises.
         </p>
-      </section>
+        </div>
+      </details>
 
-      <section class="section" id="install">
-        <h2>Installation</h2>
+      <details class="section" id="install">
+        <summary><h2>Installation</h2></summary>
+        <div class="detail-body">
         <p>Install with builtin powerful TUI picker:</p>
         <pre><code>curl -fsSL https://lazy-tmux.xyz/install.sh | sh</code></pre>
         <p>
@@ -426,10 +483,12 @@
         <pre><code>yay -S lazy-tmux</code></pre>
         <p>MacOS (Homebrew):</p>
         <pre><code>brew install alchemmist/tap/lazy-tmux</code></pre>
-      </section>
+        </div>
+      </details>
 
-      <section class="section">
-        <h2>Quick tmux setup</h2>
+      <details class="section">
+        <summary><h2>Quick tmux setup</h2></summary>
+        <div class="detail-body">
         <p>Keep your tmux config clean with an include file:</p>
         <pre><code>lazy-tmux setup >> ~/.tmux.conf</code></pre>
         <p>
@@ -458,11 +517,13 @@
         <pre><code>run-shell -b 'lazy-tmux daemon --interval 3m --scrollback --scrollback-lines 8000 > /tmp/lazy-tmux.log 2>&1 || tmux display-message "lazy-tmux daemon already running"'</code></pre>
         <p>Or remap saving shortcut:</p>
         <pre><code>bind-key C-S run-shell 'lazy-tmux save --all --scrollback && tmux display-message "All sessions saved successfully!"'</code></pre>
-      </section>
+        </div>
+      </details>
 
-      <!-- CLI (без изменений) -->
-      <section class="section">
-        <h2 id="cli">CLI</h2>
+      <!-- CLI -->
+      <details class="section" id="cli">
+        <summary><h2>CLI</h2></summary>
+        <div class="detail-body">
         <table class="cli-table" style="width: 100%; border-collapse: collapse">
           <thead>
             <tr>
@@ -630,11 +691,13 @@ lazy-tmux daemon --interval 5m --scrollback --scrollback-lines 5000</code></pre>
           <li>env: <code>LAZY_TMUX_DATA_DIR</code></li>
           <li>flag: <code>--data-dir</code></li>
         </ul>
-      </section>
+        </div>
+      </details>
 
-      <!-- TUI picker (без изменений) -->
-      <section class="section">
-        <h2>TUI picker</h2>
+      <!-- TUI picker -->
+      <details class="section">
+        <summary><h2>TUI picker</h2></summary>
+        <div class="detail-body">
         <video controls autoplay muted loop preload="metadata" width="100%">
           <source src="/assets/demo-tui.mp4" type="video/mp4" />
           Your browser does not support the video tag.
@@ -726,19 +789,21 @@ lazy-tmux daemon --interval 5m --scrollback --scrollback-lines 5000</code></pre>
             </tr>
           </tbody>
         </table>
-      </section>
+        </div>
+      </details>
 
-      <section class="section">
-        <h2>Philosophy</h2>
+      <details class="section">
+        <summary><h2>Philosophy</h2></summary>
+        <div class="detail-body">
         <p>
           lazy-tmux is built around a simple but powerful idea: save resources
           and free the user from unnecessary overhead. Each session is restored
-          only when it’s actually needed, and all processes start seamlessly,
+          only when it's actually needed, and all processes start seamlessly,
           without pauses or conflicts.
         </p>
         <p>
           Everything is written in Go for lightning-fast execution. This is not
-          a wrapper or a “combo” over tmux — it’s a tool that fits perfectly
+          a wrapper or a "combo" over tmux — it's a tool that fits perfectly
           into its ecosystem. No extra configuration, no duplicated
           responsibilities, no system bloat. Just a fast, reliable, and
           predictable way to manage sessions.
@@ -749,7 +814,8 @@ lazy-tmux daemon --interval 5m --scrollback --scrollback-lines 5000</code></pre>
           background, preserving context and performance without getting in the
           way.
         </p>
-      </section>
+        </div>
+      </details>
 
       <footer>
         <p class="muted">
@@ -767,5 +833,17 @@ lazy-tmux daemon --interval 5m --scrollback --scrollback-lines 5000</code></pre>
         <p class="muted">© 2026 lazy-tmux</p>
       </footer>
     </main>
+    <script>
+      function handleHashChange() {
+        var hash = window.location.hash;
+        if (!hash) return;
+        var el = document.querySelector(hash);
+        if (el && el.tagName === "DETAILS") {
+          el.open = true;
+        }
+      }
+      window.addEventListener("hashchange", handleHashChange);
+      window.addEventListener("DOMContentLoaded", handleHashChange);
+    </script>
   </body>
 </html>
