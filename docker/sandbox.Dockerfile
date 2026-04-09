@@ -47,7 +47,7 @@ RUN chmod +x /root/.tmux/welcome.sh
 
 RUN curl -fsSL https://lazy-tmux.xyz/install.sh | sh
 
-COPY scripts/test-versions-inner.sh /test-versions-inner.sh
+COPY test-versions-inner.sh /test-versions-inner.sh
 RUN chmod +x /test-versions-inner.sh
 
 ENV TERM=xterm-256color

@@ -3,7 +3,7 @@
 IMAGE="lazy-tmux:version-test"
 
 printf "\nBuilding test image (once)...\n"
-docker build -q -t "$IMAGE" -f docker/sandbox.Dockerfile . >/dev/null 2>&1
+docker build -t "$IMAGE" -f docker/sandbox.Dockerfile . >/dev/null
 
 printf "Fetching tmux releases from GitHub...\n"
 versions=$(curl -sf "https://api.github.com/repos/tmux/tmux/releases?per_page=100" \
