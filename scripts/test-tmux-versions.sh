@@ -16,7 +16,6 @@ if [ -z "$versions" ]; then
     exit 1
 fi
 
-# Фильтруем версии >= 2.9 и собираем в одну строку (пробел как разделитель)
 filtered=""
 for v in $versions; do
     major=$(echo "$v" | cut -d. -f1)
@@ -29,8 +28,6 @@ done
 
 printf "\ntmux version support:\n\n"
 
-# Запускаем один контейнер, передаём версии как аргументы
-# shellcheck disable=SC2086  # intentional word-splitting: each version is a separate arg
 docker run --rm --entrypoint "" "$IMAGE" /bin/sh /test-versions-inner.sh $filtered
 
 printf "\n"
