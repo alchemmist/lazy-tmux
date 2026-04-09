@@ -1,0 +1,113 @@
+name: tmux version test
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  tmux-versions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Test PR branch
+        run: |
+          chmod +x scripts/test-tmux-versions.sh
+          ./scripts/test-tmux-versions.sh > pr_results.txt 2>&1 || true
+
+      - name: Test main branch
+        run: |
+          BASE_REF="${{ github.event.pull_request.base.ref }}"
+          # Сохраняем результаты PR (untracked файлы не затрутся)
+          git stash --include-untracked
+          git fetch origin "$BASE_REF"
+          git checkout FETCH_HEAD -- .
+          git stash pop --quiet 2>/dev/null || true
+
+          if [ -f scripts/test-tmux-versions.sh ]; then
+            chmod +x scripts/test-tmux-versions.sh
+            ./scripts/test-tmux-versions.sh > main_results.txt 2>&1 || true
+          else
+            echo "Script not found on main branch." > main_results.txt
+          fi
+
+      - name: Compare and prepare comment
+        run: |
+          PR_SUPPORTED=$(grep '✓' pr_results.txt | awk '{print $2}' | sort || true)
+          MAIN_SUPPORTED=$(grep '✓' main_results.txt | awk '{print $2}' | sort || true)
+
+          NEW_IN_PR=$(comm -23 <(echo "$PR_SUPPORTED") <(echo "$MAIN_SUPPORTED") || true)
+          MISSING_IN_PR=$(comm -13 <(echo "$PR_SUPPORTED") <(echo "$MAIN_SUPPORTED") || true)
+
+          {
+            echo "### tmux version support test"
+            echo ""
+
+            if [ -n "$NEW_IN_PR" ]; then
+              echo "**⚠️ New versions supported in this PR:**"
+              echo ""
+              while IFS= read -r v; do
+                [ -n "$v" ] && echo "- \`$v\`"
+              done <<< "$NEW_IN_PR"
+              echo ""
+            fi
+
+            if [ -n "$MISSING_IN_PR" ]; then
+              echo "**⚠️ Versions no longer supported:**"
+              echo ""
+              while IFS= read -r v; do
+                [ -n "$v" ] && echo "- \`$v\`"
+              done <<< "$MISSING_IN_PR"
+              echo ""
+            fi
+
+            echo "<details>"
+            echo "<summary>Full test output</summary>"
+            echo ""
+            echo '```'
+            cat pr_results.txt
+            echo '```'
+            echo "</details>"
+          } > comment_body.txt
+
+      - name: Post or update comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          MARKER="<!-- tmux-versions-marker -->"
+          BODY="${MARKER}
+
+          $(cat comment_body.txt)"
+
+          # Ищем существующий комментарий
+          EXISTING_ID=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+            | jq -r '.[] | select(.body | contains("'"$MARKER"'")) | .id' \
+            | head -1)
+
+          # Пишем в JSON через jq — безопасно
+          PAYLOAD=$(jq -n --arg body "$BODY" '{body: $body}')
+          TMPFILE=$(mktemp)
+          printf '%s' "$PAYLOAD" > "$TMPFILE"
+
+          if [ -n "$EXISTING_ID" ] && [ "$EXISTING_ID" != "null" ]; then
+            gh api -X PATCH "repos/${REPO}/issues/comments/${EXISTING_ID}" --input "$TMPFILE"
+          else
+            gh api -X POST "repos/${REPO}/issues/${PR_NUMBER}/comments" --input "$TMPFILE"
+          fi
+
+          rm -f "$TMPFILE"
