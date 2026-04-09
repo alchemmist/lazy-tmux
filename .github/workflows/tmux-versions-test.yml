@@ -29,11 +29,19 @@ jobs:
 
       - name: Checkout main branch
         run: |
-          git fetch origin ${{ github.event.pull_request.base.ref }}
-          git checkout ${{ github.event.pull_request.base.ref }} -- scripts/test-tmux-versions.sh docker/test-versions-inner.sh
+          BASE_REF="${{ github.event.pull_request.base.ref }}"
+          git fetch origin "$BASE_REF"
+          # Используем FETCH_HEAD, т.к. локальная ветка может не существовать.
+          # -- . восстанавливает файлы из main, но оставляет untracked файлы (pr_results.txt)
+          git checkout FETCH_HEAD -- .
 
       - name: Test main branch
         run: |
+          # Если скрипта нет в main (он новый в PR), пропускаем
+          if [ ! -f scripts/test-tmux-versions.sh ]; then
+             echo "Test script not found on main branch." > main_results.txt
+             exit 0
+          fi
           chmod +x scripts/test-tmux-versions.sh
           ./scripts/test-tmux-versions.sh > main_results.txt 2>&1 || true
 
