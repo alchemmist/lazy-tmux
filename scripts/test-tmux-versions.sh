@@ -11,6 +11,11 @@ versions=$(curl -sf "https://api.github.com/repos/tmux/tmux/releases?per_page=10
     | sed 's/"tag_name": *"//;s/"//g' \
     | sort -V)
 
+if [ -z "$versions" ]; then
+    printf "ERROR: failed to fetch tmux releases from GitHub API (rate limit or network error)\n" >&2
+    exit 1
+fi
+
 # Фильтруем версии >= 2.9 и собираем в одну строку (пробел как разделитель)
 filtered=""
 for v in $versions; do
@@ -25,6 +30,7 @@ done
 printf "\ntmux version support:\n\n"
 
 # Запускаем один контейнер, передаём версии как аргументы
+# shellcheck disable=SC2086  # intentional word-splitting: each version is a separate arg
 docker run --rm --entrypoint "" "$IMAGE" /bin/sh /test-versions-inner.sh $filtered
 
 printf "\n"
