@@ -16,39 +16,39 @@ for version in "$@"; do
     sleep 1
 
     # Скачиваем
-    cd /tmp
+    cd /tmp || { printf "  tmux %-7s  ✗ (cd /tmp failed)\n" "$version"; continue; }
     if ! curl -fsSL "$url" -o tmux.tar.gz 2>/dev/null; then
         printf "  tmux %-7s  ✗\n" "$version"
-        cd /
+        cd / || true
         continue
     fi
 
     if ! tar -xzf tmux.tar.gz 2>/dev/null; then
         printf "  tmux %-7s  ✗\n" "$version"
-        cd /
+        cd / || true
         continue
     fi
 
-    cd tmux-${version}
+    cd "tmux-${version}" || { printf "  tmux %-7s  ✗ (cd tmux-%s failed)\n" "$version" "$version"; continue; }
     if ! ./configure >/dev/null 2>&1; then
         printf "  tmux %-7s  ✗\n" "$version"
-        cd /
+        cd / || true
         continue
     fi
 
     if ! make -j$(nproc) >/dev/null 2>&1; then
         printf "  tmux %-7s  ✗\n" "$version"
-        cd /
+        cd / || true
         continue
     fi
 
     if ! make install >/dev/null 2>&1; then
         printf "  tmux %-7s  ✗\n" "$version"
-        cd /
+        cd / || true
         continue
     fi
 
-    cd /
+    cd / || true
 
     # Проверяем что версия совпадает
     actual_version=$(tmux -V 2>&1 | grep -o '[0-9][0-9.]*[a-z]*' | head -1)
