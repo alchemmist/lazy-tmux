@@ -31,15 +31,18 @@ jobs:
       - name: Test main branch
         run: |
           BASE_REF="${{ github.event.pull_request.base.ref }}"
-          # Сохраняем результаты PR (untracked файлы не затрутся)
-          git stash --include-untracked
           git fetch origin "$BASE_REF"
-          git checkout FETCH_HEAD -- .
-          git stash pop --quiet 2>/dev/null || true
 
-          if [ -f scripts/test-tmux-versions.sh ]; then
-            chmod +x scripts/test-tmux-versions.sh
-            ./scripts/test-tmux-versions.sh > main_results.txt 2>&1 || true
+          # Создаём временную директорию с кодом из main
+          TMPDIR=$(mktemp -d)
+          git archive FETCH_HEAD | tar -x -C "$TMPDIR"
+
+          # Если в main есть скрипт тестирования, запускаем его
+          if [ -f "$TMPDIR/scripts/test-tmux-versions.sh" ]; then
+            chmod +x "$TMPDIR/scripts/test-tmux-versions.sh"
+            cd "$TMPDIR"
+            ./scripts/test-tmux-versions.sh > "$OLDPWD/main_results.txt" 2>&1 || true
+            cd "$OLDPWD"
           else
             echo "Script not found on main branch." > main_results.txt
           fi
