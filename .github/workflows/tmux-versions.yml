@@ -97,9 +97,9 @@ jobs:
 
           $(cat comment_body.txt)"
 
-          # Ищем существующий комментарий
-          EXISTING_ID=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" \
-            | jq -r '.[] | select(.body | contains("'"$MARKER"'")) | .id' \
+          # Ищем существующий комментарий (с пагинацией и фильтром по автору)
+          EXISTING_ID=$(gh api --paginate "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+            | jq -r '.[] | select(.author.login == "github-actions[bot]" and (.body | contains("'"$MARKER"'"))) | .id' \
             | head -1)
 
           # Пишем в JSON через jq — безопасно
