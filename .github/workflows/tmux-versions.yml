@@ -93,19 +93,16 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           MARKER="<!-- tmux-versions-marker -->"
-          BODY="${MARKER}
+          TMPFILE=$(mktemp)
 
-          $(cat comment_body.txt)"
+          # Читаем файл напрямую через jq --rawfile, чтобы избежать лимита ARG_MAX
+          jq -n --arg marker "$MARKER" --rawfile body comment_body.txt \
+            '{body: ($marker + "\n\n" + $body)}' > "$TMPFILE"
 
-          # Ищем существующий комментарий (с пагинацией и фильтром по автору)
+          # Ищем существующий комментарий
           EXISTING_ID=$(gh api --paginate "repos/${REPO}/issues/${PR_NUMBER}/comments" \
             | jq -r '.[] | select(.author.login == "github-actions[bot]" and (.body | contains("'"$MARKER"'"))) | .id' \
             | head -1)
-
-          # Пишем в JSON через jq — безопасно
-          PAYLOAD=$(jq -n --arg body "$BODY" '{body: $body}')
-          TMPFILE=$(mktemp)
-          printf '%s' "$PAYLOAD" > "$TMPFILE"
 
           if [ -n "$EXISTING_ID" ] && [ "$EXISTING_ID" != "null" ]; then
             gh api -X PATCH "repos/${REPO}/issues/comments/${EXISTING_ID}" --input "$TMPFILE"
