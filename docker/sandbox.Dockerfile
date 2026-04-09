@@ -30,7 +30,7 @@ RUN cp /root/.oh-my-zsh/templates/zshrc.zsh-template /root/.zshrc
 
 ENV SHELL=/usr/bin/zsh
 
-COPY install-tmux.sh .
+COPY docker/install-tmux.sh .
 
 RUN TMUX_VERSION=3.6a ./install-tmux.sh
 
@@ -38,16 +38,16 @@ WORKDIR /root
 
 RUN git clone https://github.com/nordtheme/tmux.git /root/.tmux/themes/nord-tmux
 
-COPY tmux.conf.example /root/.tmux.conf
+COPY docker/tmux.conf.example /root/.tmux.conf
 
 RUN echo "source /root/.tmux/welcome.sh" >> /root/.zshrc
 
-COPY welcome.sh /root/.tmux/welcome.sh
+COPY docker/welcome.sh /root/.tmux/welcome.sh
 RUN chmod +x /root/.tmux/welcome.sh
 
 RUN curl -fsSL https://lazy-tmux.xyz/install.sh | sh
 
-COPY test-versions-inner.sh /test-versions-inner.sh
+COPY docker/test-versions-inner.sh /test-versions-inner.sh
 RUN chmod +x /test-versions-inner.sh
 
 ENV TERM=xterm-256color
