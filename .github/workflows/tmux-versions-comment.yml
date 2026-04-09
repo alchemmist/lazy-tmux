@@ -13,98 +13,46 @@ permissions:
 jobs:
   post-comment:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    timeout-minutes: 10
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.pull_requests[0] != null }}
+    timeout-minutes: 5
 
     steps:
-      - name: Download PR results
+      - name: Download comment body
         uses: actions/download-artifact@v4
         with:
-          name: tmux-version-results
+          name: tmux-comment-body
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
-
-      - name: Checkout main branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_branch }}
-
-      - name: Test main branch
-        run: |
-          chmod +x scripts/test-tmux-versions.sh
-          ./scripts/test-tmux-versions.sh > main_results.txt 2>&1 || true
-
-      - name: Compare and format results
-        id: compare
-        run: |
-          PR_SUPPORTED=$(grep '✓' results.txt | awk '{print $2}' | sort || true)
-          MAIN_SUPPORTED=$(grep '✓' main_results.txt | awk '{print $2}' | sort || true)
-
-          HAS_DIFF=""
-          MSG=""
-
-          NEW_IN_PR=$(comm -23 <(echo "$PR_SUPPORTED") <(echo "$MAIN_SUPPORTED") || true)
-          MISSING_IN_PR=$(comm -13 <(echo "$PR_SUPPORTED") <(echo "$MAIN_SUPPORTED") || true)
-
-          if [ -n "$NEW_IN_PR" ] || [ -n "$MISSING_IN_PR" ]; then
-            HAS_DIFF="yes"
-            if [ -n "$NEW_IN_PR" ]; then
-              MSG="${MSG}**⚠️ New versions supported in this PR:**\n"
-              while IFS= read -r v; do
-                [ -n "$v" ] && MSG="${MSG}- \`$v\`\n"
-              done <<< "$NEW_IN_PR"
-              MSG="${MSG}\n"
-            fi
-            if [ -n "$MISSING_IN_PR" ]; then
-              MSG="${MSG}**⚠️ Versions no longer supported:**\n"
-              while IFS= read -r v; do
-                [ -n "$v" ] && MSG="${MSG}- \`$v\`\n"
-              done <<< "$MISSING_IN_PR"
-              MSG="${MSG}\n"
-            fi
-          fi
-
-          echo "has_diff=${HAS_DIFF}" >> "$GITHUB_OUTPUT"
-          echo "MSG<<ENDOFMSG" >> "$GITHUB_ENV"
-          printf "%b" "$MSG" >> "$GITHUB_ENV"
-          echo "ENDOFMSG" >> "$GITHUB_ENV"
-
-          echo "PR_RESULTS<<ENDOFRESULTS" >> "$GITHUB_ENV"
-          cat results.txt >> "$GITHUB_ENV"
-          echo "ENDOFRESULTS" >> "$GITHUB_ENV"
 
       - name: Post or update comment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
           REPO: ${{ github.event.workflow_run.head_repository.full_name }}
-          MSG: ${{ env.MSG }}
-          PR_RESULTS: ${{ env.PR_RESULTS }}
         run: |
-          # Формируем тело комментария
-          BODY="### tmux version support test
-          ${MSG}
-          <details>
-          <summary>Full test output</summary>
+          # Декодируем base64 — безопасно, нет shell injection
+          BODY=$(base64 -d comment_body.txt.b64)
+          MARKER="<!-- tmux-versions-marker -->"
+          FULL_BODY=$(printf '%s\n\n%s' "$MARKER" "$BODY")
 
-          \`\`\`
-          ${PR_RESULTS}
-          \`\`\`
-          </details>"
+          # Кодируем тело в JSON через jq — безопасно, нет injection
+          PAYLOAD=$(jq -n --arg body "$FULL_BODY" '{body: $body}')
+          TMPFILE=$(mktemp)
+          printf '%s' "$PAYLOAD" > "$TMPFILE"
 
           # Ищем существующий комментарий по маркеру
           EXISTING_ID=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" \
-            | jq -r '.[] | select(.body | contains("<!-- tmux-versions-marker -->")) | .id' \
+            | jq -r '.[] | select(.body | contains("'"$MARKER"'")) | .id' \
             | head -1)
 
           if [ -n "$EXISTING_ID" ] && [ "$EXISTING_ID" != "null" ]; then
-            # Обновляем существующий комментарий
             gh api -X PATCH "repos/${REPO}/issues/comments/${EXISTING_ID}" \
-              -f body="<!-- tmux-versions-marker -->
-              ${BODY}"
+              --input "$TMPFILE"
           else
-            # Создаём новый комментарий
             gh api -X POST "repos/${REPO}/issues/${PR_NUMBER}/comments" \
-              -f body="<!-- tmux-versions-marker -->
-              ${BODY}"
+              --input "$TMPFILE"
           fi
+
+          rm -f "$TMPFILE"

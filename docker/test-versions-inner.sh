@@ -36,7 +36,7 @@ for version in "$@"; do
         continue
     fi
 
-    if ! make -j$(nproc) >/dev/null 2>&1; then
+    if ! make -j"$(nproc)" >/dev/null 2>&1; then
         printf "  tmux %-7s  ✗\n" "$version"
         cd / || true
         continue

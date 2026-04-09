@@ -20,15 +20,68 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
 
-      - name: Test versions
+      - name: Test PR branch
         run: |
           chmod +x scripts/test-tmux-versions.sh
-          ./scripts/test-tmux-versions.sh > results.txt 2>&1 || true
-          cat results.txt
+          ./scripts/test-tmux-versions.sh > pr_results.txt 2>&1 || true
 
-      - name: Upload results
+      - name: Checkout main branch
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git checkout ${{ github.event.pull_request.base.ref }} -- scripts/test-tmux-versions.sh docker/test-versions-inner.sh
+
+      - name: Test main branch
+        run: |
+          chmod +x scripts/test-tmux-versions.sh
+          ./scripts/test-tmux-versions.sh > main_results.txt 2>&1 || true
+
+      - name: Compare and prepare comment
+        run: |
+          PR_SUPPORTED=$(grep '✓' pr_results.txt | awk '{print $2}' | sort)
+          MAIN_SUPPORTED=$(grep '✓' main_results.txt | awk '{print $2}' | sort)
+
+          NEW_IN_PR=$(comm -23 <(echo "$PR_SUPPORTED") <(echo "$MAIN_SUPPORTED"))
+          MISSING_IN_PR=$(comm -13 <(echo "$PR_SUPPORTED") <(echo "$MAIN_SUPPORTED"))
+
+          {
+            echo "### tmux version support test"
+            echo ""
+
+            if [ -n "$NEW_IN_PR" ]; then
+              echo "**⚠️ New versions supported in this PR:**"
+              echo ""
+              echo "$NEW_IN_PR" | while IFS= read -r v; do
+                [ -n "$v" ] && echo "- \`$v\`"
+              done
+              echo ""
+            fi
+
+            if [ -n "$MISSING_IN_PR" ]; then
+              echo "**⚠️ Versions no longer supported:**"
+              echo ""
+              echo "$MISSING_IN_PR" | while IFS= read -r v; do
+                [ -n "$v" ] && echo "- \`$v\`"
+              done
+              echo ""
+            fi
+
+            echo "<details>"
+            echo "<summary>Full test output</summary>"
+            echo ""
+            echo '```'
+            cat pr_results.txt
+            echo '```'
+            echo "</details>"
+          } > comment_body.txt
+
+          # Кодируем в base64 для безопасной передачи в comment workflow
+          base64 comment_body.txt > comment_body.txt.b64
+
+      - name: Upload comment
         uses: actions/upload-artifact@v4
         with:
-          name: tmux-version-results
-          path: results.txt
+          name: tmux-comment-body
+          path: comment_body.txt.b64
+          retention-days: 1
