@@ -7,7 +7,7 @@ MAKEFLAGS += --no-builtin-rules
 
 BINARY := lazy-tmux
 
-.PHONY: help check build build-fzf build-all test test-race test-cov test-integration fmt fmt-check vet staticcheck golangci-lint lint tidy install clean dist dist-tui dist-fzf tag sandbox docker-hub
+.PHONY: help check build build-fzf build-all test test-race test-cov test-integration fmt fmt-check vet staticcheck golangci-lint lint tidy install clean dist dist-tui dist-fzf tag sandbox test-sup-versions docker-hub
 
 check: build fmt-check lint test test-integration
 
@@ -105,6 +105,10 @@ docker-hub:
 sandbox:
 	docker build -t lazy-tmux:local -f docker/sandbox.Dockerfile ./docker
 	docker run -it --rm lazy-tmux:local
+
+test-sup-versions:
+	chmod +x scripts/test-tmux-versions.sh
+	./scripts/test-tmux-versions.sh
 
 clean:
 	rm -rf bin dist coverage.out

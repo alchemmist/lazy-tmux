@@ -36,3 +36,7 @@ make build
 ```
 
 Binary will compiled in `bin/lazy-tmux`. For more development options run `make help`.
+
+> [!WARNING]
+> **tmux version requirement:** lazy-tmux requires **tmux 3.6** or **tmux 3.6a**.
+> Older versions may not work correctly.
