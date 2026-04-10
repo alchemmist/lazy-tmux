@@ -98,12 +98,12 @@ setup-env:
 
 docker-hub:
 	SANDBOX_TAG=$${SANDBOX_TAG:-latest}; \
-	docker build -t lazy-tmux:$$SANDBOX_TAG -f docker/sandbox.Dockerfile ./docker; \
+	docker build -t lazy-tmux:$$SANDBOX_TAG -f docker/sandbox.Dockerfile .; \
 	docker tag lazy-tmux:$$SANDBOX_TAG alchemmist/lazy-tmux:$$SANDBOX_TAG; \
 	docker push alchemmist/lazy-tmux:$$SANDBOX_TAG
 
 sandbox:
-	docker build -t lazy-tmux:local -f docker/sandbox.Dockerfile ./docker
+	docker build -t lazy-tmux:local -f docker/sandbox.Dockerfile .
 	docker run -it --rm lazy-tmux:local
 
 test-sup-versions:
