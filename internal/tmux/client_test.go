@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
 
 // fakeRunner records all tmux commands and returns configurable responses.
@@ -52,6 +53,8 @@ func (f *fakeRunner) setResponse(prefix, stdout, errMsg string) {
 }
 
 func TestRestoreSessionCommandSequence(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	runner := newFakeRunner()
 
 	// Session does not exist
@@ -157,6 +160,8 @@ func TestRestoreSessionCommandSequence(t *testing.T) {
 }
 
 func TestListSessionsWithFakeRunner(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	runner := newFakeRunner()
 	runner.setResponse("tmux list-sessions", "dev\nprod\nstaging\n", "")
 
@@ -180,6 +185,8 @@ func TestListSessionsWithFakeRunner(t *testing.T) {
 }
 
 func TestNewWindowWithFakeRunner(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	runner := newFakeRunner()
 	runner.setResponse("tmux new-window", "", "")
 
@@ -208,6 +215,7 @@ func TestNewWindowWithFakeRunner(t *testing.T) {
 }
 
 func TestSwitchClientWithFakeRunner(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
 	t.Setenv("TMUX", "/tmp/tmux-1000/default")
 
 	runner := newFakeRunner()
@@ -235,6 +243,8 @@ func TestSwitchClientWithFakeRunner(t *testing.T) {
 }
 
 func TestKillSessionWithFakeRunner(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	runner := newFakeRunner()
 	runner.setResponse("tmux kill-session", "", "")
 
@@ -260,6 +270,8 @@ func TestKillSessionWithFakeRunner(t *testing.T) {
 }
 
 func TestKillWindowWithFakeRunner(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	runner := newFakeRunner()
 	runner.setResponse("tmux kill-window", "", "")
 
@@ -285,6 +297,8 @@ func TestKillWindowWithFakeRunner(t *testing.T) {
 }
 
 func TestRenameSessionWithFakeRunner(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	runner := newFakeRunner()
 	runner.setResponse("tmux rename-session", "", "")
 
@@ -310,6 +324,8 @@ func TestRenameSessionWithFakeRunner(t *testing.T) {
 }
 
 func TestRenameWindowWithFakeRunner(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	runner := newFakeRunner()
 	runner.setResponse("tmux rename-window", "", "")
 
@@ -335,6 +351,8 @@ func TestRenameWindowWithFakeRunner(t *testing.T) {
 }
 
 func TestSessionExistsWithFakeRunner(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	runner := newFakeRunner()
 	runner.setResponse("tmux has-session", "", "")
 
@@ -360,6 +378,8 @@ func TestSessionExistsWithFakeRunner(t *testing.T) {
 }
 
 func TestCurrentSessionWithFakeRunner(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	runner := newFakeRunner()
 	runner.setResponse("tmux display-message", "my-session\n", "")
 
@@ -376,6 +396,8 @@ func TestCurrentSessionWithFakeRunner(t *testing.T) {
 }
 
 func TestCapturePaneScrollbackWithFakeRunner(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	runner := newFakeRunner()
 	runner.setResponse("tmux capture-pane", "line1\nline2\n", "")
 
@@ -392,6 +414,8 @@ func TestCapturePaneScrollbackWithFakeRunner(t *testing.T) {
 }
 
 func TestSocketPathWithFakeRunner(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	runner := newFakeRunner()
 	runner.setResponse("tmux display-message", "/tmp/tmux-1000/default\n", "")
 
@@ -404,6 +428,8 @@ func TestSocketPathWithFakeRunner(t *testing.T) {
 }
 
 func TestSocketPathFallback(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	runner := newFakeRunner()
 	runner.setResponse("tmux display-message", "", "display-message: not found")
 

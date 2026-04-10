@@ -7,6 +7,7 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/config"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 	"github.com/alchemmist/lazy-tmux/internal/store"
+	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
 
 func newTestStore(dir string) *store.Store {
@@ -82,6 +83,8 @@ func TestIsShellCommandName(t *testing.T) {
 }
 
 func TestDeleteWindowFromStore(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	dir := t.TempDir()
 	testStore := newTestStore(dir)
 
@@ -116,6 +119,8 @@ func TestDeleteWindowFromStore(t *testing.T) {
 }
 
 func TestDeleteWindowDeletesAllWindows(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	dir := t.TempDir()
 	testStore := newTestStore(dir)
 
@@ -147,6 +152,8 @@ func TestDeleteWindowDeletesAllWindows(t *testing.T) {
 }
 
 func TestDeleteWindowNotFound(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	dir := t.TempDir()
 	testStore := newTestStore(dir)
 
@@ -183,6 +190,8 @@ func TestDeleteWindowNotFoundInSnapshot(t *testing.T) {
 }
 
 func TestDeleteSession(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	dir := t.TempDir()
 	testStore := newTestStore(dir)
 

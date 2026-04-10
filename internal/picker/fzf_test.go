@@ -1,5 +1,3 @@
-//go:build integration && !lazy_fzf
-
 package picker
 
 import (
@@ -8,9 +6,13 @@ import (
 	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
 
 func TestChooseSessionFZF(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+	testutil.RequireFZF(t)
+
 	tests := []struct {
 		name    string
 		records []snapshot.Record

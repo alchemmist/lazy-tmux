@@ -1,5 +1,3 @@
-//go:build integration && !lazy_fzf
-
 package picker
 
 import (
@@ -10,9 +8,12 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
 
 func TestPickerTUISelectsWindow(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	sessions := []Session{
 		{
 			Record: snapshot.Record{SessionName: "work", CapturedAt: time.Now().UTC(), Windows: 1},

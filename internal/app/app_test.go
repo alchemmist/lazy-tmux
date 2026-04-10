@@ -8,6 +8,7 @@ import (
 
 	"github.com/alchemmist/lazy-tmux/internal/config"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
 
 type fakeTmuxClient struct {
@@ -77,6 +78,8 @@ func testConfig() config.Config {
 }
 
 func TestSaveAllIteratesSessions(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	dir := t.TempDir()
 	tmuxClient := &fakeTmuxClient{
 		sessions: []string{"alpha", "beta"},
@@ -107,6 +110,8 @@ func TestSaveAllIteratesSessions(t *testing.T) {
 }
 
 func TestSaveAllPropagatesListError(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	dir := t.TempDir()
 	tmuxClient := &fakeTmuxClient{
 		listSessionsErr: fmt.Errorf("no server"),
@@ -540,6 +545,8 @@ func TestRunDaemonSaveAllUsesSaveAllFn(t *testing.T) {
 }
 
 func TestRunDaemonSaveAllFallsBackToSaveAll(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	dir := t.TempDir()
 	tmuxClient := &fakeTmuxClient{
 		sessions: []string{"sess1"},

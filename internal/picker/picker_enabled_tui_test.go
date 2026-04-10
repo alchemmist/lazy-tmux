@@ -1,5 +1,3 @@
-//go:build !lazy_fzf
-
 package picker
 
 import "testing"

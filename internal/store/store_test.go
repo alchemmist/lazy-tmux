@@ -10,9 +10,12 @@ import (
 	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
 
 func TestSaveAndLoadSession(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	dir := t.TempDir()
 	store := New(dir)
 
@@ -61,6 +64,8 @@ func TestSanitizeName(t *testing.T) {
 }
 
 func TestSessionPath(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	s := New("/tmp/lazy")
 	path := s.sessionPath("a b")
 	want := filepath.Join("/tmp/lazy", sessionsDirName, "a_b.json")
@@ -71,6 +76,8 @@ func TestSessionPath(t *testing.T) {
 }
 
 func TestSaveSessionEmptyName(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	s := New(t.TempDir())
 
 	err := s.SaveSession(snapshot.SessionSnapshot{})
@@ -80,6 +87,8 @@ func TestSaveSessionEmptyName(t *testing.T) {
 }
 
 func TestLatestRecordNoData(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	s := New(t.TempDir())
 
 	_, err := s.LatestRecord()
@@ -89,6 +98,8 @@ func TestLatestRecordNoData(t *testing.T) {
 }
 
 func TestListRecordsSortedByCapturedAtDesc(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	store := New(t.TempDir())
 	base := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
 
@@ -135,6 +146,8 @@ func TestDefaultDataDirEnvOverride(t *testing.T) {
 }
 
 func TestMarkSessionAccessed(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	store := New(t.TempDir())
 	base := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
 
@@ -170,6 +183,8 @@ func TestMarkSessionAccessed(t *testing.T) {
 }
 
 func TestSaveAndLoadSessionWithScrollbackSidecar(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	store := New(t.TempDir())
 	sessionSnapshot := snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
@@ -224,6 +239,8 @@ func TestSaveAndLoadSessionWithScrollbackSidecar(t *testing.T) {
 }
 
 func TestSaveSessionWithoutScrollbackDoesNotCreateSessionScrollbackDir(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	base := t.TempDir()
 	store := New(base)
 	sessionSnapshot := snapshot.SessionSnapshot{
@@ -254,6 +271,8 @@ func TestSaveSessionWithoutScrollbackDoesNotCreateSessionScrollbackDir(t *testin
 }
 
 func TestLoadSessionRejectsScrollbackPathTraversal(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	base := t.TempDir()
 	store := New(base)
 	sessionSnapshot := snapshot.SessionSnapshot{
@@ -302,6 +321,8 @@ func TestLoadSessionRejectsScrollbackPathTraversal(t *testing.T) {
 }
 
 func TestLoadSessionRejectsScrollbackSymlinkEscape(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	base := t.TempDir()
 	store := New(base)
 
@@ -374,6 +395,8 @@ func TestLoadSessionRejectsScrollbackSymlinkEscape(t *testing.T) {
 }
 
 func TestLoadSessionAllowsDotDotPrefixSegmentName(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	base := t.TempDir()
 	store := New(base)
 
@@ -438,6 +461,8 @@ func TestLoadSessionAllowsDotDotPrefixSegmentName(t *testing.T) {
 }
 
 func TestSaveSessionRejectsInvalidScrollbackSessionName(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	store := New(t.TempDir())
 	sessionSnapshot := snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
@@ -468,6 +493,8 @@ func TestSaveSessionRejectsInvalidScrollbackSessionName(t *testing.T) {
 }
 
 func TestDeleteSessionRemovesIndexEntry(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	store := New(t.TempDir())
 
 	err := store.SaveSession(snapshot.SessionSnapshot{
