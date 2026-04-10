@@ -220,7 +220,7 @@ func TestRunForgetRequiresSession(t *testing.T) {
 	}
 }
 
-func TestRunForgetOnNonexistentSessionFails(t *testing.T) {
+func TestRunForgetOnNonexistentSessionSucceeds(t *testing.T) {
 	var out bytes.Buffer
 
 	var errOut bytes.Buffer
@@ -228,12 +228,8 @@ func TestRunForgetOnNonexistentSessionFails(t *testing.T) {
 	dir := t.TempDir()
 
 	code := runCLI([]string{"forget", "--session", "nonexistent", "--data-dir", dir}, &out, &errOut)
-	if code != 1 {
-		t.Fatalf("expected exit code 1, got %d", code)
-	}
-
-	if !strings.Contains(errOut.String(), "not found") {
-		t.Fatalf("unexpected stderr: %s", errOut.String())
+	if code != 0 {
+		t.Fatalf("expected exit code 0, got %d", code)
 	}
 }
 

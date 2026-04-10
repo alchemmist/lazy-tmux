@@ -262,6 +262,55 @@ func (s *Store) LatestRecord() (snapshot.Record, error) {
 	return recs[0], nil
 }
 
+func (s *Store) ScrollbackExists(name string) (bool, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return false, errors.New("empty session name")
+	}
+
+	safeName, err := safeScrollbackSessionName(name)
+	if err != nil {
+		return false, err
+	}
+
+	scrollRoot := filepath.Clean(filepath.Join(s.baseDir, scrollbackDir))
+	sessionDir := filepath.Clean(filepath.Join(scrollRoot, safeName))
+
+	_, err = os.Stat(sessionDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+
+		return false, fmt.Errorf("stat scrollback dir: %w", err)
+	}
+
+	return true, nil
+}
+
+func (s *Store) IndexEntryExists(name string) (bool, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return false, errors.New("empty session name")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	idx, err := s.loadIndexUnlocked()
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+
+		return false, err
+	}
+
+	_, ok := idx.Sessions[name]
+
+	return ok, nil
+}
+
 func (s *Store) MarkSessionAccessed(name string, accessTime time.Time) error {
 	name = strings.TrimSpace(name)
 	if name == "" {

@@ -81,16 +81,7 @@ func (a *App) Forget(session string) error {
 		return fmt.Errorf("session name is empty")
 	}
 
-	exists, err := a.store.SessionExists(session)
-	if err != nil {
-		return fmt.Errorf("check session exists: %w", err)
-	}
-
-	if !exists {
-		return fmt.Errorf("stored session %q not found", session)
-	}
-
-	err = a.store.DeleteSession(session)
+	err := a.store.DeleteSession(strings.TrimSpace(session))
 	if err != nil {
 		return fmt.Errorf("delete session storage: %w", err)
 	}

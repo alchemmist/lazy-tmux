@@ -525,7 +525,12 @@ func TestSleepNotRunning(t *testing.T) {
 }
 
 func TestForgetEmptyName(t *testing.T) {
-	testApp := NewWithTmux(testConfig(), &fakeTmuxClient{})
+	dir := t.TempDir()
+	testCfg := config.Config{
+		TmuxBin: "tmux",
+		DataDir: dir,
+	}
+	testApp := NewWithTmux(testCfg, &fakeTmuxClient{})
 
 	err := testApp.Forget("")
 	if err == nil {
@@ -534,23 +539,26 @@ func TestForgetEmptyName(t *testing.T) {
 }
 
 func TestForgetNonexistent(t *testing.T) {
-	testApp := NewWithTmux(testConfig(), &fakeTmuxClient{})
+	dir := t.TempDir()
+	testCfg := config.Config{
+		TmuxBin: "tmux",
+		DataDir: dir,
+	}
+	testApp := NewWithTmux(testCfg, &fakeTmuxClient{})
 
 	err := testApp.Forget("nonexistent")
-	if err == nil {
-		t.Fatal("expected error for nonexistent session")
+	if err != nil {
+		t.Fatalf("unexpected error for nonexistent session: %v", err)
 	}
 }
 
 func TestForgetDeletesStoredSession(t *testing.T) {
 	dir := t.TempDir()
-	testConfig := func() config.Config {
-		return config.Config{
-			TmuxBin: "tmux",
-			DataDir: dir,
-		}
+	testCfg := config.Config{
+		TmuxBin: "tmux",
+		DataDir: dir,
 	}
-	testApp := NewWithTmux(testConfig(), &fakeTmuxClient{})
+	testApp := NewWithTmux(testCfg, &fakeTmuxClient{})
 
 	testStore := newTestStore(dir)
 
@@ -575,6 +583,24 @@ func TestForgetDeletesStoredSession(t *testing.T) {
 	}
 
 	if exists {
-		t.Fatal("expected session to be deleted, but it still exists")
+		t.Fatal("expected session file to be deleted, but it still exists")
+	}
+
+	scrollbackExists, err := testStore.ScrollbackExists("my-session")
+	if err != nil {
+		t.Fatalf("scrollback exists: %v", err)
+	}
+
+	if scrollbackExists {
+		t.Fatal("expected scrollback data to be deleted, but it still exists")
+	}
+
+	indexExists, err := testStore.IndexEntryExists("my-session")
+	if err != nil {
+		t.Fatalf("index entry exists: %v", err)
+	}
+
+	if indexExists {
+		t.Fatal("expected index entry to be deleted, but it still exists")
 	}
 }
