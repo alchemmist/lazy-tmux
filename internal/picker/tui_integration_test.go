@@ -24,7 +24,9 @@ func TestPickerTUISelectsWindow(t *testing.T) {
 	}
 
 	model := newPickerModel(sessions, DefaultSortOptions().Window, Actions{})
+
 	var out bytes.Buffer
+
 	prog := tea.NewProgram(
 		model,
 		tea.WithOutput(&out),
@@ -34,12 +36,14 @@ func TestPickerTUISelectsWindow(t *testing.T) {
 
 	resultCh := make(chan tea.Model, 1)
 	errCh := make(chan error, 1)
+
 	go func() {
 		final, err := prog.Run()
 		if err != nil {
 			errCh <- err
 			return
 		}
+
 		resultCh <- final
 	}()
 
@@ -54,9 +58,11 @@ func TestPickerTUISelectsWindow(t *testing.T) {
 		if !ok {
 			t.Fatalf("unexpected final model type: %T", final)
 		}
+
 		if res.selected.SessionName != "work" {
 			t.Fatalf("expected session work to be selected, got %q", res.selected.SessionName)
 		}
+
 		if res.selected.WindowIndex == nil || *res.selected.WindowIndex != 0 {
 			t.Fatalf("expected window index 0 selected, got %+v", res.selected)
 		}

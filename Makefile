@@ -9,7 +9,7 @@ BINARY := lazy-tmux
 
 .PHONY: check build build-fzf build-all test test-race test-cov integration-test fmt golangci-lint lint install clean dist dist-tui dist-fzf tag sandbox test-sup-versions docker-hub vet
 
-check: vet build lint test integration-test
+check: build vet golangci-lint test integration-test
 
 integration-test:
 	docker build -f test.Dockerfile -t lazy-tmux-test . && docker run --rm lazy-tmux-test

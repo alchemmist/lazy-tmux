@@ -19,31 +19,40 @@ func TestChooseSessionFZF(t *testing.T) {
 		want    string
 	}{
 		{
-			name:    "selects first record",
-			records: []snapshot.Record{{SessionName: "alpha", CapturedAt: time.Now().UTC(), Windows: 1, Panes: 1}, {SessionName: "beta", CapturedAt: time.Now().UTC(), Windows: 2, Panes: 3}},
-			want:    "alpha",
+			name: "selects first record",
+			records: []snapshot.Record{
+				{SessionName: "alpha", CapturedAt: time.Now().UTC(), Windows: 1, Panes: 1},
+				{SessionName: "beta", CapturedAt: time.Now().UTC(), Windows: 2, Panes: 3},
+			},
+			want: "alpha",
 		},
 		{
-			name:    "preserves input order",
-			records: []snapshot.Record{{SessionName: "gamma", CapturedAt: time.Now().UTC(), Windows: 1, Panes: 1}, {SessionName: "delta", CapturedAt: time.Now().UTC(), Windows: 2, Panes: 3}, {SessionName: "alpha", CapturedAt: time.Now().UTC(), Windows: 3, Panes: 5}},
-			want:    "gamma",
+			name: "preserves input order",
+			records: []snapshot.Record{
+				{SessionName: "gamma", CapturedAt: time.Now().UTC(), Windows: 1, Panes: 1},
+				{SessionName: "delta", CapturedAt: time.Now().UTC(), Windows: 2, Panes: 3},
+				{SessionName: "alpha", CapturedAt: time.Now().UTC(), Windows: 3, Panes: 5},
+			},
+			want: "gamma",
 		},
 		{
-			name:    "single record",
-			records: []snapshot.Record{{SessionName: "solo", CapturedAt: time.Now().UTC(), Windows: 1, Panes: 1}},
-			want:    "solo",
+			name: "single record",
+			records: []snapshot.Record{
+				{SessionName: "solo", CapturedAt: time.Now().UTC(), Windows: 1, Panes: 1},
+			},
+			want: "solo",
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			selected, err := ChooseSessionFZF(tt.records)
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			selected, err := ChooseSessionFZF(testCase.records)
 			if err != nil {
 				t.Fatalf("ChooseSessionFZF: %v", err)
 			}
 
-			if selected != tt.want {
-				t.Fatalf("expected %q, got %q", tt.want, selected)
+			if selected != testCase.want {
+				t.Fatalf("expected %q, got %q", testCase.want, selected)
 			}
 		})
 	}
