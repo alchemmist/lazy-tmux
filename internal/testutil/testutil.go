@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strconv"
 	"testing"
+	"time"
 )
 
 func SkipIfNotIntegration(t *testing.T) {
@@ -35,18 +36,21 @@ func RequireFZF(t *testing.T) {
 	}
 }
 
-func HasTMux() bool {
-	cmd := exec.CommandContext(context.Background(), "tmux", "-V")
+func probeCommandWithTimeout(name string, args ...string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 
 	return cmd.Run() == nil
 }
 
-func HasFZF() bool {
-	cmd := exec.CommandContext(context.Background(), "fzf", "--version")
-	cmd.Stdout = nil
-	cmd.Stderr = nil
+func HasTMux() bool {
+	return probeCommandWithTimeout("tmux", "-V")
+}
 
-	return cmd.Run() == nil
+func HasFZF() bool {
+	return probeCommandWithTimeout("fzf", "--version")
 }
