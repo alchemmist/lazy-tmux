@@ -204,3 +204,64 @@ func TestRunSleepOnNonrunningSessionFails(t *testing.T) {
 		t.Fatalf("unexpected stderr: %s", errOut.String())
 	}
 }
+
+func TestRunForgetRequiresSession(t *testing.T) {
+	var out bytes.Buffer
+
+	var errOut bytes.Buffer
+
+	code := runCLI([]string{"forget"}, &out, &errOut)
+	if code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
+	}
+
+	if !strings.Contains(errOut.String(), "forget requires --session") {
+		t.Fatalf("unexpected stderr: %s", errOut.String())
+	}
+}
+
+func TestRunForgetOnNonexistentSessionSucceeds(t *testing.T) {
+	var out bytes.Buffer
+
+	var errOut bytes.Buffer
+
+	dir := t.TempDir()
+
+	code := runCLI([]string{"forget", "--session", "nonexistent", "--data-dir", dir}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("expected exit code 0, got %d", code)
+	}
+}
+
+func TestRunForgetDeletesStoredSession(t *testing.T) {
+	var out bytes.Buffer
+
+	var errOut bytes.Buffer
+
+	dir := t.TempDir()
+	testStore := store.New(dir)
+
+	err := testStore.SaveSession(snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: "demo",
+		CapturedAt:  time.Now().UTC(),
+		Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
+	})
+	if err != nil {
+		t.Fatalf("save session: %v", err)
+	}
+
+	code := runCLI([]string{"forget", "--session", "demo", "--data-dir", dir}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("expected exit code 0, got %d", code)
+	}
+
+	exists, err := testStore.SessionExists("demo")
+	if err != nil {
+		t.Fatalf("session exists: %v", err)
+	}
+
+	if exists {
+		t.Fatalf("expected session to be deleted, but it still exists")
+	}
+}

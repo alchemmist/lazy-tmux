@@ -95,6 +95,13 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 		}
 
 		return 0
+	case "forget":
+		err := runForget(cfg, args[1:])
+		if err != nil {
+			return writeFatalErr(stderr, err)
+		}
+
+		return 0
 	case "help", "-h", "--help":
 		usageTo(stdout)
 		return 0
@@ -443,6 +450,38 @@ func runSleep(base config.Config, args []string) error {
 	return nil
 }
 
+func runForget(base config.Config, args []string) error {
+	forgetFlags := flag.NewFlagSet("forget", flag.ContinueOnError)
+	forgetFlags.SetOutput(io.Discard)
+	session := forgetFlags.String("session", "", "stored session to forget")
+	shared := addSharedFlags(forgetFlags, base, true)
+
+	err := forgetFlags.Parse(args)
+	if err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			forgetFlags.SetOutput(os.Stdout)
+			forgetFlags.Usage()
+
+			return nil
+		}
+
+		return fmt.Errorf("parse forget flags: %w", err)
+	}
+
+	if strings.TrimSpace(*session) == "" {
+		return fmt.Errorf("forget requires --session")
+	}
+
+	a := app.New(shared.apply(base))
+
+	err = a.Forget(strings.TrimSpace(*session))
+	if err != nil {
+		return fmt.Errorf("forget session: %w", err)
+	}
+
+	return nil
+}
+
 func usage() {
 	usageTo(os.Stdout)
 }
@@ -458,6 +497,7 @@ Commands:
   restore    Restore one session from disk
   wakeup     Restore a saved session (lazy load) without switching clients
   sleep      Save and close a running session
+  forget     Remove a stored session from disk
   picker     Open session picker and restore selected session (default: TUI)
   bootstrap  Restore one session at tmux startup (default: last)
   daemon     Periodically save all sessions

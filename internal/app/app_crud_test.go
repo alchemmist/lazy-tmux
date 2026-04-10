@@ -2,7 +2,9 @@ package app
 
 import (
 	"testing"
+	"time"
 
+	"github.com/alchemmist/lazy-tmux/internal/config"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 	"github.com/alchemmist/lazy-tmux/internal/store"
 )
@@ -519,5 +521,86 @@ func TestSleepNotRunning(t *testing.T) {
 	err := testApp.Sleep("non-running")
 	if err == nil {
 		t.Fatal("expected error for non-running session")
+	}
+}
+
+func TestForgetEmptyName(t *testing.T) {
+	dir := t.TempDir()
+	testCfg := config.Config{
+		TmuxBin: "tmux",
+		DataDir: dir,
+	}
+	testApp := NewWithTmux(testCfg, &fakeTmuxClient{})
+
+	err := testApp.Forget("")
+	if err == nil {
+		t.Fatal("expected error for empty session")
+	}
+}
+
+func TestForgetNonexistent(t *testing.T) {
+	dir := t.TempDir()
+	testCfg := config.Config{
+		TmuxBin: "tmux",
+		DataDir: dir,
+	}
+	testApp := NewWithTmux(testCfg, &fakeTmuxClient{})
+
+	err := testApp.Forget("nonexistent")
+	if err != nil {
+		t.Fatalf("unexpected error for nonexistent session: %v", err)
+	}
+}
+
+func TestForgetDeletesStoredSession(t *testing.T) {
+	dir := t.TempDir()
+	testCfg := config.Config{
+		TmuxBin: "tmux",
+		DataDir: dir,
+	}
+	testApp := NewWithTmux(testCfg, &fakeTmuxClient{})
+
+	testStore := newTestStore(dir)
+
+	err := testStore.SaveSession(snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: "my-session",
+		CapturedAt:  time.Now().UTC(),
+		Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
+	})
+	if err != nil {
+		t.Fatalf("save session: %v", err)
+	}
+
+	err = testApp.Forget("my-session")
+	if err != nil {
+		t.Fatalf("forget session: %v", err)
+	}
+
+	exists, err := testStore.SessionExists("my-session")
+	if err != nil {
+		t.Fatalf("session exists: %v", err)
+	}
+
+	if exists {
+		t.Fatal("expected session file to be deleted, but it still exists")
+	}
+
+	scrollbackExists, err := testStore.ScrollbackExists("my-session")
+	if err != nil {
+		t.Fatalf("scrollback exists: %v", err)
+	}
+
+	if scrollbackExists {
+		t.Fatal("expected scrollback data to be deleted, but it still exists")
+	}
+
+	indexExists, err := testStore.IndexEntryExists("my-session")
+	if err != nil {
+		t.Fatalf("index entry exists: %v", err)
+	}
+
+	if indexExists {
+		t.Fatal("expected index entry to be deleted, but it still exists")
 	}
 }
