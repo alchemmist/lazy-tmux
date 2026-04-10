@@ -24,7 +24,7 @@ jobs:
       - name: Run tests & parse results
         run: |
           make test-sup-versions 2>&1 | tee pr_raw.txt | ./scripts/parse-output.sh > pr.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: pr-results
           path: |
@@ -41,7 +41,7 @@ jobs:
       - name: Run tests & parse results
         run: |
           make test-sup-versions 2>&1 | tee main_raw.txt | ./scripts/parse-output.sh > main.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: main-results
           path: |
@@ -53,10 +53,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: pr-results
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: main-results
 
