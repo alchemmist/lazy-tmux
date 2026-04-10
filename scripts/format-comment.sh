@@ -45,3 +45,6 @@ else
 fi
 echo "\`\`\`"
 echo "</details>"
+echo ""
+echo "---"
+echo "🤖 Last updated: $(date -u '+%Y-%m-%d %H:%M UTC') | [View run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)"
