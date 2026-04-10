@@ -12,107 +12,69 @@ permissions:
   pull-requests: write
 
 jobs:
-  tmux-versions:
+  test-pr:
     runs-on: ubuntu-latest
     timeout-minutes: 60
-
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
-
-      - name: Test PR branch
+      - name: Run tests & parse results
         run: |
-          chmod +x scripts/test-tmux-versions.sh
-          ./scripts/test-tmux-versions.sh > pr_results.txt 2>&1 || true
+          make test-sup-versions 2>&1 | tee pr_raw.txt | ./scripts/parse-output.sh > pr.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr-results
+          path: |
+            pr.json
+            pr_raw.txt
 
-      - name: Test main branch
+  test-main:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+      - name: Run tests & parse results
         run: |
-          BASE_REF="${{ github.event.pull_request.base.ref }}"
-          git fetch origin "$BASE_REF"
+          make test-sup-versions 2>&1 | tee main_raw.txt | ./scripts/parse-output.sh > main.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: main-results
+          path: |
+            main.json
+            main_raw.txt
 
-          # Создаём временную директорию с кодом из main
-          TMPDIR=$(mktemp -d)
-          git archive FETCH_HEAD | tar -x -C "$TMPDIR"
+  comment:
+    needs: [test-pr, test-main]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: pr-results
+      - uses: actions/download-artifact@v4
+        with:
+          name: main-results
 
-          # Если в main есть скрипт тестирования, запускаем его
-          if [ -f "$TMPDIR/scripts/test-tmux-versions.sh" ]; then
-            chmod +x "$TMPDIR/scripts/test-tmux-versions.sh"
-            cd "$TMPDIR"
-            ./scripts/test-tmux-versions.sh > "$OLDPWD/main_results.txt" 2>&1 || true
-            cd "$OLDPWD"
-          else
-            echo "Script not found on main branch." > main_results.txt
-          fi
-
-      - name: Compare and prepare comment
+      - name: Generate Markdown body
         run: |
-          PR_SUPPORTED=$(grep '✓' pr_results.txt | awk '{print $2}' | sort || true)
-          MAIN_SUPPORTED=$(grep '✓' main_results.txt | awk '{print $2}' | sort || true)
+          chmod +x ./scripts/format-comment.sh
+          ./scripts/format-comment.sh pr.json main.json pr_raw.txt > body.md
 
-          NEW_IN_PR=$(comm -23 <(echo "$PR_SUPPORTED") <(echo "$MAIN_SUPPORTED") || true)
-          MISSING_IN_PR=$(comm -13 <(echo "$PR_SUPPORTED") <(echo "$MAIN_SUPPORTED") || true)
+      - name: Find existing comment
+        uses: peter-evans/find-comment@v3
+        id: fc
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body-includes: <!-- tmux-versions-marker -->
 
-          {
-            echo "### tmux version support test"
-            echo ""
-
-            if [ -n "$NEW_IN_PR" ]; then
-              echo "**⚠️ New versions supported in this PR:**"
-              echo ""
-              while IFS= read -r v; do
-                [ -n "$v" ] && echo "- \`$v\`"
-              done <<< "$NEW_IN_PR"
-              echo ""
-            fi
-
-            if [ -n "$MISSING_IN_PR" ]; then
-              echo "**⚠️ Versions no longer supported:**"
-              echo ""
-              while IFS= read -r v; do
-                [ -n "$v" ] && echo "- \`$v\`"
-              done <<< "$MISSING_IN_PR"
-              echo ""
-            fi
-
-            echo "<details>"
-            echo "<summary>Full test output</summary>"
-            echo ""
-            echo '```'
-            cat pr_results.txt
-            echo '```'
-            echo "</details>"
-          } > comment_body.txt
-
-      - name: Post or update comment
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
-          RUN_ID: ${{ github.run_id }}
-          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          MARKER="<!-- tmux-versions-marker -->"
-          TMPFILE=$(mktemp)
-          TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
-
-          # Читаем файл напрямую через jq --rawfile, чтобы избежать лимита ARG_MAX
-          # Добавляем футер с временем и ссылкой на запуск
-          jq -n --arg marker "$MARKER" --rawfile body comment_body.txt \
-            --arg ts "$TIMESTAMP" --arg url "$RUN_URL" \
-            '{body: ($marker + "\n\n" + $body + "\n\n---\n🤖 Last updated: " + $ts + " | [View run](" + $url + ")")}' > "$TMPFILE"
-
-          # Ищем существующий комментарий (используем .user.login)
-          EXISTING_ID=$(gh api --paginate "repos/${REPO}/issues/${PR_NUMBER}/comments" \
-            | jq -r '.[] | select(.user.login == "github-actions[bot]" and (.body | contains("'"$MARKER"'"))) | .id' \
-            | head -1)
-
-          if [ -n "$EXISTING_ID" ] && [ "$EXISTING_ID" != "null" ]; then
-            gh api -X PATCH "repos/${REPO}/issues/comments/${EXISTING_ID}" --input "$TMPFILE"
-          else
-            gh api -X POST "repos/${REPO}/issues/${PR_NUMBER}/comments" --input "$TMPFILE"
-          fi
-
-          rm -f "$TMPFILE"
+      - uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body-file: body.md
+          edit-mode: replace
