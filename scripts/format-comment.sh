@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Сравнивает результаты тестов версий и генерирует Markdown для комментария
 # Usage: scripts/format-comment.sh pr.json main.json pr_raw.txt > comment.md
 
@@ -45,3 +45,6 @@ else
 fi
 echo "\`\`\`"
 echo "</details>"
+echo ""
+echo "---"
+echo "🤖 Last updated: $(date -u '+%Y-%m-%d %H:%M UTC') | [View run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)"
