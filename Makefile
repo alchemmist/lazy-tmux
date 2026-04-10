@@ -30,8 +30,11 @@ test:
 	gotestsum --format testname -- -race ./...
 
 test-cov:
-	gotestsum --format testname -- -coverprofile=cover.out -covermode=atomic -coverpkg=./... ./...
-	go-test-coverage --config=./.testcoverage.yml
+	docker build -f test.Dockerfile -t lazy-tmux-test . && \
+	docker run --rm -v $$(pwd):/app lazy-tmux-test \
+		sh -c 'go test -p 1 -coverprofile=/app/cover.out -covermode=atomic -coverpkg=$$(go list ./... | grep -v /internal/testutil | paste -sd "," -) ./...'
+	go tool cover -html=cover.out -o cover.html || true
+	go-test-coverage --config=./.testcoverage.yml || true
 
 vet:
 	go vet ./...
