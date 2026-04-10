@@ -6,27 +6,20 @@ PR_JSON=$1
 MAIN_JSON=$2
 PR_RAW=${3:-}
 
-# Используем jq для сравнения
-NEW=$(jq -r '
-    [ .versions[] | select(. as $v | input_filename as $f | $v | not) ]' \
-    "$PR_JSON" 2>/dev/null || jq -r '.versions[]' "$PR_JSON")
+# Получаем отсортированные списки
+PR_LIST=$(jq -r '.versions[]' "$PR_JSON" | sort)
+MAIN_LIST=$(jq -r '.versions[]' "$MAIN_JSON" | sort)
 
-MISSING=$(jq -r '
-    [ .versions[] | select(. as $v | input_filename as $f | $v | not) ]' \
-    "$MAIN_JSON" 2>/dev/null || jq -r '.versions[]' "$MAIN_JSON")
+# Новые в PR
+NEW=$(comm -23 <(echo "$PR_LIST") <(echo "$MAIN_LIST"))
+# Пропавшие в PR
+MISSING=$(comm -13 <(echo "$PR_LIST") <(echo "$MAIN_LIST"))
 
-# Простое сравнение массивов
 echo "<!-- tmux-versions-marker -->"
 echo ""
 echo "### tmux version support test"
 echo ""
 
-# Получаем списки
-PR_LIST=$(jq -r '.versions[]' "$PR_JSON" 2>/dev/null)
-MAIN_LIST=$(jq -r '.versions[]' "$MAIN_JSON" 2>/dev/null)
-
-# Новые в PR
-NEW=$(comm -23 <(echo "$PR_LIST" | sort) <(echo "$MAIN_LIST" | sort))
 if [ -n "$NEW" ]; then
     echo "**⚠️ New versions supported in this PR:**"
     echo ""
@@ -34,8 +27,6 @@ if [ -n "$NEW" ]; then
     echo ""
 fi
 
-# Пропавшие в PR
-MISSING=$(comm -13 <(echo "$PR_LIST" | sort) <(echo "$MAIN_LIST" | sort))
 if [ -n "$MISSING" ]; then
     echo "**⚠️ Versions no longer supported:**"
     echo ""
@@ -43,7 +34,6 @@ if [ -n "$MISSING" ]; then
     echo ""
 fi
 
-# Полный вывод
 echo "<details>"
 echo "<summary>Full test output</summary>"
 echo ""
