@@ -16,6 +16,8 @@ MISSING=$(jq -r '
     "$MAIN_JSON" 2>/dev/null || jq -r '.versions[]' "$MAIN_JSON")
 
 # Простое сравнение массивов
+echo "<!-- tmux-versions-marker -->"
+echo ""
 echo "### tmux version support test"
 echo ""
 

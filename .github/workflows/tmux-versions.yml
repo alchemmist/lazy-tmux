@@ -64,9 +64,16 @@ jobs:
           chmod +x ./scripts/format-comment.sh
           ./scripts/format-comment.sh pr.json main.json pr_raw.txt > body.md
 
+      - name: Find existing comment
+        uses: peter-evans/find-comment@v3
+        id: fc
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body-includes: <!-- tmux-versions-marker -->
+
       - uses: peter-evans/create-or-update-comment@v4
         with:
+          comment-id: ${{ steps.fc.outputs.comment-id }}
           issue-number: ${{ github.event.pull_request.number }}
           body-file: body.md
           edit-mode: replace
-          comment-tag: tmux-versions
