@@ -76,6 +76,28 @@ func (a *App) DeleteWindow(session string, windowIndex int) error {
 	return nil
 }
 
+func (a *App) Forget(session string) error {
+	if strings.TrimSpace(session) == "" {
+		return fmt.Errorf("session name is empty")
+	}
+
+	exists, err := a.store.SessionExists(session)
+	if err != nil {
+		return fmt.Errorf("check session exists: %w", err)
+	}
+
+	if !exists {
+		return fmt.Errorf("stored session %q not found", session)
+	}
+
+	err = a.store.DeleteSession(session)
+	if err != nil {
+		return fmt.Errorf("delete session storage: %w", err)
+	}
+
+	return nil
+}
+
 func (a *App) DeleteSession(session string) error {
 	if a.tmux.SessionExists(session) {
 		err := a.tmux.KillSession(session)

@@ -2,7 +2,9 @@ package app
 
 import (
 	"testing"
+	"time"
 
+	"github.com/alchemmist/lazy-tmux/internal/config"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 	"github.com/alchemmist/lazy-tmux/internal/store"
 )
@@ -519,5 +521,60 @@ func TestSleepNotRunning(t *testing.T) {
 	err := testApp.Sleep("non-running")
 	if err == nil {
 		t.Fatal("expected error for non-running session")
+	}
+}
+
+func TestForgetEmptyName(t *testing.T) {
+	testApp := NewWithTmux(testConfig(), &fakeTmuxClient{})
+
+	err := testApp.Forget("")
+	if err == nil {
+		t.Fatal("expected error for empty session")
+	}
+}
+
+func TestForgetNonexistent(t *testing.T) {
+	testApp := NewWithTmux(testConfig(), &fakeTmuxClient{})
+
+	err := testApp.Forget("nonexistent")
+	if err == nil {
+		t.Fatal("expected error for nonexistent session")
+	}
+}
+
+func TestForgetDeletesStoredSession(t *testing.T) {
+	dir := t.TempDir()
+	testConfig := func() config.Config {
+		return config.Config{
+			TmuxBin: "tmux",
+			DataDir: dir,
+		}
+	}
+	testApp := NewWithTmux(testConfig(), &fakeTmuxClient{})
+
+	testStore := newTestStore(dir)
+
+	err := testStore.SaveSession(snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: "my-session",
+		CapturedAt:  time.Now().UTC(),
+		Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
+	})
+	if err != nil {
+		t.Fatalf("save session: %v", err)
+	}
+
+	err = testApp.Forget("my-session")
+	if err != nil {
+		t.Fatalf("forget session: %v", err)
+	}
+
+	exists, err := testStore.SessionExists("my-session")
+	if err != nil {
+		t.Fatalf("session exists: %v", err)
+	}
+
+	if exists {
+		t.Fatal("expected session to be deleted, but it still exists")
 	}
 }
