@@ -299,10 +299,6 @@ func (s *Store) IndexEntryExists(name string) (bool, error) {
 
 	idx, err := s.loadIndexUnlocked()
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return false, nil
-		}
-
 		return false, err
 	}
 
