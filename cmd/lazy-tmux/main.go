@@ -398,6 +398,16 @@ func runSleep(base config.Config, args []string) error {
 	sleepFlags := flag.NewFlagSet("sleep", flag.ContinueOnError)
 	sleepFlags.SetOutput(io.Discard)
 	session := sleepFlags.String("session", "", "session to sleep")
+	scrollback := sleepFlags.Bool(
+		"scrollback",
+		base.Scrollback.Enabled,
+		"capture shell pane scrollback",
+	)
+	scrollbackLines := sleepFlags.Int(
+		"scrollback-lines",
+		base.Scrollback.Lines,
+		"max shell scrollback lines per pane",
+	)
 	shared := addSharedFlags(sleepFlags, base, true)
 
 	err := sleepFlags.Parse(args)
@@ -412,11 +422,18 @@ func runSleep(base config.Config, args []string) error {
 		return fmt.Errorf("parse sleep flags: %w", err)
 	}
 
+	if *scrollback && *scrollbackLines <= 0 {
+		return fmt.Errorf("sleep requires --scrollback-lines > 0 when --scrollback is enabled")
+	}
+
 	if strings.TrimSpace(*session) == "" {
 		return fmt.Errorf("sleep requires --session")
 	}
 
-	a := app.New(shared.apply(base))
+	cfg := shared.apply(base)
+	cfg.Scrollback.Enabled = *scrollback
+	cfg.Scrollback.Lines = *scrollbackLines
+	a := app.New(cfg)
 
 	err = a.Sleep(strings.TrimSpace(*session))
 	if err != nil {
