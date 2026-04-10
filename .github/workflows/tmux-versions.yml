@@ -62,7 +62,7 @@ jobs:
       - name: Generate Markdown body
         run: |
           chmod +x ./scripts/format-comment.sh
-          ./scripts/format-comment.sh pr.json main.json > body.md
+          ./scripts/format-comment.sh pr.json main.json pr_raw.txt > body.md
 
       - uses: peter-evans/create-or-update-comment@v4
         with:
