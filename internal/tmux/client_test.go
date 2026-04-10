@@ -485,11 +485,60 @@ func TestFirstPanePathUsesCleanPath(t *testing.T) {
 	}
 }
 
+func TestPickForegroundCommandWithChildProcesses(t *testing.T) {
+	// Scenario: Helix editor with LSP child processes
+	// panePID is the shell PID (12340), hx is the foreground process
+	// PIDs 1235, 1236 are LSP children that should be ignored
+	lines := []string{
+		"12340 12300 Ss   zsh",
+		"1235  1234  S+   helix-lsp --node",
+		"1234  12340 Ss+  hx",
+		"1236  1234  S+   helix-lsp --python",
+	}
+
+	got := pickForegroundCommand(lines, 12340)
+	if got != "hx" {
+		t.Fatalf("unexpected foreground command: got %q, want %q", got, "hx")
+	}
+}
+
+func TestPickForegroundCommandWithNestedEditor(t *testing.T) {
+	// Scenario: nvim with language server
+	// panePID is the shell PID (2000)
+	lines := []string{
+		"2000 1999 Ss   bash",
+		"2001 2000  Ss+  nvim",
+		"2002 2001  S+   node /path/to/typescript-language-server --stdio",
+		"2003 2001  S+   node /path/to/eslint-language-server",
+	}
+
+	got := pickForegroundCommand(lines, 2000)
+	if got != "nvim" {
+		t.Fatalf("unexpected foreground command: got %q, want %q", got, "nvim")
+	}
+}
+
+func TestPickForegroundCommandPrefersRootForeground(t *testing.T) {
+	// Scenario: tmux running inside zsh, user runs git log
+	// panePID is the shell PID (3000)
+	// We want 'git log' not 'less' (which is git's child)
+	lines := []string{
+		"3000 2999 Ss   zsh",
+		"3001 3000  Ss+  git log",
+		"3002 3001  S+   less",
+	}
+
+	got := pickForegroundCommand(lines, 3000)
+	if got != "git log" {
+		t.Fatalf("unexpected foreground command: got %q, want %q", got, "git log")
+	}
+}
+
 func TestPickForegroundCommandPrefersForegroundMarkedProcess(t *testing.T) {
 	lines := []string{
-		"1001 S+ -zsh",
-		"2002 S docker compose up",
-		"2003 R+ ssh user@host",
+		"1001 1000 S+ -zsh",
+		"2002 1000 S docker compose up",
+		"2003 1000 R+ ssh user@host",
 	}
 
 	got := pickForegroundCommand(lines, 1001)
@@ -500,8 +549,8 @@ func TestPickForegroundCommandPrefersForegroundMarkedProcess(t *testing.T) {
 
 func TestPickForegroundCommandFallbackNonShell(t *testing.T) {
 	lines := []string{
-		"1001 S+ -zsh",
-		"2002 S docker compose up",
+		"1001 1000 S+ -zsh",
+		"2002 1000 S docker compose up",
 	}
 
 	got := pickForegroundCommand(lines, 1001)
@@ -681,20 +730,23 @@ func TestParsePSLineHelper(t *testing.T) {
 	tests := []struct {
 		line     string
 		wantPID  int
+		wantPPID int
 		wantStat string
 		wantCmd  string
 		wantOK   bool
 	}{
 		{
-			line:     "1234 S- bash",
+			line:     "1234 1200 S- bash",
 			wantPID:  1234,
+			wantPPID: 1200,
 			wantStat: "S-",
 			wantCmd:  "bash",
 			wantOK:   true,
 		},
 		{
-			line:     "2002 R+ docker compose up",
+			line:     "2002 2000 R+ docker compose up",
 			wantPID:  2002,
+			wantPPID: 2000,
 			wantStat: "R+",
 			wantCmd:  "docker compose up",
 			wantOK:   true,
@@ -710,7 +762,7 @@ func TestParsePSLineHelper(t *testing.T) {
 	}
 
 	for _, testCase := range tests {
-		pid, stat, cmd, ok := parsePSLine(testCase.line)
+		pid, ppid, stat, cmd, ok := parsePSLine(testCase.line)
 		if ok != testCase.wantOK {
 			t.Fatalf("parsePSLine(%q) ok = %v, want %v", testCase.line, ok, testCase.wantOK)
 		}
@@ -721,6 +773,10 @@ func TestParsePSLineHelper(t *testing.T) {
 
 		if pid != testCase.wantPID {
 			t.Fatalf("parsePSLine(%q) pid = %d, want %d", testCase.line, pid, testCase.wantPID)
+		}
+
+		if ppid != testCase.wantPPID {
+			t.Fatalf("parsePSLine(%q) ppid = %d, want %d", testCase.line, ppid, testCase.wantPPID)
 		}
 
 		if stat != testCase.wantStat {

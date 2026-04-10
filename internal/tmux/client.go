@@ -701,6 +701,8 @@ func (client *Client) foregroundCommand(paneTTY string, panePID int) (string, er
 			"-o",
 			"pid=",
 			"-o",
+			"ppid=",
+			"-o",
 			"stat=",
 			"-o",
 			"command=",
@@ -719,50 +721,111 @@ func (client *Client) foregroundCommand(paneTTY string, panePID int) (string, er
 	return pickForegroundCommand(splitLines(string(out)), panePID), nil
 }
 
+type psProcess struct {
+	pid  int
+	ppid int
+	stat string
+	cmd  string
+}
+
 func pickForegroundCommand(lines []string, panePID int) string {
-	fallback := ""
+	// First pass: collect all non-shell processes
+	allProcesses := make([]psProcess, 0, len(lines))
 
 	for _, line := range lines {
-		pid, stat, cmd, ok := parsePSLine(line)
+		pid, ppid, stat, cmd, ok := parsePSLine(line)
 		if !ok {
 			continue
 		}
 
-		if pid == panePID || isShellCommand(cmd) {
+		// Skip the shell process itself
+		if pid == panePID {
 			continue
 		}
 
-		if strings.Contains(stat, "+") {
-			return cmd
+		// Skip shell commands
+		if isShellCommand(cmd) {
+			continue
 		}
 
-		if fallback == "" {
-			fallback = cmd
+		allProcesses = append(allProcesses, psProcess{
+			pid:  pid,
+			ppid: ppid,
+			stat: stat,
+			cmd:  cmd,
+		})
+	}
+
+	if len(allProcesses) == 0 {
+		return ""
+	}
+
+	// Build set of ALL process PIDs for parent lookup
+	allPIDs := make(map[int]struct{}, len(allProcesses))
+	for _, p := range allProcesses {
+		allPIDs[p.pid] = struct{}{}
+	}
+
+	// Find root processes: those whose parent is NOT in our process set
+	// (meaning parent is either the shell or some other process outside this tty)
+	var rootProcesses []psProcess
+
+	for _, p := range allProcesses {
+		if _, parentInSet := allPIDs[p.ppid]; !parentInSet {
+			rootProcesses = append(rootProcesses, p)
 		}
 	}
 
-	return fallback
+	// If we found root processes, prefer foreground ones
+	if len(rootProcesses) > 0 {
+		for _, p := range rootProcesses {
+			if strings.Contains(p.stat, "+") {
+				return p.cmd
+			}
+		}
+		// Fallback: return first root process
+		return rootProcesses[0].cmd
+	}
+
+	// If no root processes found, fallback to first foreground process
+	for _, p := range allProcesses {
+		if strings.Contains(p.stat, "+") {
+			return p.cmd
+		}
+	}
+
+	// Last fallback: return first process
+	if len(allProcesses) > 0 {
+		return allProcesses[0].cmd
+	}
+
+	return ""
 }
 
-func parsePSLine(line string) (int, string, string, bool) {
+func parsePSLine(line string) (int, int, string, string, bool) {
 	fields := strings.Fields(strings.TrimSpace(line))
-	if len(fields) < 3 {
-		return 0, "", "", false
+	if len(fields) < 4 {
+		return 0, 0, "", "", false
 	}
 
 	pid, err := strconv.Atoi(fields[0])
 	if err != nil {
-		return 0, "", "", false
+		return 0, 0, "", "", false
 	}
 
-	stat := fields[1]
+	ppid, err := strconv.Atoi(fields[1])
+	if err != nil {
+		return 0, 0, "", "", false
+	}
 
-	cmd := strings.Join(fields[2:], " ")
+	stat := fields[2]
+
+	cmd := strings.Join(fields[3:], " ")
 	if strings.TrimSpace(cmd) == "" {
-		return 0, "", "", false
+		return 0, 0, "", "", false
 	}
 
-	return pid, stat, cmd, true
+	return pid, ppid, stat, cmd, true
 }
 
 func splitLines(in string) []string {
