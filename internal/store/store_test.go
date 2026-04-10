@@ -64,8 +64,6 @@ func TestSanitizeName(t *testing.T) {
 }
 
 func TestSessionPath(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-
 	s := New("/tmp/lazy")
 	path := s.sessionPath("a b")
 	want := filepath.Join("/tmp/lazy", sessionsDirName, "a_b.json")

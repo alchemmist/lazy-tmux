@@ -12,8 +12,6 @@ import (
 )
 
 func TestRunNoArgs(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-
 	var out bytes.Buffer
 
 	var errOut bytes.Buffer
@@ -33,8 +31,6 @@ func TestRunNoArgs(t *testing.T) {
 }
 
 func TestRunHelp(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-
 	var out bytes.Buffer
 
 	var errOut bytes.Buffer
@@ -54,8 +50,6 @@ func TestRunHelp(t *testing.T) {
 }
 
 func TestRunUnknownCommand(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-
 	var out bytes.Buffer
 
 	var errOut bytes.Buffer

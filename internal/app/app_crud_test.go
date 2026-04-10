@@ -168,6 +168,8 @@ func TestDeleteWindowNotFound(t *testing.T) {
 }
 
 func TestDeleteWindowNotFoundInSnapshot(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	dir := t.TempDir()
 	testStore := newTestStore(dir)
 
@@ -223,6 +225,8 @@ func TestDeleteSession(t *testing.T) {
 }
 
 func TestRenameWindow(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	dir := t.TempDir()
 	testStore := newTestStore(dir)
 

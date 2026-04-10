@@ -131,6 +131,8 @@ func TestSaveAllPropagatesListError(t *testing.T) {
 }
 
 func TestSaveSessionStoresSnapshot(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	dir := t.TempDir()
 	tmuxClient := &fakeTmuxClient{
 		captureSnap: snapshot.SessionSnapshot{
@@ -180,6 +182,8 @@ func TestSaveSessionPropagatesCaptureError(t *testing.T) {
 }
 
 func TestSaveCurrentGetsCurrentSession(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+
 	dir := t.TempDir()
 	tmuxClient := &fakeTmuxClient{
 		currentSession: "current-sess",

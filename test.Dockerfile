@@ -12,7 +12,6 @@ RUN useradd -m -s /bin/bash appuser && \
     chown -R appuser:appuser /workspace
 
 WORKDIR /workspace
-USER appuser
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -20,5 +19,7 @@ RUN go mod download
 RUN go install gotest.tools/gotestsum@v1.13.0
 
 COPY . .
+
+USER appuser
 
 CMD ["gotestsum", "--format", "testname", "--no-color=false", "--", "-p", "1", "./..."]
