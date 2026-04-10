@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Сравнивает результаты тестов версий и генерирует Markdown для комментария
 # Usage: scripts/format-comment.sh pr.json main.json pr_raw.txt > comment.md
 
