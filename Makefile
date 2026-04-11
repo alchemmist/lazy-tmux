@@ -1,4 +1,4 @@
-.DEFAULT_GOAL := help
+.DEFAULT_GOAL := check
 
 SHELL := /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
@@ -7,7 +7,7 @@ MAKEFLAGS += --no-builtin-rules
 
 BINARY := lazy-tmux
 
-.PHONY: check build build-fzf build-all test test-cov integration-test fmt install clean dist dist-tui dist-fzf tag sandbox test-sup-versions docker-hub vet
+.PHONY: help check build build-fzf build-all test test-cov integration-test fmt install clean dist dist-tui dist-fzf tag sandbox test-sup-versions docker-hub vet
 
 check: build vet golangci-lint test integration-test
 
@@ -31,8 +31,8 @@ test:
 
 test-cov:
 	docker build -f test.Dockerfile -t lazy-tmux-test . && \
-	docker run --rm -u root -v $$(pwd):/app lazy-tmux-test \
-		sh -c 'go test -p 1 -coverprofile=/tmp/cover.out -covermode=atomic -coverpkg=$$(go list ./... | grep -v /internal/testutil | paste -sd "," -) ./... && cp /tmp/cover.out /app/cover.out'
+	docker run --rm --user $$(id -u):$$(id -g) -v $$(pwd):/workspace -w /workspace lazy-tmux-test \
+	go test -p 1 -coverprofile=cover.out -covermode=atomic -coverpkg=$$(go list ./... | grep -v /internal/testutil | paste -sd "," -) ./...
 	go tool cover -html=cover.out -o cover.html || true
 	go-test-coverage --config=./.testcoverage.yml
 

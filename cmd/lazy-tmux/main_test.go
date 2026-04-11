@@ -65,8 +65,6 @@ func TestRunUnknownCommand(t *testing.T) {
 }
 
 func TestRunRestoreRequiresSession(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-
 	var out bytes.Buffer
 
 	var errOut bytes.Buffer
@@ -138,8 +136,6 @@ func TestRunListPrintsSavedRecords(t *testing.T) {
 }
 
 func TestRunWakeupRequiresSession(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-
 	var out bytes.Buffer
 
 	var errOut bytes.Buffer
@@ -174,8 +170,6 @@ func TestRunWakeupOnNonexistentSessionFails(t *testing.T) {
 }
 
 func TestRunSleepRequiresSession(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-
 	var out bytes.Buffer
 
 	var errOut bytes.Buffer
@@ -221,8 +215,6 @@ func TestRunSleepOnNonrunningSessionFails(t *testing.T) {
 }
 
 func TestRunForgetRequiresSession(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-
 	var out bytes.Buffer
 
 	var errOut bytes.Buffer
