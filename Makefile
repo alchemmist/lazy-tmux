@@ -1,4 +1,4 @@
-.DEFAULT_GOAL := check
+.DEFAULT_GOAL := all
 
 SHELL := /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
@@ -7,7 +7,7 @@ MAKEFLAGS += --no-builtin-rules
 
 BINARY := lazy-tmux
 
-.PHONY: help check build build-fzf build-all test test-cov integration-test fmt install clean dist dist-tui dist-fzf tag sandbox test-sup-versions docker-hub vet
+.PHONY: check build build-fzf build-all test test-cov integration-test fmt install clean dist dist-tui dist-fzf tag sandbox test-sup-versions docker-hub vet setup-env
 
 check: build vet golangci-lint test integration-test
 
