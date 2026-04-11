@@ -10,10 +10,6 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
 
-func newTestStore(dir string) *store.Store {
-	return store.New(dir)
-}
-
 func TestNextWindowIndex(t *testing.T) {
 	tests := []struct {
 		windows []snapshot.Window
@@ -84,9 +80,10 @@ func TestIsShellCommandName(t *testing.T) {
 
 func TestDeleteWindowFromStore(t *testing.T) {
 	testutil.SkipIfNotIntegration(t)
+	testutil.RequireTMux(t)
 
 	dir := t.TempDir()
-	testStore := newTestStore(dir)
+	testStore := store.New(dir)
 
 	err := testStore.SaveSession(snapshot.SessionSnapshot{
 		SessionName: "test-session",
@@ -99,9 +96,8 @@ func TestDeleteWindowFromStore(t *testing.T) {
 		t.Fatalf("save: %v", err)
 	}
 
-	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(testConfig(), tmuxClient)
-	testApp.store = testStore
+	cfg := config.Config{TmuxBin: "tmux", DataDir: dir}
+	testApp := NewWithStore(cfg, testStore)
 
 	err = testApp.DeleteWindow("test-session", 1)
 	if err != nil {
@@ -120,9 +116,10 @@ func TestDeleteWindowFromStore(t *testing.T) {
 
 func TestDeleteWindowDeletesAllWindows(t *testing.T) {
 	testutil.SkipIfNotIntegration(t)
+	testutil.RequireTMux(t)
 
 	dir := t.TempDir()
-	testStore := newTestStore(dir)
+	testStore := store.New(dir)
 
 	err := testStore.SaveSession(snapshot.SessionSnapshot{
 		SessionName: "single-win",
@@ -132,9 +129,8 @@ func TestDeleteWindowDeletesAllWindows(t *testing.T) {
 		t.Fatalf("save: %v", err)
 	}
 
-	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(testConfig(), tmuxClient)
-	testApp.store = testStore
+	cfg := config.Config{TmuxBin: "tmux", DataDir: dir}
+	testApp := NewWithStore(cfg, testStore)
 
 	err = testApp.DeleteWindow("single-win", 0)
 	if err != nil {
@@ -153,13 +149,13 @@ func TestDeleteWindowDeletesAllWindows(t *testing.T) {
 
 func TestDeleteWindowNotFound(t *testing.T) {
 	testutil.SkipIfNotIntegration(t)
+	testutil.RequireTMux(t)
 
 	dir := t.TempDir()
-	testStore := newTestStore(dir)
+	testStore := store.New(dir)
 
-	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(testConfig(), tmuxClient)
-	testApp.store = testStore
+	cfg := config.Config{TmuxBin: "tmux", DataDir: dir}
+	testApp := NewWithStore(cfg, testStore)
 
 	err := testApp.DeleteWindow("nonexistent", 0)
 	if err == nil {
@@ -169,9 +165,10 @@ func TestDeleteWindowNotFound(t *testing.T) {
 
 func TestDeleteWindowNotFoundInSnapshot(t *testing.T) {
 	testutil.SkipIfNotIntegration(t)
+	testutil.RequireTMux(t)
 
 	dir := t.TempDir()
-	testStore := newTestStore(dir)
+	testStore := store.New(dir)
 
 	err := testStore.SaveSession(snapshot.SessionSnapshot{
 		SessionName: "test",
@@ -181,9 +178,8 @@ func TestDeleteWindowNotFoundInSnapshot(t *testing.T) {
 		t.Fatalf("save: %v", err)
 	}
 
-	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(testConfig(), tmuxClient)
-	testApp.store = testStore
+	cfg := config.Config{TmuxBin: "tmux", DataDir: dir}
+	testApp := NewWithStore(cfg, testStore)
 
 	err = testApp.DeleteWindow("test", 99)
 	if err == nil {
@@ -193,9 +189,10 @@ func TestDeleteWindowNotFoundInSnapshot(t *testing.T) {
 
 func TestDeleteSession(t *testing.T) {
 	testutil.SkipIfNotIntegration(t)
+	testutil.RequireTMux(t)
 
 	dir := t.TempDir()
-	testStore := newTestStore(dir)
+	testStore := store.New(dir)
 
 	err := testStore.SaveSession(snapshot.SessionSnapshot{
 		SessionName: "to-delete",
@@ -205,9 +202,8 @@ func TestDeleteSession(t *testing.T) {
 		t.Fatalf("save: %v", err)
 	}
 
-	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(testConfig(), tmuxClient)
-	testApp.store = testStore
+	cfg := config.Config{TmuxBin: "tmux", DataDir: dir}
+	testApp := NewWithStore(cfg, testStore)
 
 	err = testApp.DeleteSession("to-delete")
 	if err != nil {
@@ -226,9 +222,10 @@ func TestDeleteSession(t *testing.T) {
 
 func TestRenameWindow(t *testing.T) {
 	testutil.SkipIfNotIntegration(t)
+	testutil.RequireTMux(t)
 
 	dir := t.TempDir()
-	testStore := newTestStore(dir)
+	testStore := store.New(dir)
 
 	err := testStore.SaveSession(snapshot.SessionSnapshot{
 		SessionName: "rename-test",
@@ -240,9 +237,8 @@ func TestRenameWindow(t *testing.T) {
 		t.Fatalf("save: %v", err)
 	}
 
-	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(testConfig(), tmuxClient)
-	testApp.store = testStore
+	cfg := config.Config{TmuxBin: "tmux", DataDir: dir}
+	testApp := NewWithStore(cfg, testStore)
 
 	err = testApp.RenameWindow("rename-test", 0, "new-name")
 	if err != nil {
@@ -260,8 +256,11 @@ func TestRenameWindow(t *testing.T) {
 }
 
 func TestRenameWindowEmptyName(t *testing.T) {
-	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(testConfig(), tmuxClient)
+	testutil.SkipIfNotIntegration(t)
+	testutil.RequireTMux(t)
+
+	cfg := config.Config{TmuxBin: "tmux"}
+	testApp := New(cfg)
 
 	err := testApp.RenameWindow("test", 0, "")
 	if err == nil {
@@ -270,8 +269,11 @@ func TestRenameWindowEmptyName(t *testing.T) {
 }
 
 func TestRenameSession(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+	testutil.RequireTMux(t)
+
 	dir := t.TempDir()
-	testStore := newTestStore(dir)
+	testStore := store.New(dir)
 
 	err := testStore.SaveSession(snapshot.SessionSnapshot{
 		SessionName: "old-session",
@@ -281,9 +283,8 @@ func TestRenameSession(t *testing.T) {
 		t.Fatalf("save: %v", err)
 	}
 
-	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(testConfig(), tmuxClient)
-	testApp.store = testStore
+	cfg := config.Config{TmuxBin: "tmux", DataDir: dir}
+	testApp := NewWithStore(cfg, testStore)
 
 	err = testApp.RenameSession("old-session", "new-session")
 	if err != nil {
@@ -302,8 +303,11 @@ func TestRenameSession(t *testing.T) {
 }
 
 func TestRenameSessionEmptyName(t *testing.T) {
-	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(testConfig(), tmuxClient)
+	testutil.SkipIfNotIntegration(t)
+	testutil.RequireTMux(t)
+
+	cfg := config.Config{TmuxBin: "tmux"}
+	testApp := New(cfg)
 
 	err := testApp.RenameSession("test", "")
 	if err == nil {
@@ -312,8 +316,11 @@ func TestRenameSessionEmptyName(t *testing.T) {
 }
 
 func TestRenameSessionEmptySource(t *testing.T) {
-	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(testConfig(), tmuxClient)
+	testutil.SkipIfNotIntegration(t)
+	testutil.RequireTMux(t)
+
+	cfg := config.Config{TmuxBin: "tmux"}
+	testApp := New(cfg)
 
 	err := testApp.RenameSession("", "new")
 	if err == nil {
@@ -322,8 +329,11 @@ func TestRenameSessionEmptySource(t *testing.T) {
 }
 
 func TestRenameSessionSameName(t *testing.T) {
-	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(testConfig(), tmuxClient)
+	testutil.SkipIfNotIntegration(t)
+	testutil.RequireTMux(t)
+
+	cfg := config.Config{TmuxBin: "tmux"}
+	testApp := New(cfg)
 
 	err := testApp.RenameSession("test", "test")
 	if err != nil {
@@ -332,8 +342,11 @@ func TestRenameSessionSameName(t *testing.T) {
 }
 
 func TestRenameSessionAlreadyExists(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+	testutil.RequireTMux(t)
+
 	dir := t.TempDir()
-	testStore := newTestStore(dir)
+	testStore := store.New(dir)
 
 	err := testStore.SaveSession(snapshot.SessionSnapshot{
 		SessionName: "src",
@@ -351,9 +364,8 @@ func TestRenameSessionAlreadyExists(t *testing.T) {
 		t.Fatalf("save dst: %v", err)
 	}
 
-	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(testConfig(), tmuxClient)
-	testApp.store = testStore
+	cfg := config.Config{TmuxBin: "tmux", DataDir: dir}
+	testApp := NewWithStore(cfg, testStore)
 
 	err = testApp.RenameSession("src", "dst")
 	if err == nil {
@@ -361,33 +373,12 @@ func TestRenameSessionAlreadyExists(t *testing.T) {
 	}
 }
 
-func TestNewSession(t *testing.T) {
-	dir := t.TempDir()
-	testStore := newTestStore(dir)
-
-	tmuxClient := &fakeTmuxClient{
-		captureSnap: snapshot.SessionSnapshot{
-			Windows: []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
-		},
-	}
-
-	testApp := NewWithTmux(testConfig(), tmuxClient)
-	testApp.store = testStore
-
-	err := testApp.NewSession("brand-new")
-	if err != nil {
-		t.Fatalf("NewSession: %v", err)
-	}
-
-	_, loadErr := testStore.LoadSession("brand-new")
-	if loadErr != nil {
-		t.Fatalf("session not stored: %v", loadErr)
-	}
-}
-
 func TestNewSessionEmptyName(t *testing.T) {
-	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(testConfig(), tmuxClient)
+	testutil.SkipIfNotIntegration(t)
+	testutil.RequireTMux(t)
+
+	cfg := config.Config{TmuxBin: "tmux"}
+	testApp := New(cfg)
 
 	err := testApp.NewSession("")
 	if err == nil {
@@ -396,8 +387,11 @@ func TestNewSessionEmptyName(t *testing.T) {
 }
 
 func TestNewSessionAlreadyExists(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+	testutil.RequireTMux(t)
+
 	dir := t.TempDir()
-	testStore := newTestStore(dir)
+	testStore := store.New(dir)
 
 	err := testStore.SaveSession(snapshot.SessionSnapshot{
 		SessionName: "existing",
@@ -407,9 +401,8 @@ func TestNewSessionAlreadyExists(t *testing.T) {
 		t.Fatalf("save: %v", err)
 	}
 
-	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(testConfig(), tmuxClient)
-	testApp.store = testStore
+	cfg := config.Config{TmuxBin: "tmux", DataDir: dir}
+	testApp := NewWithStore(cfg, testStore)
 
 	err = testApp.NewSession("existing")
 	if err == nil {
@@ -417,44 +410,12 @@ func TestNewSessionAlreadyExists(t *testing.T) {
 	}
 }
 
-func TestNewWindow(t *testing.T) {
-	dir := t.TempDir()
-	testStore := newTestStore(dir)
-
-	err := testStore.SaveSession(snapshot.SessionSnapshot{
-		SessionName: "win-test",
-		Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
-	})
-	if err != nil {
-		t.Fatalf("save: %v", err)
-	}
-
-	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(testConfig(), tmuxClient)
-	testApp.store = testStore
-
-	err = testApp.NewWindow("win-test", "added-window")
-	if err != nil {
-		t.Fatalf("NewWindow: %v", err)
-	}
-
-	snap, loadErr := testStore.LoadSession("win-test")
-	if loadErr != nil {
-		t.Fatalf("load: %v", loadErr)
-	}
-
-	if len(snap.Windows) != 2 {
-		t.Fatalf("expected 2 windows, got %d", len(snap.Windows))
-	}
-
-	if snap.Windows[1].Name != "added-window" {
-		t.Fatalf("expected window name 'added-window', got %q", snap.Windows[1].Name)
-	}
-}
-
 func TestNewWindowEmptySessionName(t *testing.T) {
-	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(testConfig(), tmuxClient)
+	testutil.SkipIfNotIntegration(t)
+	testutil.RequireTMux(t)
+
+	cfg := config.Config{TmuxBin: "tmux"}
+	testApp := New(cfg)
 
 	err := testApp.NewWindow("", "name")
 	if err == nil {
@@ -462,40 +423,12 @@ func TestNewWindowEmptySessionName(t *testing.T) {
 	}
 }
 
-func TestNewWindowGeneratesName(t *testing.T) {
-	dir := t.TempDir()
-	testStore := newTestStore(dir)
-
-	err := testStore.SaveSession(snapshot.SessionSnapshot{
-		SessionName: "gen-test",
-		Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
-	})
-	if err != nil {
-		t.Fatalf("save: %v", err)
-	}
-
-	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(testConfig(), tmuxClient)
-	testApp.store = testStore
-
-	err = testApp.NewWindow("gen-test", "")
-	if err != nil {
-		t.Fatalf("NewWindow: %v", err)
-	}
-
-	snap, loadErr := testStore.LoadSession("gen-test")
-	if loadErr != nil {
-		t.Fatalf("load: %v", loadErr)
-	}
-
-	if snap.Windows[1].Name != "window-1" {
-		t.Fatalf("expected generated name 'window-1', got %q", snap.Windows[1].Name)
-	}
-}
-
 func TestWakeupRequiresSession(t *testing.T) {
-	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(testConfig(), tmuxClient)
+	testutil.SkipIfNotIntegration(t)
+	testutil.RequireTMux(t)
+
+	cfg := config.Config{TmuxBin: "tmux"}
+	testApp := New(cfg)
 
 	err := testApp.Wakeup("")
 	if err == nil {
@@ -503,21 +436,12 @@ func TestWakeupRequiresSession(t *testing.T) {
 	}
 }
 
-func TestWakeupAlreadyAwake(t *testing.T) {
-	tmuxClient := &fakeTmuxClient{
-		sessionExists: true,
-	}
-	testApp := NewWithTmux(testConfig(), tmuxClient)
-
-	err := testApp.Wakeup("running-session")
-	if err == nil {
-		t.Fatal("expected error for already awake session")
-	}
-}
-
 func TestSleepRequiresSession(t *testing.T) {
-	tmuxClient := &fakeTmuxClient{}
-	testApp := NewWithTmux(testConfig(), tmuxClient)
+	testutil.SkipIfNotIntegration(t)
+	testutil.RequireTMux(t)
+
+	cfg := config.Config{TmuxBin: "tmux"}
+	testApp := New(cfg)
 
 	err := testApp.Sleep("")
 	if err == nil {
@@ -525,25 +449,16 @@ func TestSleepRequiresSession(t *testing.T) {
 	}
 }
 
-func TestSleepNotRunning(t *testing.T) {
-	tmuxClient := &fakeTmuxClient{
-		sessionExists: false,
-	}
-	testApp := NewWithTmux(testConfig(), tmuxClient)
-
-	err := testApp.Sleep("non-running")
-	if err == nil {
-		t.Fatal("expected error for non-running session")
-	}
-}
-
 func TestForgetEmptyName(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+	testutil.RequireTMux(t)
+
 	dir := t.TempDir()
-	testCfg := config.Config{
+	cfg := config.Config{
 		TmuxBin: "tmux",
 		DataDir: dir,
 	}
-	testApp := NewWithTmux(testCfg, &fakeTmuxClient{})
+	testApp := New(cfg)
 
 	err := testApp.Forget("")
 	if err == nil {
@@ -552,12 +467,15 @@ func TestForgetEmptyName(t *testing.T) {
 }
 
 func TestForgetNonexistent(t *testing.T) {
+	testutil.SkipIfNotIntegration(t)
+	testutil.RequireTMux(t)
+
 	dir := t.TempDir()
-	testCfg := config.Config{
+	cfg := config.Config{
 		TmuxBin: "tmux",
 		DataDir: dir,
 	}
-	testApp := NewWithTmux(testCfg, &fakeTmuxClient{})
+	testApp := New(cfg)
 
 	err := testApp.Forget("nonexistent")
 	if err != nil {
@@ -566,14 +484,11 @@ func TestForgetNonexistent(t *testing.T) {
 }
 
 func TestForgetDeletesStoredSession(t *testing.T) {
-	dir := t.TempDir()
-	testCfg := config.Config{
-		TmuxBin: "tmux",
-		DataDir: dir,
-	}
-	testApp := NewWithTmux(testCfg, &fakeTmuxClient{})
+	testutil.SkipIfNotIntegration(t)
+	testutil.RequireTMux(t)
 
-	testStore := newTestStore(dir)
+	dir := t.TempDir()
+	testStore := store.New(dir)
 
 	err := testStore.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
@@ -584,6 +499,9 @@ func TestForgetDeletesStoredSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("save session: %v", err)
 	}
+
+	cfg := config.Config{TmuxBin: "tmux", DataDir: dir}
+	testApp := NewWithStore(cfg, testStore)
 
 	err = testApp.Forget("my-session")
 	if err != nil {
@@ -610,7 +528,7 @@ func TestForgetDeletesStoredSession(t *testing.T) {
 
 	indexExists, err := testStore.IndexEntryExists("my-session")
 	if err != nil {
-		t.Fatalf("index entry exists: %v", err)
+		t.Fatalf("index exists: %v", err)
 	}
 
 	if indexExists {

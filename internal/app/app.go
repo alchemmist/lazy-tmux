@@ -70,6 +70,14 @@ func NewWithTmux(cfg config.Config, client tmuxClient) *App {
 	}
 }
 
+func NewWithStore(cfg config.Config, s *store.Store) *App {
+	return &App{
+		cfg:   cfg,
+		store: s,
+		tmux:  tmux.NewClient(cfg.TmuxBin),
+	}
+}
+
 func (a *App) SaveAll() error {
 	sessions, err := a.tmux.ListSessions()
 	if err != nil {
