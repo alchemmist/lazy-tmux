@@ -1,0 +1,8 @@
+//line /workspace/internal/app/types.go:1:1
+package app; import _cover_atomic_ "sync/atomic"
+
+import "github.com/alchemmist/lazy-tmux/internal/picker"
+
+type PickerTarget = picker.Target
+
+var _ = _cover_atomic_.LoadUint32

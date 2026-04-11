@@ -1,0 +1,32 @@
+//line /workspace/internal/picker/window_cmd.go:1:1
+package picker; import _cover_atomic_ "sync/atomic"
+
+import (
+	"strings"
+
+	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+)
+
+func windowPreviewCommand(win snapshot.Window) string {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__74[0], 8) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__74[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__74[2], 74) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__74[3], 1);
+	if len(win.Panes) == 0 {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__74[7], 1);
+		return ""
+	}
+
+	// Snapshot may have sparse pane indices; fall back to first pane if active is missing.
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__74[4], 1);active := 0
+
+	for i := range win.Panes {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__74[8], 1);
+		if win.Panes[i].Index == win.ActivePane {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__74[9], 1);
+			active = i
+			break
+		}
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__74[5], 1);if cmd := strings.TrimSpace(win.Panes[active].RestoreCmd); cmd != "" {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__74[10], 1);
+		return cmd
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__74[6], 1);return strings.TrimSpace(win.Panes[active].CurrentCmd)
+}
+
+var _ = _cover_atomic_.LoadUint32

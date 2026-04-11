@@ -1,0 +1,48 @@
+//line /workspace/internal/app/picker_sort_alias.go:1:1
+package app; import _cover_atomic_ "sync/atomic"
+
+import (
+	"fmt"
+
+	"github.com/alchemmist/lazy-tmux/internal/picker"
+)
+
+type PickerSortOptions = picker.SortOptions
+
+type SessionSortKey = picker.SessionSortKey
+
+type WindowSortKey = picker.WindowSortKey
+
+type SessionSortField = picker.SessionSortField
+
+type WindowSortField = picker.WindowSortField
+
+const (
+	SessionSortLastUsed = picker.SessionSortLastUsed
+	SessionSortCaptured = picker.SessionSortCaptured
+	SessionSortName     = picker.SessionSortName
+	SessionSortWindows  = picker.SessionSortWindows
+	SessionSortPanes    = picker.SessionSortPanes
+)
+
+const (
+	WindowSortIndex = picker.WindowSortIndex
+	WindowSortName  = picker.WindowSortName
+	WindowSortPanes = picker.WindowSortPanes
+	WindowSortCmd   = picker.WindowSortCmd
+)
+
+func DefaultPickerSortOptions() PickerSortOptions {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__34[0], 1) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__34[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__34[2], 34) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__34[3], 1);
+	return picker.DefaultSortOptions()
+}
+
+func ParsePickerSortOptions(sessionExpr, windowExpr string) (PickerSortOptions, error) {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__35[0], 3) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__35[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__35[2], 35) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__35[3], 1);
+	opts, err := picker.ParseSortOptions(sessionExpr, windowExpr)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__35[5], 1);
+		return picker.SortOptions{}, fmt.Errorf("parse sort options: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__35[4], 1);return opts, nil
+}
+
+var _ = _cover_atomic_.LoadUint32

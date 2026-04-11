@@ -31,8 +31,8 @@ test:
 
 test-cov:
 	docker build -f test.Dockerfile -t lazy-tmux-test . && \
-	docker run --rm --user $$(id -u):$$(id -g) -v $$(pwd):/workspace -w /workspace lazy-tmux-test \
-	go test -p 1 -coverprofile=cover.out -covermode=atomic -coverpkg=$$(go list ./... | grep -v /internal/testutil | paste -sd "," -) ./...
+	docker run --rm --user $$(id -u):$$(id -g) -v $$(pwd):/workspace -w /workspace -e GOCACHE=/workspace/.cache lazy-tmux-test \
+		go test -p 1 -coverprofile=cover.out -covermode=atomic -coverpkg=$$(go list ./... | grep -v /internal/testutil | paste -sd "," -) ./...
 	go tool cover -html=cover.out -o cover.html || true
 	go-test-coverage --config=./.testcoverage.yml
 

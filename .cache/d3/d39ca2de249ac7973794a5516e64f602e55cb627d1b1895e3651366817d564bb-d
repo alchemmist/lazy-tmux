@@ -1,0 +1,3 @@
+# test log
+getenv LAZY_TMUX_DATA_DIR
+getenv HOME

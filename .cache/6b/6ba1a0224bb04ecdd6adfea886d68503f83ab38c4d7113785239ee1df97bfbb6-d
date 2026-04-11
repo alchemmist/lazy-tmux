@@ -1,0 +1,96 @@
+//line /workspace/internal/picker/rows.go:1:1
+//go:build !lazy_fzf
+
+package picker; import _cover_atomic_ "sync/atomic"
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+)
+
+func filteredTreeRows(sessions []Session, query string, windowSort []WindowSortKey) []pickerRow {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__35[0], 11) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__35[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__35[2], 35) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__35[3], 1);
+	rows := make([]pickerRow, 0)
+
+	for _, sess := range sessions {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__35[5], 1);
+		windows := make([]snapshot.Window, len(sess.Windows))
+		copy(windows, sess.Windows)
+		sortWindows(windows, windowSort)
+
+		sessionMatch := query == "" || fuzzyMatch(query, strings.ToLower(sess.Record.SessionName))
+		matchedWindows := make([]snapshot.Window, 0, len(windows))
+
+		for _, w := range windows {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__35[8], 1);
+			target := strings.ToLower(sess.Record.SessionName + " " + w.Name)
+			if query == "" || sessionMatch || fuzzyMatch(query, target) {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__35[9], 1);
+				matchedWindows = append(matchedWindows, w)
+			}
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__35[6], 1);if !sessionMatch && len(matchedWindows) == 0 {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__35[10], 1);
+			continue
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__35[7], 1);rows = append(rows, pickerRow{
+			target:     Target{SessionName: sess.Record.SessionName},
+			item:       sess.Record.SessionName,
+			captured:   sess.Record.CapturedAt.Local().Format("2006-01-02 15:04:05"),
+			wins:       fmt.Sprintf("%d", sess.Record.Windows),
+			state:      sessionStateIcon(sess.Restored),
+			selectable: false,
+		})
+
+		for idx, win := range matchedWindows {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__35[11], 1);
+			branch := "├─"
+			if idx == len(matchedWindows)-1 {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__35[13], 1);
+				branch = "╰─"
+			}
+
+			_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__35[12], 1);wi := win.Index
+			rows = append(rows, pickerRow{
+				target:     Target{SessionName: sess.Record.SessionName, WindowIndex: &wi},
+				item:       fmt.Sprintf("  %s [%d] %s", branch, win.Index, win.Name),
+				captured:   "",
+				wins:       "",
+				state:      "",
+				cmd:        windowPreviewCommand(win),
+				windowName: win.Name,
+				selectable: true,
+			})
+		}
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__35[4], 1);return rows
+}
+
+func sessionStateIcon(restored bool) string {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__36[0], 3) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__36[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__36[2], 36) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__36[3], 1);
+	if restored {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__36[5], 1);
+		return "✓"
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__36[4], 1);return ""
+}
+
+func fuzzyMatch(query, target string) bool {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__37[0], 8) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__37[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__37[2], 37) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__37[3], 1);
+	if query == "" {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__37[6], 1);
+		return true
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__37[4], 1);queryRunes := []rune(query)
+	queryIndex := 0
+
+	for _, r := range target {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__37[7], 1);
+		if queryIndex >= len(queryRunes) {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__37[9], 1);
+			break
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__37[8], 1);if r == queryRunes[queryIndex] {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__37[10], 1);
+			queryIndex++
+		}
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__37[5], 1);return queryIndex == len(queryRunes)
+}
+
+var _ = _cover_atomic_.LoadUint32

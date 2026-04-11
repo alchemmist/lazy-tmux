@@ -1,0 +1,243 @@
+//line /workspace/internal/app/app.go:1:1
+package app; import _cover_atomic_ "sync/atomic"
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/alchemmist/lazy-tmux/internal/config"
+	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+	"github.com/alchemmist/lazy-tmux/internal/store"
+	"github.com/alchemmist/lazy-tmux/internal/tmux"
+)
+
+type tmuxSessionManager interface {
+	ListSessions() ([]string, error)
+	CurrentSession() (string, error)
+	SessionExists(name string) bool
+	SocketPath() string
+}
+
+type tmuxSessionCapturer interface {
+	CaptureSession(name string) (snapshot.SessionSnapshot, error)
+	CapturePaneScrollback(target string, lines int) (string, error)
+}
+
+type tmuxSessionRestorer interface {
+	RestoreSession(snap snapshot.SessionSnapshot) error
+	SwitchClient(target string) error
+}
+
+type tmuxSessionMutator interface {
+	NewSession(name string) error
+	NewWindow(session, name string) error
+	KillWindow(session string, windowIndex int) error
+	KillSession(session string) error
+	RenameWindow(session string, windowIndex int, name string) error
+	RenameSession(session, name string) error
+}
+
+type tmuxClient interface {
+	tmuxSessionManager
+	tmuxSessionCapturer
+	tmuxSessionRestorer
+	tmuxSessionMutator
+}
+
+type App struct {
+	cfg       config.Config
+	store     *store.Store
+	tmux      tmuxClient
+	saveAllFn func() error
+}
+
+func New(cfg config.Config) *App {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__0[0], 1) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__0[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__0[2], 0) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__0[3], 1);
+	return &App{
+		cfg:   cfg,
+		store: store.New(cfg.DataDir),
+		tmux:  tmux.NewClient(cfg.TmuxBin),
+	}
+}
+
+func NewWithTmux(cfg config.Config, client tmuxClient) *App {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__1[0], 1) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__1[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__1[2], 1) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__1[3], 1);
+	return &App{
+		cfg:   cfg,
+		store: store.New(cfg.DataDir),
+		tmux:  client,
+	}
+}
+
+func (a *App) SaveAll() error {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__2[0], 6) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__2[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__2[2], 2) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__2[3], 1);
+	sessions, err := a.tmux.ListSessions()
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__2[6], 1);
+		return fmt.Errorf("list sessions: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__2[4], 1);for _, name := range sessions {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__2[7], 1);
+		err := a.SaveSession(name)
+		if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__2[8], 1);
+			return err
+		}
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__2[5], 1);return nil
+}
+
+func (a *App) SaveSession(session string) error {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__3[0], 7) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__3[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__3[2], 3) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__3[3], 1);
+	snap, err := a.tmux.CaptureSession(session)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__3[7], 1);
+		return fmt.Errorf("capture session: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__3[4], 1);if a.cfg.Scrollback.Enabled {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__3[8], 1);
+		a.captureShellScrollback(&snap)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__3[5], 1);err = a.store.SaveSession(snap)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__3[9], 1);
+		return fmt.Errorf("save session: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__3[6], 1);return nil
+}
+
+func (a *App) SaveCurrent() error {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__4[0], 3) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__4[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__4[2], 4) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__4[3], 1);
+	name, err := a.tmux.CurrentSession()
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__4[5], 1);
+		return fmt.Errorf("get current session: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__4[4], 1);return a.SaveSession(name)
+}
+
+func (a *App) Restore(session string, switchClient bool) error {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__5[0], 1) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__5[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__5[2], 5) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__5[3], 1);
+	return a.RestoreTarget(PickerTarget{SessionName: session}, switchClient)
+}
+
+func (a *App) RestoreTarget(target PickerTarget, switchClient bool) error {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__6[0], 14) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__6[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__6[2], 6) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__6[3], 1);
+	session := strings.TrimSpace(target.SessionName)
+	if session == "" {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__6[9], 1);
+		return fmt.Errorf("empty session name")
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__6[4], 1);snap, err := a.store.LoadSession(session)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__6[10], 1);
+		return fmt.Errorf("load session: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__6[5], 1);err = a.tmux.RestoreSession(snap)
+	if err != nil && err != tmux.ErrSessionExists {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__6[11], 1);
+		return fmt.Errorf("restore session: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__6[6], 1);if switchClient {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__6[12], 1);
+		switchTarget := session
+		if target.WindowIndex != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__6[14], 1);
+			switchTarget = fmt.Sprintf("%s:%d", session, *target.WindowIndex)
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__6[13], 1);err := a.tmux.SwitchClient(switchTarget)
+		if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__6[15], 1);
+			return fmt.Errorf("switch client: %w", err)
+		}
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__6[7], 1);err = a.store.MarkSessionAccessed(
+		session,
+		time.Now().UTC(),
+	)
+	if err != nil &&
+		!errors.Is(err, os.ErrNotExist) {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__6[16], 1);
+		return fmt.Errorf("mark session accessed: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__6[8], 1);return nil
+}
+
+func (a *App) Bootstrap(session string) error {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__7[0], 7) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__7[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__7[2], 7) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__7[3], 1);
+	target := strings.TrimSpace(session)
+	if target == "" || target == "last" {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__7[5], 1);
+		rec, err := a.store.LatestRecord()
+		if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__7[7], 1);
+			if os.IsNotExist(err) {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__7[9], 1);
+				return nil
+			}
+
+			_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__7[8], 1);return fmt.Errorf("get latest record: %w", err)
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__7[6], 1);target = rec.SessionName
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__7[4], 1);return a.Restore(target, true)
+}
+
+func (a *App) ListRecords() ([]snapshot.Record, error) {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__8[0], 3) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__8[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__8[2], 8) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__8[3], 1);
+	records, err := a.store.ListRecords()
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__8[5], 1);
+		return nil, fmt.Errorf("list records: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__8[4], 1);return records, nil
+}
+
+func (a *App) runDaemonSaveAll() error {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__9[0], 3) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__9[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__9[2], 9) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__9[3], 1);
+	if a.saveAllFn != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__9[5], 1);
+		return a.saveAllFn()
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__9[4], 1);return a.SaveAll()
+}
+
+func (a *App) captureShellScrollback(snap *snapshot.SessionSnapshot) {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__10[0], 11) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__10[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__10[2], 10) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__10[3], 1);
+	lines := a.cfg.Scrollback.Lines
+	if lines <= 0 {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__10[5], 1);
+		lines = 5000
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__10[4], 1);for win := range snap.Windows {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__10[6], 1);
+		for pi := range snap.Windows[win].Panes {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__10[7], 1);
+			pane := &snap.Windows[win].Panes[pi]
+			if strings.TrimSpace(pane.RestoreCmd) != "" || !isShellCommandName(pane.CurrentCmd) {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__10[11], 1);
+				continue
+			}
+
+			_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__10[8], 1);target := tmux.PaneTarget(snap.SessionName, snap.Windows[win].Index, pane.Index)
+
+			out, err := a.tmux.CapturePaneScrollback(target, lines)
+			if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__10[12], 1);
+				continue
+			}
+
+			_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__10[9], 1);out = strings.TrimRight(out, "\n")
+			if strings.TrimSpace(out) == "" {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__10[13], 1);
+				continue
+			}
+
+			_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__10[10], 1);pane.Scrollback = &snapshot.ScrollbackRef{
+				Content: out + "\n",
+			}
+		}
+	}
+}
+
+func isShellCommandName(cmd string) bool {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__11[0], 5) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__11[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__11[2], 11) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__11[3], 1);
+	fields := strings.Fields(strings.TrimSpace(cmd))
+	if len(fields) == 0 {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__11[5], 1);
+		return false
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__11[4], 1);base := strings.TrimPrefix(filepath.Base(fields[0]), "-")
+	switch base {
+	case "bash", "zsh", "fish", "sh", "ksh":_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__11[6], 1);
+		return true
+	default:_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__11[7], 1);
+		return false
+	}
+}
+
+var _ = _cover_atomic_.LoadUint32

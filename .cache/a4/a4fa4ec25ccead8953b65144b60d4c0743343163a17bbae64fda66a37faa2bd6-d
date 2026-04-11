@@ -1,0 +1,23 @@
+//line /workspace/internal/picker/utils.go:1:1
+//go:build !lazy_fzf
+
+package picker; import _cover_atomic_ "sync/atomic"
+
+func truncateString(input string, maxRunes int) string {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__73[0], 7) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__73[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__73[2], 73) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__73[3], 1);
+	if maxRunes < 0 {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__73[7], 1);
+		maxRunes = 0
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__73[4], 1);runes := []rune(input)
+	if len(runes) <= maxRunes {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__73[8], 1);
+		return input
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__73[5], 1);if maxRunes <= 3 {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__73[9], 1);
+		return string(runes[:maxRunes])
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__73[6], 1);return string(runes[:maxRunes-3]) + "..."
+}
+
+var _ = _cover_atomic_.LoadUint32

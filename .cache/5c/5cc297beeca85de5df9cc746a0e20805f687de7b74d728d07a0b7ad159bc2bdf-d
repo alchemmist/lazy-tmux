@@ -1,0 +1,340 @@
+//line /workspace/internal/app/app_crud.go:1:1
+package app; import _cover_atomic_ "sync/atomic"
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+
+	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+)
+
+func (a *App) DeleteWindow(session string, windowIndex int) error {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__12[0], 26) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__12[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__12[2], 12) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[3], 1);
+	if a.tmux.SessionExists(session) {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[10], 1);
+		err := a.tmux.KillWindow(session, windowIndex)
+		if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[11], 1);
+			var exitErr *exec.ExitError
+			if !errors.As(err, &exitErr) {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[12], 1);
+				return fmt.Errorf("kill window: %w", err)
+			}
+		} else{ _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[13], 1);{
+			if !a.tmux.SessionExists(session) {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[15], 1);
+				err := a.store.DeleteSession(session)
+				if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[17], 1);
+					return fmt.Errorf("delete session: %w", err)
+				}
+
+				_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[16], 1);return nil
+			}
+
+			_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[14], 1);return a.SaveSession(session)
+		}}
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[4], 1);snap, err := a.store.LoadSession(session)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[18], 1);
+		if errors.Is(err, os.ErrNotExist) {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[20], 1);
+			return fmt.Errorf("session %q not found: %w", session, os.ErrNotExist)
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[19], 1);return fmt.Errorf("load session: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[5], 1);windows := make([]snapshot.Window, 0, len(snap.Windows))
+	removed := false
+
+	for _, write := range snap.Windows {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[21], 1);
+		if write.Index == windowIndex {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[23], 1);
+			removed = true
+			continue
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[22], 1);windows = append(windows, write)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[6], 1);if !removed {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[24], 1);
+		return fmt.Errorf("window not found in snapshot")
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[7], 1);if len(windows) == 0 {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[25], 1);
+		err := a.store.DeleteSession(session)
+		if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[27], 1);
+			return fmt.Errorf("delete session: %w", err)
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[26], 1);return nil
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[8], 1);snap.Windows = windows
+
+	err = a.store.SaveSession(snap)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[28], 1);
+		return fmt.Errorf("save session: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__12[9], 1);return nil
+}
+
+func (a *App) Forget(session string) error {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__13[0], 5) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__13[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__13[2], 13) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__13[3], 1);
+	if strings.TrimSpace(session) == "" {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__13[6], 1);
+		return fmt.Errorf("session name is empty")
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__13[4], 1);err := a.store.DeleteSession(strings.TrimSpace(session))
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__13[7], 1);
+		return fmt.Errorf("delete session storage: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__13[5], 1);return nil
+}
+
+func (a *App) DeleteSession(session string) error {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__14[0], 6) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__14[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__14[2], 14) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__14[3], 1);
+	if a.tmux.SessionExists(session) {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__14[6], 1);
+		err := a.tmux.KillSession(session)
+		if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__14[7], 1);
+			return fmt.Errorf("kill session: %w", err)
+		}
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__14[4], 1);err := a.store.DeleteSession(session)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__14[8], 1);
+		return fmt.Errorf("delete session: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__14[5], 1);return nil
+}
+
+func (a *App) RenameWindow(session string, windowIndex int, name string) error {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__15[0], 15) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__15[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__15[2], 15) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__15[3], 1);
+	if strings.TrimSpace(name) == "" {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__15[10], 1);
+		return fmt.Errorf("window name is empty")
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__15[4], 1);if a.tmux.SessionExists(session) {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__15[11], 1);
+		err := a.tmux.RenameWindow(session, windowIndex, name)
+		if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__15[12], 1);
+			return fmt.Errorf("rename window: %w", err)
+		}
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__15[5], 1);snap, err := a.store.LoadSession(session)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__15[13], 1);
+		return fmt.Errorf("load session: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__15[6], 1);updated := false
+
+	for i := range snap.Windows {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__15[14], 1);
+		if snap.Windows[i].Index == windowIndex {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__15[15], 1);
+			snap.Windows[i].Name = name
+			updated = true
+
+			break
+		}
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__15[7], 1);if !updated {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__15[16], 1);
+		return fmt.Errorf("window not found in snapshot")
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__15[8], 1);err = a.store.SaveSession(snap)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__15[17], 1);
+		return fmt.Errorf("save session: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__15[9], 1);return nil
+}
+
+func (a *App) RenameSession(session, name string) error {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__16[0], 26) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__16[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__16[2], 16) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[3], 1);
+	if strings.TrimSpace(name) == "" {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[16], 1);
+		return fmt.Errorf("session name is empty")
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[4], 1);if strings.TrimSpace(session) == "" {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[17], 1);
+		return fmt.Errorf("source session is empty")
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[5], 1);if session == name {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[18], 1);
+		return nil
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[6], 1);srcPath, err := a.store.SessionPath(session)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[19], 1);
+		return fmt.Errorf("get source session path: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[7], 1);dstPath, err := a.store.SessionPath(name)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[20], 1);
+		return fmt.Errorf("get dest session path: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[8], 1);if srcPath == dstPath {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[21], 1);
+		return nil
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[9], 1);exists, err := a.store.SessionExists(name)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[22], 1);
+		return fmt.Errorf("check session exists: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[10], 1);if exists {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[23], 1);
+		return fmt.Errorf("session %q already exists", name)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[11], 1);snap, err := a.store.LoadSession(session)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[24], 1);
+		return fmt.Errorf("load session: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[12], 1);snap.SessionName = name
+
+	if a.tmux.SessionExists(session) {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[25], 1);
+		err := a.tmux.RenameSession(session, name)
+		if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[26], 1);
+			return fmt.Errorf("rename tmux session: %w", err)
+		}
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[13], 1);err = a.store.SaveSession(snap)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[27], 1);
+		return fmt.Errorf("save session: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[14], 1);err = a.store.DeleteSession(session)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[28], 1);
+		return fmt.Errorf("delete old session: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__16[15], 1);return nil
+}
+
+func (a *App) NewSession(name string) error {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__17[0], 13) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__17[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__17[2], 17) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__17[3], 1);
+	if strings.TrimSpace(name) == "" {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__17[9], 1);
+		return fmt.Errorf("session name is empty")
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__17[4], 1);exists, err := a.store.SessionExists(name)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__17[10], 1);
+		return fmt.Errorf("check session exists: %w", err)
+	} else{ _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__17[11], 1);if exists {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__17[12], 1);
+		return fmt.Errorf("session %q already exists in storage", name)
+	}}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__17[5], 1);err = a.tmux.NewSession(name)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__17[13], 1);
+		return fmt.Errorf("create new session: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__17[6], 1);snap, err := a.tmux.CaptureSession(name)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__17[14], 1);
+		_ = a.tmux.KillSession(name)
+		return fmt.Errorf("capture session: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__17[7], 1);err = a.store.SaveSession(snap)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__17[15], 1);
+		_ = a.tmux.KillSession(name)
+		return fmt.Errorf("save session: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__17[8], 1);return nil
+}
+
+func (a *App) NewWindow(session, name string) error {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__18[0], 17) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__18[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__18[2], 18) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__18[3], 1);
+	if strings.TrimSpace(session) == "" {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__18[9], 1);
+		return fmt.Errorf("session name is empty")
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__18[4], 1);if a.tmux.SessionExists(session) {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__18[10], 1);
+		err := a.tmux.NewWindow(session, name)
+		if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__18[14], 1);
+			return fmt.Errorf("create new window: %w", err)
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__18[11], 1);snap, err := a.tmux.CaptureSession(session)
+		if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__18[15], 1);
+			return fmt.Errorf("capture session: %w", err)
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__18[12], 1);err = a.store.SaveSession(snap)
+		if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__18[16], 1);
+			return fmt.Errorf("save session: %w", err)
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__18[13], 1);return nil
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__18[5], 1);snap, err := a.store.LoadSession(session)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__18[17], 1);
+		return fmt.Errorf("load session: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__18[6], 1);idx := nextWindowIndex(snap.Windows)
+	if strings.TrimSpace(name) == "" {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__18[18], 1);
+		name = fmt.Sprintf("window-%d", idx)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__18[7], 1);snap.Windows = append(snap.Windows, snapshot.Window{
+		Index:      idx,
+		Name:       name,
+		ActivePane: 0,
+		Panes: []snapshot.Pane{
+			{Index: 0},
+		},
+	})
+
+	err = a.store.SaveSession(snap)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__18[19], 1);
+		return fmt.Errorf("save session: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__18[8], 1);return nil
+}
+
+func nextWindowIndex(windows []snapshot.Window) int {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__19[0], 4) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__19[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__19[2], 19) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__19[3], 1);
+	maxIdx := -1
+	for _, w := range windows {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__19[5], 1);
+		if w.Index > maxIdx {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__19[6], 1);
+			maxIdx = w.Index
+		}
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__19[4], 1);return maxIdx + 1
+}
+
+func (a *App) Wakeup(session string) error {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__20[0], 5) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__20[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__20[2], 20) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__20[3], 1);
+	if strings.TrimSpace(session) == "" {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__20[6], 1);
+		return fmt.Errorf("session name is empty")
+	}
+	// Check if session already exists
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__20[4], 1);if a.tmux.SessionExists(session) {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__20[7], 1);
+		return fmt.Errorf("session %q is already awake", session)
+	}
+	// Restore the session
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__20[5], 1);return a.Restore(session, false)
+}
+
+func (a *App) Sleep(session string) error {_cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__21[0], 9) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__21[1], goCover_d0e17f31ba15_P) ; _cover_atomic_.StoreUint32(&goCover_d0e17f31ba15__21[2], 21) ; _cover_atomic_.AddUint32(&goCover_d0e17f31ba15__21[3], 1);
+	if strings.TrimSpace(session) == "" {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__21[8], 1);
+		return fmt.Errorf("session name is empty")
+	}
+	// Check if session exists
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__21[4], 1);if !a.tmux.SessionExists(session) {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__21[9], 1);
+		return fmt.Errorf("session %q is not running", session)
+	}
+	// Save the session first
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__21[5], 1);err := a.SaveSession(session)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__21[10], 1);
+		return err
+	}
+	// Then kill it
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__21[6], 1);err = a.tmux.KillSession(session)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__21[11], 1);
+		return fmt.Errorf("kill session: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d0e17f31ba15__21[7], 1);return nil
+}
+
+var _ = _cover_atomic_.LoadUint32

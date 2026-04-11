@@ -1,0 +1,382 @@
+//line /workspace/internal/picker/sort.go:1:1
+package picker; import _cover_atomic_ "sync/atomic"
+
+import (
+	"fmt"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+)
+
+type SortOptions struct {
+	Session []SessionSortKey
+	Window  []WindowSortKey
+}
+
+type SessionSortKey struct {
+	Field SessionSortField
+	Desc  bool
+}
+
+type WindowSortKey struct {
+	Field WindowSortField
+	Desc  bool
+}
+
+type SessionSortField string
+
+type WindowSortField string
+
+const (
+	SessionSortLastUsed SessionSortField = "last-used"
+	SessionSortCaptured SessionSortField = "captured"
+	SessionSortName     SessionSortField = "name"
+	SessionSortWindows  SessionSortField = "windows"
+	SessionSortPanes    SessionSortField = "panes"
+)
+
+const (
+	WindowSortIndex WindowSortField = "index"
+	WindowSortName  WindowSortField = "name"
+	WindowSortPanes WindowSortField = "panes"
+	WindowSortCmd   WindowSortField = "cmd"
+)
+
+func DefaultSortOptions() SortOptions {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__38[0], 1) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__38[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__38[2], 38) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__38[3], 1);
+	return SortOptions{
+		Session: []SessionSortKey{
+			{Field: SessionSortLastUsed, Desc: true},
+			{Field: SessionSortCaptured, Desc: true},
+			{Field: SessionSortName, Desc: false},
+		},
+		Window: []WindowSortKey{
+			{Field: WindowSortIndex, Desc: false},
+			{Field: WindowSortName, Desc: false},
+		},
+	}
+}
+
+func ParseSortOptions(sessionExpr, windowExpr string) (SortOptions, error) {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__39[0], 9) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__39[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__39[2], 39) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__39[3], 1);
+	opts := DefaultSortOptions()
+
+	if strings.TrimSpace(sessionExpr) != "" {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__39[6], 1);
+		keys, err := parseSessionSortKeys(sessionExpr)
+		if err != nil {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__39[8], 1);
+			return SortOptions{}, err
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__39[7], 1);opts.Session = keys
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__39[4], 1);if strings.TrimSpace(windowExpr) != "" {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__39[9], 1);
+		keys, err := parseWindowSortKeys(windowExpr)
+		if err != nil {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__39[11], 1);
+			return SortOptions{}, err
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__39[10], 1);opts.Window = keys
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__39[5], 1);return opts, nil
+}
+
+func parseSessionSortKeys(expr string) ([]SessionSortKey, error) {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__40[0], 11) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__40[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__40[2], 40) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__40[3], 1);
+	seen := map[SessionSortField]struct{}{}
+
+	parts, err := splitSortExpr(expr)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__40[7], 1);
+		return nil, fmt.Errorf("session sort: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__40[4], 1);keys := make([]SessionSortKey, 0, len(parts))
+
+	for _, part := range parts {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__40[8], 1);
+		field, desc, err := parseSessionSortPart(part)
+		if err != nil {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__40[11], 1);
+			return nil, err
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__40[9], 1);if _, ok := seen[field]; ok {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__40[12], 1);
+			return nil, fmt.Errorf("duplicate session sort field: %s", field)
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__40[10], 1);seen[field] = struct{}{}
+
+		keys = append(keys, SessionSortKey{Field: field, Desc: desc})
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__40[5], 1);if len(keys) == 0 {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__40[13], 1);
+		return nil, fmt.Errorf("empty session sort expression")
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__40[6], 1);return keys, nil
+}
+
+func parseWindowSortKeys(expr string) ([]WindowSortKey, error) {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__41[0], 11) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__41[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__41[2], 41) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__41[3], 1);
+	seen := map[WindowSortField]struct{}{}
+
+	parts, err := splitSortExpr(expr)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__41[7], 1);
+		return nil, fmt.Errorf("window sort: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__41[4], 1);keys := make([]WindowSortKey, 0, len(parts))
+
+	for _, part := range parts {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__41[8], 1);
+		field, desc, err := parseWindowSortPart(part)
+		if err != nil {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__41[11], 1);
+			return nil, err
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__41[9], 1);if _, ok := seen[field]; ok {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__41[12], 1);
+			return nil, fmt.Errorf("duplicate window sort field: %s", field)
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__41[10], 1);seen[field] = struct{}{}
+
+		keys = append(keys, WindowSortKey{Field: field, Desc: desc})
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__41[5], 1);if len(keys) == 0 {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__41[13], 1);
+		return nil, fmt.Errorf("empty window sort expression")
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__41[6], 1);return keys, nil
+}
+
+func splitSortExpr(expr string) ([]string, error) {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__42[0], 5) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__42[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__42[2], 42) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__42[3], 1);
+	chunks := strings.Split(expr, ",")
+	out := make([]string, 0, len(chunks))
+
+	for _, ch := range chunks {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__42[5], 1);
+		v := strings.TrimSpace(ch)
+		if v == "" {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__42[7], 1);
+			return nil, fmt.Errorf("empty sort term in expression")
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__42[6], 1);out = append(out, v)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__42[4], 1);return out, nil
+}
+
+func parseSessionSortPart(part string) (SessionSortField, bool, error) {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__43[0], 7) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__43[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__43[2], 43) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__43[3], 1);
+	name, descToken, hasDesc := splitSortPart(part)
+	field, ok := parseSessionField(name)
+
+	if !ok {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__43[6], 1);
+		return "", false, fmt.Errorf("unknown session sort field: %s", name)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__43[4], 1);desc := defaultSessionDirection(field)
+
+	if hasDesc {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__43[7], 1);
+		v, err := parseDirection(descToken)
+		if err != nil {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__43[9], 1);
+			return "", false, fmt.Errorf("session %s: %w", name, err)
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__43[8], 1);desc = v
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__43[5], 1);return field, desc, nil
+}
+
+func parseWindowSortPart(part string) (WindowSortField, bool, error) {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__44[0], 7) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__44[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__44[2], 44) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__44[3], 1);
+	name, descToken, hasDesc := splitSortPart(part)
+	field, ok := parseWindowField(name)
+
+	if !ok {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__44[6], 1);
+		return "", false, fmt.Errorf("unknown window sort field: %s", name)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__44[4], 1);desc := defaultWindowDirection(field)
+
+	if hasDesc {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__44[7], 1);
+		v, err := parseDirection(descToken)
+		if err != nil {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__44[9], 1);
+			return "", false, fmt.Errorf("window %s: %w", name, err)
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__44[8], 1);desc = v
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__44[5], 1);return field, desc, nil
+}
+
+func splitSortPart(part string) (name, dir string, hasDir bool) {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__45[0], 3) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__45[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__45[2], 45) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__45[3], 1);
+	left, right, ok := strings.Cut(strings.TrimSpace(part), ":")
+	if !ok {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__45[5], 1);
+		return strings.TrimSpace(part), "", false
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__45[4], 1);return strings.TrimSpace(left), strings.TrimSpace(right), true
+}
+
+func parseDirection(directionStr string) (bool, error) {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__46[0], 4) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__46[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__46[2], 46) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__46[3], 1);
+	switch strings.ToLower(strings.TrimSpace(directionStr)) {
+	case "asc":_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__46[4], 1);
+		return false, nil
+	case "desc":_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__46[5], 1);
+		return true, nil
+	default:_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__46[6], 1);
+		return false, fmt.Errorf("invalid direction %q (expected asc|desc)", directionStr)
+	}
+}
+
+func parseSessionField(in string) (SessionSortField, bool) {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__47[0], 7) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__47[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__47[2], 47) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__47[3], 1);
+	switch strings.ToLower(strings.TrimSpace(in)) {
+	case "last-used", "last_accessed", "last-accessed":_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__47[4], 1);
+		return SessionSortLastUsed, true
+	case "captured", "captured_at", "captured-at":_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__47[5], 1);
+		return SessionSortCaptured, true
+	case "name":_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__47[6], 1);
+		return SessionSortName, true
+	case "windows":_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__47[7], 1);
+		return SessionSortWindows, true
+	case "panes":_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__47[8], 1);
+		return SessionSortPanes, true
+	default:_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__47[9], 1);
+		return "", false
+	}
+}
+
+func parseWindowField(in string) (WindowSortField, bool) {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__48[0], 6) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__48[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__48[2], 48) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__48[3], 1);
+	switch strings.ToLower(strings.TrimSpace(in)) {
+	case "index":_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__48[4], 1);
+		return WindowSortIndex, true
+	case "name":_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__48[5], 1);
+		return WindowSortName, true
+	case "panes":_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__48[6], 1);
+		return WindowSortPanes, true
+	case "cmd", "command":_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__48[7], 1);
+		return WindowSortCmd, true
+	default:_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__48[8], 1);
+		return "", false
+	}
+}
+
+func defaultSessionDirection(field SessionSortField) bool {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__49[0], 3) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__49[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__49[2], 49) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__49[3], 1);
+	switch field {
+	case SessionSortLastUsed, SessionSortCaptured:_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__49[4], 1);
+		return true
+	default:_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__49[5], 1);
+		return false
+	}
+}
+
+func defaultWindowDirection(field WindowSortField) bool {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__50[0], 3) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__50[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__50[2], 50) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__50[3], 1);
+	switch field {
+	case WindowSortPanes:_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__50[4], 1);
+		return true
+	default:_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__50[5], 1);
+		return false
+	}
+}
+
+func sortSessionRecords(records []snapshot.Record, keys []SessionSortKey) {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__51[0], 7) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__51[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__51[2], 51) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__51[3], 1);
+	sort.Slice(records, func(recordIndexI, recordIndexJ int) bool {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__51[4], 1);
+		for _, key := range keys {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__51[6], 1);
+			if cmp := compareSessionField(
+				records[recordIndexI],
+				records[recordIndexJ],
+				key.Field,
+			); cmp != 0 {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__51[7], 1);
+				if key.Desc {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__51[9], 1);
+					return cmp > 0
+				}
+
+				_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__51[8], 1);return cmp < 0
+			}
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__51[5], 1);return records[recordIndexI].SessionName < records[recordIndexJ].SessionName
+	})
+}
+
+func SortSessionRecords(records []snapshot.Record, keys []SessionSortKey) {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__52[0], 1) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__52[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__52[2], 52) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__52[3], 1);
+	sortSessionRecords(records, keys)
+}
+
+func compareSessionField(a, b snapshot.Record, field SessionSortField) int {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__53[0], 7) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__53[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__53[2], 53) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__53[3], 1); //nolint:varnamelen
+	switch field {
+	case SessionSortLastUsed:_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__53[4], 1);
+		return compareTime(a.LastAccessed, b.LastAccessed)
+	case SessionSortCaptured:_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__53[5], 1);
+		return compareTime(a.CapturedAt, b.CapturedAt)
+	case SessionSortName:_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__53[6], 1);
+		return strings.Compare(a.SessionName, b.SessionName)
+	case SessionSortWindows:_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__53[7], 1);
+		return compareInt(a.Windows, b.Windows)
+	case SessionSortPanes:_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__53[8], 1);
+		return compareInt(a.Panes, b.Panes)
+	default:_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__53[9], 1);
+		return 0
+	}
+}
+
+func compareTime(a, b time.Time) int {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__54[0], 5) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__54[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__54[2], 54) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__54[3], 1);
+	if a.Equal(b) {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__54[6], 1);
+		return 0
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__54[4], 1);if a.Before(b) {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__54[7], 1);
+		return -1
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__54[5], 1);return 1
+}
+
+func compareInt(a, b int) int {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__55[0], 4) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__55[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__55[2], 55) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__55[3], 1);
+	switch {
+	case a < b:_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__55[4], 1);
+		return -1
+	case a > b:_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__55[5], 1);
+		return 1
+	default:_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__55[6], 1);
+		return 0
+	}
+}
+
+func sortWindows(windows []snapshot.Window, keys []WindowSortKey) {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__56[0], 7) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__56[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__56[2], 56) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__56[3], 1);
+	sort.Slice(windows, func(windowIndexI, windowIndexJ int) bool {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__56[4], 1);
+		for _, key := range keys {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__56[6], 1);
+			if cmp := compareWindowField(
+				windows[windowIndexI],
+				windows[windowIndexJ],
+				key.Field,
+			); cmp != 0 {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__56[7], 1);
+				if key.Desc {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__56[9], 1);
+					return cmp > 0
+				}
+
+				_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__56[8], 1);return cmp < 0
+			}
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__56[5], 1);return windows[windowIndexI].Index < windows[windowIndexJ].Index
+	})
+}
+
+func SortWindows(windows []snapshot.Window, keys []WindowSortKey) {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__57[0], 1) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__57[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__57[2], 57) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__57[3], 1);
+	sortWindows(windows, keys)
+}
+
+func compareWindowField(windowA, windowB snapshot.Window, field WindowSortField) int {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__58[0], 6) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__58[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__58[2], 58) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__58[3], 1);
+	switch field {
+	case WindowSortIndex:_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__58[4], 1);
+		return compareInt(windowA.Index, windowB.Index)
+	case WindowSortName:_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__58[5], 1);
+		return strings.Compare(windowA.Name, windowB.Name)
+	case WindowSortPanes:_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__58[6], 1);
+		return compareInt(len(windowA.Panes), len(windowB.Panes))
+	case WindowSortCmd:_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__58[7], 1);
+		return strings.Compare(windowPreviewCommand(windowA), windowPreviewCommand(windowB))
+	default:_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__58[8], 1);
+		return 0
+	}
+}
+
+var _ = _cover_atomic_.LoadUint32

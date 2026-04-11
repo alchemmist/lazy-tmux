@@ -1,0 +1,911 @@
+//line /workspace/internal/tmux/client.go:1:1
+package tmux; import _cover_atomic_ "sync/atomic"
+
+import (
+	"bufio"
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
+
+	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+)
+
+const fieldSep = "\x1f"
+
+var (
+	ErrSessionNotFound = errors.New("tmux session not found")
+	ErrSessionExists   = errors.New("tmux session already exists")
+)
+
+var paneTTYWriter = writePaneTTY
+
+type commandResult struct {
+	stdout string
+	err    error
+}
+
+type commandRunner interface {
+	runCommand(args ...string) commandResult
+}
+
+type execRunner struct{}
+
+func (execRunner) runCommand(args ...string) commandResult {_cover_atomic_.StoreUint32(&goCover_333f21696422__0[0], 3) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__0[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__0[2], 0) ; _cover_atomic_.AddUint32(&goCover_333f21696422__0[3], 1);
+	cmd := exec.CommandContext(context.Background(), args[0], args[1:]...)
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__0[5], 1);
+		return commandResult{"", fmt.Errorf(
+			"tmux %s: %w (%s)",
+			strings.Join(args[1:], " "),
+			err,
+			strings.TrimSpace(string(out)),
+		)}
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__0[4], 1);return commandResult{string(out), nil}
+}
+
+type Client struct {
+	bin    string
+	runner commandRunner
+}
+
+func NewClient(bin string) *Client {_cover_atomic_.StoreUint32(&goCover_333f21696422__1[0], 3) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__1[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__1[2], 1) ; _cover_atomic_.AddUint32(&goCover_333f21696422__1[3], 1);
+	if strings.TrimSpace(bin) == "" {_cover_atomic_.AddUint32(&goCover_333f21696422__1[5], 1);
+		bin = "tmux"
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__1[4], 1);return &Client{bin: bin, runner: execRunner{}}
+}
+
+func NewClientWithRunner(bin string, cmdRunner commandRunner) *Client {_cover_atomic_.StoreUint32(&goCover_333f21696422__2[0], 6) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__2[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__2[2], 2) ; _cover_atomic_.AddUint32(&goCover_333f21696422__2[3], 1);
+	if strings.TrimSpace(bin) == "" {_cover_atomic_.AddUint32(&goCover_333f21696422__2[6], 1);
+		bin = "tmux"
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__2[4], 1);tmuxClient := &Client{bin: bin}
+	if cmdRunner != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__2[7], 1);
+		tmuxClient.runner = cmdRunner
+	} else{ _cover_atomic_.AddUint32(&goCover_333f21696422__2[8], 1);{
+		tmuxClient.runner = execRunner{}
+	}}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__2[5], 1);return tmuxClient
+}
+
+func sessionTarget(name string) string {_cover_atomic_.StoreUint32(&goCover_333f21696422__3[0], 3) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__3[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__3[2], 3) ; _cover_atomic_.AddUint32(&goCover_333f21696422__3[3], 1);
+	name = strings.TrimSpace(name)
+	if strings.HasPrefix(name, "=") {_cover_atomic_.AddUint32(&goCover_333f21696422__3[5], 1);
+		return name
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__3[4], 1);return "=" + name
+}
+
+func sessionWindowTarget(name string, windowIndex int) string {_cover_atomic_.StoreUint32(&goCover_333f21696422__4[0], 1) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__4[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__4[2], 4) ; _cover_atomic_.AddUint32(&goCover_333f21696422__4[3], 1);
+	return fmt.Sprintf("%s:%d", sessionTarget(name), windowIndex)
+}
+
+func sessionPaneTarget(name string, windowIndex, paneIndex int) string {_cover_atomic_.StoreUint32(&goCover_333f21696422__5[0], 1) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__5[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__5[2], 5) ; _cover_atomic_.AddUint32(&goCover_333f21696422__5[3], 1);
+	return fmt.Sprintf("%s:%d.%d", sessionTarget(name), windowIndex, paneIndex)
+}
+
+func PaneTarget(name string, windowIndex, paneIndex int) string {_cover_atomic_.StoreUint32(&goCover_333f21696422__6[0], 1) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__6[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__6[2], 6) ; _cover_atomic_.AddUint32(&goCover_333f21696422__6[3], 1);
+	return sessionPaneTarget(name, windowIndex, paneIndex)
+}
+
+func sessionWindowBaseTarget(name string) string {_cover_atomic_.StoreUint32(&goCover_333f21696422__7[0], 1) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__7[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__7[2], 7) ; _cover_atomic_.AddUint32(&goCover_333f21696422__7[3], 1);
+	return sessionTarget(name) + ":"
+}
+
+func (client *Client) Run(args ...string) error {_cover_atomic_.StoreUint32(&goCover_333f21696422__8[0], 3) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__8[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__8[2], 8) ; _cover_atomic_.AddUint32(&goCover_333f21696422__8[3], 1);
+	cmd := exec.CommandContext(context.Background(), client.bin, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	err := cmd.Run()
+	if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__8[5], 1);
+		return fmt.Errorf("run tmux: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__8[4], 1);return nil
+}
+
+func (client *Client) Output(args ...string) (string, error) {_cover_atomic_.StoreUint32(&goCover_333f21696422__9[0], 1) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__9[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__9[2], 9) ; _cover_atomic_.AddUint32(&goCover_333f21696422__9[3], 1);
+	allArgs := append([]string{client.bin}, args...)
+	res := client.runner.runCommand(allArgs...)
+
+	return res.stdout, res.err
+}
+
+func (client *Client) SessionExists(name string) bool {_cover_atomic_.StoreUint32(&goCover_333f21696422__10[0], 1) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__10[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__10[2], 10) ; _cover_atomic_.AddUint32(&goCover_333f21696422__10[3], 1);
+	_, err := client.Output("has-session", "-t", sessionTarget(name))
+
+	return err == nil
+}
+
+func (client *Client) ListSessions() ([]string, error) {_cover_atomic_.StoreUint32(&goCover_333f21696422__11[0], 5) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__11[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__11[2], 11) ; _cover_atomic_.AddUint32(&goCover_333f21696422__11[3], 1);
+	out, err := client.Output("list-sessions", "-F", "#{session_name}")
+	if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__11[5], 1);
+		if strings.Contains(err.Error(), "no server running") {_cover_atomic_.AddUint32(&goCover_333f21696422__11[7], 1);
+			return nil, nil
+		}
+
+		_cover_atomic_.AddUint32(&goCover_333f21696422__11[6], 1);return nil, err
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__11[4], 1);lines := splitLines(out)
+	sort.Strings(lines)
+
+	return lines, nil
+}
+
+func (client *Client) CurrentSession() (string, error) {_cover_atomic_.StoreUint32(&goCover_333f21696422__12[0], 3) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__12[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__12[2], 12) ; _cover_atomic_.AddUint32(&goCover_333f21696422__12[3], 1);
+	out, err := client.Output("display-message", "-p", "#S")
+	if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__12[5], 1);
+		return "", err
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__12[4], 1);return strings.TrimSpace(out), nil
+}
+
+func (client *Client) SocketPath() string {_cover_atomic_.StoreUint32(&goCover_333f21696422__13[0], 5) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__13[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__13[2], 13) ; _cover_atomic_.AddUint32(&goCover_333f21696422__13[3], 1);
+	out, err := client.Output("display-message", "-p", "#{socket_path}")
+	if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__13[6], 1);
+		return "default"
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__13[4], 1);v := strings.TrimSpace(out)
+	if v == "" {_cover_atomic_.AddUint32(&goCover_333f21696422__13[7], 1);
+		return "default"
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__13[5], 1);return v
+}
+
+func (client *Client) SwitchClient(session string) error {_cover_atomic_.StoreUint32(&goCover_333f21696422__14[0], 3) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__14[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__14[2], 14) ; _cover_atomic_.AddUint32(&goCover_333f21696422__14[3], 1);
+	if os.Getenv("TMUX") == "" {_cover_atomic_.AddUint32(&goCover_333f21696422__14[5], 1);
+		return nil
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__14[4], 1);_, err := client.Output("switch-client", "-t", sessionTarget(session))
+
+	return err
+}
+
+func (client *Client) KillWindow(session string, windowIndex int) error {_cover_atomic_.StoreUint32(&goCover_333f21696422__15[0], 1) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__15[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__15[2], 15) ; _cover_atomic_.AddUint32(&goCover_333f21696422__15[3], 1);
+	_, err := client.Output("kill-window", "-t", sessionWindowTarget(session, windowIndex))
+	return err
+}
+
+func (client *Client) KillSession(session string) error {_cover_atomic_.StoreUint32(&goCover_333f21696422__16[0], 1) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__16[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__16[2], 16) ; _cover_atomic_.AddUint32(&goCover_333f21696422__16[3], 1);
+	_, err := client.Output("kill-session", "-t", sessionTarget(session))
+	return err
+}
+
+func (client *Client) RenameWindow(session string, windowIndex int, name string) error {_cover_atomic_.StoreUint32(&goCover_333f21696422__17[0], 1) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__17[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__17[2], 17) ; _cover_atomic_.AddUint32(&goCover_333f21696422__17[3], 1);
+	_, err := client.Output("rename-window", "-t", sessionWindowTarget(session, windowIndex), name)
+	return err
+}
+
+func (client *Client) RenameSession(session, name string) error {_cover_atomic_.StoreUint32(&goCover_333f21696422__18[0], 1) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__18[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__18[2], 18) ; _cover_atomic_.AddUint32(&goCover_333f21696422__18[3], 1);
+	_, err := client.Output("rename-session", "-t", sessionTarget(session), name)
+	return err
+}
+
+func (client *Client) NewSession(name string) error {_cover_atomic_.StoreUint32(&goCover_333f21696422__19[0], 1) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__19[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__19[2], 19) ; _cover_atomic_.AddUint32(&goCover_333f21696422__19[3], 1);
+	_, err := client.Output("new-session", "-d", "-s", name)
+	return err
+}
+
+func (client *Client) NewWindow(session, name string) error {_cover_atomic_.StoreUint32(&goCover_333f21696422__20[0], 3) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__20[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__20[2], 20) ; _cover_atomic_.AddUint32(&goCover_333f21696422__20[3], 1);
+	args := []string{"new-window", "-d", "-t", sessionWindowBaseTarget(session)}
+	if strings.TrimSpace(name) != "" {_cover_atomic_.AddUint32(&goCover_333f21696422__20[5], 1);
+		args = append(args, "-n", name)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__20[4], 1);_, err := client.Output(args...)
+
+	return err
+}
+
+func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, error) {_cover_atomic_.StoreUint32(&goCover_333f21696422__21[0], 25) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__21[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__21[2], 21) ; _cover_atomic_.AddUint32(&goCover_333f21696422__21[3], 1);
+	if !client.SessionExists(name) {_cover_atomic_.AddUint32(&goCover_333f21696422__21[10], 1);
+		return snapshot.SessionSnapshot{}, ErrSessionNotFound
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__21[4], 1);metaOut, err := client.Output(
+		"display-message",
+		"-p",
+		"-t",
+		sessionTarget(name),
+		"#{window_index}"+fieldSep+"#{pane_index}",
+	)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__21[11], 1);
+		return snapshot.SessionSnapshot{}, err
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__21[5], 1);meta := strings.Split(strings.TrimSpace(metaOut), fieldSep)
+	if len(meta) != 2 {_cover_atomic_.AddUint32(&goCover_333f21696422__21[12], 1);
+		return snapshot.SessionSnapshot{}, fmt.Errorf(
+			"unexpected session meta format: %q",
+			strings.TrimSpace(metaOut),
+		)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__21[6], 1);currentWin, _ := strconv.Atoi(meta[0])
+	currentPane, _ := strconv.Atoi(meta[1])
+
+	wOut, err := client.Output(
+		"list-windows",
+		"-t",
+		sessionTarget(name),
+		"-F",
+		"#{window_index}"+fieldSep+"#{window_name}"+fieldSep+"#{window_layout}"+fieldSep+"#{window_active}",
+	)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__21[13], 1);
+		return snapshot.SessionSnapshot{}, err
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__21[7], 1);windows := make([]snapshot.Window, 0)
+
+	for _, line := range splitLines(wOut) {_cover_atomic_.AddUint32(&goCover_333f21696422__21[14], 1);
+		parts := strings.Split(line, fieldSep)
+		if len(parts) != 4 {_cover_atomic_.AddUint32(&goCover_333f21696422__21[19], 1);
+			continue
+		}
+
+		_cover_atomic_.AddUint32(&goCover_333f21696422__21[15], 1);idx, _ := strconv.Atoi(parts[0])
+		window := snapshot.Window{
+			Index:    idx,
+			Name:     parts[1],
+			Layout:   parts[2],
+			IsActive: parts[3] == "1",
+		}
+
+		pOut, err := client.Output("list-panes", "-t", sessionWindowTarget(name, idx), "-F",
+			"#{pane_index}"+fieldSep+
+				"#{pane_current_path}"+fieldSep+
+				"#{pane_current_command}"+fieldSep+
+				"#{pane_active}"+fieldSep+
+				"#{pane_pid}"+fieldSep+
+				"#{pane_tty}",
+		)
+		if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__21[20], 1);
+			return snapshot.SessionSnapshot{}, err
+		}
+
+		_cover_atomic_.AddUint32(&goCover_333f21696422__21[16], 1);for _, pLine := range splitLines(pOut) {_cover_atomic_.AddUint32(&goCover_333f21696422__21[21], 1);
+			parts := strings.Split(pLine, fieldSep)
+			if len(parts) != 6 {_cover_atomic_.AddUint32(&goCover_333f21696422__21[24], 1);
+				continue
+			}
+
+			_cover_atomic_.AddUint32(&goCover_333f21696422__21[22], 1);pIdx, _ := strconv.Atoi(parts[0])
+			panePID, _ := strconv.Atoi(strings.TrimSpace(parts[4]))
+			restoreCmd, _ := client.foregroundCommand(parts[5], panePID)
+
+			pane := snapshot.Pane{
+				Index:       pIdx,
+				CurrentPath: parts[1],
+				CurrentCmd:  parts[2],
+				IsActive:    parts[3] == "1",
+				RestoreCmd:  strings.TrimSpace(restoreCmd),
+			}
+			if pane.IsActive {_cover_atomic_.AddUint32(&goCover_333f21696422__21[25], 1);
+				window.ActivePane = pane.Index
+			}
+
+			_cover_atomic_.AddUint32(&goCover_333f21696422__21[23], 1);window.Panes = append(window.Panes, pane)
+		}
+
+		_cover_atomic_.AddUint32(&goCover_333f21696422__21[17], 1);sort.Slice(
+			window.Panes,
+			func(i, j int) bool {_cover_atomic_.AddUint32(&goCover_333f21696422__21[26], 1); return window.Panes[i].Index < window.Panes[j].Index },
+		)
+
+		_cover_atomic_.AddUint32(&goCover_333f21696422__21[18], 1);windows = append(windows, window)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__21[8], 1);sort.Slice(windows, func(i, j int) bool {_cover_atomic_.AddUint32(&goCover_333f21696422__21[27], 1); return windows[i].Index < windows[j].Index })
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__21[9], 1);return snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: name,
+		CapturedAt:  nowUTC(),
+		CurrentWin:  currentWin,
+		CurrentPane: currentPane,
+		Windows:     windows,
+	}, nil
+}
+
+func (client *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) error {_cover_atomic_.StoreUint32(&goCover_333f21696422__22[0], 25) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__22[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__22[2], 22) ; _cover_atomic_.AddUint32(&goCover_333f21696422__22[3], 1);
+	if sessionSnapshot.SessionName == "" {_cover_atomic_.AddUint32(&goCover_333f21696422__22[15], 1);
+		return errors.New("empty session name")
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__22[4], 1);if client.SessionExists(sessionSnapshot.SessionName) {_cover_atomic_.AddUint32(&goCover_333f21696422__22[16], 1);
+		return ErrSessionExists
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__22[5], 1);if len(sessionSnapshot.Windows) == 0 {_cover_atomic_.AddUint32(&goCover_333f21696422__22[17], 1);
+		return errors.New("session snapshot has no windows")
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__22[6], 1);windows := make([]snapshot.Window, len(sessionSnapshot.Windows))
+	copy(windows, sessionSnapshot.Windows)
+	sort.Slice(windows, func(i, j int) bool {_cover_atomic_.AddUint32(&goCover_333f21696422__22[18], 1); return windows[i].Index < windows[j].Index })
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__22[7], 1);first := windows[0]
+
+	_, err := client.runWithShellFallback(
+		newSessionArgs(sessionSnapshot.SessionName, first),
+		"",
+	)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__22[19], 1);
+		return err
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__22[8], 1);createdIdx, err := client.createdFirstWindowIndex(
+		sessionSnapshot.SessionName,
+	)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__22[20], 1);
+		return err
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__22[9], 1);if createdIdx != first.Index {_cover_atomic_.AddUint32(&goCover_333f21696422__22[21], 1);
+		_, err = client.Output(
+			"move-window",
+			"-s", sessionWindowTarget(sessionSnapshot.SessionName, createdIdx),
+			"-t", sessionWindowTarget(sessionSnapshot.SessionName, first.Index),
+		)
+		if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__22[22], 1);
+			return err
+		}
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__22[10], 1);err = client.populateWindow(sessionSnapshot.SessionName, first, first.Index)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__22[23], 1);
+		return err
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__22[11], 1);for i := 1; i < len(windows); i++ {_cover_atomic_.AddUint32(&goCover_333f21696422__22[24], 1);
+		w := windows[i]
+
+		err := client.createAndPopulateWindow(sessionSnapshot.SessionName, w)
+		if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__22[25], 1);
+			return err
+		}
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__22[12], 1);_, err = client.Output(
+		"select-window",
+		"-t",
+		sessionWindowTarget(sessionSnapshot.SessionName, sessionSnapshot.CurrentWin),
+	)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__22[26], 1);
+		return fmt.Errorf("select window: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__22[13], 1);_, err = client.Output(
+		"select-pane",
+		"-t",
+		sessionPaneTarget(
+			sessionSnapshot.SessionName,
+			sessionSnapshot.CurrentWin,
+			sessionSnapshot.CurrentPane,
+		),
+	)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__22[27], 1);
+		return fmt.Errorf("select pane: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__22[14], 1);return nil
+}
+
+func newSessionArgs(sessionName string, w snapshot.Window) []string {_cover_atomic_.StoreUint32(&goCover_333f21696422__23[0], 3) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__23[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__23[2], 23) ; _cover_atomic_.AddUint32(&goCover_333f21696422__23[3], 1);
+	args := []string{"new-session", "-d", "-s", sessionName, "-n", w.Name}
+	if path := firstPanePath(w); path != "" {_cover_atomic_.AddUint32(&goCover_333f21696422__23[5], 1);
+		args = append(args, "-c", path)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__23[4], 1);return args
+}
+
+func newWindowArgs(sessionName string, win snapshot.Window) []string {_cover_atomic_.StoreUint32(&goCover_333f21696422__24[0], 3) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__24[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__24[2], 24) ; _cover_atomic_.AddUint32(&goCover_333f21696422__24[3], 1);
+	args := []string{
+		"new-window",
+		"-d",
+		"-t",
+		sessionWindowTarget(sessionName, win.Index),
+		"-n",
+		win.Name,
+	}
+	if path := firstPanePath(win); path != "" {_cover_atomic_.AddUint32(&goCover_333f21696422__24[5], 1);
+		args = append(args, "-c", path)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__24[4], 1);return args
+}
+
+func (client *Client) CapturePaneScrollback(target string, lines int) (string, error) {_cover_atomic_.StoreUint32(&goCover_333f21696422__25[0], 3) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__25[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__25[2], 25) ; _cover_atomic_.AddUint32(&goCover_333f21696422__25[3], 1);
+	if lines <= 0 {_cover_atomic_.AddUint32(&goCover_333f21696422__25[5], 1);
+		lines = 5000
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__25[4], 1);return client.Output("capture-pane", "-p", "-e", "-S", fmt.Sprintf("-%d", lines), "-t", target)
+}
+
+func (client *Client) createAndPopulateWindow(sessionName string, win snapshot.Window) error {_cover_atomic_.StoreUint32(&goCover_333f21696422__26[0], 3) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__26[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__26[2], 26) ; _cover_atomic_.AddUint32(&goCover_333f21696422__26[3], 1);
+	_, err := client.runWithShellFallback(newWindowArgs(sessionName, win), "")
+	if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__26[5], 1);
+		return err
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__26[4], 1);return client.populateWindow(sessionName, win, win.Index)
+}
+
+func (client *Client) populateWindow(
+	sessionName string,
+	window snapshot.Window,
+	windowIndex int,
+) error {_cover_atomic_.StoreUint32(&goCover_333f21696422__27[0], 7) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__27[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__27[2], 27) ; _cover_atomic_.AddUint32(&goCover_333f21696422__27[3], 1);
+	err := client.ensurePaneCount(sessionName, window, windowIndex)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__27[7], 1);
+		return err
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__27[4], 1);client.restoreWindowScrollback(sessionName, window, windowIndex)
+
+	err = client.restoreWindowCommands(sessionName, window, windowIndex)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__27[8], 1);
+		return err
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__27[5], 1);if window.Layout != "" {_cover_atomic_.AddUint32(&goCover_333f21696422__27[9], 1);
+		_, _ = client.Output(
+			"select-layout",
+			"-t",
+			sessionWindowTarget(sessionName, windowIndex),
+			window.Layout,
+		)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__27[6], 1);return nil
+}
+
+func (client *Client) ensurePaneCount(
+	sessionName string,
+	window snapshot.Window,
+	windowIndex int,
+) error {_cover_atomic_.StoreUint32(&goCover_333f21696422__28[0], 8) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__28[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__28[2], 28) ; _cover_atomic_.AddUint32(&goCover_333f21696422__28[3], 1);
+	if len(window.Panes) <= 1 {_cover_atomic_.AddUint32(&goCover_333f21696422__28[6], 1);
+		return nil
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__28[4], 1);for i := 1; i < len(window.Panes); i++ {_cover_atomic_.AddUint32(&goCover_333f21696422__28[7], 1);
+		pane := window.Panes[i]
+		args := []string{"split-window", "-d", "-t", sessionWindowTarget(sessionName, windowIndex)}
+
+		if pane.CurrentPath != "" {_cover_atomic_.AddUint32(&goCover_333f21696422__28[9], 1);
+			args = append(args, "-c", pane.CurrentPath)
+		}
+
+		_cover_atomic_.AddUint32(&goCover_333f21696422__28[8], 1);_, err := client.runWithShellFallback(args, "")
+		if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__28[10], 1);
+			return err
+		}
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__28[5], 1);return nil
+}
+
+func firstPanePath(w snapshot.Window) string {_cover_atomic_.StoreUint32(&goCover_333f21696422__29[0], 6) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__29[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__29[2], 29) ; _cover_atomic_.AddUint32(&goCover_333f21696422__29[3], 1);
+	if len(w.Panes) == 0 {_cover_atomic_.AddUint32(&goCover_333f21696422__29[6], 1);
+		return ""
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__29[4], 1);pane := w.Panes[0]
+
+	path := pane.CurrentPath
+	if path == "" {_cover_atomic_.AddUint32(&goCover_333f21696422__29[7], 1);
+		home, err := os.UserHomeDir()
+		if err == nil {_cover_atomic_.AddUint32(&goCover_333f21696422__29[8], 1);
+			path = home
+		}
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__29[5], 1);return filepath.Clean(path)
+}
+
+func normalizedCommand(restore, current string) string {_cover_atomic_.StoreUint32(&goCover_333f21696422__30[0], 5) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__30[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__30[2], 30) ; _cover_atomic_.AddUint32(&goCover_333f21696422__30[3], 1);
+	restore = sanitizeCommand(restore)
+	if restore != "" && !isShellCommand(restore) {_cover_atomic_.AddUint32(&goCover_333f21696422__30[6], 1);
+		return restore
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__30[4], 1);current = sanitizeCommand(current)
+	if current != "" && !isShellCommand(current) {_cover_atomic_.AddUint32(&goCover_333f21696422__30[7], 1);
+		return current
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__30[5], 1);return ""
+}
+
+func isShellCommand(cmd string) bool {_cover_atomic_.StoreUint32(&goCover_333f21696422__31[0], 1) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__31[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__31[2], 31) ; _cover_atomic_.AddUint32(&goCover_333f21696422__31[3], 1);
+	base := executableName(cmd)
+	shells := map[string]struct{}{
+		"bash": {},
+		"zsh":  {},
+		"fish": {},
+		"sh":   {},
+		"ksh":  {},
+	}
+	_, ok := shells[base]
+
+	return ok
+}
+
+func executableName(cmd string) string {_cover_atomic_.StoreUint32(&goCover_333f21696422__32[0], 3) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__32[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__32[2], 32) ; _cover_atomic_.AddUint32(&goCover_333f21696422__32[3], 1);
+	fields := strings.Fields(strings.TrimSpace(cmd))
+	if len(fields) == 0 {_cover_atomic_.AddUint32(&goCover_333f21696422__32[5], 1);
+		return ""
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__32[4], 1);base := filepath.Base(fields[0])
+
+	return strings.TrimPrefix(base, "-")
+}
+
+func sanitizeCommand(cmd string) string {_cover_atomic_.StoreUint32(&goCover_333f21696422__33[0], 4) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__33[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__33[2], 33) ; _cover_atomic_.AddUint32(&goCover_333f21696422__33[3], 1);
+	cmd = strings.TrimSpace(cmd)
+	if len(cmd) >= 2 {_cover_atomic_.AddUint32(&goCover_333f21696422__33[5], 1);
+		if (cmd[0] == '"' && cmd[len(cmd)-1] == '"') ||
+			(cmd[0] == '\'' && cmd[len(cmd)-1] == '\'') {_cover_atomic_.AddUint32(&goCover_333f21696422__33[6], 1);
+			cmd = strings.TrimSpace(cmd[1 : len(cmd)-1])
+		}
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__33[4], 1);return cmd
+}
+
+func (client *Client) restoreWindowCommands(
+	sessionName string,
+	window snapshot.Window,
+	windowIndex int,
+) error {_cover_atomic_.StoreUint32(&goCover_333f21696422__34[0], 10) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__34[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__34[2], 34) ; _cover_atomic_.AddUint32(&goCover_333f21696422__34[3], 1);
+	if len(window.Panes) == 0 {_cover_atomic_.AddUint32(&goCover_333f21696422__34[7], 1);
+		return nil
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__34[4], 1);panes := make([]snapshot.Pane, len(window.Panes))
+	copy(panes, window.Panes)
+	sort.Slice(panes, func(i, j int) bool {_cover_atomic_.AddUint32(&goCover_333f21696422__34[8], 1); return panes[i].Index < panes[j].Index })
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__34[5], 1);for _, pane := range panes {_cover_atomic_.AddUint32(&goCover_333f21696422__34[9], 1);
+		cmd := normalizedCommand(pane.RestoreCmd, pane.CurrentCmd)
+		if strings.TrimSpace(cmd) == "" {_cover_atomic_.AddUint32(&goCover_333f21696422__34[11], 1);
+			continue
+		}
+
+		_cover_atomic_.AddUint32(&goCover_333f21696422__34[10], 1);target := sessionPaneTarget(sessionName, windowIndex, pane.Index)
+
+		_, err := client.Output("send-keys", "-t", target, cmd, "C-m")
+		if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__34[12], 1);
+			return err
+		}
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__34[6], 1);return nil
+}
+
+func (client *Client) restoreWindowScrollback(
+	sessionName string,
+	window snapshot.Window,
+	windowIndex int,
+) {_cover_atomic_.StoreUint32(&goCover_333f21696422__35[0], 11) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__35[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__35[2], 35) ; _cover_atomic_.AddUint32(&goCover_333f21696422__35[3], 1);
+	if len(window.Panes) == 0 {_cover_atomic_.AddUint32(&goCover_333f21696422__35[6], 1);
+		return
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__35[4], 1);panes := make([]snapshot.Pane, len(window.Panes))
+	copy(panes, window.Panes)
+	sort.Slice(panes, func(i, j int) bool {_cover_atomic_.AddUint32(&goCover_333f21696422__35[7], 1); return panes[i].Index < panes[j].Index })
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__35[5], 1);for _, pane := range panes {_cover_atomic_.AddUint32(&goCover_333f21696422__35[8], 1);
+		if pane.Scrollback == nil || strings.TrimSpace(pane.Scrollback.Content) == "" {_cover_atomic_.AddUint32(&goCover_333f21696422__35[11], 1);
+			continue
+		}
+
+		_cover_atomic_.AddUint32(&goCover_333f21696422__35[9], 1);target := sessionPaneTarget(sessionName, windowIndex, pane.Index)
+
+		tty, err := client.Output("display-message", "-p", "-t", target, "#{pane_tty}")
+		if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__35[12], 1);
+			continue
+		}
+
+		_cover_atomic_.AddUint32(&goCover_333f21696422__35[10], 1);err = paneTTYWriter(strings.TrimSpace(tty), pane.Scrollback.Content)
+		if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__35[13], 1);
+			continue
+		}
+	}
+}
+
+func writePaneTTY(path, content string) error {_cover_atomic_.StoreUint32(&goCover_333f21696422__36[0], 15) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__36[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__36[2], 36) ; _cover_atomic_.AddUint32(&goCover_333f21696422__36[3], 1);
+	path = strings.TrimSpace(path)
+	if path == "" {_cover_atomic_.AddUint32(&goCover_333f21696422__36[11], 1);
+		return errors.New("empty tty path")
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__36[4], 1);if !strings.HasPrefix(path, "/dev/pts/") && !strings.HasPrefix(path, "/dev/tty") {_cover_atomic_.AddUint32(&goCover_333f21696422__36[12], 1);
+		return fmt.Errorf("unsupported tty path: %s", path)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__36[5], 1);fi, err := os.Stat(path)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__36[13], 1);
+		return fmt.Errorf("stat tty: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__36[6], 1);if fi.Mode()&os.ModeCharDevice == 0 {_cover_atomic_.AddUint32(&goCover_333f21696422__36[14], 1);
+		return fmt.Errorf("tty path is not a character device: %s", path)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__36[7], 1);ttyFile, err := os.OpenFile(path, os.O_WRONLY, 0)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__36[15], 1);
+		return fmt.Errorf("open tty: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__36[8], 1);defer func() {_cover_atomic_.AddUint32(&goCover_333f21696422__36[16], 1); _ = ttyFile.Close() }()
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__36[9], 1);_, err = io.WriteString(ttyFile, content)
+	if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__36[17], 1);
+		return fmt.Errorf("write to tty: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__36[10], 1);return nil
+}
+
+func (client *Client) foregroundCommand(paneTTY string, panePID int) (string, error) {_cover_atomic_.StoreUint32(&goCover_333f21696422__37[0], 12) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__37[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__37[2], 37) ; _cover_atomic_.AddUint32(&goCover_333f21696422__37[3], 1);
+	tty := strings.TrimSpace(paneTTY)
+	if tty == "" {_cover_atomic_.AddUint32(&goCover_333f21696422__37[9], 1);
+		return "", nil
+	}
+
+	// "ps -t" may accept tty with or without "/dev/" prefix depending on platform.
+	_cover_atomic_.AddUint32(&goCover_333f21696422__37[4], 1);candidates := []string{tty}
+	if b, ok := strings.CutPrefix(tty, "/dev/"); ok {_cover_atomic_.AddUint32(&goCover_333f21696422__37[10], 1);
+		candidates = append(candidates, b)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__37[5], 1);if b := filepath.Base(tty); b != tty {_cover_atomic_.AddUint32(&goCover_333f21696422__37[11], 1);
+		candidates = append(candidates, b)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__37[6], 1);var out []byte
+
+	var err error
+
+	for _, t := range candidates {_cover_atomic_.AddUint32(&goCover_333f21696422__37[12], 1);
+		cmd := exec.CommandContext(
+			context.Background(),
+			"ps",
+			"-t",
+			t,
+			"-o",
+			"pid=",
+			"-o",
+			"ppid=",
+			"-o",
+			"stat=",
+			"-o",
+			"command=",
+		)
+
+		out, err = cmd.Output()
+		if err == nil {_cover_atomic_.AddUint32(&goCover_333f21696422__37[13], 1);
+			break
+		}
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__37[7], 1);if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__37[14], 1);
+		return "", fmt.Errorf("get output: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__37[8], 1);return pickForegroundCommand(splitLines(string(out)), panePID), nil
+}
+
+type psProcess struct {
+	pid  int
+	ppid int
+	stat string
+	cmd  string
+}
+
+func pickForegroundCommand(lines []string, panePID int) string {_cover_atomic_.StoreUint32(&goCover_333f21696422__38[0], 26) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__38[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__38[2], 38) ; _cover_atomic_.AddUint32(&goCover_333f21696422__38[3], 1);
+	// First pass: collect all non-shell processes
+	allProcesses := make([]psProcess, 0, len(lines))
+
+	for _, line := range lines {_cover_atomic_.AddUint32(&goCover_333f21696422__38[11], 1);
+		pid, ppid, stat, cmd, ok := parsePSLine(line)
+		if !ok {_cover_atomic_.AddUint32(&goCover_333f21696422__38[15], 1);
+			continue
+		}
+
+		// Skip the shell process itself
+		_cover_atomic_.AddUint32(&goCover_333f21696422__38[12], 1);if pid == panePID {_cover_atomic_.AddUint32(&goCover_333f21696422__38[16], 1);
+			continue
+		}
+
+		// Skip shell commands
+		_cover_atomic_.AddUint32(&goCover_333f21696422__38[13], 1);if isShellCommand(cmd) {_cover_atomic_.AddUint32(&goCover_333f21696422__38[17], 1);
+			continue
+		}
+
+		_cover_atomic_.AddUint32(&goCover_333f21696422__38[14], 1);allProcesses = append(allProcesses, psProcess{
+			pid:  pid,
+			ppid: ppid,
+			stat: stat,
+			cmd:  cmd,
+		})
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__38[4], 1);if len(allProcesses) == 0 {_cover_atomic_.AddUint32(&goCover_333f21696422__38[18], 1);
+		return ""
+	}
+
+	// Build set of ALL process PIDs for parent lookup
+	_cover_atomic_.AddUint32(&goCover_333f21696422__38[5], 1);allPIDs := make(map[int]struct{}, len(allProcesses))
+	for _, p := range allProcesses {_cover_atomic_.AddUint32(&goCover_333f21696422__38[19], 1);
+		allPIDs[p.pid] = struct{}{}
+	}
+
+	// Find root processes: those whose parent is NOT in our process set
+	// (meaning parent is either the shell or some other process outside this tty)
+	_cover_atomic_.AddUint32(&goCover_333f21696422__38[6], 1);var rootProcesses []psProcess
+
+	for _, p := range allProcesses {_cover_atomic_.AddUint32(&goCover_333f21696422__38[20], 1);
+		if _, parentInSet := allPIDs[p.ppid]; !parentInSet {_cover_atomic_.AddUint32(&goCover_333f21696422__38[21], 1);
+			rootProcesses = append(rootProcesses, p)
+		}
+	}
+
+	// If we found root processes, prefer foreground ones
+	_cover_atomic_.AddUint32(&goCover_333f21696422__38[7], 1);if len(rootProcesses) > 0 {_cover_atomic_.AddUint32(&goCover_333f21696422__38[22], 1);
+		for _, p := range rootProcesses {_cover_atomic_.AddUint32(&goCover_333f21696422__38[24], 1);
+			if strings.Contains(p.stat, "+") {_cover_atomic_.AddUint32(&goCover_333f21696422__38[25], 1);
+				return p.cmd
+			}
+		}
+		// Fallback: return first root process
+		_cover_atomic_.AddUint32(&goCover_333f21696422__38[23], 1);return rootProcesses[0].cmd
+	}
+
+	// If no root processes found, fallback to first foreground process
+	_cover_atomic_.AddUint32(&goCover_333f21696422__38[8], 1);for _, p := range allProcesses {_cover_atomic_.AddUint32(&goCover_333f21696422__38[26], 1);
+		if strings.Contains(p.stat, "+") {_cover_atomic_.AddUint32(&goCover_333f21696422__38[27], 1);
+			return p.cmd
+		}
+	}
+
+	// Last fallback: return first process
+	_cover_atomic_.AddUint32(&goCover_333f21696422__38[9], 1);if len(allProcesses) > 0 {_cover_atomic_.AddUint32(&goCover_333f21696422__38[28], 1);
+		return allProcesses[0].cmd
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__38[10], 1);return ""
+}
+
+func parsePSLine(line string) (int, int, string, string, bool) {_cover_atomic_.StoreUint32(&goCover_333f21696422__39[0], 9) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__39[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__39[2], 39) ; _cover_atomic_.AddUint32(&goCover_333f21696422__39[3], 1);
+	fields := strings.Fields(strings.TrimSpace(line))
+	if len(fields) < 4 {_cover_atomic_.AddUint32(&goCover_333f21696422__39[8], 1);
+		return 0, 0, "", "", false
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__39[4], 1);pid, err := strconv.Atoi(fields[0])
+	if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__39[9], 1);
+		return 0, 0, "", "", false
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__39[5], 1);ppid, err := strconv.Atoi(fields[1])
+	if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__39[10], 1);
+		return 0, 0, "", "", false
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__39[6], 1);stat := fields[2]
+
+	cmd := strings.Join(fields[3:], " ")
+	if strings.TrimSpace(cmd) == "" {_cover_atomic_.AddUint32(&goCover_333f21696422__39[11], 1);
+		return 0, 0, "", "", false
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__39[7], 1);return pid, ppid, stat, cmd, true
+}
+
+func splitLines(in string) []string {_cover_atomic_.StoreUint32(&goCover_333f21696422__40[0], 5) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__40[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__40[2], 40) ; _cover_atomic_.AddUint32(&goCover_333f21696422__40[3], 1);
+	s := bufio.NewScanner(strings.NewReader(in))
+	out := make([]string, 0)
+
+	for s.Scan() {_cover_atomic_.AddUint32(&goCover_333f21696422__40[5], 1);
+		line := strings.TrimSpace(s.Text())
+		if line == "" {_cover_atomic_.AddUint32(&goCover_333f21696422__40[7], 1);
+			continue
+		}
+
+		_cover_atomic_.AddUint32(&goCover_333f21696422__40[6], 1);out = append(out, line)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__40[4], 1);return out
+}
+
+func (client *Client) runWithShellFallback(args []string, cmd string) (string, error) {_cover_atomic_.StoreUint32(&goCover_333f21696422__41[0], 9) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__41[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__41[2], 41) ; _cover_atomic_.AddUint32(&goCover_333f21696422__41[3], 1);
+	out, err := client.Output(args...)
+	if err == nil {_cover_atomic_.AddUint32(&goCover_333f21696422__41[7], 1);
+		return out, nil
+	}
+
+	// 1) Command failed to start; retry without explicit command to keep window/pane.
+	_cover_atomic_.AddUint32(&goCover_333f21696422__41[4], 1);withoutCmd := args
+	if strings.TrimSpace(cmd) != "" && len(args) > 0 {_cover_atomic_.AddUint32(&goCover_333f21696422__41[8], 1);
+		withoutCmd = args[:len(args)-1]
+
+		out2, err2 := client.Output(withoutCmd...)
+		if err2 == nil {_cover_atomic_.AddUint32(&goCover_333f21696422__41[9], 1);
+			return out2, nil
+		}
+	}
+
+	// 2) If directory is broken, retry without "-c <path>" too.
+	_cover_atomic_.AddUint32(&goCover_333f21696422__41[5], 1);minimal := stripOptionPair(withoutCmd, "-c")
+	if len(minimal) > 0 {_cover_atomic_.AddUint32(&goCover_333f21696422__41[10], 1);
+		out3, err3 := client.Output(minimal...)
+		if err3 == nil {_cover_atomic_.AddUint32(&goCover_333f21696422__41[11], 1);
+			return out3, nil
+		}
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__41[6], 1);return out, err
+}
+
+func stripOptionPair(args []string, opt string) []string {_cover_atomic_.StoreUint32(&goCover_333f21696422__42[0], 5) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__42[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__42[2], 42) ; _cover_atomic_.AddUint32(&goCover_333f21696422__42[3], 1);
+	out := make([]string, 0, len(args))
+
+	for idx := 0; idx < len(args); idx++ {_cover_atomic_.AddUint32(&goCover_333f21696422__42[5], 1);
+		if args[idx] == opt {_cover_atomic_.AddUint32(&goCover_333f21696422__42[7], 1);
+			idx++ // skip option value
+			continue
+		}
+
+		_cover_atomic_.AddUint32(&goCover_333f21696422__42[6], 1);out = append(out, args[idx])
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__42[4], 1);return out
+}
+
+func (client *Client) createdFirstWindowIndex(session string) (int, error) {_cover_atomic_.StoreUint32(&goCover_333f21696422__43[0], 7) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__43[1], goCover_333f21696422_P) ; _cover_atomic_.StoreUint32(&goCover_333f21696422__43[2], 43) ; _cover_atomic_.AddUint32(&goCover_333f21696422__43[3], 1);
+	out, err := client.Output("list-windows", "-t", sessionTarget(session), "-F", "#{window_index}")
+	if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__43[7], 1);
+		return 0, err
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__43[4], 1);lines := splitLines(out)
+	if len(lines) == 0 {_cover_atomic_.AddUint32(&goCover_333f21696422__43[8], 1);
+		return 0, errors.New("no windows found after session creation")
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__43[5], 1);idx, err := strconv.Atoi(lines[0])
+	if err != nil {_cover_atomic_.AddUint32(&goCover_333f21696422__43[9], 1);
+		return 0, fmt.Errorf("parse window index: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_333f21696422__43[6], 1);return idx, nil
+}
+
+var _ = _cover_atomic_.LoadUint32

@@ -1,0 +1,6 @@
+./gen.go
+./graphemes.go
+./options.go
+./trie.go
+./truncate.go
+./width.go

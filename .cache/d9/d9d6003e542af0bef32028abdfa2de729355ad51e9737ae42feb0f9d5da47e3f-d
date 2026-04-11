@@ -1,0 +1,4 @@
+# test log
+getenv ENABLE_INTEGRATION_TESTS
+getenv TMUX
+getenv TMUX

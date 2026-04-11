@@ -1,0 +1,12 @@
+covervars.go
+actions.cover.go
+fzf.cover.go
+model.cover.go
+picker_enabled_tui.cover.go
+rows.cover.go
+sort.cover.go
+table.cover.go
+terminal.cover.go
+types.cover.go
+utils.cover.go
+window_cmd.cover.go

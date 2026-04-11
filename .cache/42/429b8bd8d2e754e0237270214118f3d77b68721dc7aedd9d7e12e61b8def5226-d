@@ -1,0 +1,361 @@
+//line /workspace/internal/picker/model.go:1:1
+//go:build !lazy_fzf
+
+package picker; import _cover_atomic_ "sync/atomic"
+
+import (
+	"fmt"
+	"strings"
+
+	"charm.land/bubbles/v2/textinput"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+)
+
+type pickerRow struct {
+	target     Target
+	item       string
+	captured   string
+	wins       string
+	state      string
+	cmd        string
+	windowName string
+	selectable bool
+}
+
+type pickerModel struct {
+	sessions      []Session
+	windowSort    []WindowSortKey
+	visible       []pickerRow
+	queryInput    textinput.Model
+	viewport      viewport.Model
+	selectedStyle lipgloss.Style
+	selected      Target
+	cancelled     bool
+	cursor        int
+	width         int
+	height        int
+	actions       Actions
+	statusMsg     string
+	mode          pickerMode
+	promptInput   textinput.Model
+	pending       Target
+}
+
+type pickerMode int
+
+const (
+	modeBrowse pickerMode = iota
+	modeConfirmDeleteSession
+	modeRenameWindow
+	modeRenameSession
+	modeNewSession
+	modeNewWindow
+)
+
+const scrollMargin = 2
+
+func newPickerModel(sessions []Session, windowSort []WindowSortKey, actions Actions) pickerModel {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__23[0], 1) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__23[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__23[2], 23) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__23[3], 1);
+	input := textinput.New()
+	input.Placeholder = ""
+	input.Prompt = "> "
+	input.Focus()
+
+	viewPort := viewport.New()
+
+	model := pickerModel{
+		sessions:      sessions,
+		windowSort:    windowSort,
+		queryInput:    input,
+		viewport:      viewPort,
+		selectedStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Bold(true),
+		cursor:        0,
+		actions:       actions,
+		mode:          modeBrowse,
+	}
+	model.applyFilter()
+
+	return model
+}
+
+func (m pickerModel) Init() tea.Cmd {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__24[0], 1) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__24[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__24[2], 24) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__24[3], 1);
+	return textinput.Blink
+}
+
+func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__25[0], 32) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__25[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__25[2], 25) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[3], 1);
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[6], 1);
+		m.width = msg.Width
+		m.height = msg.Height
+		m.resize()
+		m.renderViewport()
+
+		return m, nil
+	case tea.KeyPressMsg:_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[7], 1);
+		if m.mode != modeBrowse {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[9], 1);
+			return m.handlePromptKey(msg)
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[8], 1);switch msg.String() {
+		case "ctrl+c", "ctrl+q", "esc":_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[10], 1);
+			m.cancelled = true
+			return m, tea.Quit
+		case "ctrl+d":_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[11], 1);
+			err := m.deleteCurrentWindow()
+			if err != nil {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[26], 1);
+				m.setStatus(err.Error())
+			} else{ _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[27], 1);{
+				m.clearStatus()
+			}}
+
+			_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[12], 1);m.reload()
+			m.renderViewport()
+
+			return m, nil
+		case "alt+d":_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[13], 1);
+			m.confirmDeleteSession()
+			return m, nil
+		case "ctrl+r":_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[14], 1);
+			m.renameCurrentWindow()
+			return m, nil
+		case "alt+r":_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[15], 1);
+			m.renameCurrentSession()
+			return m, nil
+		case "alt+n":_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[16], 1);
+			m.newSession()
+			return m, nil
+		case "ctrl+n":_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[17], 1);
+			m.newWindow()
+			return m, nil
+		case "alt+w":_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[18], 1);
+			err := m.wakeupSession()
+			if err != nil {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[28], 1);
+				m.setStatus(err.Error())
+			} else{ _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[29], 1);{
+				m.clearStatus()
+			}}
+
+			_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[19], 1);m.reload()
+			m.renderViewport()
+
+			return m, nil
+		case "alt+s":_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[20], 1);
+			err := m.sleepSession()
+			if err != nil {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[30], 1);
+				m.setStatus(err.Error())
+			} else{ _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[31], 1);{
+				m.clearStatus()
+			}}
+
+			_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[21], 1);m.reload()
+			m.renderViewport()
+
+			return m, nil
+		case "ctrl+k":_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[22], 1);
+			m.movePrevSelectable()
+			m.ensureCursorVisible()
+			m.renderViewport()
+
+			return m, nil
+		case "ctrl+j":_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[23], 1);
+			m.moveNextSelectable()
+			m.ensureCursorVisible()
+			m.renderViewport()
+
+			return m, nil
+		case "enter":_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[24], 1);
+			if len(m.visible) == 0 {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[32], 1);
+				return m, nil
+			}
+
+			_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[25], 1);if m.cursor >= 0 && m.cursor < len(m.visible) && m.visible[m.cursor].selectable {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[33], 1);
+				m.selected = m.visible[m.cursor].target
+				return m, tea.Quit
+			}
+		}
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[4], 1);prevQuery := m.queryInput.Value()
+
+	var cmd tea.Cmd
+
+	m.queryInput, cmd = m.queryInput.Update(msg)
+	if prevQuery != m.queryInput.Value() {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[34], 1);
+		m.applyFilter()
+		m.ensureCursorVisible()
+		m.renderViewport()
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__25[5], 1);return m, cmd
+}
+
+func (m pickerModel) View() tea.View {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__26[0], 8) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__26[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__26[2], 26) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__26[3], 1);
+	var builder strings.Builder
+	if m.mode == modeBrowse {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__26[7], 1);
+		builder.WriteString(m.queryInput.View())
+	} else{ _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__26[8], 1);{
+		builder.WriteString(m.promptInput.View())
+	}}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__26[4], 1);builder.WriteString("\n")
+
+	layout := buildPickerTableLayout(m.tableContentWidth())
+
+	builder.WriteString("  ")
+	builder.WriteString(layout.header())
+	builder.WriteString("\n")
+
+	if m.statusMsg != "" {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__26[9], 1);
+		builder.WriteString(m.statusMsg)
+		builder.WriteString("\n")
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__26[5], 1);if len(m.visible) == 0 {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__26[10], 1);
+		builder.WriteString("No sessions or windows match query\n")
+		view := tea.NewView(builder.String())
+		view.AltScreen = true
+
+		return view
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__26[6], 1);builder.WriteString(m.viewport.View())
+	view := tea.NewView(builder.String())
+	view.AltScreen = true
+
+	return view
+}
+
+func (m *pickerModel) resize() {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__27[0], 5) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__27[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__27[2], 27) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__27[3], 1);
+	if m.width <= 0 || m.height <= 0 {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__27[6], 1);
+		return
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__27[4], 1);m.viewport.SetWidth(max(1, m.width-1))
+
+	inputHeight := lipgloss.Height(m.queryInput.View())
+	if m.mode != modeBrowse {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__27[7], 1);
+		inputHeight = lipgloss.Height(m.promptInput.View())
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__27[5], 1);reserved := inputHeight + 1 + m.statusHeight()
+	m.viewport.SetHeight(max(1, m.height-reserved))
+}
+
+func (m *pickerModel) applyFilter() {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__28[0], 4) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__28[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__28[2], 28) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__28[3], 1);
+	query := strings.TrimSpace(strings.ToLower(m.queryInput.Value()))
+
+	m.visible = filteredTreeRows(m.sessions, query, m.windowSort)
+	if len(m.visible) == 0 {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__28[5], 1);
+		m.cursor = 0
+		m.viewport.SetContent("")
+
+		return
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__28[4], 1);if m.cursor < 0 || m.cursor >= len(m.visible) || !m.visible[m.cursor].selectable {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__28[6], 1);
+		m.cursor = nearestSelectableRow(m.visible, m.cursor)
+	}
+}
+
+func (m *pickerModel) renderViewport() {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__29[0], 9) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__29[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__29[2], 29) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__29[3], 1);
+	if len(m.visible) == 0 {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__29[6], 1);
+		m.viewport.SetContent("")
+		return
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__29[4], 1);layout := buildPickerTableLayout(m.tableContentWidth())
+	lines := make([]string, 0, len(m.visible))
+
+	for rowIndex, row := range m.visible {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__29[7], 1);
+		pointer := "  "
+		if rowIndex == m.cursor && row.selectable {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__29[10], 1);
+			pointer = "> "
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__29[8], 1);line := pointer + layout.row(row)
+		if rowIndex == m.cursor && row.selectable {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__29[11], 1);
+			line = m.selectedStyle.Render(line)
+		}
+
+		_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__29[9], 1);lines = append(lines, line)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__29[5], 1);m.viewport.SetContent(strings.Join(lines, "\n"))
+}
+
+func (m *pickerModel) tableContentWidth() int {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__30[0], 5) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__30[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__30[2], 30) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__30[3], 1);
+	width := m.viewport.Width()
+	if width <= 0 {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__30[6], 1);
+		width = m.width
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__30[4], 1);if width <= 0 {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__30[7], 1);
+		width = 80
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__30[5], 1);return max(1, width-2) // keep room for line pointer ("> ")
+}
+
+func (m *pickerModel) ensureCursorVisible() {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__31[0], 6) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__31[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__31[2], 31) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__31[3], 1);
+	if len(m.visible) == 0 || m.viewport.Height() <= 0 {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__31[6], 1);
+		return
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__31[4], 1);maxOffset := max(0, len(m.visible)-m.viewport.Height())
+	top := m.viewport.YOffset()
+	bottom := top + m.viewport.Height() - 1
+
+	if m.cursor < top+scrollMargin {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__31[7], 1);
+		newTop := max(m.cursor-scrollMargin, 0)
+
+		m.viewport.SetYOffset(newTop)
+
+		return
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__31[5], 1);if m.cursor > bottom-scrollMargin {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__31[8], 1);
+		newTop := min(max(m.cursor-(m.viewport.Height()-1-scrollMargin), 0), maxOffset)
+
+		m.viewport.SetYOffset(newTop)
+	}
+}
+
+type pickerRunner interface {
+	Run() (tea.Model, error)
+}
+
+var newPickerRunner = func(m pickerModel) pickerRunner {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__32[0], 1) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__32[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__32[2], 32) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__32[3], 1);
+	return tea.NewProgram(m)
+}
+
+func ChooseTarget(sessions []Session, windowSort []WindowSortKey, actions Actions) (Target, error) {_cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__33[0], 11) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__33[1], goCover_d06e4bbb8471_P) ; _cover_atomic_.StoreUint32(&goCover_d06e4bbb8471__33[2], 33) ; _cover_atomic_.AddUint32(&goCover_d06e4bbb8471__33[3], 1);
+	if tuiDisabled() {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__33[9], 1);
+		return Target{}, fmt.Errorf("TUI picker disabled in fzf-only build")
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__33[4], 1);m := newPickerModel(sessions, windowSort, actions)
+	runner := newPickerRunner(m)
+
+	finalModel, err := runner.Run()
+	if err != nil {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__33[10], 1);
+		return Target{}, fmt.Errorf("run picker: %w", err)
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__33[5], 1);result, ok := finalModel.(pickerModel)
+	if !ok {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__33[11], 1);
+		return Target{}, fmt.Errorf("unexpected picker model type")
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__33[6], 1);if result.cancelled {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__33[12], 1);
+		return Target{}, fmt.Errorf("selection canceled")
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__33[7], 1);if strings.TrimSpace(result.selected.SessionName) == "" {_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__33[13], 1);
+		return Target{}, fmt.Errorf("no session selected")
+	}
+
+	_cover_atomic_.AddUint32(&goCover_d06e4bbb8471__33[8], 1);return result.selected, nil
+}
+
+var _ = _cover_atomic_.LoadUint32
