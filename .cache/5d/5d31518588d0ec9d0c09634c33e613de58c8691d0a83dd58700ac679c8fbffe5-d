@@ -1,8 +1,0 @@
-./caps.go
-./capvals.go
-./color.go
-./dec.go
-./load.go
-./param.go
-./stack.go
-./terminfo.go

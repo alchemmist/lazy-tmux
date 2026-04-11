@@ -1,9 +1,0 @@
-./colorgens.go
-./colors.go
-./happy_palettegen.go
-./hexcolor.go
-./hsluv.go
-./rand.go
-./soft_palettegen.go
-./sort.go
-./warm_palettegen.go
