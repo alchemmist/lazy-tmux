@@ -31,7 +31,7 @@ test:
 
 test-cov:
 	docker build -f test.Dockerfile -t lazy-tmux-test . && \
-	docker run --rm -v $$(pwd):/app lazy-tmux-test \
+	docker run --rm -u root -v $$(pwd):/app lazy-tmux-test \
 		sh -c 'go test -p 1 -coverprofile=/tmp/cover.out -covermode=atomic -coverpkg=$$(go list ./... | grep -v /internal/testutil | paste -sd "," -) ./... && cp /tmp/cover.out /app/cover.out'
 	go tool cover -html=cover.out -o cover.html || true
 	go-test-coverage --config=./.testcoverage.yml

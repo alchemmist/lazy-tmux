@@ -18,7 +18,7 @@ RUN go mod download
 
 RUN go install gotest.tools/gotestsum@v1.13.0
 
-COPY . .
+COPY --chown=appuser:appuser . .
 
 USER appuser
 
