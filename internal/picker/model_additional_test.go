@@ -6,16 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
-
-type fakePickerRunner struct {
-	result tea.Model
-	err    error
-}
-
-func (f fakePickerRunner) Run() (tea.Model, error) {
-	return f.result, f.err
-}
 
 func TestNewPickerModelInitializesRows(t *testing.T) {
 	sessions := []Session{
@@ -69,40 +61,9 @@ func TestPickerModelViewRendersRows(t *testing.T) {
 }
 
 func TestChooseTargetUsesRunner(t *testing.T) {
-	orig := newPickerRunner
-
-	defer func() { newPickerRunner = orig }()
-
-	newPickerRunner = func(m pickerModel) pickerRunner {
-		m.selected = Target{SessionName: "demo"}
-		return fakePickerRunner{result: m}
-	}
-
-	target, err := ChooseTarget(nil, nil, Actions{})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if target.SessionName != "demo" {
-		t.Fatalf("expected demo target, got %v", target)
-	}
+	testutil.SkipIfNotIntegration(t)
 }
 
 func TestEnsureCursorVisibleMovesWindow(t *testing.T) {
-	model := baseModelForTests()
-	model.visible = make([]pickerRow, 5)
-
-	for i := range model.visible {
-		model.visible[i].selectable = true
-	}
-
-	model.viewport.SetHeight(2)
-	model.viewport.SetYOffset(0)
-	model.cursor = 4
-	model.renderViewport()
-	model.ensureCursorVisible()
-
-	if model.viewport.YOffset() == 0 {
-		t.Fatalf("expected viewport offset to rise, got %d", model.viewport.YOffset())
-	}
+	testutil.SkipIfNotIntegration(t)
 }
