@@ -1,13 +1,33 @@
-.DEFAULT_GOAL := all
+.DEFAULT_GOAL := help
 
 SHELL := /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
 MAKEFLAGS += --warn-undefined-variables
-MAKEFLAGS += --no-builtin-rules
+MAKEFLAGS += --no-builtin-variables
 
 BINARY := lazy-tmux
 
-.PHONY: check build build-fzf build-all test test-cov integration-test fmt install clean dist dist-tui dist-fzf tag sandbox test-sup-versions docker-hub vet setup-env
+.PHONY: all help check build build-fzf build-all test test-cov integration-test fmt install clean dist dist-tui dist-fzf tag sandbox test-sup-versions docker-hub vet setup-env golangci-lint
+
+help:
+	@echo "Available targets:"
+	@echo "  all          - build and test (default)"
+	@echo "  help         - show this help"
+	@echo "  check        - run all checks"
+	@echo "  build       - build the binary"
+	@echo "  build-fzf   - build with fzf support"
+	@echo "  test        - run unit tests"
+	@echo "  test-cov    - run tests with coverage"
+	@echo "  integration-test - run integration tests"
+	@echo "  fmt         - format code"
+	@echo "  vet         - run go vet"
+	@echo "  install     - install binary"
+	@echo "  clean       - clean build artifacts"
+	@echo "  dist        - create release"
+	@echo "  sandbox    - run sandbox container"
+
+all: build test
+	@echo "Run 'make check' for full checks including integration tests"
 
 check: build vet golangci-lint test integration-test
 

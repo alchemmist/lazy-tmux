@@ -256,9 +256,6 @@ func TestRenameWindow(t *testing.T) {
 }
 
 func TestRenameWindowEmptyName(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-	testutil.RequireTMux(t)
-
 	cfg := config.Config{TmuxBin: "tmux"}
 	testApp := New(cfg)
 
@@ -303,9 +300,6 @@ func TestRenameSession(t *testing.T) {
 }
 
 func TestRenameSessionEmptyName(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-	testutil.RequireTMux(t)
-
 	cfg := config.Config{TmuxBin: "tmux"}
 	testApp := New(cfg)
 
@@ -316,9 +310,6 @@ func TestRenameSessionEmptyName(t *testing.T) {
 }
 
 func TestRenameSessionEmptySource(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-	testutil.RequireTMux(t)
-
 	cfg := config.Config{TmuxBin: "tmux"}
 	testApp := New(cfg)
 
@@ -329,9 +320,6 @@ func TestRenameSessionEmptySource(t *testing.T) {
 }
 
 func TestRenameSessionSameName(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-	testutil.RequireTMux(t)
-
 	cfg := config.Config{TmuxBin: "tmux"}
 	testApp := New(cfg)
 
@@ -374,9 +362,6 @@ func TestRenameSessionAlreadyExists(t *testing.T) {
 }
 
 func TestNewSessionEmptyName(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-	testutil.RequireTMux(t)
-
 	cfg := config.Config{TmuxBin: "tmux"}
 	testApp := New(cfg)
 
@@ -411,9 +396,6 @@ func TestNewSessionAlreadyExists(t *testing.T) {
 }
 
 func TestNewWindowEmptySessionName(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-	testutil.RequireTMux(t)
-
 	cfg := config.Config{TmuxBin: "tmux"}
 	testApp := New(cfg)
 
@@ -424,9 +406,6 @@ func TestNewWindowEmptySessionName(t *testing.T) {
 }
 
 func TestWakeupRequiresSession(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-	testutil.RequireTMux(t)
-
 	cfg := config.Config{TmuxBin: "tmux"}
 	testApp := New(cfg)
 
@@ -437,9 +416,6 @@ func TestWakeupRequiresSession(t *testing.T) {
 }
 
 func TestSleepRequiresSession(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-	testutil.RequireTMux(t)
-
 	cfg := config.Config{TmuxBin: "tmux"}
 	testApp := New(cfg)
 
@@ -450,9 +426,6 @@ func TestSleepRequiresSession(t *testing.T) {
 }
 
 func TestForgetEmptyName(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-	testutil.RequireTMux(t)
-
 	dir := t.TempDir()
 	cfg := config.Config{
 		TmuxBin: "tmux",

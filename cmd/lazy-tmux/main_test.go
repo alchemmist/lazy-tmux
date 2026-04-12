@@ -8,7 +8,6 @@ import (
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 	"github.com/alchemmist/lazy-tmux/internal/store"
-	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
 
 func TestRunNoArgs(t *testing.T) {
@@ -80,8 +79,6 @@ func TestRunRestoreRequiresSession(t *testing.T) {
 }
 
 func TestRunBootstrapLastOnEmptyStore(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-
 	var out bytes.Buffer
 
 	var errOut bytes.Buffer
@@ -95,8 +92,6 @@ func TestRunBootstrapLastOnEmptyStore(t *testing.T) {
 }
 
 func TestRunListPrintsSavedRecords(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-
 	var out bytes.Buffer
 
 	var errOut bytes.Buffer
@@ -151,8 +146,6 @@ func TestRunWakeupRequiresSession(t *testing.T) {
 }
 
 func TestRunWakeupOnNonexistentSessionFails(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-
 	var out bytes.Buffer
 
 	var errOut bytes.Buffer
@@ -185,8 +178,6 @@ func TestRunSleepRequiresSession(t *testing.T) {
 }
 
 func TestRunSleepOnNonrunningSessionFails(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-
 	var out bytes.Buffer
 
 	var errOut bytes.Buffer
@@ -230,8 +221,6 @@ func TestRunForgetRequiresSession(t *testing.T) {
 }
 
 func TestRunForgetOnNonexistentSessionSucceeds(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-
 	var out bytes.Buffer
 
 	var errOut bytes.Buffer
@@ -245,8 +234,6 @@ func TestRunForgetOnNonexistentSessionSucceeds(t *testing.T) {
 }
 
 func TestRunForgetDeletesStoredSession(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-
 	var out bytes.Buffer
 
 	var errOut bytes.Buffer

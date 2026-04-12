@@ -12,9 +12,6 @@ import (
 )
 
 func TestRestoreTargetRejectsEmptyName(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-	testutil.RequireTMux(t)
-
 	testApp := New(config.Config{TmuxBin: "tmux"})
 
 	err := testApp.RestoreTarget(PickerTarget{}, true)
@@ -28,9 +25,6 @@ func TestRestoreTargetRejectsEmptyName(t *testing.T) {
 }
 
 func TestRestoreTargetPropagatesLoadError(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-	testutil.RequireTMux(t)
-
 	dir := t.TempDir()
 	cfg := config.Config{TmuxBin: "tmux", DataDir: dir}
 	testApp := NewWithStore(cfg, store.New(dir))
@@ -62,7 +56,6 @@ func TestBootstrapLastWithNoRecords(t *testing.T) {
 func TestBootstrapLastWithRecords(t *testing.T) {
 	testutil.SkipIfNotIntegration(t)
 	testutil.RequireTMux(t)
-	testutil.RequireFZF(t)
 
 	dir := t.TempDir()
 	testStore := store.New(dir)
@@ -90,7 +83,6 @@ func TestBootstrapLastWithRecords(t *testing.T) {
 func TestBootstrapSpecificSession(t *testing.T) {
 	testutil.SkipIfNotIntegration(t)
 	testutil.RequireTMux(t)
-	testutil.RequireFZF(t)
 
 	dir := t.TempDir()
 	testStore := store.New(dir)
@@ -116,9 +108,6 @@ func TestBootstrapSpecificSession(t *testing.T) {
 }
 
 func TestListRecordsDelegatesToStore(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-	testutil.RequireTMux(t)
-
 	dir := t.TempDir()
 	testStore := store.New(dir)
 
