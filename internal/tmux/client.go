@@ -127,7 +127,6 @@ func (client *Client) Output(args ...string) (string, error) {
 
 func (client *Client) SessionExists(name string) bool {
 	_, err := client.Output("has-session", "-t", sessionTarget(name))
-
 	return err == nil
 }
 
