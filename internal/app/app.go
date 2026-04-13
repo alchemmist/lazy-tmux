@@ -70,13 +70,14 @@ func NewWithTmux(cfg config.Config, client tmuxClient) *App {
 	}
 }
 
-func NewWithStore(cfg config.Config, s *store.Store) *App {
-	if s == nil {
+func NewWithStore(cfg config.Config, store *store.Store) *App {
+	if store == nil {
 		panic("NewWithStore: store cannot be nil")
 	}
+
 	return &App{
 		cfg:   cfg,
-		store: s,
+		store: store,
 		tmux:  tmux.NewClient(cfg.TmuxBin),
 	}
 }
