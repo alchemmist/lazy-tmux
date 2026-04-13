@@ -1,7 +1,9 @@
 .cache/
 bin/
 dist/
+.cache/
 coverage.out
 cover.out
+cover.html
 .DS_Store
 cover.html
