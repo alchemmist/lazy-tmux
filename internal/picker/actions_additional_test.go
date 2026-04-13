@@ -1,5 +1,3 @@
-//go:build !lazy_fzf
-
 package picker
 
 import (
@@ -40,7 +38,10 @@ func TestRenameCurrentWindowSetsPrompt(t *testing.T) {
 	model := baseModelForTests()
 	model.visible = []pickerRow{
 		{
-			target:     Target{SessionName: "demo", WindowIndex: new(2)},
+			target: Target{
+				SessionName: "demo",
+				WindowIndex: func() *int { v := 2; return &v }(),
+			},
 			windowName: "logs",
 			selectable: true,
 		},
@@ -143,7 +144,7 @@ func TestHandlePromptKeyRenamesWindow(t *testing.T) {
 	renamed := false
 	model := baseModelForTests()
 	model.mode = modeRenameWindow
-	model.pending = Target{SessionName: "demo", WindowIndex: new(1)}
+	model.pending = Target{SessionName: "demo", WindowIndex: func() *int { v := 1; return &v }()}
 	model.promptInput.SetValue("new")
 	model.actions.RenameWindow = func(session string, windowIndex int, name string) error {
 		renamed = true

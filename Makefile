@@ -3,16 +3,43 @@
 SHELL := /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
 MAKEFLAGS += --warn-undefined-variables
-MAKEFLAGS += --no-builtin-rules
+MAKEFLAGS += --no-builtin-variables
 
 BINARY := lazy-tmux
 
-.PHONY: help check build build-fzf build-all test test-race test-cov test-integration fmt fmt-check vet staticcheck golangci-lint lint tidy install clean dist dist-tui dist-fzf tag sandbox test-sup-versions docker-hub
+.PHONY: all help check build build-fzf build-all test test-cov integration-test fmt install clean dist dist-tui dist-fzf tag sandbox test-sup-versions docker-hub vet setup-env golangci-lint
 
-check: build fmt-check lint test test-integration
+help:
+	@echo "Available targets:"
+	@echo "  all          - build and test (default)"
+	@echo "  help         - show this help"
+	@echo "  check        - run all checks"
+	@echo "  build       - build the binary"
+	@echo "  build-fzf   - build with fzf support"
+	@echo "  test        - run unit tests"
+	@echo "  test-cov    - run tests with coverage"
+	@echo "  integration-test - run integration tests"
+	@echo "  fmt         - format code"
+	@echo "  vet         - run go vet"
+	@echo "  install     - install binary"
+	@echo "  clean       - clean build artifacts"
+	@echo "  dist        - create release"
+	@echo "  sandbox    - run sandbox container"
+
+all: build test
+	@echo "Run 'make check' for full checks including integration tests"
+
+check: build vet golangci-lint test integration-test
+
+integration-test:
+	docker build -f test.Dockerfile -t lazy-tmux-test . && docker run --rm lazy-tmux-test
 
 build:
 	go build -o bin/$(BINARY) ./cmd/$(BINARY)
+
+fmt:
+	golangci-lint fmt
+	golangci-lint run --fix --issues-exit-code=0 --output.text.path=/dev/null --show-stats=false
 
 build-fzf:
 	go build -tags lazy_fzf -o bin/$(BINARY)-fzf ./cmd/$(BINARY)
@@ -20,35 +47,20 @@ build-fzf:
 build-all: build build-fzf
 
 test:
-	gotestsum -- ./...
-
-test-race:
-	gotestsum -- -race ./...
+	gotestsum --format testname -- -race ./...
 
 test-cov:
-	gotestsum -- -coverprofile=cover.out -covermode=atomic -coverpkg=./... ./...
+	docker build -f test.Dockerfile -t lazy-tmux-test . && \
+	docker run --rm --user $$(id -u):$$(id -g) -v $$(pwd):/workspace -w /workspace -e GOCACHE=/workspace/.cache lazy-tmux-test \
+		go test -p 1 -coverprofile=cover.out -covermode=atomic -coverpkg=$$(go list ./... | grep -v /internal/testutil | paste -sd "," -) ./...
+	go tool cover -html=cover.out -o cover.html || true
 	go-test-coverage --config=./.testcoverage.yml
-
-test-integration:
-	docker build -f docker/integration.Dockerfile -t lazy-tmux-integration .
-	docker run --rm lazy-tmux-integration
-
-fmt:
-	golangci-lint run --fix --issues-exit-code=0 --output.text.path=/dev/null --show-stats=false
 
 vet:
 	go vet ./...
 
-staticcheck:
-	staticcheck ./...
-
 golangci-lint:
-	golangci-lint run ./...
-
-lint: vet staticcheck golangci-lint
-
-tidy:
-	go mod tidy
+	golangci-lint run
 
 install: build
 	go install ./cmd/$(BINARY)
@@ -91,9 +103,6 @@ tag:
 setup-env:
 	go install gotest.tools/gotestsum@v1.13.0
 	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
-	go install mvdan.cc/gofumpt@v0.9.2
-	go install github.com/golangci/golines@latest
-	go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
 	go install github.com/vladopajic/go-test-coverage/v2@v2.18.4
 
 docker-hub:
@@ -112,27 +121,3 @@ test-sup-versions:
 
 clean:
 	rm -rf bin dist coverage.out
-
-help:
-	@printf "Available targets:\n\n"
-	@printf "  check       - run build, fmt-check, lint, test, test-cov, test-integration\n"
-	@printf "  build       - build binary into ./bin\n"
-	@printf "  build-fzf   - build fzf-only binary into ./bin\n"
-	@printf "  build-all   - build both tui and fzf-only binaries into ./bin\n"
-	@printf "  test        - run all tests\n"
-	@printf "  test-race   - run tests with race detector\n"
-	@printf "  test-cov       - run tests with coverage profile\n"
-	@printf "  test-integration - run integration tests (tmux + TUI)\n"
-	@printf "  fmt         - format Go sources with gofmt\n"
-	@printf "  fmt-check   - verify Go sources are formatted\n"
-	@printf "  vet         - run go vet\n"
-	@printf "  staticcheck - run staticcheck\n"
-	@printf "  golangci-lint - run golangci-lint\n"
-	@printf "  lint        - run vet + staticcheck + golangci-lint\n"
-	@printf "  tidy        - run go mod tidy\n"
-	@printf "  install     - install CLI with go install\n"
-	@printf "  dist        - build all release artifacts locally (snapshot)\n"
-	@printf "  dist-tui    - build tui artifacts locally (snapshot)\n"
-	@printf "  dist-fzf    - build fzf artifacts locally (snapshot)\n"
-	@printf "  tag         - create next git tag (TYPE=patch|minor|major)\n"
-	@printf "  clean       - remove build artifacts\n"
