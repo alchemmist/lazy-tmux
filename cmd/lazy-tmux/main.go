@@ -13,10 +13,7 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/config"
 )
 
-var (
-	exitFunc    = os.Exit
-	fatalOutput = io.Writer(os.Stderr)
-)
+var exitFunc = os.Exit
 
 type sharedFlags struct {
 	dataDir *string
@@ -482,10 +479,6 @@ func runForget(base config.Config, args []string) error {
 	return nil
 }
 
-func usage() {
-	usageTo(os.Stdout)
-}
-
 func usageTo(w io.Writer) {
 	_, _ = fmt.Fprint(w, `lazy-tmux - tmux session snapshots with lazy restore
 
@@ -515,10 +508,6 @@ Save/daemon flags:
 `)
 }
 
-func setupConfig() {
-	setupConfigTo(os.Stdout)
-}
-
 func setupConfigTo(w io.Writer) {
 	_, _ = fmt.Fprint(
 		w,
@@ -528,20 +517,6 @@ bind-key f display-popup -w 75% -h 85% -E 'lazy-tmux picker'
 bind-key C-s run-shell 'lazy-tmux save --all --scrollback && tmux display-message "All sessions saved successfully!"'
 `,
 	)
-}
-
-func fatalErr(err error) {
-	if errors.Is(err, os.ErrNotExist) {
-		fatalf("not found: %v", err)
-	}
-
-	fatalf("%v", err)
-}
-
-func fatalf(format string, args ...any) {
-	_, _ = fmt.Fprintf(fatalOutput, "lazy-tmux: "+format+"\n", args...)
-
-	exitFunc(1)
 }
 
 func writeFatalErr(writer io.Writer, err error) int {
