@@ -1,0 +1,91 @@
+package main
+
+import (
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+
+	"github.com/alchemmist/lazy-tmux/internal/app"
+	"github.com/alchemmist/lazy-tmux/internal/config"
+)
+
+func runPicker(args []string, stdout, stderr io.Writer) int {
+	flags := flag.NewFlagSet("picker", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+
+	fzfEngine := flags.Bool("fzf-engine", false, "use fzf engine instead of built-in TUI")
+	sessionSort := flags.String("session-sort", "", "session sort keys: field[:asc|desc],...")
+	windowSort := flags.String("window-sort", "", "window sort keys: field[:asc|desc],...")
+	dataDir := flags.String("data-dir", "", "snapshot directory")
+	tmuxBin := flags.String("tmux-bin", "", "tmux binary")
+
+	err := flags.Parse(args)
+	if err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			pickerHelp(stdout)
+			return 0
+		}
+
+		writeErr(stderr, fmt.Errorf("parse flags: %w", err))
+
+		return 1
+	}
+
+	cfg := config.Default()
+	if *dataDir != "" {
+		cfg.DataDir = *dataDir
+	}
+
+	if *tmuxBin != "" {
+		cfg.TmuxBin = *tmuxBin
+	}
+
+	sortOpts, err := app.ParsePickerSortOptions(*sessionSort, *windowSort)
+	if err != nil {
+		writeErr(stderr, fmt.Errorf("parse sort options: %w", err))
+		return 1
+	}
+
+	tmuxApp := app.New(cfg)
+
+	var target app.PickerTarget
+
+	if *fzfEngine {
+		session, err := tmuxApp.SelectWithFZFSorted(sortOpts)
+		if err != nil {
+			writeErr(stderr, fmt.Errorf("select target: %w", err))
+			return 1
+		}
+
+		target = app.PickerTarget{SessionName: session}
+	} else {
+		target, err = tmuxApp.SelectTargetWithTUISorted(sortOpts)
+		if err != nil {
+			writeErr(stderr, fmt.Errorf("select target: %w", err))
+			return 1
+		}
+	}
+
+	err = tmuxApp.RestoreTarget(target, true)
+	if err != nil {
+		writeErr(stderr, fmt.Errorf("restore target: %w", err))
+		return 1
+	}
+
+	return 0
+}
+
+func pickerHelp(w io.Writer) {
+	_, _ = fmt.Fprintf(w, `Usage: lazy-tmux picker [flags]
+
+Open session picker and restore selected session
+
+Flags:
+  -data-dir        snapshot directory
+  -fzf-engine      use fzf engine instead of built-in TUI
+  -session-sort    session sort keys: field[:asc|desc],...
+  -window-sort     window sort keys: field[:asc|desc],...
+  -tmux-bin        tmux binary
+`)
+}
