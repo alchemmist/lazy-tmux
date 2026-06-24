@@ -19,6 +19,13 @@ type Config struct {
 	SaveInterval   time.Duration
 	RestoreTimeout time.Duration
 	Scrollback     ScrollbackConfig
+
+	// RestoreAllowlist limits which commands are replayed on restore, matched by
+	// executable name. A nil slice means no allowlist is configured and every
+	// command is restored (the default). A non-nil slice — including an empty
+	// one — activates the allowlist: only the listed commands are restored, and
+	// an empty list restores none.
+	RestoreAllowlist []string
 }
 
 type ScrollbackConfig struct {
@@ -106,11 +113,12 @@ func LoadFrom(path string) (Config, error) {
 // leaves the corresponding default untouched, rather than overwriting it with a
 // zero value.
 type fileConfig struct {
-	TmuxBin        *string             `toml:"tmux_bin"`
-	DataDir        *string             `toml:"data_dir"`
-	SaveInterval   *duration           `toml:"save_interval"`
-	RestoreTimeout *duration           `toml:"restore_timeout"`
-	Scrollback     *fileScrollbackConf `toml:"scrollback"`
+	TmuxBin          *string             `toml:"tmux_bin"`
+	DataDir          *string             `toml:"data_dir"`
+	SaveInterval     *duration           `toml:"save_interval"`
+	RestoreTimeout   *duration           `toml:"restore_timeout"`
+	RestoreAllowlist *[]string           `toml:"restore_allowlist"`
+	Scrollback       *fileScrollbackConf `toml:"scrollback"`
 }
 
 type fileScrollbackConf struct {
@@ -134,6 +142,17 @@ func (cfg Config) withFile(file fileConfig) Config {
 
 	if file.RestoreTimeout != nil {
 		cfg.RestoreTimeout = file.RestoreTimeout.Duration
+	}
+
+	if file.RestoreAllowlist != nil {
+		// Keep the slice non-nil even when empty so a configured-but-empty
+		// allowlist stays distinguishable from "no allowlist configured".
+		allowlist := *file.RestoreAllowlist
+		if allowlist == nil {
+			allowlist = []string{}
+		}
+
+		cfg.RestoreAllowlist = allowlist
 	}
 
 	if file.Scrollback != nil {

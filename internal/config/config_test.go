@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -62,7 +63,7 @@ func TestLoadFromMissingFileUsesDefaults(t *testing.T) {
 		t.Fatalf("missing file must not error: %v", err)
 	}
 
-	if cfg != Default() {
+	if !reflect.DeepEqual(cfg, Default()) {
 		t.Fatalf("missing file should yield defaults, got %+v", cfg)
 	}
 }
@@ -160,6 +161,40 @@ func TestLoadFromInvalidDurationErrors(t *testing.T) {
 
 	if _, err := LoadFrom(path); err == nil {
 		t.Fatal("expected error for invalid duration")
+	}
+}
+
+func TestLoadFromRestoreAllowlist(t *testing.T) {
+	// Absent key -> nil (allowlist disabled, restore everything).
+	cfg, err := LoadFrom(writeConfig(t, "tmux_bin = \"tmux\"\n"))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	if cfg.RestoreAllowlist != nil {
+		t.Fatalf("absent allowlist should be nil, got %#v", cfg.RestoreAllowlist)
+	}
+
+	// Populated list.
+	cfg, err = LoadFrom(writeConfig(t, "restore_allowlist = [\"nvim\", \"htop\"]\n"))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	if len(cfg.RestoreAllowlist) != 2 ||
+		cfg.RestoreAllowlist[0] != "nvim" ||
+		cfg.RestoreAllowlist[1] != "htop" {
+		t.Fatalf("allowlist: got %#v", cfg.RestoreAllowlist)
+	}
+
+	// Explicitly empty list -> non-nil empty (allowlist active, restore nothing).
+	cfg, err = LoadFrom(writeConfig(t, "restore_allowlist = []\n"))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	if cfg.RestoreAllowlist == nil || len(cfg.RestoreAllowlist) != 0 {
+		t.Fatalf("empty allowlist should be non-nil empty, got %#v", cfg.RestoreAllowlist)
 	}
 }
 

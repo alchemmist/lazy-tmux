@@ -61,6 +61,11 @@ data_dir        = "~/.local/share/lazy-tmux"  # where snapshots are stored
 save_interval   = "5m"        # daemon autosave interval (Go duration)
 restore_timeout = "5s"        # max wait for restored pane commands to start (0 disables)
 
+# Allowlist of commands lazy-tmux may replay on restore, matched by program
+# name. Omit the key to restore every command (default). Set it to restore only
+# these programs; set it to [] to restore no commands at all.
+restore_allowlist = ["nvim", "vim", "htop", "less", "tail", "ssh"]
+
 [scrollback]
 enabled = false               # capture shell pane scrollback
 lines   = 5000                # max scrollback lines per pane

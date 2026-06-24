@@ -21,6 +21,12 @@ save_interval = "5m"
 # before returning. "0s" disables waiting (old fire-and-forget behavior).
 restore_timeout = "5s"
 
+# Allowlist of commands lazy-tmux may replay on restore, matched by program
+# name (e.g. "nvim" matches "/usr/bin/nvim main.go"). Omit this key entirely to
+# restore every command (the default). Provide a list to restore only those
+# programs; use an empty list [] to restore no commands at all.
+# restore_allowlist = ["nvim", "vim", "htop", "less", "tail", "ssh"]
+
 [scrollback]
 # Capture and replay shell pane scrollback on save/restore.
 enabled = false
