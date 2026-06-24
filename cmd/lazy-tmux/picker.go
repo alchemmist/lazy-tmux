@@ -37,16 +37,22 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	cfg := config.Default()
-	if *dataDir != "" {
+	cfg, ok := loadConfig(stderr)
+	if !ok {
+		return 1
+	}
+
+	if flagPassed(flags, "data-dir") {
 		cfg.DataDir = *dataDir
 	}
 
-	if *tmuxBin != "" {
+	if flagPassed(flags, "tmux-bin") {
 		cfg.TmuxBin = *tmuxBin
 	}
 
-	cfg.RestoreTimeout = *restoreTimeout
+	if flagPassed(flags, "restore-timeout") {
+		cfg.RestoreTimeout = *restoreTimeout
+	}
 
 	sortOpts, err := app.ParsePickerSortOptions(*sessionSort, *windowSort)
 	if err != nil {

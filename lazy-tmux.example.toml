@@ -1,0 +1,28 @@
+# Example lazy-tmux configuration.
+#
+# Copy to one of (first match wins):
+#   $LAZY_TMUX_CONFIG
+#   $XDG_CONFIG_HOME/lazy-tmux/lazy-tmux.toml
+#   ~/.config/lazy-tmux/lazy-tmux.toml
+#
+# Every key is optional; omitted keys fall back to the built-in defaults.
+# Command-line flags override anything set here.
+
+# tmux binary to invoke.
+tmux_bin = "tmux"
+
+# Directory where session snapshots are stored. A leading ~ is expanded.
+data_dir = "~/.local/share/lazy-tmux"
+
+# Autosave interval for the background daemon (Go duration, e.g. "30s", "5m").
+save_interval = "5m"
+
+# How long restore waits for each restored pane command to actually start
+# before returning. "0s" disables waiting (old fire-and-forget behavior).
+restore_timeout = "5s"
+
+[scrollback]
+# Capture and replay shell pane scrollback on save/restore.
+enabled = false
+# Maximum scrollback lines captured per pane.
+lines = 5000

@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"github.com/alchemmist/lazy-tmux/internal/app"
-	"github.com/alchemmist/lazy-tmux/internal/config"
 )
 
 func runDaemon(args []string, stdout, stderr io.Writer) int {
@@ -32,31 +31,39 @@ func runDaemon(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	if *scrollback && *scrollbackLines <= 0 {
-		writeErr(
-			stderr,
-			fmt.Errorf("daemon requires --scrollback-lines > 0 when --scrollback is enabled"),
-		)
-
+	cfg, ok := loadConfig(stderr)
+	if !ok {
 		return 1
 	}
 
-	cfg := config.Default()
-	if *dataDir != "" {
+	if flagPassed(flags, "data-dir") {
 		cfg.DataDir = *dataDir
 	}
 
-	if *tmuxBin != "" {
+	if flagPassed(flags, "tmux-bin") {
 		cfg.TmuxBin = *tmuxBin
 	}
 
-	cfg.SaveInterval = *interval
-	cfg.Scrollback.Enabled = *scrollback
-	cfg.Scrollback.Lines = *scrollbackLines
+	if flagPassed(flags, "interval") {
+		cfg.SaveInterval = *interval
+	}
+
+	if flagPassed(flags, "scrollback") {
+		cfg.Scrollback.Enabled = *scrollback
+	}
+
+	if flagPassed(flags, "scrollback-lines") {
+		cfg.Scrollback.Lines = *scrollbackLines
+	}
+
+	if cfg.Scrollback.Enabled && cfg.Scrollback.Lines <= 0 {
+		writeErr(stderr, fmt.Errorf("scrollback requires scrollback lines > 0"))
+		return 1
+	}
 
 	a := app.New(cfg)
 
-	err = a.RunDaemon(*interval)
+	err = a.RunDaemon(cfg.SaveInterval)
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("run daemon: %w", err))
 		return 1

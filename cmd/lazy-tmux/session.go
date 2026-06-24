@@ -56,16 +56,20 @@ func runSessionOp(
 		return 1
 	}
 
-	cfg := config.Default()
-	if *dataDir != "" {
+	cfg, ok := loadConfig(stderr)
+	if !ok {
+		return 1
+	}
+
+	if flagPassed(flags, "data-dir") {
 		cfg.DataDir = *dataDir
 	}
 
-	if *tmuxBin != "" {
+	if flagPassed(flags, "tmux-bin") {
 		cfg.TmuxBin = *tmuxBin
 	}
 
-	if restoreTimeout != nil {
+	if restoreTimeout != nil && flagPassed(flags, "restore-timeout") {
 		cfg.RestoreTimeout = *restoreTimeout
 	}
 

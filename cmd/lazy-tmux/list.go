@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/app"
-	"github.com/alchemmist/lazy-tmux/internal/config"
 )
 
 func runList(args []string, stdout, stderr io.Writer) int {
@@ -30,12 +29,16 @@ func runList(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	cfg := config.Default()
-	if *dataDir != "" {
+	cfg, ok := loadConfig(stderr)
+	if !ok {
+		return 1
+	}
+
+	if flagPassed(flags, "data-dir") {
 		cfg.DataDir = *dataDir
 	}
 
-	if *tmuxBin != "" {
+	if flagPassed(flags, "tmux-bin") {
 		cfg.TmuxBin = *tmuxBin
 	}
 

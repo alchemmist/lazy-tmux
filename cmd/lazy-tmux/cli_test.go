@@ -2,6 +2,9 @@ package main
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -124,8 +127,8 @@ func TestCLISaveScrollbackLinesValidation(t *testing.T) {
 		t.Fatalf("expected exit 1, got %d", code)
 	}
 
-	if !strings.Contains(errOut, "scrollback-lines > 0") {
-		t.Fatalf("expected scrollback-lines validation, got %q", errOut)
+	if !strings.Contains(errOut, "scrollback lines > 0") {
+		t.Fatalf("expected scrollback lines validation, got %q", errOut)
 	}
 }
 
@@ -174,6 +177,98 @@ func TestCLIListPrintsSavedRecords(t *testing.T) {
 
 	if !strings.Contains(out, "alpha") || !strings.Contains(out, "1w/1p") {
 		t.Fatalf("unexpected list output: %q", out)
+	}
+}
+
+func TestCLIReadsDataDirFromConfigFile(t *testing.T) {
+	dir := t.TempDir()
+	s := store.New(dir)
+
+	err := s.SaveSession(snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: "fromconfig",
+		CapturedAt:  time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC),
+		Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
+	})
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	cfgPath := filepath.Join(t.TempDir(), "lazy-tmux.toml")
+	if err := os.WriteFile(
+		cfgPath,
+		[]byte("data_dir = "+strconv.Quote(dir)+"\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	t.Setenv("LAZY_TMUX_CONFIG", cfgPath)
+
+	// No --data-dir flag: the directory must come from the config file.
+	code, out, _ := run(t, "list")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d", code)
+	}
+
+	if !strings.Contains(out, "fromconfig") {
+		t.Fatalf("expected session from config data_dir, got %q", out)
+	}
+}
+
+func TestCLIFlagOverridesConfigFile(t *testing.T) {
+	// data_dir in the config points at a store holding a session...
+	configured := t.TempDir()
+	s := store.New(configured)
+
+	err := s.SaveSession(snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: "fromconfig",
+		CapturedAt:  time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC),
+		Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
+	})
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	cfgPath := filepath.Join(t.TempDir(), "lazy-tmux.toml")
+	if err := os.WriteFile(
+		cfgPath,
+		[]byte("data_dir = "+strconv.Quote(configured)+"\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	t.Setenv("LAZY_TMUX_CONFIG", cfgPath)
+
+	// ...but an explicit --data-dir flag must win, pointing at a different
+	// (empty) store, so the configured session is not listed.
+	code, out, _ := run(t, "list", "--data-dir", t.TempDir())
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d", code)
+	}
+
+	if strings.Contains(out, "fromconfig") {
+		t.Fatalf("flag should override config data_dir, but config store was used: %q", out)
+	}
+}
+
+func TestCLIMalformedConfigFails(t *testing.T) {
+	cfgPath := filepath.Join(t.TempDir(), "lazy-tmux.toml")
+	if err := os.WriteFile(cfgPath, []byte("not = valid = toml\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	t.Setenv("LAZY_TMUX_CONFIG", cfgPath)
+
+	code, _, errOut := run(t, "list")
+	if code != 1 {
+		t.Fatalf("expected exit 1 for malformed config, got %d", code)
+	}
+
+	if !strings.Contains(errOut, "load config") {
+		t.Fatalf("expected load config error, got %q", errOut)
 	}
 }
 
