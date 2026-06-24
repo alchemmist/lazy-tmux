@@ -1,0 +1,61 @@
+//go:build !lazy_fzf
+
+package picker
+
+import "testing"
+
+// These helpers (fuzzyMatch, sessionStateIcon, truncateString) only exist in the
+// built-in TUI build, so their tests must carry the same !lazy_fzf constraint —
+// otherwise `go test -tags lazy_fzf ./...` (run by the release pipeline) fails to
+// compile.
+
+func TestFuzzyMatch(t *testing.T) {
+	if !fuzzyMatch("abc", "axbxc") {
+		t.Fatal("expected subsequence match")
+	}
+
+	if fuzzyMatch("abc", "acb") {
+		t.Fatal("expected order-sensitive non-match")
+	}
+
+	if !fuzzyMatch("", "anything") {
+		t.Fatal("empty query matches everything")
+	}
+}
+
+func TestSessionStateIcon(t *testing.T) {
+	restored := sessionStateIcon(true)
+	notRestored := sessionStateIcon(false)
+
+	if restored == "" || notRestored == "" {
+		t.Fatalf(
+			"both state icons should be non-empty: restored=%q notRestored=%q",
+			restored,
+			notRestored,
+		)
+	}
+
+	if restored == notRestored {
+		t.Fatalf("restored and not-restored icons should differ, both %q", restored)
+	}
+}
+
+func TestTruncateString(t *testing.T) {
+	cases := []struct {
+		in   string
+		max  int
+		want string
+	}{
+		{"hello", 10, "hello"},
+		{"hello", 5, "hello"},
+		{"hello world", 8, "hello..."},
+		{"hello", 2, "he"},
+		{"hello", -1, ""},
+	}
+
+	for _, c := range cases {
+		if got := truncateString(c.in, c.max); got != c.want {
+			t.Fatalf("truncate(%q,%d)=%q want %q", c.in, c.max, got, c.want)
+		}
+	}
+}
