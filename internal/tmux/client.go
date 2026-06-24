@@ -335,6 +335,70 @@ func currentWindowPane(windows []snapshot.Window) (int, int) {
 	return 0, 0
 }
 
+// findWindow returns the window with the given index, if present.
+func findWindow(windows []snapshot.Window, index int) (snapshot.Window, bool) {
+	for _, window := range windows {
+		if window.Index == index {
+			return window, true
+		}
+	}
+
+	return snapshot.Window{}, false
+}
+
+// paneExists reports whether a pane with the given index is present.
+func paneExists(panes []snapshot.Pane, index int) bool {
+	for _, pane := range panes {
+		if pane.Index == index {
+			return true
+		}
+	}
+
+	return false
+}
+
+// clampPane resolves a pane index to one that actually exists in the window,
+// preferring the requested index, then the window's active pane, then its
+// first pane.
+func clampPane(window snapshot.Window, paneIndex int) int {
+	if paneExists(window.Panes, paneIndex) {
+		return paneIndex
+	}
+
+	if paneExists(window.Panes, window.ActivePane) {
+		return window.ActivePane
+	}
+
+	if len(window.Panes) > 0 {
+		return window.Panes[0].Index
+	}
+
+	return paneIndex
+}
+
+// resolveRestoreFocus picks the window/pane to focus after a restore, tolerating
+// snapshots whose recorded current window/pane no longer matches the restored
+// windows. Snapshots captured before the base-index fix store current_window 0
+// while windows are indexed from 1 (e.g. under `set -g base-index 1`), so
+// selecting the recorded index would fail with "can't find window: 0".
+func resolveRestoreFocus(
+	sessionSnapshot snapshot.SessionSnapshot,
+	windows []snapshot.Window,
+) (int, int) {
+	// Honor the recorded focus when its window still exists.
+	if window, ok := findWindow(windows, sessionSnapshot.CurrentWin); ok {
+		return window.Index, clampPane(window, sessionSnapshot.CurrentPane)
+	}
+
+	// Otherwise fall back to the active window (or the first one).
+	win, pane := currentWindowPane(windows)
+	if window, ok := findWindow(windows, win); ok {
+		return win, clampPane(window, pane)
+	}
+
+	return win, pane
+}
+
 func (client *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) error {
 	if sessionSnapshot.SessionName == "" {
 		return errors.New("empty session name")
@@ -394,10 +458,12 @@ func (client *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) e
 		}
 	}
 
+	focusWin, focusPane := resolveRestoreFocus(sessionSnapshot, windows)
+
 	_, err = client.Output(
 		"select-window",
 		"-t",
-		sessionWindowTarget(sessionSnapshot.SessionName, sessionSnapshot.CurrentWin),
+		sessionWindowTarget(sessionSnapshot.SessionName, focusWin),
 	)
 	if err != nil {
 		return fmt.Errorf("select window: %w", err)
@@ -408,8 +474,8 @@ func (client *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) e
 		"-t",
 		sessionPaneTarget(
 			sessionSnapshot.SessionName,
-			sessionSnapshot.CurrentWin,
-			sessionSnapshot.CurrentPane,
+			focusWin,
+			focusPane,
 		),
 	)
 	if err != nil {
