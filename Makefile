@@ -31,7 +31,7 @@ test:
 
 test-cov:
 	podman build -f ./docker/test.Dockerfile -t lazy-tmux-test . && \
-	podman run --rm --user $$(id -u):$$(id -g) -v $$(pwd):/workspace -w /workspace -e GOCACHE=/workspace/.cache lazy-tmux-test \
+	podman run --rm --userns=keep-id -v $$(pwd):/workspace -w /workspace -e GOCACHE=/workspace/.cache -e GOFLAGS=-buildvcs=false lazy-tmux-test \
 	go test -p 1 -coverprofile=cover.out -covermode=atomic -coverpkg=$$(go list ./... | grep -v /internal/testutil | paste -sd "," -) ./...
 	go tool cover -html=cover.out -o cover.html || true
 	go-test-coverage --config=./.testcoverage.yml
