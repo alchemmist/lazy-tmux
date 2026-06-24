@@ -12,11 +12,20 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
 const fieldSep = "\x1f"
+
+// defaultRestoreSettleTimeout bounds how long RestoreSession waits for restored
+// pane commands to actually start before returning. restoreSettlePollInterval
+// is how often it re-checks pane state while waiting.
+const (
+	defaultRestoreSettleTimeout = 5 * time.Second
+	restoreSettlePollInterval   = 100 * time.Millisecond
+)
 
 // splitFields splits a tmux -F output line on the field separator. tmux 3.5a
 // (and likely other versions) escapes control bytes in format output as octal
@@ -63,8 +72,9 @@ func (execRunner) runCommand(args ...string) commandResult {
 }
 
 type Client struct {
-	bin    string
-	runner commandRunner
+	bin           string
+	runner        commandRunner
+	settleTimeout time.Duration
 }
 
 func NewClient(bin string) *Client {
@@ -72,7 +82,7 @@ func NewClient(bin string) *Client {
 		bin = "tmux"
 	}
 
-	return &Client{bin: bin, runner: execRunner{}}
+	return &Client{bin: bin, runner: execRunner{}, settleTimeout: defaultRestoreSettleTimeout}
 }
 
 func NewClientWithRunner(bin string, cmdRunner commandRunner) *Client {
@@ -80,7 +90,7 @@ func NewClientWithRunner(bin string, cmdRunner commandRunner) *Client {
 		bin = "tmux"
 	}
 
-	tmuxClient := &Client{bin: bin}
+	tmuxClient := &Client{bin: bin, settleTimeout: defaultRestoreSettleTimeout}
 	if cmdRunner != nil {
 		tmuxClient.runner = cmdRunner
 	} else {
@@ -88,6 +98,13 @@ func NewClientWithRunner(bin string, cmdRunner commandRunner) *Client {
 	}
 
 	return tmuxClient
+}
+
+// SetRestoreTimeout bounds how long RestoreSession waits for restored pane
+// commands to start before returning. A value <= 0 disables waiting, restoring
+// the previous fire-and-forget behavior.
+func (client *Client) SetRestoreTimeout(timeout time.Duration) {
+	client.settleTimeout = timeout
 }
 
 func sessionTarget(name string) string {
@@ -482,6 +499,8 @@ func (client *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) e
 		return fmt.Errorf("select pane: %w", err)
 	}
 
+	client.waitForRestoredCommands(sessionSnapshot.SessionName, windows)
+
 	return nil
 }
 
@@ -679,6 +698,90 @@ func (client *Client) restoreWindowCommands(
 	}
 
 	return nil
+}
+
+// expectedPaneCommands maps "window.pane" to the foreground command we expect a
+// pane to be running once its restore command has actually started. Panes with
+// nothing to restore are omitted.
+func expectedPaneCommands(windows []snapshot.Window) map[string]string {
+	want := make(map[string]string)
+
+	for _, window := range windows {
+		for _, pane := range window.Panes {
+			exe := executableName(normalizedCommand(pane.RestoreCmd, pane.CurrentCmd))
+			if exe == "" {
+				continue
+			}
+
+			want[fmt.Sprintf("%d.%d", window.Index, pane.Index)] = exe
+		}
+	}
+
+	return want
+}
+
+// paneCommands reports the current foreground command of every pane in the
+// session, keyed by "window.pane". Errors yield an empty map so callers can
+// simply retry.
+func (client *Client) paneCommands(sessionName string) map[string]string {
+	result := make(map[string]string)
+
+	out, err := client.Output(
+		"list-panes", "-s", "-t", sessionTarget(sessionName),
+		"-F", "#{window_index} #{pane_index} #{pane_current_command}",
+	)
+	if err != nil {
+		return result
+	}
+
+	for _, line := range splitLines(out) {
+		fields := strings.Fields(line)
+		if len(fields) < 3 {
+			continue
+		}
+
+		result[fields[0]+"."+fields[1]] = fields[2]
+	}
+
+	return result
+}
+
+// waitForRestoredCommands blocks until every pane that had a command to restore
+// is actually running it, or until the settle timeout elapses. Without this the
+// restore returns while panes are still at the shell prompt, so automation could
+// not tell whether the session was fully restored when the command exited (see
+// issue #106). It is best-effort: once the deadline passes it returns regardless.
+func (client *Client) waitForRestoredCommands(sessionName string, windows []snapshot.Window) {
+	if client.settleTimeout <= 0 {
+		return
+	}
+
+	want := expectedPaneCommands(windows)
+	if len(want) == 0 {
+		return
+	}
+
+	deadline := time.Now().Add(client.settleTimeout)
+
+	for {
+		got := client.paneCommands(sessionName)
+
+		pending := false
+
+		for key, exe := range want {
+			if got[key] != exe {
+				pending = true
+
+				break
+			}
+		}
+
+		if !pending || time.Now().After(deadline) {
+			return
+		}
+
+		time.Sleep(restoreSettlePollInterval)
+	}
 }
 
 func (client *Client) restoreWindowScrollback(

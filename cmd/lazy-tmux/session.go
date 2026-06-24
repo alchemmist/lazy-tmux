@@ -20,6 +20,11 @@ func runSessionOp(args []string, stdout, stderr io.Writer, name string, operatio
 	session := flags.String("session", "", name+" target session")
 	dataDir := flags.String("data-dir", "", "snapshot directory")
 	tmuxBin := flags.String("tmux-bin", "", "tmux binary")
+	restoreTimeout := flags.Duration(
+		"restore-timeout",
+		config.Default().RestoreTimeout,
+		"max wait for restored pane commands to start (0 disables)",
+	)
 
 	err := flags.Parse(args)
 	if err != nil {
@@ -47,6 +52,8 @@ func runSessionOp(args []string, stdout, stderr io.Writer, name string, operatio
 		cfg.TmuxBin = *tmuxBin
 	}
 
+	cfg.RestoreTimeout = *restoreTimeout
+
 	a := app.New(cfg)
 
 	err = operation(a, strings.TrimSpace(*session))
@@ -64,6 +71,11 @@ func printSessionHelp(name string, writer io.Writer) {
 		"forget": "Remove a stored session from disk",
 	}
 
+	restoreTimeoutHelp := ""
+	if name == "wakeup" {
+		restoreTimeoutHelp = "\n  -restore-timeout  max wait for restored pane commands to start (0 disables)"
+	}
+
 	_, _ = fmt.Fprintf(writer, `Usage: lazy-tmux %s [flags]
 
 %s
@@ -71,6 +83,6 @@ func printSessionHelp(name string, writer io.Writer) {
 Flags:
   -data-dir     snapshot directory
   -session      %s target session
-  -tmux-bin     tmux binary
-`, name, desc[name], name)
+  -tmux-bin     tmux binary%s
+`, name, desc[name], name, restoreTimeoutHelp)
 }

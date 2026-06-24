@@ -75,6 +75,48 @@ func TestRestoreToleratesBaseIndexMismatch(t *testing.T) {
 	}
 }
 
+// TestRestoreWaitsForCommandsToStart is the end-to-end counterpart to issue
+// #106: against a real tmux server, once RestoreSession returns the pane must
+// actually be running its restored command rather than sitting at the shell.
+// (The fine-grained "did it really block?" guarantee is covered deterministically
+// by TestWaitForRestoredCommands* with a fake runner; here we confirm the whole
+// real-tmux path settles correctly.)
+func TestRestoreWaitsForCommandsToStart(t *testing.T) {
+	testutil.IsolatedTmux(t)
+
+	client := tmux.NewClient("tmux")
+
+	const name = "settle"
+
+	// `cat` with no args blocks reading stdin, so it stays in the foreground
+	// long enough to observe as pane_current_command.
+	snap := snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: name,
+		CurrentWin:  1,
+		CurrentPane: 0,
+		Windows: []snapshot.Window{
+			{
+				Index: 1, Name: "main", IsActive: true, ActivePane: 0,
+				Panes: []snapshot.Pane{
+					{Index: 0, CurrentPath: "/tmp", RestoreCmd: "cat", IsActive: true},
+				},
+			},
+		},
+	}
+
+	if err := client.RestoreSession(snap); err != nil {
+		t.Fatalf("restore failed: %v", err)
+	}
+
+	// No sleep here on purpose: if the restore returned before the command
+	// started, the pane would still be running the shell.
+	out := testutil.Tmux(t, "list-panes", "-t", "="+name, "-F", "#{pane_current_command}")
+	if !strings.Contains(out, "cat") {
+		t.Fatalf("expected pane already running cat right after restore, got %q", out)
+	}
+}
+
 // TestRestoreHonorsRecordedFocus guards the happy path: when the recorded
 // current window exists, restore focuses exactly that window rather than
 // falling back.

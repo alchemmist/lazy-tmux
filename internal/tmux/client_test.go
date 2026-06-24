@@ -2,9 +2,85 @@ package tmux
 
 import (
 	"testing"
+	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
+
+// pollRunner is a fake tmux runner that reports a pane running the shell until
+// the configured poll, then reports the restored command. It lets us drive
+// waitForRestoredCommands deterministically without a real tmux server.
+type pollRunner struct {
+	calls    int
+	settleOn int    // 1-based poll at which the command finally appears
+	before   string // pane_current_command before it settles
+	after    string // pane_current_command once it settles
+}
+
+func (r *pollRunner) runCommand(args ...string) commandResult {
+	if len(args) > 1 && args[1] == "list-panes" {
+		r.calls++
+
+		cmd := r.before
+		if r.calls >= r.settleOn {
+			cmd = r.after
+		}
+
+		return commandResult{stdout: "1 0 " + cmd + "\n"}
+	}
+
+	return commandResult{}
+}
+
+func waitTestWindows() []snapshot.Window {
+	return []snapshot.Window{
+		{Index: 1, Panes: []snapshot.Pane{{Index: 0, RestoreCmd: "cat"}}},
+	}
+}
+
+func TestWaitForRestoredCommandsBlocksUntilStarted(t *testing.T) {
+	runner := &pollRunner{settleOn: 3, before: "zsh", after: "cat"}
+	client := NewClientWithRunner("tmux", runner)
+	client.SetRestoreTimeout(2 * time.Second)
+
+	client.waitForRestoredCommands("sess", waitTestWindows())
+
+	// It must keep polling while the pane still shows the shell, only returning
+	// once the restored command actually appears.
+	if runner.calls < 3 {
+		t.Fatalf("expected to poll until command started, polled %d times", runner.calls)
+	}
+}
+
+func TestWaitForRestoredCommandsRespectsTimeout(t *testing.T) {
+	// The command never appears: the wait must give up at the deadline, not hang.
+	runner := &pollRunner{settleOn: 1 << 30, before: "zsh", after: "cat"}
+	client := NewClientWithRunner("tmux", runner)
+	client.SetRestoreTimeout(150 * time.Millisecond)
+
+	start := time.Now()
+	client.waitForRestoredCommands("sess", waitTestWindows())
+
+	if elapsed := time.Since(start); elapsed > 2*time.Second {
+		t.Fatalf("wait ignored its timeout, took %v", elapsed)
+	}
+
+	if runner.calls == 0 {
+		t.Fatal("expected at least one poll before giving up")
+	}
+}
+
+func TestWaitForRestoredCommandsDisabled(t *testing.T) {
+	runner := &pollRunner{settleOn: 1, before: "zsh", after: "cat"}
+	client := NewClientWithRunner("tmux", runner)
+	client.SetRestoreTimeout(0)
+
+	client.waitForRestoredCommands("sess", waitTestWindows())
+
+	if runner.calls != 0 {
+		t.Fatalf("a disabled timeout must not poll, polled %d times", runner.calls)
+	}
+}
 
 func TestCurrentWindowPane(t *testing.T) {
 	// Active window's index and active pane are authoritative, even when the
@@ -29,6 +105,37 @@ func TestCurrentWindowPane(t *testing.T) {
 	win, pane = currentWindowPane(nil)
 	if win != 0 || pane != 0 {
 		t.Fatalf("expected 0/0 for no windows, got %d/%d", win, pane)
+	}
+}
+
+func TestExpectedPaneCommands(t *testing.T) {
+	windows := []snapshot.Window{
+		{
+			Index: 1,
+			Panes: []snapshot.Pane{
+				{Index: 0, RestoreCmd: "nvim main.go"}, // real command -> nvim
+				{Index: 1, RestoreCmd: "zsh"},          // shell only -> skipped
+			},
+		},
+		{
+			Index: 2,
+			Panes: []snapshot.Pane{
+				{Index: 0, CurrentCmd: "htop -d 5"}, // falls back to current command
+			},
+		},
+	}
+
+	got := expectedPaneCommands(windows)
+
+	want := map[string]string{"1.0": "nvim", "2.0": "htop"}
+	if len(got) != len(want) {
+		t.Fatalf("expectedPaneCommands size: got %#v want %#v", got, want)
+	}
+
+	for key, exe := range want {
+		if got[key] != exe {
+			t.Fatalf("expectedPaneCommands[%q]=%q want %q (full %#v)", key, got[key], exe, got)
+		}
 	}
 }
 
