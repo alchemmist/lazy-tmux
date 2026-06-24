@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/alchemmist/lazy-tmux/internal/app"
-	"github.com/alchemmist/lazy-tmux/internal/config"
 )
 
 func runSave(args []string, stdout, stderr io.Writer) int {
@@ -34,16 +33,11 @@ func runSave(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	if *scrollback && *scrollbackLines <= 0 {
-		writeErr(
-			stderr,
-			fmt.Errorf("save requires --scrollback-lines > 0 when --scrollback is enabled"),
-		)
-
+	cfg, ok := loadConfig(stderr)
+	if !ok {
 		return 1
 	}
 
-	cfg := config.Default()
 	if *dataDir != "" {
 		cfg.DataDir = *dataDir
 	}
@@ -52,8 +46,18 @@ func runSave(args []string, stdout, stderr io.Writer) int {
 		cfg.TmuxBin = *tmuxBin
 	}
 
-	cfg.Scrollback.Enabled = *scrollback
-	cfg.Scrollback.Lines = *scrollbackLines
+	if flagPassed(flags, "scrollback") {
+		cfg.Scrollback.Enabled = *scrollback
+	}
+
+	if flagPassed(flags, "scrollback-lines") {
+		cfg.Scrollback.Lines = *scrollbackLines
+	}
+
+	if cfg.Scrollback.Enabled && cfg.Scrollback.Lines <= 0 {
+		writeErr(stderr, fmt.Errorf("scrollback requires scrollback lines > 0"))
+		return 1
+	}
 
 	tmuxApp := app.New(cfg)
 

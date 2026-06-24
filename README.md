@@ -40,3 +40,28 @@ Binary will compiled in `bin/lazy-tmux`. For more development options run `make 
 > [!WARNING]
 > **tmux version requirement:** lazy-tmux requires **tmux 3.6** or **tmux 3.6a**.
 > Older versions may not work correctly.
+
+## Configuration
+
+lazy-tmux reads an optional TOML config file. It is looked up in this order:
+
+1. `$LAZY_TMUX_CONFIG` (explicit path)
+2. `$XDG_CONFIG_HOME/lazy-tmux/lazy-tmux.toml`
+3. `~/.config/lazy-tmux/lazy-tmux.toml`
+
+The file is optional — a missing file just uses the built-in defaults. Settings
+are layered: **built-in defaults → config file → command-line flags**, so a flag
+always overrides the file for that run.
+
+```toml
+# ~/.config/lazy-tmux/lazy-tmux.toml — all keys are optional
+
+tmux_bin        = "tmux"      # tmux binary to use
+data_dir        = "~/.local/share/lazy-tmux"  # where snapshots are stored
+save_interval   = "5m"        # daemon autosave interval (Go duration)
+restore_timeout = "5s"        # max wait for restored pane commands to start (0 disables)
+
+[scrollback]
+enabled = false               # capture shell pane scrollback
+lines   = 5000                # max scrollback lines per pane
+```

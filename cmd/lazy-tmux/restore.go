@@ -42,7 +42,11 @@ func runRestore(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	cfg := config.Default()
+	cfg, ok := loadConfig(stderr)
+	if !ok {
+		return 1
+	}
+
 	if *dataDir != "" {
 		cfg.DataDir = *dataDir
 	}
@@ -51,7 +55,9 @@ func runRestore(args []string, stdout, stderr io.Writer) int {
 		cfg.TmuxBin = *tmuxBin
 	}
 
-	cfg.RestoreTimeout = *restoreTimeout
+	if flagPassed(flags, "restore-timeout") {
+		cfg.RestoreTimeout = *restoreTimeout
+	}
 
 	tmuxApp := app.New(cfg)
 
