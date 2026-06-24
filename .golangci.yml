@@ -37,6 +37,17 @@ linters:
     - gocognit
 
     - wsl
+    - wsl_v5
+
+  exclusions:
+    rules:
+      # Test files idiomatically use short receiver-style names (t, m, a, s)
+      # and inline error checks; keep these style linters for production code
+      # only.
+      - path: _test\.go
+        linters:
+          - varnamelen
+          - noinlineerr
 
   settings:
     exhaustruct:
