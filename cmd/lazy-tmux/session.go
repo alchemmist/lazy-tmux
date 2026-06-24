@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/app"
 	"github.com/alchemmist/lazy-tmux/internal/config"
@@ -13,23 +14,35 @@ import (
 
 type sessionOp func(*app.App, string) error
 
-func runSessionOp(args []string, stdout, stderr io.Writer, name string, operation sessionOp) int {
+func runSessionOp(
+	args []string,
+	stdout, stderr io.Writer,
+	name string,
+	restores bool,
+	operation sessionOp,
+) int {
 	flags := flag.NewFlagSet(name, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 
 	session := flags.String("session", "", name+" target session")
 	dataDir := flags.String("data-dir", "", "snapshot directory")
 	tmuxBin := flags.String("tmux-bin", "", "tmux binary")
-	restoreTimeout := flags.Duration(
-		"restore-timeout",
-		config.Default().RestoreTimeout,
-		"max wait for restored pane commands to start (0 disables)",
-	)
+
+	// Only operations that actually restore a session honor --restore-timeout, so
+	// it is not registered for the likes of forget where it would be a no-op.
+	var restoreTimeout *time.Duration
+	if restores {
+		restoreTimeout = flags.Duration(
+			"restore-timeout",
+			config.Default().RestoreTimeout,
+			"max wait for restored pane commands to start (0 disables)",
+		)
+	}
 
 	err := flags.Parse(args)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
-			printSessionHelp(name, stdout)
+			printSessionHelp(name, restores, stdout)
 			return 0
 		}
 
@@ -52,7 +65,9 @@ func runSessionOp(args []string, stdout, stderr io.Writer, name string, operatio
 		cfg.TmuxBin = *tmuxBin
 	}
 
-	cfg.RestoreTimeout = *restoreTimeout
+	if restoreTimeout != nil {
+		cfg.RestoreTimeout = *restoreTimeout
+	}
 
 	a := app.New(cfg)
 
@@ -65,14 +80,14 @@ func runSessionOp(args []string, stdout, stderr io.Writer, name string, operatio
 	return 0
 }
 
-func printSessionHelp(name string, writer io.Writer) {
+func printSessionHelp(name string, restores bool, writer io.Writer) {
 	desc := map[string]string{
 		"wakeup": "Restore a saved session without switching clients",
 		"forget": "Remove a stored session from disk",
 	}
 
 	restoreTimeoutHelp := ""
-	if name == "wakeup" {
+	if restores {
 		restoreTimeoutHelp = "\n  -restore-timeout  max wait for restored pane commands to start (0 disables)"
 	}
 

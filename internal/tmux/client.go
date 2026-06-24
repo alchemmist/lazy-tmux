@@ -751,6 +751,13 @@ func (client *Client) paneCommands(sessionName string) map[string]string {
 // restore returns while panes are still at the shell prompt, so automation could
 // not tell whether the session was fully restored when the command exited (see
 // issue #106). It is best-effort: once the deadline passes it returns regardless.
+//
+// Tradeoff: a restored command that exits very quickly leaves its pane back at
+// the shell, so its expected foreground command is never observed and that pane
+// holds the wait until settleTimeout. This is acceptable because snapshots
+// capture the *foreground* command of a pane, which in practice is a long-lived
+// program (editor, REPL, pager, server) rather than a fast one-shot; the timeout
+// bounds the worst case and a value of 0 opts out of waiting entirely.
 func (client *Client) waitForRestoredCommands(sessionName string, windows []snapshot.Window) {
 	if client.settleTimeout <= 0 {
 		return

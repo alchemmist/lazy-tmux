@@ -30,9 +30,9 @@ var helpFuncs = map[string]func(io.Writer){
 	"daemon":    daemonHelp,
 	"list":      listHelp,
 	"setup":     setupHelp,
-	"wakeup":    func(w io.Writer) { printSessionHelp("wakeup", w) },
+	"wakeup":    func(w io.Writer) { printSessionHelp("wakeup", true, w) },
 	"sleep":     sleepHelp,
-	"forget":    func(w io.Writer) { printSessionHelp("forget", w) },
+	"forget":    func(w io.Writer) { printSessionHelp("forget", false, w) },
 }
 
 func main() {
