@@ -18,6 +18,16 @@ import (
 
 const fieldSep = "\x1f"
 
+// splitFields splits a tmux -F output line on the field separator. tmux 3.5a
+// (and likely other versions) escapes control bytes in format output as octal
+// (so the 0x1f separator arrives as the literal four characters `\037`),
+// whereas tmux 3.6+ emits the raw byte. Normalize the escaped form back to the
+// separator so capture works across tmux versions.
+func splitFields(line string) []string {
+	line = strings.ReplaceAll(line, `\037`, fieldSep)
+	return strings.Split(line, fieldSep)
+}
+
 var (
 	ErrSessionNotFound = errors.New("tmux session not found")
 	ErrSessionExists   = errors.New("tmux session already exists")
@@ -234,7 +244,7 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 	windows := make([]snapshot.Window, 0)
 
 	for _, line := range splitLines(wOut) {
-		parts := strings.Split(line, fieldSep)
+		parts := splitFields(line)
 		if len(parts) != 4 {
 			continue
 		}
@@ -260,7 +270,7 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 		}
 
 		for _, pLine := range splitLines(pOut) {
-			parts := strings.Split(pLine, fieldSep)
+			parts := splitFields(pLine)
 			if len(parts) != 6 {
 				continue
 			}
