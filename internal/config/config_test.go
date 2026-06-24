@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -159,6 +160,20 @@ func TestLoadFromInvalidDurationErrors(t *testing.T) {
 
 	if _, err := LoadFrom(path); err == nil {
 		t.Fatal("expected error for invalid duration")
+	}
+}
+
+func TestLoadFromUnknownKeyErrors(t *testing.T) {
+	// A typo'd key must fail loudly rather than be silently ignored.
+	path := writeConfig(t, "tmux_binn = \"tmux\"\n")
+
+	_, err := LoadFrom(path)
+	if err == nil {
+		t.Fatal("expected error for unknown config key")
+	}
+
+	if !strings.Contains(err.Error(), "unknown keys") {
+		t.Fatalf("expected unknown keys error, got %v", err)
 	}
 }
 

@@ -88,9 +88,15 @@ func LoadFrom(path string) (Config, error) {
 
 	var file fileConfig
 
-	err = toml.Unmarshal(data, &file)
+	meta, err := toml.Decode(string(data), &file)
 	if err != nil {
 		return cfg, fmt.Errorf("parse config %s: %w", path, err)
+	}
+
+	// Reject unknown keys so typos (e.g. "tmux_binn") fail loudly instead of
+	// being silently ignored.
+	if undecoded := meta.Undecoded(); len(undecoded) > 0 {
+		return cfg, fmt.Errorf("config %s: unknown keys: %v", path, undecoded)
 	}
 
 	return cfg.withFile(file), nil

@@ -42,11 +42,11 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	if *dataDir != "" {
+	if flagPassed(flags, "data-dir") {
 		cfg.DataDir = *dataDir
 	}
 
-	if *tmuxBin != "" {
+	if flagPassed(flags, "tmux-bin") {
 		cfg.TmuxBin = *tmuxBin
 	}
 

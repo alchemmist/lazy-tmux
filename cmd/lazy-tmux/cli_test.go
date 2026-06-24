@@ -216,6 +216,44 @@ func TestCLIReadsDataDirFromConfigFile(t *testing.T) {
 	}
 }
 
+func TestCLIFlagOverridesConfigFile(t *testing.T) {
+	// data_dir in the config points at a store holding a session...
+	configured := t.TempDir()
+	s := store.New(configured)
+
+	err := s.SaveSession(snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: "fromconfig",
+		CapturedAt:  time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC),
+		Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
+	})
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	cfgPath := filepath.Join(t.TempDir(), "lazy-tmux.toml")
+	if err := os.WriteFile(
+		cfgPath,
+		[]byte("data_dir = "+strconv.Quote(configured)+"\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	t.Setenv("LAZY_TMUX_CONFIG", cfgPath)
+
+	// ...but an explicit --data-dir flag must win, pointing at a different
+	// (empty) store, so the configured session is not listed.
+	code, out, _ := run(t, "list", "--data-dir", t.TempDir())
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d", code)
+	}
+
+	if strings.Contains(out, "fromconfig") {
+		t.Fatalf("flag should override config data_dir, but config store was used: %q", out)
+	}
+}
+
 func TestCLIMalformedConfigFails(t *testing.T) {
 	cfgPath := filepath.Join(t.TempDir(), "lazy-tmux.toml")
 	if err := os.WriteFile(cfgPath, []byte("not = valid = toml\n"), 0o644); err != nil {
