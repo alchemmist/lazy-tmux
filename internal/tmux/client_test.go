@@ -1,0 +1,173 @@
+package tmux
+
+import (
+	"testing"
+
+	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+)
+
+func TestCurrentWindowPane(t *testing.T) {
+	// Active window's index and active pane are authoritative, even when the
+	// base index is 1 (regression guard: current window must not collapse to 0).
+	windows := []snapshot.Window{
+		{Index: 1, IsActive: false, ActivePane: 0},
+		{Index: 2, IsActive: true, ActivePane: 3},
+	}
+
+	win, pane := currentWindowPane(windows)
+	if win != 2 || pane != 3 {
+		t.Fatalf("expected active window 2 pane 3, got %d/%d", win, pane)
+	}
+
+	// No active flag -> fall back to the first window.
+	win, pane = currentWindowPane([]snapshot.Window{{Index: 5, ActivePane: 1}})
+	if win != 5 || pane != 1 {
+		t.Fatalf("expected fallback to first window 5/1, got %d/%d", win, pane)
+	}
+
+	// Empty -> zero values.
+	win, pane = currentWindowPane(nil)
+	if win != 0 || pane != 0 {
+		t.Fatalf("expected 0/0 for no windows, got %d/%d", win, pane)
+	}
+}
+
+func TestSessionTargets(t *testing.T) {
+	if got := sessionTarget("foo"); got != "=foo" {
+		t.Fatalf("sessionTarget: got %q", got)
+	}
+
+	if got := sessionTarget("=foo"); got != "=foo" {
+		t.Fatalf("sessionTarget already-prefixed: got %q", got)
+	}
+
+	if got := sessionWindowTarget("foo", 2); got != "=foo:2" {
+		t.Fatalf("sessionWindowTarget: got %q", got)
+	}
+
+	if got := PaneTarget("foo", 2, 3); got != "=foo:2.3" {
+		t.Fatalf("PaneTarget: got %q", got)
+	}
+}
+
+func TestSanitizeCommand(t *testing.T) {
+	cases := map[string]string{
+		`"vim"`:    "vim",
+		`'vim'`:    "vim",
+		`  vim  `:  "vim",
+		`vim file`: "vim file",
+	}
+
+	for in, want := range cases {
+		if got := sanitizeCommand(in); got != want {
+			t.Fatalf("sanitizeCommand(%q)=%q want %q", in, got, want)
+		}
+	}
+}
+
+func TestIsShellCommandAndExecutableName(t *testing.T) {
+	for _, sh := range []string{"bash", "/bin/zsh", "-bash", "fish"} {
+		if !isShellCommand(sh) {
+			t.Fatalf("expected %q to be a shell", sh)
+		}
+	}
+
+	if isShellCommand("nvim") {
+		t.Fatal("nvim should not be a shell")
+	}
+
+	if got := executableName("/usr/bin/htop -d 5"); got != "htop" {
+		t.Fatalf("executableName: got %q", got)
+	}
+}
+
+func TestNormalizedCommand(t *testing.T) {
+	cases := []struct {
+		restore, current, want string
+	}{
+		{"nvim", "zsh", "nvim"}, // restore wins when it is a real command
+		{"zsh", "nvim", "nvim"}, // restore is a shell -> use current
+		{"zsh", "bash", ""},     // both shells -> nothing to restore
+		{`"htop"`, "", "htop"},  // quotes stripped
+	}
+
+	for _, c := range cases {
+		if got := normalizedCommand(c.restore, c.current); got != c.want {
+			t.Fatalf("normalizedCommand(%q,%q)=%q want %q", c.restore, c.current, got, c.want)
+		}
+	}
+}
+
+func TestParsePSLine(t *testing.T) {
+	pid, ppid, stat, cmd, ok := parsePSLine("200 100 S+ nvim main.go")
+	if !ok || pid != 200 || ppid != 100 || stat != "S+" || cmd != "nvim main.go" {
+		t.Fatalf("parsePSLine: %d %d %q %q ok=%v", pid, ppid, stat, cmd, ok)
+	}
+
+	if _, _, _, _, ok := parsePSLine("bad line"); ok {
+		t.Fatal("expected parse failure for short line")
+	}
+}
+
+func TestPickForegroundCommand(t *testing.T) {
+	lines := []string{
+		"100 1 Ss zsh",    // the shell itself (panePID)
+		"200 100 S+ nvim", // foreground child
+	}
+
+	if got := pickForegroundCommand(lines, 100); got != "nvim" {
+		t.Fatalf("expected foreground nvim, got %q", got)
+	}
+
+	// Only a shell present -> nothing to restore.
+	if got := pickForegroundCommand([]string{"100 1 Ss zsh"}, 100); got != "" {
+		t.Fatalf("expected empty for shell-only, got %q", got)
+	}
+}
+
+func TestSplitLines(t *testing.T) {
+	got := splitLines("a\n\n  b  \nc\n")
+	if len(got) != 3 || got[0] != "a" || got[1] != "b" || got[2] != "c" {
+		t.Fatalf("splitLines: %#v", got)
+	}
+}
+
+func TestStripOptionPair(t *testing.T) {
+	got := stripOptionPair([]string{"new-window", "-c", "/x", "-n", "name"}, "-c")
+	want := []string{"new-window", "-n", "name"}
+
+	if len(got) != len(want) {
+		t.Fatalf("stripOptionPair length: %#v", got)
+	}
+
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("stripOptionPair: %#v want %#v", got, want)
+		}
+	}
+}
+
+func TestNewSessionArgs(t *testing.T) {
+	args := newSessionArgs("sess", snapshot.Window{
+		Name:  "win",
+		Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/work"}},
+	})
+
+	// Expect: new-session -d -s sess -n win -c /work
+	joined := args
+	if joined[0] != "new-session" || joined[2] != "-s" || joined[3] != "sess" ||
+		joined[5] != "win" {
+		t.Fatalf("unexpected new-session args: %#v", args)
+	}
+
+	hasPath := false
+	for i := range args {
+		if args[i] == "-c" && i+1 < len(args) && args[i+1] == "/work" {
+			hasPath = true
+		}
+	}
+
+	if !hasPath {
+		t.Fatalf("expected -c /work in args: %#v", args)
+	}
+}
