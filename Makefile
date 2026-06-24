@@ -30,9 +30,12 @@ test:
 	gotestsum --format testname -- -race ./...
 
 test-cov:
-	podman build -f ./docker/test.Dockerfile -t lazy-tmux-test . && \
-	podman run --rm --userns=keep-id -v $$(pwd):/workspace -w /workspace -e GOCACHE=/workspace/.cache -e GOFLAGS=-buildvcs=false lazy-tmux-test \
+	podman build -f ./docker/test.Dockerfile -t lazy-tmux-test .
+	podman rm -f lazy-tmux-cov 2>/dev/null || true
+	podman run --name lazy-tmux-cov -e GOCACHE=/tmp/gocache -e GOFLAGS=-buildvcs=false lazy-tmux-test \
 	go test -p 1 -coverprofile=cover.out -covermode=atomic -coverpkg=$$(go list ./... | grep -v /internal/testutil | paste -sd "," -) ./...
+	podman cp lazy-tmux-cov:/workspace/cover.out ./cover.out
+	podman rm -f lazy-tmux-cov
 	go tool cover -html=cover.out -o cover.html || true
 	go-test-coverage --config=./.testcoverage.yml
 
