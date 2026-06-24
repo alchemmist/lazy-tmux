@@ -22,7 +22,7 @@ Cli written on Go for saving and restoring tmux sessions lazy. Key features:
 - Interactive TUI browser: tree view (sessions/windows) + table (commands, snapshot time, counts, status) with fuzzy search.
 - Keyboard-driven picker for fast search, navigation, and manage sessions and windows directly inside picker tree.
 - Flexible sorting via `--session-sort` or `--window-sort` (by last-used, time, size, name, command, etc.).
-- Optional `fzf` integration via `--fzf-engine` (lighter and no dependencies binary, but without full keyboard control and TUI picker).
+- Optional `fzf` integration via `--fzf-engine` (lighter and no dependencies binary, but without full keyboard control and TUI picker); add `--windows` to pick a specific window instead of a whole session.
 - Bootstrap restore on tmux startup: auto-restore latest or specific session.
 - Full environment snapshots: restore pane layout and commands (e.g. `npm`, `docker-compose`, `nvim`).
 - Optional scrollback capture: preserve and replay previous terminal output.

@@ -133,3 +133,20 @@ func (a *App) SelectWithFZFSorted(opts PickerSortOptions) (string, error) {
 
 	return session, nil
 }
+
+// SelectTargetWithFZFSorted presents a flat, window-level fzf list and returns
+// the chosen window as a target (session + window). It is the fzf-engine
+// counterpart that lets users jump straight to a specific window.
+func (a *App) SelectTargetWithFZFSorted(opts PickerSortOptions) (PickerTarget, error) {
+	sessions, err := a.pickerSessions(opts)
+	if err != nil {
+		return PickerTarget{}, err
+	}
+
+	target, err := picker.ChooseWindowFZF(sessions, opts.Window)
+	if err != nil {
+		return PickerTarget{}, fmt.Errorf("choose window fzf: %w", err)
+	}
+
+	return target, nil
+}
