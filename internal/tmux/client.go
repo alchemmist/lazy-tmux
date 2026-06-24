@@ -75,6 +75,13 @@ type Client struct {
 	bin           string
 	runner        commandRunner
 	settleTimeout time.Duration
+
+	// allowlist limits which commands RestoreSession replays, keyed by
+	// executable name. allowlistSet distinguishes "no allowlist configured"
+	// (restore everything) from a configured-but-empty allowlist (restore
+	// nothing).
+	allowlist    map[string]struct{}
+	allowlistSet bool
 }
 
 func NewClient(bin string) *Client {
@@ -105,6 +112,30 @@ func NewClientWithRunner(bin string, cmdRunner commandRunner) *Client {
 // the previous fire-and-forget behavior.
 func (client *Client) SetRestoreTimeout(timeout time.Duration) {
 	client.settleTimeout = timeout
+}
+
+// SetRestoreAllowlist configures which commands RestoreSession may replay,
+// matched by executable name. A nil slice clears the allowlist so every command
+// is restored; a non-nil slice (including an empty one) activates it, restoring
+// only the listed commands. List entries are normalized to their executable
+// name, so both "nvim" and "/usr/bin/nvim" match a pane running nvim.
+func (client *Client) SetRestoreAllowlist(list []string) {
+	if list == nil {
+		client.allowlistSet = false
+		client.allowlist = nil
+
+		return
+	}
+
+	client.allowlistSet = true
+	client.allowlist = make(map[string]struct{}, len(list))
+
+	for _, item := range list {
+		name := executableName(strings.TrimSpace(item))
+		if name != "" {
+			client.allowlist[name] = struct{}{}
+		}
+	}
 }
 
 func sessionTarget(name string) string {
@@ -689,6 +720,12 @@ func (client *Client) restoreWindowCommands(
 			continue
 		}
 
+		// Skip commands the allowlist does not permit, so lazy-tmux never
+		// replays arbitrary programs the user has not opted into (issue #74).
+		if !client.commandAllowed(executableName(cmd)) {
+			continue
+		}
+
 		target := sessionPaneTarget(sessionName, windowIndex, pane.Index)
 
 		_, err := client.Output("send-keys", "-t", target, cmd, "C-m")
@@ -700,16 +737,30 @@ func (client *Client) restoreWindowCommands(
 	return nil
 }
 
+// commandAllowed reports whether a command with the given executable name may be
+// restored under the current allowlist. With no allowlist configured every
+// command is allowed.
+func (client *Client) commandAllowed(executable string) bool {
+	if !client.allowlistSet {
+		return true
+	}
+
+	_, ok := client.allowlist[executable]
+
+	return ok
+}
+
 // expectedPaneCommands maps "window.pane" to the foreground command we expect a
 // pane to be running once its restore command has actually started. Panes with
-// nothing to restore are omitted.
-func expectedPaneCommands(windows []snapshot.Window) map[string]string {
+// nothing to restore, or whose command the allowlist blocks, are omitted so the
+// settle wait does not block on commands that will never start.
+func (client *Client) expectedPaneCommands(windows []snapshot.Window) map[string]string {
 	want := make(map[string]string)
 
 	for _, window := range windows {
 		for _, pane := range window.Panes {
 			exe := executableName(normalizedCommand(pane.RestoreCmd, pane.CurrentCmd))
-			if exe == "" {
+			if exe == "" || !client.commandAllowed(exe) {
 				continue
 			}
 
@@ -763,7 +814,7 @@ func (client *Client) waitForRestoredCommands(sessionName string, windows []snap
 		return
 	}
 
-	want := expectedPaneCommands(windows)
+	want := client.expectedPaneCommands(windows)
 	if len(want) == 0 {
 		return
 	}

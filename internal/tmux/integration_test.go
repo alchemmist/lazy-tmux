@@ -117,6 +117,64 @@ func TestRestoreWaitsForCommandsToStart(t *testing.T) {
 	}
 }
 
+// TestRestoreAllowlistFiltersCommands covers issue #74 end-to-end: with an
+// allowlist configured, only permitted commands are replayed; a disallowed
+// command leaves its pane at the shell.
+func TestRestoreAllowlistFiltersCommands(t *testing.T) {
+	testutil.IsolatedTmux(t)
+
+	client := tmux.NewClient("tmux")
+	client.SetRestoreAllowlist([]string{"cat"}) // allow cat, block everything else
+
+	const name = "guarded"
+
+	// Two panes: one runs an allowed command (cat), one a blocked command (tail).
+	// Both block on stdin, so if restored they would show as the foreground cmd.
+	snap := snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: name,
+		CurrentWin:  1,
+		CurrentPane: 0,
+		Windows: []snapshot.Window{
+			{
+				Index: 1, Name: "main", IsActive: true, ActivePane: 0,
+				Panes: []snapshot.Pane{
+					{Index: 0, CurrentPath: "/tmp", RestoreCmd: "cat", IsActive: true},
+					{Index: 1, CurrentPath: "/tmp", RestoreCmd: "tail"},
+				},
+			},
+		},
+	}
+
+	if err := client.RestoreSession(snap); err != nil {
+		t.Fatalf("restore failed: %v", err)
+	}
+
+	out := testutil.Tmux(
+		t,
+		"list-panes",
+		"-t",
+		"="+name,
+		"-F",
+		"#{pane_index} #{pane_current_command}",
+	)
+
+	cmds := map[string]string{}
+	for line := range strings.SplitSeq(strings.TrimSpace(out), "\n") {
+		if fields := strings.Fields(line); len(fields) == 2 {
+			cmds[fields[0]] = fields[1]
+		}
+	}
+
+	if cmds["0"] != "cat" {
+		t.Fatalf("allowed pane should run cat, got %q (all: %v)", cmds["0"], cmds)
+	}
+
+	if cmds["1"] == "tail" {
+		t.Fatalf("blocked pane must not run tail, but it did (all: %v)", cmds)
+	}
+}
+
 // TestRestoreHonorsRecordedFocus guards the happy path: when the recorded
 // current window exists, restore focuses exactly that window rather than
 // falling back.

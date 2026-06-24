@@ -57,6 +57,7 @@ type App struct {
 func New(cfg config.Config) *App {
 	client := tmux.NewClient(cfg.TmuxBin)
 	client.SetRestoreTimeout(cfg.RestoreTimeout)
+	client.SetRestoreAllowlist(cfg.RestoreAllowlist)
 
 	return &App{
 		cfg:   cfg,

@@ -125,7 +125,8 @@ func TestExpectedPaneCommands(t *testing.T) {
 		},
 	}
 
-	got := expectedPaneCommands(windows)
+	// No allowlist configured -> every real command is expected.
+	got := NewClient("tmux").expectedPaneCommands(windows)
 
 	want := map[string]string{"1.0": "nvim", "2.0": "htop"}
 	if len(got) != len(want) {
@@ -136,6 +137,65 @@ func TestExpectedPaneCommands(t *testing.T) {
 		if got[key] != exe {
 			t.Fatalf("expectedPaneCommands[%q]=%q want %q (full %#v)", key, got[key], exe, got)
 		}
+	}
+}
+
+func TestRestoreAllowlist(t *testing.T) {
+	client := NewClient("tmux")
+
+	// No allowlist configured: everything is allowed.
+	if !client.commandAllowed("nvim") || !client.commandAllowed("rm") {
+		t.Fatal("with no allowlist, all commands must be allowed")
+	}
+
+	// Configured allowlist: only listed executables (path entries normalized).
+	client.SetRestoreAllowlist([]string{"nvim", "/usr/bin/htop", "  tmux  "})
+
+	for _, allowed := range []string{"nvim", "htop", "tmux"} {
+		if !client.commandAllowed(allowed) {
+			t.Fatalf("%q should be allowed", allowed)
+		}
+	}
+
+	for _, blocked := range []string{"rm", "bash", "node"} {
+		if client.commandAllowed(blocked) {
+			t.Fatalf("%q should be blocked", blocked)
+		}
+	}
+
+	// Empty (but configured) allowlist blocks everything.
+	client.SetRestoreAllowlist([]string{})
+
+	if client.commandAllowed("nvim") {
+		t.Fatal("an empty allowlist must block all commands")
+	}
+
+	// Clearing with nil restores allow-all behavior.
+	client.SetRestoreAllowlist(nil)
+
+	if !client.commandAllowed("nvim") {
+		t.Fatal("a nil allowlist must allow all commands again")
+	}
+}
+
+func TestExpectedPaneCommandsRespectsAllowlist(t *testing.T) {
+	windows := []snapshot.Window{
+		{
+			Index: 1,
+			Panes: []snapshot.Pane{
+				{Index: 0, RestoreCmd: "nvim"},
+				{Index: 1, RestoreCmd: "htop"},
+			},
+		},
+	}
+
+	client := NewClient("tmux")
+	client.SetRestoreAllowlist([]string{"nvim"})
+
+	got := client.expectedPaneCommands(windows)
+
+	if len(got) != 1 || got["1.0"] != "nvim" {
+		t.Fatalf("allowlist should keep only nvim, got %#v", got)
 	}
 }
 
