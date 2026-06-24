@@ -12,7 +12,7 @@ BINARY := lazy-tmux
 check: build vet golangci-lint test integration-test
 
 integration-test:
-	docker build -f ./docker/test.Dockerfile -t lazy-tmux-test . && docker run --rm lazy-tmux-test
+	podman build -f ./docker/test.Dockerfile -t lazy-tmux-test . && podman run --rm lazy-tmux-test
 
 build:
 	go build -o bin/$(BINARY) ./cmd/$(BINARY)
@@ -30,8 +30,8 @@ test:
 	gotestsum --format testname -- -race ./...
 
 test-cov:
-	docker build -f ./docker/test.Dockerfile -t lazy-tmux-test . && \
-	docker run --rm --user $$(id -u):$$(id -g) -v $$(pwd):/workspace -w /workspace -e GOCACHE=/workspace/.cache lazy-tmux-test \
+	podman build -f ./docker/test.Dockerfile -t lazy-tmux-test . && \
+	podman run --rm --user $$(id -u):$$(id -g) -v $$(pwd):/workspace -w /workspace -e GOCACHE=/workspace/.cache lazy-tmux-test \
 	go test -p 1 -coverprofile=cover.out -covermode=atomic -coverpkg=$$(go list ./... | grep -v /internal/testutil | paste -sd "," -) ./...
 	go tool cover -html=cover.out -o cover.html || true
 	go-test-coverage --config=./.testcoverage.yml
@@ -87,13 +87,13 @@ setup-env:
 
 docker-hub:
 	SANDBOX_TAG=$${SANDBOX_TAG:-latest}; \
-	docker build -t lazy-tmux:$$SANDBOX_TAG -f docker/sandbox.Dockerfile .; \
-	docker tag lazy-tmux:$$SANDBOX_TAG alchemmist/lazy-tmux:$$SANDBOX_TAG; \
-	docker push alchemmist/lazy-tmux:$$SANDBOX_TAG
+	podman build -t lazy-tmux:$$SANDBOX_TAG -f docker/sandbox.Dockerfile .; \
+	podman tag lazy-tmux:$$SANDBOX_TAG alchemmist/lazy-tmux:$$SANDBOX_TAG; \
+	podman push alchemmist/lazy-tmux:$$SANDBOX_TAG
 
 sandbox:
-	docker build -t lazy-tmux:local -f docker/sandbox.Dockerfile .
-	docker run -it --rm lazy-tmux:local
+	podman build -t lazy-tmux:local -f docker/sandbox.Dockerfile .
+	podman run -it --rm lazy-tmux:local
 
 test-sup-versions:
 	chmod +x scripts/test-tmux-versions.sh
