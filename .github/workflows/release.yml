@@ -5,6 +5,12 @@ on:
     tags:
       - "v*.*.*"
 
+# Serialize releases so two tags pushed close together never run their AUR
+# pushes concurrently and race each other (non-fast-forward rejections).
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 permissions:
   contents: write
 

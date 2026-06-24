@@ -35,7 +35,9 @@ fi
 workdir=$(mktemp -d)
 trap 'rm -rf "$workdir"' EXIT
 
-git clone --depth=1 --single-branch "$AUR_REPO_URL" "$workdir"
+# Full (not shallow) clone so the rebase-on-retry below has the history it needs
+# if a concurrent release advanced the AUR repo between clone and push.
+git clone --single-branch "$AUR_REPO_URL" "$workdir"
 
 pkgbuild="$workdir/PKGBUILD"
 srcinfo="$workdir/.SRCINFO"
@@ -64,4 +66,18 @@ if git -C "$workdir" diff --cached --quiet; then
 fi
 
 git -C "$workdir" commit -m "update to ${tag}"
-git -C "$workdir" push
+
+# Push with retry: a concurrent release may have advanced the AUR repo since we
+# cloned, which rejects the push as non-fast-forward. Rebase onto the latest
+# remote state and retry a few times before giving up.
+for attempt in 1 2 3; do
+  if git -C "$workdir" push; then
+    exit 0
+  fi
+
+  echo "AUR push rejected (attempt ${attempt}); rebasing onto remote and retrying" >&2
+  git -C "$workdir" pull --rebase --no-edit
+done
+
+echo "AUR push failed after retries" >&2
+exit 1
