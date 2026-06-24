@@ -78,6 +78,17 @@ func TestChooseWindowFZFEmpty(t *testing.T) {
 	}
 }
 
+func TestChooseWindowFZFNoWindows(t *testing.T) {
+	// Sessions exist but carry no windows: this is distinct from "no sessions".
+	sessions := []Session{
+		{Record: snapshot.Record{SessionName: "work", CapturedAt: time.Now()}},
+	}
+
+	if _, err := ChooseWindowFZF(sessions, nil); !errors.Is(err, ErrNoWindows) {
+		t.Fatalf("expected ErrNoWindows, got %v", err)
+	}
+}
+
 func TestChooseWindowFZFFilterMode(t *testing.T) {
 	testutil.RequireFZF(t)
 

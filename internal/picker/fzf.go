@@ -14,7 +14,10 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
-var ErrNoSessions = errors.New("no sessions available")
+var (
+	ErrNoSessions = errors.New("no sessions available")
+	ErrNoWindows  = errors.New("no windows available")
+)
 
 // runFZF pipes input into fzf and returns the first selected line. With a TTY it
 // runs interactively; without one it uses --filter "" so all lines pass through
@@ -158,7 +161,8 @@ func ChooseWindowFZF(sessions []Session, windowSort []WindowSortKey) (Target, er
 
 	lines := windowFZFLines(sessions, windowSort)
 	if len(lines) == 0 {
-		return Target{}, ErrNoSessions
+		// Sessions exist but none of them have any windows to pick from.
+		return Target{}, ErrNoWindows
 	}
 
 	var input bytes.Buffer

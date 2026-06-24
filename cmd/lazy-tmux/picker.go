@@ -38,6 +38,17 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
+	// Validate flag combinations before any config loading, so invalid usage is
+	// rejected deterministically rather than masked by an unrelated config error.
+	if *windows && !*fzfEngine {
+		writeErr(
+			stderr,
+			fmt.Errorf("--windows requires --fzf-engine (the TUI already lists windows)"),
+		)
+
+		return 1
+	}
+
 	cfg, ok := loadConfig(stderr)
 	if !ok {
 		return 1
@@ -53,14 +64,6 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 
 	if flagPassed(flags, "restore-timeout") {
 		cfg.RestoreTimeout = *restoreTimeout
-	}
-
-	if *windows && !*fzfEngine {
-		writeErr(
-			stderr,
-			fmt.Errorf("--windows requires --fzf-engine (the TUI already lists windows)"),
-		)
-		return 1
 	}
 
 	sortOpts, err := app.ParsePickerSortOptions(*sessionSort, *windowSort)
