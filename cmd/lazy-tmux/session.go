@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/app"
 	"github.com/alchemmist/lazy-tmux/internal/config"
@@ -13,7 +14,13 @@ import (
 
 type sessionOp func(*app.App, string) error
 
-func runSessionOp(args []string, stdout, stderr io.Writer, name string, operation sessionOp) int {
+func runSessionOp(
+	args []string,
+	stdout, stderr io.Writer,
+	name string,
+	restores bool,
+	operation sessionOp,
+) int {
 	flags := flag.NewFlagSet(name, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 
@@ -21,10 +28,21 @@ func runSessionOp(args []string, stdout, stderr io.Writer, name string, operatio
 	dataDir := flags.String("data-dir", "", "snapshot directory")
 	tmuxBin := flags.String("tmux-bin", "", "tmux binary")
 
+	// Only operations that actually restore a session honor --restore-timeout, so
+	// it is not registered for the likes of forget where it would be a no-op.
+	var restoreTimeout *time.Duration
+	if restores {
+		restoreTimeout = flags.Duration(
+			"restore-timeout",
+			config.Default().RestoreTimeout,
+			"max wait for restored pane commands to start (0 disables)",
+		)
+	}
+
 	err := flags.Parse(args)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
-			printSessionHelp(name, stdout)
+			printSessionHelp(name, restores, stdout)
 			return 0
 		}
 
@@ -47,6 +65,10 @@ func runSessionOp(args []string, stdout, stderr io.Writer, name string, operatio
 		cfg.TmuxBin = *tmuxBin
 	}
 
+	if restoreTimeout != nil {
+		cfg.RestoreTimeout = *restoreTimeout
+	}
+
 	a := app.New(cfg)
 
 	err = operation(a, strings.TrimSpace(*session))
@@ -58,10 +80,15 @@ func runSessionOp(args []string, stdout, stderr io.Writer, name string, operatio
 	return 0
 }
 
-func printSessionHelp(name string, writer io.Writer) {
+func printSessionHelp(name string, restores bool, writer io.Writer) {
 	desc := map[string]string{
 		"wakeup": "Restore a saved session without switching clients",
 		"forget": "Remove a stored session from disk",
+	}
+
+	restoreTimeoutHelp := ""
+	if restores {
+		restoreTimeoutHelp = "\n  -restore-timeout  max wait for restored pane commands to start (0 disables)"
 	}
 
 	_, _ = fmt.Fprintf(writer, `Usage: lazy-tmux %s [flags]
@@ -71,6 +98,6 @@ func printSessionHelp(name string, writer io.Writer) {
 Flags:
   -data-dir     snapshot directory
   -session      %s target session
-  -tmux-bin     tmux binary
-`, name, desc[name], name)
+  -tmux-bin     tmux binary%s
+`, name, desc[name], name, restoreTimeoutHelp)
 }

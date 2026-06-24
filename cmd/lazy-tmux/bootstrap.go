@@ -17,6 +17,11 @@ func runBootstrap(args []string, stdout, stderr io.Writer) int {
 	session := flags.String("session", "last", "session name or 'last'")
 	dataDir := flags.String("data-dir", "", "snapshot directory")
 	tmuxBin := flags.String("tmux-bin", "", "tmux binary")
+	restoreTimeout := flags.Duration(
+		"restore-timeout",
+		config.Default().RestoreTimeout,
+		"max wait for restored pane commands to start (0 disables)",
+	)
 
 	err := flags.Parse(args)
 	if err != nil {
@@ -39,6 +44,8 @@ func runBootstrap(args []string, stdout, stderr io.Writer) int {
 		cfg.TmuxBin = *tmuxBin
 	}
 
+	cfg.RestoreTimeout = *restoreTimeout
+
 	a := app.New(cfg)
 
 	err = a.Bootstrap(*session)
@@ -56,8 +63,9 @@ func bootstrapHelp(w io.Writer) {
 Restore one session at tmux startup
 
 Flags:
-  -data-dir     snapshot directory
-  -session      session name or 'last' (default "last")
-  -tmux-bin     tmux binary
+  -data-dir         snapshot directory
+  -restore-timeout  max wait for restored pane commands to start (0 disables)
+  -session          session name or 'last' (default "last")
+  -tmux-bin         tmux binary
 `)
 }

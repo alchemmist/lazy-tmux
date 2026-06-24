@@ -19,6 +19,11 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 	windowSort := flags.String("window-sort", "", "window sort keys: field[:asc|desc],...")
 	dataDir := flags.String("data-dir", "", "snapshot directory")
 	tmuxBin := flags.String("tmux-bin", "", "tmux binary")
+	restoreTimeout := flags.Duration(
+		"restore-timeout",
+		config.Default().RestoreTimeout,
+		"max wait for restored pane commands to start (0 disables)",
+	)
 
 	err := flags.Parse(args)
 	if err != nil {
@@ -40,6 +45,8 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 	if *tmuxBin != "" {
 		cfg.TmuxBin = *tmuxBin
 	}
+
+	cfg.RestoreTimeout = *restoreTimeout
 
 	sortOpts, err := app.ParsePickerSortOptions(*sessionSort, *windowSort)
 	if err != nil {
@@ -82,10 +89,11 @@ func pickerHelp(w io.Writer) {
 Open session picker and restore selected session
 
 Flags:
-  -data-dir        snapshot directory
-  -fzf-engine      use fzf engine instead of built-in TUI
-  -session-sort    session sort keys: field[:asc|desc],...
-  -window-sort     window sort keys: field[:asc|desc],...
-  -tmux-bin        tmux binary
+  -data-dir         snapshot directory
+  -fzf-engine       use fzf engine instead of built-in TUI
+  -restore-timeout  max wait for restored pane commands to start (0 disables)
+  -session-sort     session sort keys: field[:asc|desc],...
+  -window-sort      window sort keys: field[:asc|desc],...
+  -tmux-bin         tmux binary
 `)
 }

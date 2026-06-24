@@ -7,10 +7,11 @@ import (
 )
 
 type Config struct {
-	TmuxBin      string
-	DataDir      string
-	SaveInterval time.Duration
-	Scrollback   ScrollbackConfig
+	TmuxBin        string
+	DataDir        string
+	SaveInterval   time.Duration
+	RestoreTimeout time.Duration
+	Scrollback     ScrollbackConfig
 }
 
 type ScrollbackConfig struct {
@@ -20,9 +21,10 @@ type ScrollbackConfig struct {
 
 func Default() Config {
 	return Config{
-		TmuxBin:      "tmux",
-		DataDir:      store.DefaultDataDir(),
-		SaveInterval: 5 * time.Minute,
+		TmuxBin:        "tmux",
+		DataDir:        store.DefaultDataDir(),
+		SaveInterval:   5 * time.Minute,
+		RestoreTimeout: 5 * time.Second,
 		Scrollback: ScrollbackConfig{
 			Enabled: false,
 			Lines:   5000,

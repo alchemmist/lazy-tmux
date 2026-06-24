@@ -19,6 +19,11 @@ func runRestore(args []string, stdout, stderr io.Writer) int {
 	switchClient := flags.Bool("switch", true, "switch active client to restored session")
 	dataDir := flags.String("data-dir", "", "snapshot directory")
 	tmuxBin := flags.String("tmux-bin", "", "tmux binary")
+	restoreTimeout := flags.Duration(
+		"restore-timeout",
+		config.Default().RestoreTimeout,
+		"max wait for restored pane commands to start (0 disables)",
+	)
 
 	err := flags.Parse(args)
 	if err != nil {
@@ -46,6 +51,8 @@ func runRestore(args []string, stdout, stderr io.Writer) int {
 		cfg.TmuxBin = *tmuxBin
 	}
 
+	cfg.RestoreTimeout = *restoreTimeout
+
 	tmuxApp := app.New(cfg)
 
 	err = tmuxApp.Restore(strings.TrimSpace(*session), *switchClient)
@@ -63,9 +70,10 @@ func restoreHelp(w io.Writer) {
 Restore one session from disk
 
 Flags:
-  -data-dir     snapshot directory
-  -session      session to restore
-  -switch       switch active client to restored session (default true)
-  -tmux-bin     tmux binary
+  -data-dir         snapshot directory
+  -restore-timeout  max wait for restored pane commands to start (0 disables)
+  -session          session to restore
+  -switch           switch active client to restored session (default true)
+  -tmux-bin         tmux binary
 `)
 }

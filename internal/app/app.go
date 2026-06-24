@@ -55,10 +55,13 @@ type App struct {
 }
 
 func New(cfg config.Config) *App {
+	client := tmux.NewClient(cfg.TmuxBin)
+	client.SetRestoreTimeout(cfg.RestoreTimeout)
+
 	return &App{
 		cfg:   cfg,
 		store: store.New(cfg.DataDir),
-		tmux:  tmux.NewClient(cfg.TmuxBin),
+		tmux:  client,
 	}
 }
 
