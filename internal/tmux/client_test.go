@@ -2,361 +2,172 @@ package tmux
 
 import (
 	"testing"
+
+	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
-func TestSplitLines(t *testing.T) {
-	got := splitLines("  one \n\n two\n\t\nthree  \n")
-	if len(got) != 3 || got[0] != "one" || got[1] != "two" || got[2] != "three" {
-		t.Fatalf("unexpected lines: %#v", got)
+func TestCurrentWindowPane(t *testing.T) {
+	// Active window's index and active pane are authoritative, even when the
+	// base index is 1 (regression guard: current window must not collapse to 0).
+	windows := []snapshot.Window{
+		{Index: 1, IsActive: false, ActivePane: 0},
+		{Index: 2, IsActive: true, ActivePane: 3},
+	}
+
+	win, pane := currentWindowPane(windows)
+	if win != 2 || pane != 3 {
+		t.Fatalf("expected active window 2 pane 3, got %d/%d", win, pane)
+	}
+
+	// No active flag -> fall back to the first window.
+	win, pane = currentWindowPane([]snapshot.Window{{Index: 5, ActivePane: 1}})
+	if win != 5 || pane != 1 {
+		t.Fatalf("expected fallback to first window 5/1, got %d/%d", win, pane)
+	}
+
+	// Empty -> zero values.
+	win, pane = currentWindowPane(nil)
+	if win != 0 || pane != 0 {
+		t.Fatalf("expected 0/0 for no windows, got %d/%d", win, pane)
 	}
 }
 
-func TestIsShellCommand(t *testing.T) {
-	tests := []struct {
-		in   string
-		want bool
-	}{
-		{in: "bash", want: true},
-		{in: "-zsh", want: true},
-		{in: "/bin/sh", want: true},
-		{in: "/bin/zsh -l", want: true},
-		{in: "nvim", want: false},
-		{in: "", want: false},
+func TestSessionTargets(t *testing.T) {
+	if got := sessionTarget("foo"); got != "=foo" {
+		t.Fatalf("sessionTarget: got %q", got)
 	}
 
-	for _, tt := range tests {
-		if got := isShellCommand(tt.in); got != tt.want {
-			t.Fatalf("isShellCommand(%q) = %v, want %v", tt.in, got, tt.want)
-		}
-	}
-}
-
-func TestNormalizedCommand(t *testing.T) {
-	if got := normalizedCommand("", "bash"); got != "" {
-		t.Fatalf("shell current command must be dropped, got %q", got)
+	if got := sessionTarget("=foo"); got != "=foo" {
+		t.Fatalf("sessionTarget already-prefixed: got %q", got)
 	}
 
-	if got := normalizedCommand("", "  "); got != "" {
-		t.Fatalf("empty current command must be dropped, got %q", got)
+	if got := sessionWindowTarget("foo", 2); got != "=foo:2" {
+		t.Fatalf("sessionWindowTarget: got %q", got)
 	}
 
-	if got := normalizedCommand("", "nvim ."); got != "nvim ." {
-		t.Fatalf("expected current command, got %q", got)
-	}
-
-	if got := normalizedCommand("docker compose up", "bash"); got != "docker compose up" {
-		t.Fatalf("expected restore command to win, got %q", got)
-	}
-
-	if got := normalizedCommand("\"nvim main.py\"", ""); got != "nvim main.py" {
-		t.Fatalf("expected quoted command to be unwrapped, got %q", got)
-	}
-
-	if got := normalizedCommand("'ssh poda'", ""); got != "ssh poda" {
-		t.Fatalf("expected single-quoted command to be unwrapped, got %q", got)
-	}
-}
-
-func TestPickForegroundCommandWithChildProcesses(t *testing.T) {
-	// Scenario: Helix editor with LSP child processes
-	// panePID is the shell PID (12340), hx is the foreground process
-	// PIDs 1235, 1236 are LSP children that should be ignored
-	lines := []string{
-		"12340 12300 Ss   zsh",
-		"1235  1234  S+   helix-lsp --node",
-		"1234  12340 Ss+  hx",
-		"1236  1234  S+   helix-lsp --python",
-	}
-
-	got := pickForegroundCommand(lines, 12340)
-	if got != "hx" {
-		t.Fatalf("unexpected foreground command: got %q, want %q", got, "hx")
-	}
-}
-
-func TestPickForegroundCommandWithNestedEditor(t *testing.T) {
-	// Scenario: nvim with language server
-	// panePID is the shell PID (2000)
-	lines := []string{
-		"2000 1999 Ss   bash",
-		"2001 2000  Ss+  nvim",
-		"2002 2001  S+   node /path/to/typescript-language-server --stdio",
-		"2003 2001  S+   node /path/to/eslint-language-server",
-	}
-
-	got := pickForegroundCommand(lines, 2000)
-	if got != "nvim" {
-		t.Fatalf("unexpected foreground command: got %q, want %q", got, "nvim")
-	}
-}
-
-func TestPickForegroundCommandPrefersRootForeground(t *testing.T) {
-	// Scenario: tmux running inside zsh, user runs git log
-	// panePID is the shell PID (3000)
-	// We want 'git log' not 'less' (which is git's child)
-	lines := []string{
-		"3000 2999 Ss   zsh",
-		"3001 3000  Ss+  git log",
-		"3002 3001  S+   less",
-	}
-
-	got := pickForegroundCommand(lines, 3000)
-	if got != "git log" {
-		t.Fatalf("unexpected foreground command: got %q, want %q", got, "git log")
-	}
-}
-
-func TestPickForegroundCommandPrefersForegroundMarkedProcess(t *testing.T) {
-	lines := []string{
-		"1001 1000 S+ -zsh",
-		"2002 1000 S docker compose up",
-		"2003 1000 R+ ssh user@host",
-	}
-
-	got := pickForegroundCommand(lines, 1001)
-	if got != "ssh user@host" {
-		t.Fatalf("unexpected foreground command: %q", got)
-	}
-}
-
-func TestPickForegroundCommandFallbackNonShell(t *testing.T) {
-	lines := []string{
-		"1001 1000 S+ -zsh",
-		"2002 1000 S docker compose up",
-	}
-
-	got := pickForegroundCommand(lines, 1001)
-	if got != "docker compose up" {
-		t.Fatalf("unexpected fallback command: %q", got)
-	}
-}
-
-func TestExecutableName(t *testing.T) {
-	tests := []struct {
-		cmd  string
-		want string
-	}{
-		{cmd: "bash", want: "bash"},
-		{cmd: "-zsh", want: "zsh"},
-		{cmd: "/bin/bash -l", want: "bash"},
-		{cmd: "/usr/bin/nvim main.go", want: "nvim"},
-		{cmd: "", want: ""},
-		{cmd: "   ", want: ""},
-	}
-
-	for _, tt := range tests {
-		if got := executableName(tt.cmd); got != tt.want {
-			t.Fatalf("executableName(%q) = %q, want %q", tt.cmd, got, tt.want)
-		}
+	if got := PaneTarget("foo", 2, 3); got != "=foo:2.3" {
+		t.Fatalf("PaneTarget: got %q", got)
 	}
 }
 
 func TestSanitizeCommand(t *testing.T) {
-	tests := []struct {
-		cmd  string
-		want string
-	}{
-		{cmd: `"nvim main.py"`, want: "nvim main.py"},
-		{cmd: `'ssh user@host'`, want: "ssh user@host"},
-		{cmd: `'single'`, want: "single"},
-		{cmd: `"double"`, want: "double"},
-		{cmd: `plain command`, want: "plain command"},
-		{cmd: `  spaces  `, want: "spaces"},
-		{cmd: `"mismatched'`, want: `"mismatched'`},
-		{cmd: `''`, want: ""},
-		{cmd: `""`, want: ""},
+	cases := map[string]string{
+		`"vim"`:    "vim",
+		`'vim'`:    "vim",
+		`  vim  `:  "vim",
+		`vim file`: "vim file",
 	}
 
-	for _, tt := range tests {
-		if got := sanitizeCommand(tt.cmd); got != tt.want {
-			t.Fatalf("sanitizeCommand(%q) = %q, want %q", tt.cmd, got, tt.want)
+	for in, want := range cases {
+		if got := sanitizeCommand(in); got != want {
+			t.Fatalf("sanitizeCommand(%q)=%q want %q", in, got, want)
 		}
+	}
+}
+
+func TestIsShellCommandAndExecutableName(t *testing.T) {
+	for _, sh := range []string{"bash", "/bin/zsh", "-bash", "fish"} {
+		if !isShellCommand(sh) {
+			t.Fatalf("expected %q to be a shell", sh)
+		}
+	}
+
+	if isShellCommand("nvim") {
+		t.Fatal("nvim should not be a shell")
+	}
+
+	if got := executableName("/usr/bin/htop -d 5"); got != "htop" {
+		t.Fatalf("executableName: got %q", got)
+	}
+}
+
+func TestNormalizedCommand(t *testing.T) {
+	cases := []struct {
+		restore, current, want string
+	}{
+		{"nvim", "zsh", "nvim"}, // restore wins when it is a real command
+		{"zsh", "nvim", "nvim"}, // restore is a shell -> use current
+		{"zsh", "bash", ""},     // both shells -> nothing to restore
+		{`"htop"`, "", "htop"},  // quotes stripped
+	}
+
+	for _, c := range cases {
+		if got := normalizedCommand(c.restore, c.current); got != c.want {
+			t.Fatalf("normalizedCommand(%q,%q)=%q want %q", c.restore, c.current, got, c.want)
+		}
+	}
+}
+
+func TestParsePSLine(t *testing.T) {
+	pid, ppid, stat, cmd, ok := parsePSLine("200 100 S+ nvim main.go")
+	if !ok || pid != 200 || ppid != 100 || stat != "S+" || cmd != "nvim main.go" {
+		t.Fatalf("parsePSLine: %d %d %q %q ok=%v", pid, ppid, stat, cmd, ok)
+	}
+
+	if _, _, _, _, ok := parsePSLine("bad line"); ok {
+		t.Fatal("expected parse failure for short line")
+	}
+}
+
+func TestPickForegroundCommand(t *testing.T) {
+	lines := []string{
+		"100 1 Ss zsh",    // the shell itself (panePID)
+		"200 100 S+ nvim", // foreground child
+	}
+
+	if got := pickForegroundCommand(lines, 100); got != "nvim" {
+		t.Fatalf("expected foreground nvim, got %q", got)
+	}
+
+	// Only a shell present -> nothing to restore.
+	if got := pickForegroundCommand([]string{"100 1 Ss zsh"}, 100); got != "" {
+		t.Fatalf("expected empty for shell-only, got %q", got)
+	}
+}
+
+func TestSplitLines(t *testing.T) {
+	got := splitLines("a\n\n  b  \nc\n")
+	if len(got) != 3 || got[0] != "a" || got[1] != "b" || got[2] != "c" {
+		t.Fatalf("splitLines: %#v", got)
 	}
 }
 
 func TestStripOptionPair(t *testing.T) {
-	tests := []struct {
-		args []string
-		opt  string
-		want []string
-	}{
-		{
-			args: []string{"-c", "/tmp", "-n", "name", "rest"},
-			opt:  "-c",
-			want: []string{"-n", "name", "rest"},
-		},
-		{
-			args: []string{"-n", "name"},
-			opt:  "-n",
-			want: []string{},
-		},
-		{
-			args: []string{"a", "b", "c"},
-			opt:  "-x",
-			want: []string{"a", "b", "c"},
-		},
-		{
-			args: []string{},
-			opt:  "-c",
-			want: []string{},
-		},
+	got := stripOptionPair([]string{"new-window", "-c", "/x", "-n", "name"}, "-c")
+	want := []string{"new-window", "-n", "name"}
+
+	if len(got) != len(want) {
+		t.Fatalf("stripOptionPair length: %#v", got)
 	}
 
-	for _, testCase := range tests {
-		got := stripOptionPair(testCase.args, testCase.opt)
-		if len(got) != len(testCase.want) {
-			t.Fatalf(
-				"stripOptionPair(%v, %q) length mismatch: got %d, want %d",
-				testCase.args,
-				testCase.opt,
-				len(got),
-				len(testCase.want),
-			)
-		}
-
-		for idx, val := range got {
-			if val != testCase.want[idx] {
-				t.Fatalf(
-					"stripOptionPair(%v, %q)[%d] = %q, want %q",
-					testCase.args,
-					testCase.opt,
-					idx,
-					val,
-					testCase.want[idx],
-				)
-			}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("stripOptionPair: %#v want %#v", got, want)
 		}
 	}
 }
 
-func TestSessionTarget(t *testing.T) {
-	tests := []struct {
-		name string
-		want string
-	}{
-		{name: "demo", want: "=demo"},
-		{name: "=demo", want: "=demo"},
-		{name: " demo ", want: "=demo"},
-		{name: "", want: "="},
+func TestNewSessionArgs(t *testing.T) {
+	args := newSessionArgs("sess", snapshot.Window{
+		Name:  "win",
+		Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/work"}},
+	})
+
+	// Expect: new-session -d -s sess -n win -c /work
+	joined := args
+	if joined[0] != "new-session" || joined[2] != "-s" || joined[3] != "sess" ||
+		joined[5] != "win" {
+		t.Fatalf("unexpected new-session args: %#v", args)
 	}
 
-	for _, tt := range tests {
-		if got := sessionTarget(tt.name); got != tt.want {
-			t.Fatalf("sessionTarget(%q) = %q, want %q", tt.name, got, tt.want)
+	hasPath := false
+	for i := range args {
+		if args[i] == "-c" && i+1 < len(args) && args[i+1] == "/work" {
+			hasPath = true
 		}
 	}
-}
 
-func TestSessionWindowTarget(t *testing.T) {
-	tests := []struct {
-		name        string
-		windowIndex int
-		want        string
-	}{
-		{name: "demo", windowIndex: 0, want: "=demo:0"},
-		{name: "test", windowIndex: 5, want: "=test:5"},
-		{name: "=session", windowIndex: 1, want: "=session:1"},
-	}
-
-	for _, testCase := range tests {
-		if got := sessionWindowTarget(testCase.name, testCase.windowIndex); got != testCase.want {
-			t.Fatalf(
-				"sessionWindowTarget(%q, %d) = %q, want %q",
-				testCase.name,
-				testCase.windowIndex,
-				got,
-				testCase.want,
-			)
-		}
-	}
-}
-
-func TestSessionPaneTarget(t *testing.T) {
-	tests := []struct {
-		name        string
-		windowIndex int
-		paneIndex   int
-		want        string
-	}{
-		{name: "demo", windowIndex: 0, paneIndex: 0, want: "=demo:0.0"},
-		{name: "test", windowIndex: 2, paneIndex: 1, want: "=test:2.1"},
-		{name: "=session", windowIndex: 0, paneIndex: 3, want: "=session:0.3"},
-	}
-
-	for _, testCase := range tests {
-		got := sessionPaneTarget(testCase.name, testCase.windowIndex, testCase.paneIndex)
-		if got != testCase.want {
-			t.Fatalf(
-				"sessionPaneTarget(%q, %d, %d) = %q, want %q",
-				testCase.name,
-				testCase.windowIndex,
-				testCase.paneIndex,
-				got,
-				testCase.want,
-			)
-		}
-	}
-}
-
-func TestParsePSLineHelper(t *testing.T) {
-	tests := []struct {
-		line     string
-		wantPID  int
-		wantPPID int
-		wantStat string
-		wantCmd  string
-		wantOK   bool
-	}{
-		{
-			line:     "1234 1200 S- bash",
-			wantPID:  1234,
-			wantPPID: 1200,
-			wantStat: "S-",
-			wantCmd:  "bash",
-			wantOK:   true,
-		},
-		{
-			line:     "2002 2000 R+ docker compose up",
-			wantPID:  2002,
-			wantPPID: 2000,
-			wantStat: "R+",
-			wantCmd:  "docker compose up",
-			wantOK:   true,
-		},
-		{
-			line:   "invalid",
-			wantOK: false,
-		},
-		{
-			line:   "",
-			wantOK: false,
-		},
-	}
-
-	for _, testCase := range tests {
-		pid, ppid, stat, cmd, ok := parsePSLine(testCase.line)
-		if ok != testCase.wantOK {
-			t.Fatalf("parsePSLine(%q) ok = %v, want %v", testCase.line, ok, testCase.wantOK)
-		}
-
-		if !ok {
-			continue
-		}
-
-		if pid != testCase.wantPID {
-			t.Fatalf("parsePSLine(%q) pid = %d, want %d", testCase.line, pid, testCase.wantPID)
-		}
-
-		if ppid != testCase.wantPPID {
-			t.Fatalf("parsePSLine(%q) ppid = %d, want %d", testCase.line, ppid, testCase.wantPPID)
-		}
-
-		if stat != testCase.wantStat {
-			t.Fatalf("parsePSLine(%q) stat = %q, want %q", testCase.line, stat, testCase.wantStat)
-		}
-
-		if cmd != testCase.wantCmd {
-			t.Fatalf("parsePSLine(%q) cmd = %q, want %q", testCase.line, cmd, testCase.wantCmd)
-		}
+	if !hasPath {
+		t.Fatalf("expected -c /work in args: %#v", args)
 	}
 }

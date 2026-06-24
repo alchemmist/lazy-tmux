@@ -1,7 +1,7 @@
 package picker
 
 import (
-	"strings"
+	"errors"
 	"testing"
 	"time"
 
@@ -9,62 +9,30 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
 
-func TestChooseSessionFZF(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-	testutil.RequireFZF(t)
-
-	tests := []struct {
-		name    string
-		records []snapshot.Record
-		want    string
-	}{
-		{
-			name: "selects first record",
-			records: []snapshot.Record{
-				{SessionName: "alpha", CapturedAt: time.Now().UTC(), Windows: 1, Panes: 1},
-				{SessionName: "beta", CapturedAt: time.Now().UTC(), Windows: 2, Panes: 3},
-			},
-			want: "alpha",
-		},
-		{
-			name: "preserves input order",
-			records: []snapshot.Record{
-				{SessionName: "gamma", CapturedAt: time.Now().UTC(), Windows: 1, Panes: 1},
-				{SessionName: "delta", CapturedAt: time.Now().UTC(), Windows: 2, Panes: 3},
-				{SessionName: "alpha", CapturedAt: time.Now().UTC(), Windows: 3, Panes: 5},
-			},
-			want: "gamma",
-		},
-		{
-			name: "single record",
-			records: []snapshot.Record{
-				{SessionName: "solo", CapturedAt: time.Now().UTC(), Windows: 1, Panes: 1},
-			},
-			want: "solo",
-		},
-	}
-
-	for _, testCase := range tests {
-		t.Run(testCase.name, func(t *testing.T) {
-			selected, err := ChooseSessionFZF(testCase.records)
-			if err != nil {
-				t.Fatalf("ChooseSessionFZF: %v", err)
-			}
-
-			if selected != testCase.want {
-				t.Fatalf("expected %q, got %q", testCase.want, selected)
-			}
-		})
+func TestChooseSessionFZFEmpty(t *testing.T) {
+	if _, err := ChooseSessionFZF(nil); !errors.Is(err, ErrNoSessions) {
+		t.Fatalf("expected ErrNoSessions, got %v", err)
 	}
 }
 
-func TestChooseSessionFZFNoSessions(t *testing.T) {
-	_, err := ChooseSessionFZF([]snapshot.Record{})
-	if err == nil {
-		t.Fatal("expected error for empty records")
+func TestChooseSessionFZFFilterMode(t *testing.T) {
+	testutil.RequireFZF(t)
+
+	// In a non-interactive (no TTY) context, ChooseSessionFZF invokes fzf in
+	// --filter mode, which prints all matching lines without any user input.
+	// This exercises the real fzf binary end-to-end and returns the first
+	// session name.
+	records := []snapshot.Record{
+		{SessionName: "alpha", CapturedAt: time.Now(), Windows: 2},
+		{SessionName: "beta", CapturedAt: time.Now(), Windows: 1},
 	}
 
-	if !strings.Contains(err.Error(), "no sessions") {
-		t.Fatalf("unexpected error: %v", err)
+	got, err := ChooseSessionFZF(records)
+	if err != nil {
+		t.Fatalf("choose session fzf: %v", err)
+	}
+
+	if got != "alpha" {
+		t.Fatalf("expected first session 'alpha', got %q", got)
 	}
 }

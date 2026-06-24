@@ -1,4 +1,4 @@
-.DEFAULT_GOAL := help
+.DEFAULT_GOAL := check
 
 SHELL := /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
@@ -7,32 +7,12 @@ MAKEFLAGS += --no-builtin-variables
 
 BINARY := lazy-tmux
 
-.PHONY: all help check build build-fzf build-all test test-cov integration-test fmt install clean dist dist-tui dist-fzf tag sandbox test-sup-versions docker-hub vet setup-env golangci-lint
-
-help:
-	@echo "Available targets:"
-	@echo "  all          - build and test (default)"
-	@echo "  help         - show this help"
-	@echo "  check        - run all checks"
-	@echo "  build       - build the binary"
-	@echo "  build-fzf   - build with fzf support"
-	@echo "  test        - run unit tests"
-	@echo "  test-cov    - run tests with coverage"
-	@echo "  integration-test - run integration tests"
-	@echo "  fmt         - format code"
-	@echo "  vet         - run go vet"
-	@echo "  install     - install binary"
-	@echo "  clean       - clean build artifacts"
-	@echo "  dist        - create release"
-	@echo "  sandbox    - run sandbox container"
-
-all: build test
-	@echo "Run 'make check' for full checks including integration tests"
+.PHONY: check build build-fzf build-all test test-cov integration-test fmt install clean dist dist-tui dist-fzf tag sandbox test-sup-versions docker-hub vet setup-env golangci-lint
 
 check: build vet golangci-lint test integration-test
 
 integration-test:
-	docker build -f test.Dockerfile -t lazy-tmux-test . && docker run --rm lazy-tmux-test
+	podman build -f ./docker/test.Dockerfile -t lazy-tmux-test . && podman run --rm lazy-tmux-test
 
 build:
 	go build -o bin/$(BINARY) ./cmd/$(BINARY)
@@ -50,9 +30,12 @@ test:
 	gotestsum --format testname -- -race ./...
 
 test-cov:
-	docker build -f test.Dockerfile -t lazy-tmux-test . && \
-	docker run --rm --user $$(id -u):$$(id -g) -v $$(pwd):/workspace -w /workspace -e GOCACHE=/workspace/.cache lazy-tmux-test \
-		go test -p 1 -coverprofile=cover.out -covermode=atomic -coverpkg=$$(go list ./... | grep -v /internal/testutil | paste -sd "," -) ./...
+	podman build -f ./docker/test.Dockerfile -t lazy-tmux-test .
+	podman rm -f lazy-tmux-cov 2>/dev/null || true
+	podman run --name lazy-tmux-cov -e GOCACHE=/tmp/gocache -e GOFLAGS=-buildvcs=false lazy-tmux-test \
+	go test -p 1 -coverprofile=cover.out -covermode=atomic -coverpkg=$$(go list ./... | grep -v /internal/testutil | paste -sd "," -) ./...
+	podman cp lazy-tmux-cov:/workspace/cover.out ./cover.out
+	podman rm -f lazy-tmux-cov
 	go tool cover -html=cover.out -o cover.html || true
 	go-test-coverage --config=./.testcoverage.yml
 
@@ -107,17 +90,17 @@ setup-env:
 
 docker-hub:
 	SANDBOX_TAG=$${SANDBOX_TAG:-latest}; \
-	docker build -t lazy-tmux:$$SANDBOX_TAG -f docker/sandbox.Dockerfile .; \
-	docker tag lazy-tmux:$$SANDBOX_TAG alchemmist/lazy-tmux:$$SANDBOX_TAG; \
-	docker push alchemmist/lazy-tmux:$$SANDBOX_TAG
+	podman build -t lazy-tmux:$$SANDBOX_TAG -f docker/sandbox.Dockerfile .; \
+	podman tag lazy-tmux:$$SANDBOX_TAG alchemmist/lazy-tmux:$$SANDBOX_TAG; \
+	podman push alchemmist/lazy-tmux:$$SANDBOX_TAG
 
 sandbox:
-	docker build -t lazy-tmux:local -f docker/sandbox.Dockerfile .
-	docker run -it --rm lazy-tmux:local
+	podman build -t lazy-tmux:local -f docker/sandbox.Dockerfile .
+	podman run -it --rm lazy-tmux:local
 
 test-sup-versions:
 	chmod +x scripts/test-tmux-versions.sh
 	./scripts/test-tmux-versions.sh
 
 clean:
-	rm -rf bin dist coverage.out
+	rm -rf bin dist coverage.out cover.html cover.out .cache

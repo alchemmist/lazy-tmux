@@ -6,17 +6,20 @@ import (
 )
 
 func TestDefault(t *testing.T) {
+	t.Setenv("LAZY_TMUX_DATA_DIR", "/data")
+
 	cfg := Default()
+
 	if cfg.TmuxBin != "tmux" {
-		t.Fatalf("expected tmux binary, got %q", cfg.TmuxBin)
+		t.Fatalf("expected default tmux bin, got %q", cfg.TmuxBin)
 	}
 
-	if cfg.DataDir == "" {
-		t.Fatal("expected non-empty data dir")
+	if cfg.DataDir != "/data" {
+		t.Fatalf("expected data dir from env, got %q", cfg.DataDir)
 	}
 
 	if cfg.SaveInterval != 5*time.Minute {
-		t.Fatalf("expected 5m interval, got %s", cfg.SaveInterval)
+		t.Fatalf("expected 5m default interval, got %s", cfg.SaveInterval)
 	}
 
 	if cfg.Scrollback.Enabled {
@@ -24,6 +27,6 @@ func TestDefault(t *testing.T) {
 	}
 
 	if cfg.Scrollback.Lines != 5000 {
-		t.Fatalf("expected default scrollback lines 5000, got %d", cfg.Scrollback.Lines)
+		t.Fatalf("expected 5000 default scrollback lines, got %d", cfg.Scrollback.Lines)
 	}
 }

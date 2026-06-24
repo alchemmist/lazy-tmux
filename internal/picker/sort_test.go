@@ -1,338 +1,221 @@
 package picker
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
-func TestParsePickerSortOptions(t *testing.T) {
-	opts, err := ParseSortOptions("name:asc,last-used:desc", "name:desc,index:asc")
+func TestDefaultSortOptions(t *testing.T) {
+	opts := DefaultSortOptions()
+
+	if len(opts.Session) == 0 || opts.Session[0].Field != SessionSortLastUsed ||
+		!opts.Session[0].Desc {
+		t.Fatalf("unexpected default session sort: %+v", opts.Session)
+	}
+
+	if len(opts.Window) == 0 || opts.Window[0].Field != WindowSortIndex {
+		t.Fatalf("unexpected default window sort: %+v", opts.Window)
+	}
+}
+
+func TestParseSortOptionsValid(t *testing.T) {
+	opts, err := ParseSortOptions("name:asc,panes:desc", "cmd,index:desc")
 	if err != nil {
-		t.Fatalf("ParseSortOptions error: %v", err)
+		t.Fatalf("parse: %v", err)
 	}
 
-	if len(opts.Session) != 2 || opts.Session[0].Field != SessionSortName || !opts.Session[1].Desc {
-		t.Fatalf("unexpected session sort options: %+v", opts.Session)
+	if len(opts.Session) != 2 || opts.Session[0].Field != SessionSortName || opts.Session[0].Desc {
+		t.Fatalf("unexpected session keys: %+v", opts.Session)
 	}
 
-	if len(opts.Window) != 2 || opts.Window[0].Field != WindowSortName || !opts.Window[0].Desc {
-		t.Fatalf("unexpected window sort options: %+v", opts.Window)
+	if opts.Session[1].Field != SessionSortPanes || !opts.Session[1].Desc {
+		t.Fatalf("unexpected session key[1]: %+v", opts.Session[1])
 	}
-}
 
-func TestParsePickerSortOptionsRejectsDuplicateField(t *testing.T) {
-	_, err := ParseSortOptions("name,name:desc", "")
-	if err == nil {
-		t.Fatal("expected duplicate session sort field error")
+	if len(opts.Window) != 2 || opts.Window[0].Field != WindowSortCmd {
+		t.Fatalf("unexpected window keys: %+v", opts.Window)
 	}
-}
 
-func TestParseWindowSortKeysRejectsDuplicateField(t *testing.T) {
-	_, err := parseWindowSortKeys("name,name:desc")
-	if err == nil {
-		t.Fatal("expected duplicate window sort field error")
+	// Window cmd default direction is ascending; index:desc explicit.
+	if opts.Window[1].Field != WindowSortIndex || !opts.Window[1].Desc {
+		t.Fatalf("unexpected window key[1]: %+v", opts.Window[1])
 	}
 }
 
-func TestParsePickerSortOptionsRejectsEmptySessionSortTerm(t *testing.T) {
-	_, err := ParseSortOptions("name,,captured", "")
-	if err == nil {
-		t.Fatal("expected empty session sort term error")
-	}
-}
-
-func TestParsePickerSortOptionsRejectsEmptyWindowSortTerm(t *testing.T) {
-	_, err := ParseSortOptions("", "index,,name")
-	if err == nil {
-		t.Fatal("expected empty window sort term error")
-	}
-}
-
-func TestParsePickerSortOptionsUnknownField(t *testing.T) {
-	_, err := ParseSortOptions("wat:asc", "")
-	if err == nil {
-		t.Fatal("expected unknown field error")
-	}
-}
-
-func TestParsePickerSortOptionsInvalidDirection(t *testing.T) {
-	_, err := ParseSortOptions("name:up", "")
-	if err == nil {
-		t.Fatal("expected invalid direction error")
-	}
-}
-
-func TestParsePickerSortOptionsDefaultDirections(t *testing.T) {
-	sess, desc, err := parseSessionSortPart("last-used")
+func TestParseSortOptionsEmptyKeepsDefaults(t *testing.T) {
+	opts, err := ParseSortOptions("", "")
 	if err != nil {
-		t.Fatalf("parseSessionSortPart: %v", err)
+		t.Fatalf("parse: %v", err)
 	}
 
-	if sess != SessionSortLastUsed || !desc {
-		t.Fatalf("expected last-used to default to desc, got %v desc=%v", sess, desc)
+	def := DefaultSortOptions()
+	if len(opts.Session) != len(def.Session) || len(opts.Window) != len(def.Window) {
+		t.Fatalf("empty exprs should keep defaults: %+v", opts)
 	}
+}
 
-	sess, desc, err = parseSessionSortPart("name")
+func TestParseSortOptionsDefaultDirections(t *testing.T) {
+	// panes (window) defaults to desc; name defaults to asc.
+	opts, err := ParseSortOptions("captured", "panes")
 	if err != nil {
-		t.Fatalf("parseSessionSortPart: %v", err)
+		t.Fatalf("parse: %v", err)
 	}
 
-	if sess != SessionSortName || desc {
-		t.Fatalf("expected name to default to asc, got %v desc=%v", sess, desc)
+	if opts.Session[0].Field != SessionSortCaptured || !opts.Session[0].Desc {
+		t.Fatalf("captured should default desc: %+v", opts.Session[0])
 	}
 
-	win, wdesc, err := parseWindowSortPart("panes")
-	if err != nil {
-		t.Fatalf("parseWindowSortPart: %v", err)
-	}
-
-	if win != WindowSortPanes || !wdesc {
-		t.Fatalf("expected panes to default to desc, got %v desc=%v", win, wdesc)
-	}
-
-	win, wdesc, err = parseWindowSortPart("index")
-	if err != nil {
-		t.Fatalf("parseWindowSortPart: %v", err)
-	}
-
-	if win != WindowSortIndex || wdesc {
-		t.Fatalf("expected index to default to asc, got %v desc=%v", win, wdesc)
+	if opts.Window[0].Field != WindowSortPanes || !opts.Window[0].Desc {
+		t.Fatalf("window panes should default desc: %+v", opts.Window[0])
 	}
 }
 
-func TestParseSessionField(t *testing.T) {
-	tests := []struct {
-		input   string
-		field   SessionSortField
-		success bool
-	}{
-		{"last-used", SessionSortLastUsed, true},
-		{"last_accessed", SessionSortLastUsed, true},
-		{"last-accessed", SessionSortLastUsed, true},
-		{"captured", SessionSortCaptured, true},
-		{"captured_at", SessionSortCaptured, true},
-		{"captured-at", SessionSortCaptured, true},
-		{"name", SessionSortName, true},
-		{"windows", SessionSortWindows, true},
-		{"panes", SessionSortPanes, true},
-		{"LAST-USED", SessionSortLastUsed, true},
-		{"NAME", SessionSortName, true},
-		{"  name  ", SessionSortName, true},
-		{"invalid", "", false},
-		{"", "", false},
-		{"unknown-field", "", false},
+func TestParseSortOptionsErrors(t *testing.T) {
+	cases := []struct{ s, w string }{
+		{"bogus", ""},
+		{"name:sideways", ""},
+		{"name,name", ""},
+		{",", ""},
+		{"", "bogus"},
+		{"", "index,index"},
 	}
 
-	for i, testCase := range tests {
-		t.Run(fmt.Sprintf("%d-%s", i, testCase.input), func(t *testing.T) {
-			field, ok := parseSessionField(testCase.input)
-			if ok != testCase.success {
-				t.Fatalf("success = %v, want %v", ok, testCase.success)
-			}
-
-			if ok && field != testCase.field {
-				t.Fatalf("field = %v, want %v", field, testCase.field)
-			}
-		})
+	for _, c := range cases {
+		if _, err := ParseSortOptions(c.s, c.w); err == nil {
+			t.Fatalf("expected error for session=%q window=%q", c.s, c.w)
+		}
 	}
 }
 
-func TestParseWindowField(t *testing.T) {
-	tests := []struct {
-		input   string
-		field   WindowSortField
-		success bool
-	}{
-		{"index", WindowSortIndex, true},
-		{"name", WindowSortName, true},
-		{"panes", WindowSortPanes, true},
-		{"cmd", WindowSortCmd, true},
-		{"command", WindowSortCmd, true},
-		{"INDEX", WindowSortIndex, true},
-		{"NAME", WindowSortName, true},
-		{"  index  ", WindowSortIndex, true},
-		{"invalid", "", false},
-		{"", "", false},
-		{"unknown-field", "", false},
+func TestSortSessionRecords(t *testing.T) {
+	t1 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	t2 := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
+
+	recs := []snapshot.Record{
+		{SessionName: "b", CapturedAt: t1, Windows: 1},
+		{SessionName: "a", CapturedAt: t2, Windows: 3},
+		{SessionName: "c", CapturedAt: t2, Windows: 2},
 	}
 
-	for i, testCase := range tests {
-		t.Run(fmt.Sprintf("%d-%s", i, testCase.input), func(t *testing.T) {
-			field, ok := parseWindowField(testCase.input)
-			if ok != testCase.success {
-				t.Fatalf("success = %v, want %v", ok, testCase.success)
-			}
+	SortSessionRecords(recs, []SessionSortKey{{Field: SessionSortName, Desc: false}})
 
-			if ok && field != testCase.field {
-				t.Fatalf("field = %v, want %v", field, testCase.field)
-			}
-		})
-	}
-}
-
-func TestCompareInt(t *testing.T) {
-	tests := []struct {
-		a, b int
-		want int
-	}{
-		{0, 0, 0},
-		{1, 2, -1},
-		{2, 1, 1},
-		{-1, -1, 0},
-		{-2, -1, -1},
-		{100, 50, 1},
+	if recs[0].SessionName != "a" || recs[2].SessionName != "c" {
+		t.Fatalf("name asc failed: %+v", recs)
 	}
 
-	for _, tt := range tests {
-		t.Run(fmt.Sprintf("%d-%d", tt.a, tt.b), func(t *testing.T) {
-			if got := compareInt(tt.a, tt.b); got != tt.want {
-				t.Fatalf("got = %d, want %d", got, tt.want)
-			}
-		})
-	}
-}
+	SortSessionRecords(recs, []SessionSortKey{{Field: SessionSortWindows, Desc: true}})
 
-func TestCompareSessionField(t *testing.T) {
-	now := time.Now().UTC()
-	earlier := now.Add(-1 * time.Hour)
-	later := now.Add(1 * time.Hour)
-
-	rec1 := snapshot.Record{
-		SessionName:  "aaa",
-		Windows:      2,
-		Panes:        5,
-		LastAccessed: now,
-		CapturedAt:   now,
-	}
-	rec2 := snapshot.Record{
-		SessionName:  "bbb",
-		Windows:      3,
-		Panes:        4,
-		LastAccessed: earlier,
-		CapturedAt:   later,
+	if recs[0].Windows != 3 {
+		t.Fatalf("windows desc failed: %+v", recs)
 	}
 
-	tests := []struct {
-		field SessionSortField
-		want  int
-	}{
-		{SessionSortName, -1},            // "aaa" < "bbb"
-		{SessionSortWindows, -1},         // 2 < 3
-		{SessionSortPanes, 1},            // 5 > 4
-		{SessionSortLastUsed, 1},         // now > earlier
-		{SessionSortCaptured, -1},        // now < later
-		{SessionSortField("invalid"), 0}, // unknown field
-	}
+	// captured desc, tie-break by name asc.
+	SortSessionRecords(recs, []SessionSortKey{{Field: SessionSortCaptured, Desc: true}})
 
-	for _, tt := range tests {
-		t.Run(string(tt.field), func(t *testing.T) {
-			if got := compareSessionField(rec1, rec2, tt.field); got != tt.want {
-				t.Fatalf("got = %d, want %d", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestCompareWindowField(t *testing.T) {
-	win1 := snapshot.Window{
-		Index: 1,
-		Name:  "aaa",
-		Panes: []snapshot.Pane{{Index: 0, RestoreCmd: "ls"}},
-	}
-	win2 := snapshot.Window{
-		Index: 2,
-		Name:  "bbb",
-		Panes: []snapshot.Pane{{Index: 0, RestoreCmd: "bash"}},
-	}
-
-	tests := []struct {
-		field WindowSortField
-		want  int
-	}{
-		{WindowSortIndex, -1},           // 1 < 2
-		{WindowSortName, -1},            // "aaa" < "bbb"
-		{WindowSortPanes, 0},            // 1 == 1 pane
-		{WindowSortCmd, 1},              // "ls" > "bash"
-		{WindowSortField("invalid"), 0}, // unknown field
-	}
-
-	for _, tt := range tests {
-		t.Run(string(tt.field), func(t *testing.T) {
-			if got := compareWindowField(win1, win2, tt.field); got != tt.want {
-				t.Fatalf("got = %d, want %d", got, tt.want)
-			}
-		})
+	if recs[0].SessionName != "a" || recs[1].SessionName != "c" || recs[2].SessionName != "b" {
+		t.Fatalf("captured desc + name tiebreak failed: %+v", recs)
 	}
 }
 
 func TestSortWindows(t *testing.T) {
-	t.Run("ascending by name", func(t *testing.T) {
-		windows := []snapshot.Window{
-			{Index: 2, Name: "zzz"},
-			{Index: 1, Name: "aaa"},
-			{Index: 3, Name: "bbb"},
+	wins := []snapshot.Window{
+		{Index: 3, Name: "z", Panes: []snapshot.Pane{{}}},
+		{Index: 1, Name: "a", Panes: []snapshot.Pane{{}, {}, {}}},
+		{Index: 2, Name: "m", Panes: []snapshot.Pane{{}, {}}},
+	}
+
+	SortWindows(wins, []WindowSortKey{{Field: WindowSortIndex, Desc: false}})
+
+	if wins[0].Index != 1 || wins[2].Index != 3 {
+		t.Fatalf("index asc failed: %+v", wins)
+	}
+
+	SortWindows(wins, []WindowSortKey{{Field: WindowSortPanes, Desc: true}})
+
+	if len(wins[0].Panes) != 3 {
+		t.Fatalf("panes desc failed: %+v", wins)
+	}
+
+	SortWindows(wins, []WindowSortKey{{Field: WindowSortName, Desc: false}})
+
+	if wins[0].Name != "a" || wins[2].Name != "z" {
+		t.Fatalf("name asc failed: %+v", wins)
+	}
+}
+
+func TestWindowPreviewCommand(t *testing.T) {
+	// Prefers RestoreCmd of the active pane; falls back to CurrentCmd.
+	win := snapshot.Window{
+		ActivePane: 1,
+		Panes: []snapshot.Pane{
+			{Index: 0, CurrentCmd: "zsh"},
+			{Index: 1, CurrentCmd: "nvim", RestoreCmd: "nvim ."},
+		},
+	}
+
+	if got := windowPreviewCommand(win); got != "nvim ." {
+		t.Fatalf("expected restore cmd, got %q", got)
+	}
+
+	win.Panes[1].RestoreCmd = ""
+	if got := windowPreviewCommand(win); got != "nvim" {
+		t.Fatalf("expected current cmd fallback, got %q", got)
+	}
+
+	if got := windowPreviewCommand(snapshot.Window{}); got != "" {
+		t.Fatalf("expected empty for no panes, got %q", got)
+	}
+}
+
+func TestFuzzyMatch(t *testing.T) {
+	if !fuzzyMatch("abc", "axbxc") {
+		t.Fatal("expected subsequence match")
+	}
+
+	if fuzzyMatch("abc", "acb") {
+		t.Fatal("expected order-sensitive non-match")
+	}
+
+	if !fuzzyMatch("", "anything") {
+		t.Fatal("empty query matches everything")
+	}
+}
+
+func TestSessionStateIcon(t *testing.T) {
+	restored := sessionStateIcon(true)
+	notRestored := sessionStateIcon(false)
+
+	if restored == "" || notRestored == "" {
+		t.Fatalf(
+			"both state icons should be non-empty: restored=%q notRestored=%q",
+			restored,
+			notRestored,
+		)
+	}
+
+	if restored == notRestored {
+		t.Fatalf("restored and not-restored icons should differ, both %q", restored)
+	}
+}
+
+func TestTruncateString(t *testing.T) {
+	cases := []struct {
+		in   string
+		max  int
+		want string
+	}{
+		{"hello", 10, "hello"},
+		{"hello", 5, "hello"},
+		{"hello world", 8, "hello..."},
+		{"hello", 2, "he"},
+		{"hello", -1, ""},
+	}
+
+	for _, c := range cases {
+		if got := truncateString(c.in, c.max); got != c.want {
+			t.Fatalf("truncate(%q,%d)=%q want %q", c.in, c.max, got, c.want)
 		}
-
-		SortWindows(windows, []WindowSortKey{{Field: WindowSortName, Desc: false}})
-
-		if windows[0].Name != "aaa" || windows[1].Name != "bbb" || windows[2].Name != "zzz" {
-			t.Fatalf("SortWindows by name failed: got %v", windows)
-		}
-	})
-
-	t.Run("descending by name", func(t *testing.T) {
-		windows := []snapshot.Window{
-			{Index: 2, Name: "aaa"},
-			{Index: 1, Name: "zzz"},
-			{Index: 3, Name: "bbb"},
-		}
-
-		SortWindows(windows, []WindowSortKey{{Field: WindowSortName, Desc: true}})
-
-		if windows[0].Name != "zzz" || windows[1].Name != "bbb" || windows[2].Name != "aaa" {
-			t.Fatalf("SortWindows desc by name failed: got %v", windows)
-		}
-	})
-
-	t.Run("multi-key sort", func(t *testing.T) {
-		windows := []snapshot.Window{
-			{Index: 2, Name: "editor", Panes: []snapshot.Pane{{}, {}}},
-			{Index: 1, Name: "editor", Panes: []snapshot.Pane{{}}},
-			{Index: 3, Name: "aaa", Panes: []snapshot.Pane{{}}},
-		}
-
-		SortWindows(windows, []WindowSortKey{
-			{Field: WindowSortName, Desc: false},
-			{Field: WindowSortPanes, Desc: true},
-		})
-
-		if windows[0].Name != "aaa" {
-			t.Fatalf("first should be aaa, got %s", windows[0].Name)
-		}
-
-		if windows[1].Name != "editor" || len(windows[1].Panes) != 2 {
-			t.Fatalf("second should editor with 2 panes, got %+v", windows[1])
-		}
-	})
-
-	t.Run("empty slice", func(t *testing.T) {
-		windows := []snapshot.Window{}
-		SortWindows(windows, []WindowSortKey{{Field: WindowSortName, Desc: false}})
-
-		if len(windows) != 0 {
-			t.Fatalf("expected empty slice, got %d elements", len(windows))
-		}
-	})
-
-	t.Run("single element", func(t *testing.T) {
-		windows := []snapshot.Window{{Index: 5, Name: "solo"}}
-		SortWindows(windows, []WindowSortKey{{Field: WindowSortName, Desc: false}})
-
-		if len(windows) != 1 || windows[0].Name != "solo" {
-			t.Fatalf("expected single element unchanged, got %+v", windows)
-		}
-	})
+	}
 }

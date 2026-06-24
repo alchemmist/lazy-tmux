@@ -18,6 +18,16 @@ import (
 
 const fieldSep = "\x1f"
 
+// splitFields splits a tmux -F output line on the field separator. tmux 3.5a
+// (and likely other versions) escapes control bytes in format output as octal
+// (so the 0x1f separator arrives as the literal four characters `\037`),
+// whereas tmux 3.6+ emits the raw byte. Normalize the escaped form back to the
+// separator so capture works across tmux versions.
+func splitFields(line string) []string {
+	line = strings.ReplaceAll(line, `\037`, fieldSep)
+	return strings.Split(line, fieldSep)
+}
+
 var (
 	ErrSessionNotFound = errors.New("tmux session not found")
 	ErrSessionExists   = errors.New("tmux session already exists")
@@ -127,7 +137,6 @@ func (client *Client) Output(args ...string) (string, error) {
 
 func (client *Client) SessionExists(name string) bool {
 	_, err := client.Output("has-session", "-t", sessionTarget(name))
-
 	return err == nil
 }
 
@@ -221,28 +230,6 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 		return snapshot.SessionSnapshot{}, ErrSessionNotFound
 	}
 
-	metaOut, err := client.Output(
-		"display-message",
-		"-p",
-		"-t",
-		sessionTarget(name),
-		"#{window_index}"+fieldSep+"#{pane_index}",
-	)
-	if err != nil {
-		return snapshot.SessionSnapshot{}, err
-	}
-
-	meta := strings.Split(strings.TrimSpace(metaOut), fieldSep)
-	if len(meta) != 2 {
-		return snapshot.SessionSnapshot{}, fmt.Errorf(
-			"unexpected session meta format: %q",
-			strings.TrimSpace(metaOut),
-		)
-	}
-
-	currentWin, _ := strconv.Atoi(meta[0])
-	currentPane, _ := strconv.Atoi(meta[1])
-
 	wOut, err := client.Output(
 		"list-windows",
 		"-t",
@@ -257,7 +244,7 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 	windows := make([]snapshot.Window, 0)
 
 	for _, line := range splitLines(wOut) {
-		parts := strings.Split(line, fieldSep)
+		parts := splitFields(line)
 		if len(parts) != 4 {
 			continue
 		}
@@ -283,7 +270,7 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 		}
 
 		for _, pLine := range splitLines(pOut) {
-			parts := strings.Split(pLine, fieldSep)
+			parts := splitFields(pLine)
 			if len(parts) != 6 {
 				continue
 			}
@@ -316,6 +303,12 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 
 	sort.Slice(windows, func(i, j int) bool { return windows[i].Index < windows[j].Index })
 
+	// Derive the current window/pane from the active window/pane we just
+	// enumerated. This is authoritative and works for detached, clientless
+	// sessions, unlike "display-message -t <session>", whose window/pane format
+	// variables are empty without an attached client on some tmux versions.
+	currentWin, currentPane := currentWindowPane(windows)
+
 	return snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: name,
@@ -324,6 +317,22 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 		CurrentPane: currentPane,
 		Windows:     windows,
 	}, nil
+}
+
+// currentWindowPane reports the index of the active window and its active pane.
+// It falls back to the first window when no window is flagged active.
+func currentWindowPane(windows []snapshot.Window) (int, int) {
+	for _, window := range windows {
+		if window.IsActive {
+			return window.Index, window.ActivePane
+		}
+	}
+
+	if len(windows) > 0 {
+		return windows[0].Index, windows[0].ActivePane
+	}
+
+	return 0, 0
 }
 
 func (client *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) error {

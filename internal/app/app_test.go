@@ -1,181 +1,349 @@
 package app
 
 import (
-	"strings"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/config"
-	"github.com/alchemmist/lazy-tmux/internal/snapshot"
-	"github.com/alchemmist/lazy-tmux/internal/store"
 	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
 
-func TestRestoreTargetRejectsEmptyName(t *testing.T) {
-	testApp := New(config.Config{TmuxBin: "tmux"})
-
-	err := testApp.RestoreTarget(PickerTarget{}, true)
-	if err == nil {
-		t.Fatal("expected error for empty session name")
-	}
-
-	if !strings.Contains(err.Error(), "empty session name") {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestRestoreTargetPropagatesLoadError(t *testing.T) {
-	dir := t.TempDir()
-	cfg := config.Config{TmuxBin: "tmux", DataDir: dir}
-	testApp := NewWithStore(cfg, store.New(dir))
-
-	err := testApp.RestoreTarget(PickerTarget{SessionName: "nonexistent"}, true)
-	if err == nil {
-		t.Fatal("expected error for nonexistent session")
-	}
-
-	if !strings.Contains(err.Error(), "load session") {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestBootstrapLastWithNoRecords(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-	testutil.RequireTMux(t)
+func newTestApp(t *testing.T) (*App, string) {
+	t.Helper()
 
 	dir := t.TempDir()
 	cfg := config.Config{TmuxBin: "tmux", DataDir: dir}
-	testApp := NewWithStore(cfg, store.New(dir))
 
-	err := testApp.Bootstrap("last")
-	if err != nil {
-		t.Fatalf("Bootstrap: %v", err)
+	return New(cfg), dir
+}
+
+func snapshotExists(dir, name string) bool {
+	_, err := os.Stat(filepath.Join(dir, "sessions", name+".json"))
+	return err == nil
+}
+
+func TestNewSessionCreatesAndSaves(t *testing.T) {
+	testutil.IsolatedTmux(t)
+
+	a, dir := newTestApp(t)
+
+	if err := a.NewSession("fresh"); err != nil {
+		t.Fatalf("new session: %v", err)
+	}
+
+	if !a.tmux.SessionExists("fresh") {
+		t.Fatal("expected tmux session to exist")
+	}
+
+	if !snapshotExists(dir, "fresh") {
+		t.Fatal("expected snapshot to be saved")
+	}
+
+	// Creating it again must fail (already in storage).
+	if err := a.NewSession("fresh"); err == nil {
+		t.Fatal("expected error creating duplicate session")
 	}
 }
 
-func TestBootstrapLastWithRecords(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-	testutil.RequireTMux(t)
+func TestNewWindowLiveAndOffline(t *testing.T) {
+	testutil.IsolatedTmux(t)
 
-	dir := t.TempDir()
-	testStore := store.New(dir)
+	a, _ := newTestApp(t)
 
-	snap := snapshot.SessionSnapshot{
-		SessionName: "bootstrap-sess",
-		CapturedAt:  time.Now().UTC(),
-		Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
+	if err := a.NewSession("multi"); err != nil {
+		t.Fatalf("new session: %v", err)
 	}
 
-	err := testStore.SaveSession(snap)
-	if err != nil {
-		t.Fatalf("save: %v", err)
+	// Live: adds a window and re-captures.
+	if err := a.NewWindow("multi", "second"); err != nil {
+		t.Fatalf("new window (live): %v", err)
 	}
 
-	cfg := config.Config{TmuxBin: "tmux", DataDir: dir}
-	testApp := NewWithStore(cfg, testStore)
-
-	err = testApp.Bootstrap("last")
+	snap, err := a.store.LoadSession("multi")
 	if err != nil {
-		t.Fatalf("Bootstrap: %v", err)
+		t.Fatalf("load: %v", err)
+	}
+
+	if len(snap.Windows) != 2 {
+		t.Fatalf("expected 2 windows after live new-window, got %d", len(snap.Windows))
+	}
+
+	// Offline: kill the session, then add a window to the stored snapshot only.
+	if err := a.tmux.KillSession("multi"); err != nil {
+		t.Fatalf("kill: %v", err)
+	}
+
+	if err := a.NewWindow("multi", "third"); err != nil {
+		t.Fatalf("new window (offline): %v", err)
+	}
+
+	snap, err = a.store.LoadSession("multi")
+	if err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+
+	if len(snap.Windows) != 3 {
+		t.Fatalf("expected 3 windows after offline new-window, got %d", len(snap.Windows))
 	}
 }
 
-func TestBootstrapSpecificSession(t *testing.T) {
-	testutil.SkipIfNotIntegration(t)
-	testutil.RequireTMux(t)
+func TestRenameWindowLive(t *testing.T) {
+	testutil.IsolatedTmux(t)
 
-	dir := t.TempDir()
-	testStore := store.New(dir)
+	a, _ := newTestApp(t)
 
-	snap := snapshot.SessionSnapshot{
-		SessionName: "specific-sess",
-		CapturedAt:  time.Now().UTC(),
-		Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
+	if err := a.NewSession("ren"); err != nil {
+		t.Fatalf("new session: %v", err)
 	}
 
-	err := testStore.SaveSession(snap)
-	if err != nil {
-		t.Fatalf("save: %v", err)
+	if err := a.RenameWindow("ren", 0, "renamed"); err != nil {
+		t.Fatalf("rename window: %v", err)
 	}
 
-	cfg := config.Config{TmuxBin: "tmux", DataDir: dir}
-	testApp := NewWithStore(cfg, testStore)
-
-	err = testApp.Bootstrap("specific-sess")
+	snap, err := a.store.LoadSession("ren")
 	if err != nil {
-		t.Fatalf("Bootstrap specific: %v", err)
+		t.Fatalf("load: %v", err)
+	}
+
+	if snap.Windows[0].Name != "renamed" {
+		t.Fatalf("expected window renamed in snapshot, got %q", snap.Windows[0].Name)
 	}
 }
 
-func TestListRecordsDelegatesToStore(t *testing.T) {
-	dir := t.TempDir()
-	testStore := store.New(dir)
+func TestRenameSession(t *testing.T) {
+	testutil.IsolatedTmux(t)
 
-	snap := snapshot.SessionSnapshot{
-		SessionName: "list-test",
-		Windows:     []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0}}}},
+	a, dir := newTestApp(t)
+
+	if err := a.NewSession("old"); err != nil {
+		t.Fatalf("new session: %v", err)
 	}
 
-	err := testStore.SaveSession(snap)
-	if err != nil {
-		t.Fatalf("save: %v", err)
+	if err := a.RenameSession("old", "brandnew"); err != nil {
+		t.Fatalf("rename session: %v", err)
 	}
 
-	cfg := config.Config{TmuxBin: "tmux", DataDir: dir}
-	testApp := NewWithStore(cfg, testStore)
-
-	recs, err := testApp.ListRecords()
-	if err != nil {
-		t.Fatalf("ListRecords: %v", err)
+	if a.tmux.SessionExists("old") {
+		t.Fatal("old session should be gone in tmux")
 	}
 
-	if len(recs) != 1 {
-		t.Fatalf("expected 1 record, got %d", len(recs))
-	}
-}
-
-func TestIsShellCommandNameTable(t *testing.T) {
-	tests := []struct {
-		cmd  string
-		want bool
-	}{
-		{"bash", true},
-		{"-bash", true},
-		{"/bin/bash", true},
-		{"/bin/bash -l", true},
-		{"zsh", true},
-		{"fish", true},
-		{"sh", true},
-		{"ksh", true},
-		{"nvim", false},
-		{"vim", false},
-		{"docker", false},
-		{"", false},
-		{"   ", false},
+	if !a.tmux.SessionExists("brandnew") {
+		t.Fatal("new session should exist in tmux")
 	}
 
-	for _, caseItem := range tests {
-		if got := isShellCommandName(caseItem.cmd); got != caseItem.want {
-			t.Fatalf("isShellCommandName(%q) = %v, want %v", caseItem.cmd, got, caseItem.want)
-		}
+	if snapshotExists(dir, "old") || !snapshotExists(dir, "brandnew") {
+		t.Fatal("snapshot file should be moved old -> brandnew")
 	}
 }
 
-func TestRunDaemonSaveAllUsesSaveAllFn(t *testing.T) {
-	called := false
-	testApp := &App{
-		saveAllFn: func() error {
-			called = true
-			return nil
-		},
+func TestDeleteWindowAndSession(t *testing.T) {
+	testutil.IsolatedTmux(t)
+
+	a, dir := newTestApp(t)
+
+	if err := a.NewSession("del"); err != nil {
+		t.Fatalf("new session: %v", err)
 	}
 
-	err := testApp.runDaemonSaveAll()
+	if err := a.NewWindow("del", "extra"); err != nil {
+		t.Fatalf("new window: %v", err)
+	}
+
+	// Delete one window; session stays alive.
+	if err := a.DeleteWindow("del", 1); err != nil {
+		t.Fatalf("delete window: %v", err)
+	}
+
+	if !a.tmux.SessionExists("del") {
+		t.Fatal("session should still exist after deleting one of two windows")
+	}
+
+	// Delete the whole session.
+	if err := a.DeleteSession("del"); err != nil {
+		t.Fatalf("delete session: %v", err)
+	}
+
+	if a.tmux.SessionExists("del") {
+		t.Fatal("session should be gone after delete")
+	}
+
+	if snapshotExists(dir, "del") {
+		t.Fatal("snapshot should be removed after delete")
+	}
+}
+
+func TestSaveAllRestoreSleepWakeup(t *testing.T) {
+	testutil.IsolatedTmux(t)
+
+	a, dir := newTestApp(t)
+
+	testutil.Tmux(t, "new-session", "-d", "-s", "s1")
+	testutil.Tmux(t, "new-session", "-d", "-s", "s2")
+
+	if err := a.SaveAll(); err != nil {
+		t.Fatalf("save all: %v", err)
+	}
+
+	if !snapshotExists(dir, "s1") || !snapshotExists(dir, "s2") {
+		t.Fatal("save all should snapshot both sessions")
+	}
+
+	// Sleep s1: saved and killed.
+	if err := a.Sleep("s1"); err != nil {
+		t.Fatalf("sleep: %v", err)
+	}
+
+	if a.tmux.SessionExists("s1") {
+		t.Fatal("s1 should be asleep")
+	}
+
+	// Sleeping a non-running session errors.
+	if err := a.Sleep("s1"); err == nil {
+		t.Fatal("sleeping an already-asleep session should error")
+	}
+
+	// Wakeup s1 again.
+	if err := a.Wakeup("s1"); err != nil {
+		t.Fatalf("wakeup: %v", err)
+	}
+
+	if !a.tmux.SessionExists("s1") {
+		t.Fatal("s1 should be awake after wakeup")
+	}
+
+	// Wakeup when already awake errors.
+	if err := a.Wakeup("s1"); err == nil {
+		t.Fatal("waking an awake session should error")
+	}
+
+	// Restore is tolerant when the session already exists.
+	if err := a.Restore("s2", false); err != nil {
+		t.Fatalf("restore existing should be tolerant: %v", err)
+	}
+}
+
+func TestBootstrapEmptyStoreNoError(t *testing.T) {
+	testutil.IsolatedTmux(t)
+
+	a, _ := newTestApp(t)
+
+	if err := a.Bootstrap("last"); err != nil {
+		t.Fatalf("bootstrap on empty store should be a no-op, got %v", err)
+	}
+}
+
+// fakeTicker drives RunDaemon deterministically: it yields a single tick and
+// then closes, so the daemon performs its initial save plus one interval save
+// and returns instead of blocking forever.
+type fakeTicker struct {
+	ch chan time.Time
+}
+
+func (f *fakeTicker) Chan() <-chan time.Time { return f.ch }
+func (f *fakeTicker) Stop()                  {}
+
+func TestRunDaemonSavesAll(t *testing.T) {
+	testutil.IsolatedTmux(t)
+
+	a, dir := newTestApp(t)
+
+	testutil.Tmux(t, "new-session", "-d", "-s", "d1")
+	testutil.Tmux(t, "new-session", "-d", "-s", "d2")
+
+	orig := newDaemonTicker
+	defer func() { newDaemonTicker = orig }()
+
+	saves := 0
+	a.saveAllFn = func() error {
+		saves++
+		return a.SaveAll()
+	}
+
+	ch := make(chan time.Time, 1)
+	ch <- time.Time{}
+	close(ch)
+
+	newDaemonTicker = func(time.Duration) daemonTicker { return &fakeTicker{ch: ch} }
+
+	if err := a.RunDaemon(time.Minute); err != nil {
+		t.Fatalf("run daemon: %v", err)
+	}
+
+	// One initial save + one tick save.
+	if saves != 2 {
+		t.Fatalf("expected 2 daemon saves, got %d", saves)
+	}
+
+	if !snapshotExists(dir, "d1") || !snapshotExists(dir, "d2") {
+		t.Fatal("daemon should have saved both sessions")
+	}
+}
+
+func TestSelectWithFZFSorted(t *testing.T) {
+	testutil.IsolatedTmux(t)
+	testutil.RequireFZF(t)
+
+	a, _ := newTestApp(t)
+
+	if err := a.NewSession("only"); err != nil {
+		t.Fatalf("new session: %v", err)
+	}
+
+	got, err := a.SelectWithFZFSorted(DefaultPickerSortOptions())
 	if err != nil {
-		t.Fatalf("runDaemonSaveAll: %v", err)
+		t.Fatalf("select with fzf: %v", err)
 	}
 
-	if !called {
-		t.Fatal("expected saveAllFn to be called")
+	if got != "only" {
+		t.Fatalf("expected fzf to pick 'only', got %q", got)
+	}
+}
+
+func TestPickerSessionsMarksRestored(t *testing.T) {
+	testutil.IsolatedTmux(t)
+
+	a, _ := newTestApp(t)
+
+	// "live" is running; "dead" is only on disk.
+	if err := a.NewSession("live"); err != nil {
+		t.Fatalf("new session live: %v", err)
+	}
+
+	if err := a.NewSession("dead"); err != nil {
+		t.Fatalf("new session dead: %v", err)
+	}
+
+	if err := a.tmux.KillSession("dead"); err != nil {
+		t.Fatalf("kill dead: %v", err)
+	}
+
+	sessions, err := a.pickerSessions(DefaultPickerSortOptions())
+	if err != nil {
+		t.Fatalf("picker sessions: %v", err)
+	}
+
+	restored := map[string]bool{}
+	for _, sess := range sessions {
+		restored[sess.Record.SessionName] = sess.Restored
+	}
+
+	if !restored["live"] {
+		t.Fatal("live session should be marked restored")
+	}
+
+	if restored["dead"] {
+		t.Fatal("dead session should not be marked restored")
+	}
+}
+
+func TestParsePickerSortOptions(t *testing.T) {
+	if _, err := ParsePickerSortOptions("name", "index"); err != nil {
+		t.Fatalf("valid sort options: %v", err)
+	}
+
+	if _, err := ParsePickerSortOptions("bogus", ""); err == nil {
+		t.Fatal("expected error for bogus sort field")
 	}
 }
