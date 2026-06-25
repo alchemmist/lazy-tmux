@@ -3,7 +3,10 @@
 IMAGE="lazy-tmux:version-test"
 
 printf "\nBuilding test image (once)...\n"
-docker build -t "$IMAGE" -f docker/sandbox.Dockerfile . >/dev/null 2>&1
+# Build the matrix image from docker/version-test.Dockerfile, which compiles
+# lazy-tmux from this repo's source (not the published binary). Keep stderr so a
+# build failure surfaces instead of silently yielding an image without the binary.
+docker build -t "$IMAGE" -f docker/version-test.Dockerfile . >/dev/null
 
 printf "Fetching tmux releases from GitHub...\n"
 versions=$(curl -sf "https://api.github.com/repos/tmux/tmux/releases?per_page=100" \
