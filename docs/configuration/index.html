@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Configuration — lazy-tmux</title>
+    <meta name="description" content="lazy-tmux TOML config file: lookup order, precedence, restore command allowlist and restore settle timeout." />
+    <link rel="canonical" href="https://lazy-tmux.xyz/configuration/" />
+    <meta property="og:title" content="Configuration — lazy-tmux" />
+    <meta property="og:description" content="lazy-tmux TOML config file: lookup order, precedence, restore command allowlist and restore settle timeout." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://lazy-tmux.xyz/configuration/" />
+    <meta property="og:image" content="https://lazy-tmux.xyz/assets/banner.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
+    <link rel="icon" type="image/png" href="/assets/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+    <link rel="shortcut icon" href="/assets/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png" />
+    <link rel="manifest" href="/assets/site.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/assets/style.css" />
+    <script defer src="https://umami.alchemmist.xyz/script.js" data-website-id="1d4c3792-8068-4e17-a321-f5ecd6eeea4e"></script>
+    
+  </head>
+  <body class="configuration">
+    <div class="grid" aria-hidden="true"></div>
+    <header class="topbar">
+      <button type="button" class="nav-toggle" aria-label="Toggle menu" aria-controls="sidebar" aria-expanded="false">☰</button>
+      <a href="/" class="topbar-brand">lazy-tmux</a>
+    </header>
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="/">
+        <img src="/assets/logo-white.svg" alt="lazy-tmux logo" />
+        <span>lazy-tmux</span>
+      </a>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/features/">Features</a>
+        <a href="/installation/">Installation</a>
+        <a href="/tmux-setup/">tmux setup</a>
+        <a href="/cli/">CLI</a>
+        <a href="/configuration/" class="active">Configuration</a>
+        <a href="/tui-picker/">TUI picker</a>
+        <a href="/about/">About</a>
+        <a class="external" href="https://github.com/alchemmist/lazy-tmux">GitHub ↗</a>
+      </nav>
+    </aside>
+    <main class="content">
+      <div class="page">
+        <section class="doc-section">
+<h1>Configuration</h1>
+<p>
+          lazy-tmux reads an optional <strong>TOML config file</strong>. Every
+          key is optional — without a file, built-in defaults are used. Settings
+          are layered, so the most specific source wins:
+        </p>
+        <p class="muted" style="margin: 0 0 8px">
+          built-in defaults → config file → command-line flags
+        </p>
+        <p class="muted" style="margin: 12px 0 8px">
+          The file is looked up in this order (first match wins):
+        </p>
+        <ul>
+          <li>env: <code>$LAZY_TMUX_CONFIG</code> (explicit path)</li>
+          <li><code>$XDG_CONFIG_HOME/lazy-tmux/lazy-tmux.toml</code></li>
+          <li><code>~/.config/lazy-tmux/lazy-tmux.toml</code></li>
+        </ul>
+        <p class="muted" style="margin: 12px 0 8px">
+          A missing file is fine; a malformed file or an unknown key fails
+          loudly so typos don't go unnoticed.
+        </p>
+        <pre><code># ~/.config/lazy-tmux/lazy-tmux.toml — all keys are optional
+
+tmux_bin        = "tmux"                       # tmux binary to use
+data_dir        = "~/.local/share/lazy-tmux"   # where snapshots are stored (~ is expanded)
+save_interval   = "5m"                         # daemon autosave interval (Go duration)
+restore_timeout = "5s"                         # max wait for restored pane commands to start (0 disables)
+
+# Allowlist of commands lazy-tmux may replay on restore, matched by program name.
+# Omit this key to restore every command (default). Provide a list to restore
+# only those programs; use an empty list [] to restore no commands at all.
+restore_allowlist = ["nvim", "vim", "htop", "less", "tail", "ssh"]
+
+[scrollback]
+enabled = false   # capture shell pane scrollback
+lines   = 5000    # max scrollback lines per pane</code></pre>
+        <h3 class="cli-subtitle">Restore command allowlist</h3>
+        <p class="muted" style="margin: 0 0 8px">
+          Like tmux-resurrect, you can restrict which commands are replayed on
+          restore, so lazy-tmux never re-runs an arbitrary program that happened
+          to be active at save time:
+        </p>
+        <ul>
+          <li>
+            <strong>key omitted</strong> → every command is restored (default).
+          </li>
+          <li>
+            <strong>list given</strong> → only those programs are replayed; any
+            other pane is left at the shell.
+          </li>
+          <li>
+            <strong>empty list <code>[]</code></strong> → no commands are
+            restored at all.
+          </li>
+        </ul>
+        <p class="muted" style="margin: 12px 0 8px">
+          Matching is by program name, so <code>nvim</code> also matches
+          <code>/usr/bin/nvim main.go</code>.
+        </p>
+        <h3 class="cli-subtitle">Restore settle timeout</h3>
+        <p class="muted" style="margin: 0 0 8px">
+          On restore, lazy-tmux waits until each pane's command has actually
+          started before returning (bounded by <code>restore_timeout</code> /
+          <code>--restore-timeout</code>), so automation can trust the session
+          is fully restored once the command exits. Set it to <code>0</code> to
+          opt out and return immediately.
+        </p>
+</section>
+        <footer>
+        <p class="muted">
+          Author: Anton Grishin (alchemmist),
+          <code>anton.ingrish@gmail.com</code>
+        </p>
+        <p class="muted">
+          OpenSource:
+          <code
+            ><a href="https://github.com/alchemmist/lazy-tmux"
+              >alchemmist/lazy-tmux</a
+            ></code
+          >
+        </p>
+        <p class="muted">© 2026 lazy-tmux</p>
+      </footer>
+      </div>
+    </main>
+    <script>
+      (function () {
+        var btn = document.querySelector(".nav-toggle");
+        if (!btn) return;
+        btn.addEventListener("click", function () {
+          var open = document.body.classList.toggle("nav-open");
+          btn.setAttribute("aria-expanded", open ? "true" : "false");
+        });
+      })();
+    </script>
+  </body>
+</html>
