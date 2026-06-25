@@ -413,6 +413,18 @@
             Optional shell pane scrollback capture lets you save and replay
             previous output, preserving context for restored sessions.
           </li>
+          <li>
+            Configurable via an optional <strong>TOML config file</strong>
+            (<code>~/.config/lazy-tmux/lazy-tmux.toml</code>): set a
+            <strong>restore command allowlist</strong> so only trusted programs
+            are replayed, tune the restore settle timeout, scrollback, autosave
+            interval and storage paths.
+          </li>
+          <li>
+            With the fzf backend, <code>--windows</code> lists individual
+            windows so you can fuzzy-jump straight to any window, not just a
+            session.
+          </li>
         </ul>
         </div>
       </details>
@@ -602,6 +614,20 @@
               <td>Use fzf backend instead of built-in TUI</td>
             </tr>
             <tr>
+              <td><code>--fzf-engine --windows</code></td>
+              <td>
+                fzf backend: list and pick a specific window (not just a
+                session), then restore its session focused on it
+              </td>
+            </tr>
+            <tr>
+              <td><code>--restore-timeout DURATION</code></td>
+              <td>
+                Max wait for restored pane commands to start before the command
+                returns (e.g. <code>5s</code>; <code>0</code> disables waiting)
+              </td>
+            </tr>
+            <tr>
               <td><code>--session-sort EXPR</code></td>
               <td>
                 Session sort (field[:asc|desc],...) fields: last-used, captured,
@@ -633,7 +659,10 @@ lazy-tmux picker --session-sort "name:asc,captured:desc"
 lazy-tmux picker --window-sort "panes:desc,name:asc"
 
 # Use same sorting with fzf backend
-lazy-tmux picker --fzf-engine --session-sort "last-used:desc,name:asc"</code></pre>
+lazy-tmux picker --fzf-engine --session-sort "last-used:desc,name:asc"
+
+# fzf backend, but pick an individual window instead of a whole session
+lazy-tmux picker --fzf-engine --windows --window-sort "name:asc"</code></pre>
         <h3 class="cli-subtitle">Sorting behavior</h3>
         <p class="muted" style="margin: 0 0 8px">
           Default directions (when <code>:asc|:desc</code> is omitted):
@@ -705,7 +734,81 @@ lazy-tmux daemon --interval 5m --scrollback --scrollback-lines 5000</code></pre>
         <ul>
           <li>env: <code>LAZY_TMUX_DATA_DIR</code></li>
           <li>flag: <code>--data-dir</code></li>
+          <li>config: <code>data_dir</code> in the TOML config file (see below)</li>
         </ul>
+        </div>
+      </details>
+
+      <!-- Configuration -->
+      <details class="section" id="config">
+        <summary><h2>Configuration</h2></summary>
+        <div class="detail-body">
+        <p>
+          lazy-tmux reads an optional <strong>TOML config file</strong>. Every
+          key is optional — without a file, built-in defaults are used. Settings
+          are layered, so the most specific source wins:
+        </p>
+        <p class="muted" style="margin: 0 0 8px">
+          built-in defaults → config file → command-line flags
+        </p>
+        <p class="muted" style="margin: 12px 0 8px">
+          The file is looked up in this order (first match wins):
+        </p>
+        <ul>
+          <li>env: <code>$LAZY_TMUX_CONFIG</code> (explicit path)</li>
+          <li><code>$XDG_CONFIG_HOME/lazy-tmux/lazy-tmux.toml</code></li>
+          <li><code>~/.config/lazy-tmux/lazy-tmux.toml</code></li>
+        </ul>
+        <p class="muted" style="margin: 12px 0 8px">
+          A missing file is fine; a malformed file or an unknown key fails
+          loudly so typos don't go unnoticed.
+        </p>
+        <pre><code># ~/.config/lazy-tmux/lazy-tmux.toml — all keys are optional
+
+tmux_bin        = "tmux"                       # tmux binary to use
+data_dir        = "~/.local/share/lazy-tmux"   # where snapshots are stored (~ is expanded)
+save_interval   = "5m"                         # daemon autosave interval (Go duration)
+restore_timeout = "5s"                         # max wait for restored pane commands to start (0 disables)
+
+# Allowlist of commands lazy-tmux may replay on restore, matched by program name.
+# Omit this key to restore every command (default). Provide a list to restore
+# only those programs; use an empty list [] to restore no commands at all.
+restore_allowlist = ["nvim", "vim", "htop", "less", "tail", "ssh"]
+
+[scrollback]
+enabled = false   # capture shell pane scrollback
+lines   = 5000    # max scrollback lines per pane</code></pre>
+        <h3 class="cli-subtitle">Restore command allowlist</h3>
+        <p class="muted" style="margin: 0 0 8px">
+          Like tmux-resurrect, you can restrict which commands are replayed on
+          restore, so lazy-tmux never re-runs an arbitrary program that happened
+          to be active at save time:
+        </p>
+        <ul>
+          <li>
+            <strong>key omitted</strong> → every command is restored (default).
+          </li>
+          <li>
+            <strong>list given</strong> → only those programs are replayed; any
+            other pane is left at the shell.
+          </li>
+          <li>
+            <strong>empty list <code>[]</code></strong> → no commands are
+            restored at all.
+          </li>
+        </ul>
+        <p class="muted" style="margin: 12px 0 8px">
+          Matching is by program name, so <code>nvim</code> also matches
+          <code>/usr/bin/nvim main.go</code>.
+        </p>
+        <h3 class="cli-subtitle">Restore settle timeout</h3>
+        <p class="muted" style="margin: 0 0 8px">
+          On restore, lazy-tmux waits until each pane's command has actually
+          started before returning (bounded by <code>restore_timeout</code> /
+          <code>--restore-timeout</code>), so automation can trust the session
+          is fully restored once the command exits. Set it to <code>0</code> to
+          opt out and return immediately.
+        </p>
         </div>
       </details>
 
