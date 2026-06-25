@@ -161,8 +161,20 @@ LAYOUT_CSS = """
   margin: 0 0 18px;
 }
 .topbar { display: none; }
-/* home hero, centered */
-.home .hero { text-align: center; border: none; background: none; padding: 8px 0 0; }
+/* home hero: fills the first viewport and centers vertically, so the demo and
+   everything below only appear once the visitor scrolls. */
+.home .content { padding-top: 0; }
+.home .hero {
+  text-align: center;
+  border: none;
+  background: none;
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 0 8px;
+}
 .home .hero > div { justify-content: center; }
 .home .actions { justify-content: center; }
 .home .doc-section { text-align: left; }
@@ -173,6 +185,12 @@ LAYOUT_CSS = """
   }
   body.nav-open .sidebar { transform: translateX(0); }
   .content { margin-left: 0; padding-top: 66px; }
+  /* keep the full-screen home hero below the fixed mobile topbar */
+  .home .content { padding-top: 66px; }
+  .home .hero {
+    min-height: calc(100vh - 66px);
+    min-height: calc(100svh - 66px);
+  }
   .topbar {
     display: flex;
     align-items: center;
