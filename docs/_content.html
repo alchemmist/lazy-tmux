@@ -93,6 +93,11 @@
       * {
         box-sizing: border-box;
       }
+      html {
+        /* base layer behind body so macOS rubber-band overscroll reveals the
+           dark theme, not the default white background */
+        background: #050505;
+      }
       body {
         margin: 0;
         font-family: "JetBrains Mono", monospace;
