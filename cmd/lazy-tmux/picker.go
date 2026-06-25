@@ -15,6 +15,7 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 	flags.SetOutput(io.Discard)
 
 	fzfEngine := flags.Bool("fzf-engine", false, "use fzf engine instead of built-in TUI")
+	windows := flags.Bool("windows", false, "fzf engine: pick a window instead of a session")
 	sessionSort := flags.String("session-sort", "", "session sort keys: field[:asc|desc],...")
 	windowSort := flags.String("window-sort", "", "window sort keys: field[:asc|desc],...")
 	dataDir := flags.String("data-dir", "", "snapshot directory")
@@ -33,6 +34,17 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 		}
 
 		writeErr(stderr, fmt.Errorf("parse flags: %w", err))
+
+		return 1
+	}
+
+	// Validate flag combinations before any config loading, so invalid usage is
+	// rejected deterministically rather than masked by an unrelated config error.
+	if *windows && !*fzfEngine {
+		writeErr(
+			stderr,
+			fmt.Errorf("--windows requires --fzf-engine (the TUI already lists windows)"),
+		)
 
 		return 1
 	}
@@ -64,7 +76,14 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 
 	var target app.PickerTarget
 
-	if *fzfEngine {
+	switch {
+	case *fzfEngine && *windows:
+		target, err = tmuxApp.SelectTargetWithFZFSorted(sortOpts)
+		if err != nil {
+			writeErr(stderr, fmt.Errorf("select target: %w", err))
+			return 1
+		}
+	case *fzfEngine:
 		session, err := tmuxApp.SelectWithFZFSorted(sortOpts)
 		if err != nil {
 			writeErr(stderr, fmt.Errorf("select target: %w", err))
@@ -72,7 +91,7 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 		}
 
 		target = app.PickerTarget{SessionName: session}
-	} else {
+	default:
 		target, err = tmuxApp.SelectTargetWithTUISorted(sortOpts)
 		if err != nil {
 			writeErr(stderr, fmt.Errorf("select target: %w", err))
@@ -97,6 +116,7 @@ Open session picker and restore selected session
 Flags:
   -data-dir         snapshot directory
   -fzf-engine       use fzf engine instead of built-in TUI
+  -windows          fzf engine: pick a window instead of a session
   -restore-timeout  max wait for restored pane commands to start (0 disables)
   -session-sort     session sort keys: field[:asc|desc],...
   -window-sort      window sort keys: field[:asc|desc],...
