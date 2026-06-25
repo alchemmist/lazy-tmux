@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CLI reference — lazy-tmux</title>
+    <meta name="description" content="lazy-tmux commands and flags: save, restore, picker, daemon, sorting, scrollback and storage." />
+    <link rel="canonical" href="https://lazy-tmux.xyz/cli/" />
+    <meta property="og:title" content="CLI reference — lazy-tmux" />
+    <meta property="og:description" content="lazy-tmux commands and flags: save, restore, picker, daemon, sorting, scrollback and storage." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://lazy-tmux.xyz/cli/" />
+    <meta property="og:image" content="https://lazy-tmux.xyz/assets/banner.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
+    <link rel="icon" type="image/png" href="/assets/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+    <link rel="shortcut icon" href="/assets/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png" />
+    <link rel="manifest" href="/assets/site.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/assets/style.css" />
+    <script defer src="https://umami.alchemmist.xyz/script.js" data-website-id="1d4c3792-8068-4e17-a321-f5ecd6eeea4e"></script>
+    
+  </head>
+  <body class="cli">
+    <div class="grid" aria-hidden="true"></div>
+    <input type="checkbox" id="nav-toggle" class="nav-toggle-cb" />
+    <header class="topbar">
+      <label for="nav-toggle" class="nav-toggle" aria-label="Toggle menu">☰</label>
+      <a href="/" class="topbar-brand">lazy-tmux</a>
+    </header>
+    <aside class="sidebar">
+      <a class="brand" href="/">
+        <img src="/assets/logo-white.svg" alt="lazy-tmux logo" />
+        <span>lazy-tmux</span>
+      </a>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/features/">Features</a>
+        <a href="/installation/">Installation</a>
+        <a href="/tmux-setup/">tmux setup</a>
+        <a href="/cli/" class="active">CLI</a>
+        <a href="/configuration/">Configuration</a>
+        <a href="/tui-picker/">TUI picker</a>
+        <a href="/about/">About</a>
+        <a class="external" href="https://github.com/alchemmist/lazy-tmux">GitHub ↗</a>
+      </nav>
+    </aside>
+    <main class="content">
+      <div class="page">
+        <section class="doc-section">
+<h1>CLI</h1>
+<table class="cli-table" style="width: 100%; border-collapse: collapse">
+          <thead>
+            <tr>
+              <th
+                style="
+                  text-align: left;
+                  border-bottom: 1px solid var(--line);
+                  padding: 6px;
+                "
+              >
+                Command / Flag
+              </th>
+              <th
+                style="
+                  text-align: left;
+                  border-bottom: 1px solid var(--line);
+                  padding: 6px;
+                "
+              >
+                Description
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>save</code></td>
+              <td>Save current or selected sessions to disk</td>
+            </tr>
+            <tr>
+              <td><code>restore --session NAME</code></td>
+              <td>Restore a single session from disk</td>
+            </tr>
+            <tr>
+              <td><code>picker</code></td>
+              <td>
+                Open session picker and restore selected session (default: TUI)
+              </td>
+            </tr>
+            <tr>
+              <td><code>bootstrap [--session last|NAME]</code></td>
+              <td>Restore one session automatically at tmux startup</td>
+            </tr>
+            <tr>
+              <td><code>daemon [--interval DURATION]</code></td>
+              <td>Periodically save all sessions in the background</td>
+            </tr>
+            <tr>
+              <td><code>list</code></td>
+              <td>List saved sessions</td>
+            </tr>
+            <tr>
+              <td><code>wakeup --session NAME</code></td>
+              <td>Restore a saved session (lazy load) that is not currently running</td>
+            </tr>
+            <tr>
+              <td><code>sleep --session NAME [--scrollback] [--scrollback-lines N]</code></td>
+              <td>Save session state (with optional scrollback) and close a running session</td>
+            </tr>
+            <tr>
+              <td><code>--fzf-engine</code></td>
+              <td>Use fzf backend instead of built-in TUI</td>
+            </tr>
+            <tr>
+              <td><code>--fzf-engine --windows</code></td>
+              <td>
+                fzf backend: list and pick a specific window (not just a
+                session), then restore its session focused on it
+              </td>
+            </tr>
+            <tr>
+              <td><code>--restore-timeout DURATION</code></td>
+              <td>
+                Max wait for restored pane commands to start before the command
+                returns (e.g. <code>5s</code>; <code>0</code> disables waiting)
+              </td>
+            </tr>
+            <tr>
+              <td><code>--session-sort EXPR</code></td>
+              <td>
+                Session sort (field[:asc|desc],...) fields: last-used, captured,
+                name, windows, panes
+              </td>
+            </tr>
+            <tr>
+              <td><code>--window-sort EXPR</code></td>
+              <td>
+                Window sort (field[:asc|desc],...) fields: index, name, panes,
+                cmd
+              </td>
+            </tr>
+            <tr>
+              <td><code>--scrollback</code></td>
+              <td>Capture shell pane scrollback (opt-in)</td>
+            </tr>
+            <tr>
+              <td><code>--scrollback-lines N</code></td>
+              <td>Maximum captured lines per shell pane (default: 5000)</td>
+            </tr>
+          </tbody>
+        </table>
+        <h3 class="cli-subtitle">Sorting examples</h3>
+        <pre><code># Sort sessions by name, then by captured time (newest first)
+lazy-tmux picker --session-sort "name:asc,captured:desc"
+
+# Sort windows by pane count, then by name
+lazy-tmux picker --window-sort "panes:desc,name:asc"
+
+# Use same sorting with fzf backend
+lazy-tmux picker --fzf-engine --session-sort "last-used:desc,name:asc"
+
+# fzf backend, but pick an individual window instead of a whole session
+lazy-tmux picker --fzf-engine --windows --window-sort "name:asc"</code></pre>
+        <h3 class="cli-subtitle">Sorting behavior</h3>
+        <p class="muted" style="margin: 0 0 8px">
+          Default directions (when <code>:asc|:desc</code> is omitted):
+        </p>
+        <ul>
+          <li>
+            sessions: <code>name=asc</code>, all other session fields =
+            <code>desc</code>
+          </li>
+          <li>
+            windows: <code>index=asc</code>, <code>name=asc</code>, all other
+            window fields = <code>desc</code>
+          </li>
+        </ul>
+        <p class="muted" style="margin: 12px 0 8px">
+          Current defaults (if no sort flags are passed):
+        </p>
+        <ul>
+          <li>sessions: <code>last-used:desc,captured:desc,name:asc</code></li>
+          <li>windows: <code>index:asc,name:asc</code></li>
+        </ul>
+        <p class="muted" style="margin: 12px 0 8px">Validation behavior:</p>
+        <ul>
+          <li>unknown fields are rejected with an error.</li>
+          <li>
+            invalid direction values are rejected (<code>asc</code> and
+            <code>desc</code> only).
+          </li>
+          <li>duplicate fields in one expression are rejected.</li>
+        </ul>
+        <h3 class="cli-subtitle">Scrollback capture</h3>
+        <p class="muted" style="margin: 0 0 8px">
+          By default, scrollback capture is disabled. Enable it explicitly:
+        </p>
+        <pre><code>lazy-tmux save --all --scrollback --scrollback-lines 5000
+lazy-tmux daemon --interval 5m --scrollback --scrollback-lines 5000</code></pre>
+        <p class="muted" style="margin: 12px 0 8px">Behavior:</p>
+        <ul>
+          <li>
+            captures tmux pane scrollback only for panes that currently run an
+            interactive shell (no detected foreground app command).
+          </li>
+          <li>
+            stores scrollback as sidecar files and references them from session
+            snapshots.
+          </li>
+          <li>
+            on restore, writes captured scrollback back into pane tty before
+            command replay.
+          </li>
+        </ul>
+        <p class="muted" style="margin: 12px 0 8px">Storage layout:</p>
+        <ul>
+          <li><code>~/.local/share/lazy-tmux/sessions/*.json</code></li>
+          <li>
+            <code
+              >~/.local/share/lazy-tmux/scrollback/&lt;session&gt;/*.log</code
+            >
+          </li>
+        </ul>
+        <h3 class="cli-subtitle">Storage</h3>
+        <p class="muted" style="margin: 0 0 8px">Default directory:</p>
+        <ul>
+          <li><code>~/.local/share/lazy-tmux/index.json</code></li>
+          <li><code>~/.local/share/lazy-tmux/sessions/*.json</code></li>
+          <li><code>~/.local/share/lazy-tmux/scrollback/*</code></li>
+        </ul>
+        <p class="muted" style="margin: 12px 0 8px">Override via:</p>
+        <ul>
+          <li>env: <code>LAZY_TMUX_DATA_DIR</code></li>
+          <li>flag: <code>--data-dir</code></li>
+          <li>config: <code>data_dir</code> in the TOML config file (see below)</li>
+        </ul>
+</section>
+        <footer>
+        <p class="muted">
+          Author: Anton Grishin (alchemmist),
+          <code>anton.ingrish@gmail.com</code>
+        </p>
+        <p class="muted">
+          OpenSource:
+          <code
+            ><a href="https://github.com/alchemmist/lazy-tmux"
+              >alchemmist/lazy-tmux</a
+            ></code
+          >
+        </p>
+        <p class="muted">© 2026 lazy-tmux</p>
+      </footer>
+      </div>
+    </main>
+    
+  </body>
+</html>

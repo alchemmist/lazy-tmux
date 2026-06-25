@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TUI picker — lazy-tmux</title>
+    <meta name="description" content="Keyboard-driven lazy-tmux TUI picker: navigation and management keybinds." />
+    <link rel="canonical" href="https://lazy-tmux.xyz/tui-picker/" />
+    <meta property="og:title" content="TUI picker — lazy-tmux" />
+    <meta property="og:description" content="Keyboard-driven lazy-tmux TUI picker: navigation and management keybinds." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://lazy-tmux.xyz/tui-picker/" />
+    <meta property="og:image" content="https://lazy-tmux.xyz/assets/banner.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
+    <link rel="icon" type="image/png" href="/assets/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+    <link rel="shortcut icon" href="/assets/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png" />
+    <link rel="manifest" href="/assets/site.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/assets/style.css" />
+    <script defer src="https://umami.alchemmist.xyz/script.js" data-website-id="1d4c3792-8068-4e17-a321-f5ecd6eeea4e"></script>
+    
+  </head>
+  <body class="tui-picker">
+    <div class="grid" aria-hidden="true"></div>
+    <input type="checkbox" id="nav-toggle" class="nav-toggle-cb" />
+    <header class="topbar">
+      <label for="nav-toggle" class="nav-toggle" aria-label="Toggle menu">☰</label>
+      <a href="/" class="topbar-brand">lazy-tmux</a>
+    </header>
+    <aside class="sidebar">
+      <a class="brand" href="/">
+        <img src="/assets/logo-white.svg" alt="lazy-tmux logo" />
+        <span>lazy-tmux</span>
+      </a>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/features/">Features</a>
+        <a href="/installation/">Installation</a>
+        <a href="/tmux-setup/">tmux setup</a>
+        <a href="/cli/">CLI</a>
+        <a href="/configuration/">Configuration</a>
+        <a href="/tui-picker/" class="active">TUI picker</a>
+        <a href="/about/">About</a>
+        <a class="external" href="https://github.com/alchemmist/lazy-tmux">GitHub ↗</a>
+      </nav>
+    </aside>
+    <main class="content">
+      <div class="page">
+        <section class="doc-section">
+<h1>TUI picker</h1>
+<video controls autoplay muted loop preload="metadata" width="100%">
+          <source src="/assets/demo-tui.mp4" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+        <table style="width: 100%; border-collapse: collapse">
+          <thead>
+            <tr>
+              <th
+                style="
+                  text-align: left;
+                  border-bottom: 1px solid var(--line);
+                  padding: 6px;
+                  width: 200px;
+                "
+              >
+                Key
+              </th>
+              <th
+                style="
+                  text-align: left;
+                  border-bottom: 1px solid var(--line);
+                  padding: 6px;
+                "
+              >
+                Action
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>Type</code></td>
+              <td>Fuzzy search sessions and windows.</td>
+            </tr>
+            <tr>
+              <td><code>&lt;C-j&gt;</code></td>
+              <td>Move down to the next selectable row.</td>
+            </tr>
+            <tr>
+              <td><code>&lt;C-k&gt;</code></td>
+              <td>Move up to the previous selectable row.</td>
+            </tr>
+            <tr>
+              <td><code>Enter</code></td>
+              <td>Restore the selected session or window.</td>
+            </tr>
+            <tr>
+              <td>
+                <code>Esc</code>, <code>&lt;C-c&gt;</code>,
+                <code>&lt;C-q&gt;</code>
+              </td>
+              <td>Cancel and close the picker.</td>
+            </tr>
+            <tr>
+              <td><code>&lt;C-d&gt;</code></td>
+              <td>Delete window under cursor.</td>
+            </tr>
+            <tr>
+              <td><code>&lt;Alt-d&gt;</code></td>
+              <td>
+                Delete session that have window under cursor. Confirming via
+                typing "y"
+              </td>
+            </tr>
+            <tr>
+              <td><code>&lt;C-r&gt;</code></td>
+              <td>Rename window under cursor.</td>
+            </tr>
+            <tr>
+              <td><code>&lt;Alt-r&gt;</code></td>
+              <td>Rename session that have window under cursor</td>
+            </tr>
+            <tr>
+              <td><code>&lt;C-n&gt;</code></td>
+              <td>
+                Create new window in session under cursor. Enter window name.
+              </td>
+            </tr>
+            <tr>
+              <td><code>&lt;Alt-n&gt;</code></td>
+              <td>Create new session. Enter session name.</td>
+            </tr>
+            <tr>
+              <td><code>&lt;Alt-w&gt;</code></td>
+              <td>Wakeup: Restore a saved session that is not currently running.</td>
+            </tr>
+            <tr>
+              <td><code>&lt;Alt-s&gt;</code></td>
+              <td>Sleep: Save session state and close a running session.</td>
+            </tr>
+          </tbody>
+        </table>
+</section>
+        <footer>
+        <p class="muted">
+          Author: Anton Grishin (alchemmist),
+          <code>anton.ingrish@gmail.com</code>
+        </p>
+        <p class="muted">
+          OpenSource:
+          <code
+            ><a href="https://github.com/alchemmist/lazy-tmux"
+              >alchemmist/lazy-tmux</a
+            ></code
+          >
+        </p>
+        <p class="muted">© 2026 lazy-tmux</p>
+      </footer>
+      </div>
+    </main>
+    
+  </body>
+</html>

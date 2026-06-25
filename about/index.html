@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>About — lazy-tmux</title>
+    <meta name="description" content="Why lazy-tmux exists and the philosophy behind it." />
+    <link rel="canonical" href="https://lazy-tmux.xyz/about/" />
+    <meta property="og:title" content="About — lazy-tmux" />
+    <meta property="og:description" content="Why lazy-tmux exists and the philosophy behind it." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://lazy-tmux.xyz/about/" />
+    <meta property="og:image" content="https://lazy-tmux.xyz/assets/banner.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
+    <link rel="icon" type="image/png" href="/assets/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+    <link rel="shortcut icon" href="/assets/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png" />
+    <link rel="manifest" href="/assets/site.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/assets/style.css" />
+    <script defer src="https://umami.alchemmist.xyz/script.js" data-website-id="1d4c3792-8068-4e17-a321-f5ecd6eeea4e"></script>
+    
+  </head>
+  <body class="about">
+    <div class="grid" aria-hidden="true"></div>
+    <input type="checkbox" id="nav-toggle" class="nav-toggle-cb" />
+    <header class="topbar">
+      <label for="nav-toggle" class="nav-toggle" aria-label="Toggle menu">☰</label>
+      <a href="/" class="topbar-brand">lazy-tmux</a>
+    </header>
+    <aside class="sidebar">
+      <a class="brand" href="/">
+        <img src="/assets/logo-white.svg" alt="lazy-tmux logo" />
+        <span>lazy-tmux</span>
+      </a>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/features/">Features</a>
+        <a href="/installation/">Installation</a>
+        <a href="/tmux-setup/">tmux setup</a>
+        <a href="/cli/">CLI</a>
+        <a href="/configuration/">Configuration</a>
+        <a href="/tui-picker/">TUI picker</a>
+        <a href="/about/" class="active">About</a>
+        <a class="external" href="https://github.com/alchemmist/lazy-tmux">GitHub ↗</a>
+      </nav>
+    </aside>
+    <main class="content">
+      <div class="page">
+        <section class="doc-section">
+<h1>Why?</h1>
+<p>
+          Most tmux session tools either restore everything at once or stay
+          shallow. lazy-tmux is built for real workflows: it restores only what
+          you pick, keeps history, and gives you full control without leaving
+          tmux.
+        </p>
+        <ul>
+          <li>
+            <strong>Lazy restoration:</strong> Only load what you need, keep
+            memory and startup time low. No more waiting for all sessions to
+            restore like with tmux-resurrect.
+          </li>
+          <li>
+            <strong>Deep visibility:</strong> Tree + table view shows sessions,
+            windows, panes, commands, timestamps, and restore state.
+          </li>
+          <li>
+            <strong>Real control:</strong> Create, rename, delete, save, and
+            restore from the picker with fast keyboard flow.
+          </li>
+          <li>
+            <strong>Durable context:</strong> Optional scrollback capture keeps
+            logs and output across restarts – something tmux-continuum lacks.
+          </li>
+        </ul>
+        <p>
+          The result is a lightweight, tmux-native workflow that feels instant
+          and predictable even across reboots. No bugs, no surprises.
+        </p>
+</section>
+
+      <section class="doc-section">
+<h1>Philosophy</h1>
+<p>
+          lazy-tmux is built around a simple but powerful idea: save resources
+          and free the user from unnecessary overhead. Each session is restored
+          only when it's actually needed, and all processes start seamlessly,
+          without pauses or conflicts.
+        </p>
+        <p>
+          Everything is written in Go for lightning-fast execution. This is not
+          a wrapper or a "combo" over tmux — it's a tool that fits perfectly
+          into its ecosystem. No extra configuration, no duplicated
+          responsibilities, no system bloat. Just a fast, reliable, and
+          predictable way to manage sessions.
+        </p>
+        <p>
+          The focus is on allowing users to work naturally with tmux while
+          lazy-tmux quietly handles session snapshots and restoration in the
+          background, preserving context and performance without getting in the
+          way.
+        </p>
+</section>
+        <footer>
+        <p class="muted">
+          Author: Anton Grishin (alchemmist),
+          <code>anton.ingrish@gmail.com</code>
+        </p>
+        <p class="muted">
+          OpenSource:
+          <code
+            ><a href="https://github.com/alchemmist/lazy-tmux"
+              >alchemmist/lazy-tmux</a
+            ></code
+          >
+        </p>
+        <p class="muted">© 2026 lazy-tmux</p>
+      </footer>
+      </div>
+    </main>
+    
+  </body>
+</html>
