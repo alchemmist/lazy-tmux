@@ -229,7 +229,6 @@
       }
 
 /* ---- multi-page layout ---- */
-.nav-toggle-cb { position: absolute; opacity: 0; pointer-events: none; }
 .sidebar {
   position: fixed;
   top: 0;
@@ -287,7 +286,7 @@
     transform: translateX(-100%);
     transition: transform 0.2s ease;
   }
-  .nav-toggle-cb:checked ~ .sidebar { transform: translateX(0); }
+  body.nav-open .sidebar { transform: translateX(0); }
   .content { margin-left: 0; padding-top: 66px; }
   .topbar {
     display: flex;
@@ -303,7 +302,15 @@
     border-bottom: 1px solid var(--line);
     z-index: 6;
   }
-  .topbar label.nav-toggle { cursor: pointer; font-size: 22px; line-height: 1; }
+  .topbar button.nav-toggle {
+    cursor: pointer;
+    font-size: 22px;
+    line-height: 1;
+    background: none;
+    border: none;
+    color: var(--text);
+    padding: 0;
+  }
   .topbar .topbar-brand {
     color: var(--text);
     text-decoration: none;

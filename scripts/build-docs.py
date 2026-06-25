@@ -13,6 +13,7 @@ shared CSS into assets/style.css, and writes index.html plus one
 <page>/index.html per documentation page.
 """
 
+import html as html_lib
 import os
 import re
 
@@ -108,7 +109,6 @@ LD_JSON = """<script type="application/ld+json">
 
 LAYOUT_CSS = """
 /* ---- multi-page layout ---- */
-.nav-toggle-cb { position: absolute; opacity: 0; pointer-events: none; }
 .sidebar {
   position: fixed;
   top: 0;
@@ -166,7 +166,7 @@ LAYOUT_CSS = """
     transform: translateX(-100%);
     transition: transform 0.2s ease;
   }
-  .nav-toggle-cb:checked ~ .sidebar { transform: translateX(0); }
+  body.nav-open .sidebar { transform: translateX(0); }
   .content { margin-left: 0; padding-top: 66px; }
   .topbar {
     display: flex;
@@ -182,7 +182,15 @@ LAYOUT_CSS = """
     border-bottom: 1px solid var(--line);
     z-index: 6;
   }
-  .topbar label.nav-toggle { cursor: pointer; font-size: 22px; line-height: 1; }
+  .topbar button.nav-toggle {
+    cursor: pointer;
+    font-size: 22px;
+    line-height: 1;
+    background: none;
+    border: none;
+    color: var(--text);
+    padding: 0;
+  }
   .topbar .topbar-brand {
     color: var(--text);
     text-decoration: none;
@@ -191,6 +199,18 @@ LAYOUT_CSS = """
   }
 }
 """
+
+# Keyboard-accessible sidebar toggle for mobile (a real <button>, not a label).
+NAV_SCRIPT = """<script>
+      (function () {
+        var btn = document.querySelector(".nav-toggle");
+        if (!btn) return;
+        btn.addEventListener("click", function () {
+          var open = document.body.classList.toggle("nav-open");
+          btn.setAttribute("aria-expanded", open ? "true" : "false");
+        });
+      })();
+    </script>"""
 
 # Old single-page hash anchors -> new page URLs, so existing inbound links work.
 HASH_REDIRECT = """<script>
@@ -271,13 +291,15 @@ def render(slug, path, title, desc, parts, sections, hero, footer):
     content = "\n\n      ".join(body_parts)
 
     ldjson = LD_JSON if slug == "home" else ""
-    script = HASH_REDIRECT if slug == "home" else ""
+    script = NAV_SCRIPT
+    if slug == "home":
+        script += "\n    " + HASH_REDIRECT
     body_class = "home" if slug == "home" else slug
 
     out = TEMPLATE.format(
-        title=title,
-        desc=desc,
-        canonical=canonical,
+        title=html_lib.escape(title, quote=True),
+        desc=html_lib.escape(desc, quote=True),
+        canonical=html_lib.escape(canonical, quote=True),
         ldjson=ldjson,
         body_class=body_class,
         nav=nav_html(slug),
@@ -324,12 +346,11 @@ TEMPLATE = """<!doctype html>
   </head>
   <body class="{body_class}">
     <div class="grid" aria-hidden="true"></div>
-    <input type="checkbox" id="nav-toggle" class="nav-toggle-cb" />
     <header class="topbar">
-      <label for="nav-toggle" class="nav-toggle" aria-label="Toggle menu">☰</label>
+      <button type="button" class="nav-toggle" aria-label="Toggle menu" aria-controls="sidebar" aria-expanded="false">☰</button>
       <a href="/" class="topbar-brand">lazy-tmux</a>
     </header>
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <a class="brand" href="/">
         <img src="/assets/logo-white.svg" alt="lazy-tmux logo" />
         <span>lazy-tmux</span>

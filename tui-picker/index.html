@@ -30,12 +30,11 @@
   </head>
   <body class="tui-picker">
     <div class="grid" aria-hidden="true"></div>
-    <input type="checkbox" id="nav-toggle" class="nav-toggle-cb" />
     <header class="topbar">
-      <label for="nav-toggle" class="nav-toggle" aria-label="Toggle menu">☰</label>
+      <button type="button" class="nav-toggle" aria-label="Toggle menu" aria-controls="sidebar" aria-expanded="false">☰</button>
       <a href="/" class="topbar-brand">lazy-tmux</a>
     </header>
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <a class="brand" href="/">
         <img src="/assets/logo-white.svg" alt="lazy-tmux logo" />
         <span>lazy-tmux</span>
@@ -115,8 +114,8 @@
             <tr>
               <td><code>&lt;Alt-d&gt;</code></td>
               <td>
-                Delete session that have window under cursor. Confirming via
-                typing "y"
+                Delete the session that owns the window under the cursor.
+                Confirm by typing "y".
               </td>
             </tr>
             <tr>
@@ -125,7 +124,7 @@
             </tr>
             <tr>
               <td><code>&lt;Alt-r&gt;</code></td>
-              <td>Rename session that have window under cursor</td>
+              <td>Rename the session that owns the window under the cursor.</td>
             </tr>
             <tr>
               <td><code>&lt;C-n&gt;</code></td>
@@ -165,6 +164,15 @@
       </footer>
       </div>
     </main>
-    
+    <script>
+      (function () {
+        var btn = document.querySelector(".nav-toggle");
+        if (!btn) return;
+        btn.addEventListener("click", function () {
+          var open = document.body.classList.toggle("nav-open");
+          btn.setAttribute("aria-expanded", open ? "true" : "false");
+        });
+      })();
+    </script>
   </body>
 </html>

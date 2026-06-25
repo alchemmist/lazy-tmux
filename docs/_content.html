@@ -334,8 +334,8 @@
         </div>
         <p class="subtitle" style="font-size: 1.2rem; margin-bottom: 0.5rem">
           Session manager with scrollback restore. CLI that snapshots tmux
-          sessions with runed processes and scrollback and restores them lazily
-          and seamlessly when you select one.
+          sessions with running processes and scrollback and restores them
+          lazily and seamlessly when you select one.
         </p>
         <div class="actions">
           <a
@@ -517,7 +517,7 @@
         <summary><h2>Quick tmux setup</h2></summary>
         <div class="detail-body">
         <p>Keep your tmux config clean with an include file:</p>
-        <pre><code>lazy-tmux setup >> ~/.tmux.conf</code></pre>
+        <pre><code>lazy-tmux setup &gt;&gt; ~/.tmux.conf</code></pre>
         <p>
           This command puts some rules to the end of your tmux config. After
           reloading tmux config:
@@ -539,9 +539,9 @@
         </p>
         <pre><code>bind-key f display-popup -w 65% -h 75% -E 'lazy-tmux picker'</code></pre>
         <p>Or edit time interval:</p>
-        <pre><code>run-shell -b 'lazy-tmux daemon --interval 5m --scrollback > /tmp/lazy-tmux.log 2>&1 || tmux display-message "lazy-tmux daemon already running"'</code></pre>
+        <pre><code>run-shell -b 'lazy-tmux daemon --interval 5m --scrollback &gt; /tmp/lazy-tmux.log 2&gt;&amp;1 || tmux display-message "lazy-tmux daemon already running"'</code></pre>
         <p>Or up scrollback lines limit:</p>
-        <pre><code>run-shell -b 'lazy-tmux daemon --interval 3m --scrollback --scrollback-lines 8000 > /tmp/lazy-tmux.log 2>&1 || tmux display-message "lazy-tmux daemon already running"'</code></pre>
+        <pre><code>run-shell -b 'lazy-tmux daemon --interval 3m --scrollback --scrollback-lines 8000 &gt; /tmp/lazy-tmux.log 2&gt;&amp;1 || tmux display-message "lazy-tmux daemon already running"'</code></pre>
         <p>Or remap saving shortcut:</p>
         <pre><code>bind-key C-S run-shell 'lazy-tmux save --all --scrollback && tmux display-message "All sessions saved successfully!"'</code></pre>
         </div>
@@ -875,8 +875,8 @@ lines   = 5000    # max scrollback lines per pane</code></pre>
             <tr>
               <td><code>&lt;Alt-d&gt;</code></td>
               <td>
-                Delete session that have window under cursor. Confirming via
-                typing "y"
+                Delete the session that owns the window under the cursor.
+                Confirm by typing "y".
               </td>
             </tr>
             <tr>
@@ -885,7 +885,7 @@ lines   = 5000    # max scrollback lines per pane</code></pre>
             </tr>
             <tr>
               <td><code>&lt;Alt-r&gt;</code></td>
-              <td>Rename session that have window under cursor</td>
+              <td>Rename the session that owns the window under the cursor.</td>
             </tr>
             <tr>
               <td><code>&lt;C-n&gt;</code></td>

@@ -47,12 +47,11 @@
   </head>
   <body class="home">
     <div class="grid" aria-hidden="true"></div>
-    <input type="checkbox" id="nav-toggle" class="nav-toggle-cb" />
     <header class="topbar">
-      <label for="nav-toggle" class="nav-toggle" aria-label="Toggle menu">☰</label>
+      <button type="button" class="nav-toggle" aria-label="Toggle menu" aria-controls="sidebar" aria-expanded="false">☰</button>
       <a href="/" class="topbar-brand">lazy-tmux</a>
     </header>
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <a class="brand" href="/">
         <img src="/assets/logo-white.svg" alt="lazy-tmux logo" />
         <span>lazy-tmux</span>
@@ -89,8 +88,8 @@
         </div>
         <p class="subtitle" style="font-size: 1.2rem; margin-bottom: 0.5rem">
           Session manager with scrollback restore. CLI that snapshots tmux
-          sessions with runed processes and scrollback and restores them lazily
-          and seamlessly when you select one.
+          sessions with running processes and scrollback and restores them
+          lazily and seamlessly when you select one.
         </p>
         <div class="actions">
           <a
@@ -142,6 +141,16 @@
       </footer>
       </div>
     </main>
+    <script>
+      (function () {
+        var btn = document.querySelector(".nav-toggle");
+        if (!btn) return;
+        btn.addEventListener("click", function () {
+          var open = document.body.classList.toggle("nav-open");
+          btn.setAttribute("aria-expanded", open ? "true" : "false");
+        });
+      })();
+    </script>
     <script>
       (function () {
         var map = {
