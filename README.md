@@ -1,7 +1,7 @@
 <h2>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./assets/logo-white.svg">
-    <img src="./assets/logo.svg" alt="Favicon Preview" width="60" align="center">
+    <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/logo-white.svg">
+    <img src="./docs/assets/logo.svg" alt="Favicon Preview" width="60" align="center">
   </picture>
   &nbsp;&nbsp;&nbsp;lazy-tmux
 </h2>

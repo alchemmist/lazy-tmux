@@ -9,8 +9,11 @@ template and the page split; run it to regenerate the static files:
 
 It reads the section bodies from docs/_content.html (a flat document with one
 <details class="section"> per section, plus the hero and footer), extracts the
-shared CSS into assets/style.css, and writes index.html plus one
-<page>/index.html per documentation page.
+shared CSS into docs/assets/style.css, and writes docs/index.html plus one
+docs/<page>/index.html per documentation page.
+
+The generated site lives under docs/ because GitHub Pages serves this repo from
+that directory; the repo root stays free of generated HTML.
 """
 
 import html as html_lib
@@ -18,7 +21,9 @@ import os
 import re
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CONTENT = os.path.join(ROOT, "docs", "_content.html")
+# Everything the site serves lives under docs/ (the GitHub Pages publish dir).
+OUT = os.path.join(ROOT, "docs")
+CONTENT = os.path.join(OUT, "_content.html")
 
 GITHUB = "https://github.com/alchemmist/lazy-tmux"
 SITE = "https://lazy-tmux.xyz"
@@ -257,8 +262,8 @@ def main():
         sections[m.group(1).strip()] = m.group(2).strip()
 
     # Write the shared stylesheet.
-    os.makedirs(os.path.join(ROOT, "assets"), exist_ok=True)
-    with open(os.path.join(ROOT, "assets", "style.css"), "w", encoding="utf-8") as f:
+    os.makedirs(os.path.join(OUT, "assets"), exist_ok=True)
+    with open(os.path.join(OUT, "assets", "style.css"), "w", encoding="utf-8") as f:
         f.write(style.strip() + "\n" + LAYOUT_CSS)
 
     for slug, (path, title, desc, parts) in PAGES.items():
@@ -308,7 +313,7 @@ def render(slug, path, title, desc, parts, sections, hero, footer):
         script=script,
     )
 
-    full = os.path.join(ROOT, path)
+    full = os.path.join(OUT, path)
     os.makedirs(os.path.dirname(full) or ".", exist_ok=True)
     with open(full, "w", encoding="utf-8") as f:
         f.write(out)
