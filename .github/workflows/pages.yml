@@ -1,0 +1,50 @@
+name: Deploy docs to GitHub Pages
+
+# The site lives in docs/ and Pages is configured to deploy from GitHub Actions
+# (Settings → Pages → Source: GitHub Actions). This workflow publishes docs/ as
+# the site root.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+# Grant the deployment read access to the repo and permission to publish to
+# Pages via OIDC.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent deployment; never cancel an in-progress publish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Stage docs/ as the site root (drop the generator source)
+        run: |
+          mkdir -p _site
+          cp -R docs/. _site/
+          # _content.html is the build-docs.py source, not a published page.
+          rm -f _site/_content.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
