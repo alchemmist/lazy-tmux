@@ -9,7 +9,7 @@ fi
 # Piped runs (curl | sh > log), CI, NO_COLOR and TERM=dumb fall back to plain
 # "==> step" lines, so no escape codes or carriage-return spam leak into logs.
 ui=0
-if [ -t 1 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != "dumb" ]; then
+if [ -t 1 ] && [ -z "${CI:-}" ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != "dumb" ]; then
   ui=1
 fi
 
@@ -83,19 +83,23 @@ note() {
   printf '%s\n' "$*"
 }
 
-warn() {
+# Finish the bar's line on stdout (where the bar is drawn), so a following
+# message or shell prompt doesn't land on the progress line — even if stderr
+# is redirected away from the terminal.
+end_bar_line() {
   if [ "$bar_active" -eq 1 ]; then
-    printf '\n' >&2
+    printf '\n'
     bar_active=0
   fi
+}
+
+warn() {
+  end_bar_line
   printf 'warning: %s\n' "$*" >&2
 }
 
 die() {
-  if [ "$bar_active" -eq 1 ]; then
-    printf '\n' >&2
-    bar_active=0
-  fi
+  end_bar_line
   printf 'error: %s\n' "$*" >&2
   exit 1
 }
@@ -174,10 +178,7 @@ fi
 
 tmp_dir=$(mktemp -d)
 cleanup() {
-  if [ "$bar_active" -eq 1 ]; then
-    printf '\n'
-    bar_active=0
-  fi
+  end_bar_line
   rm -rf "$tmp_dir"
 }
 trap cleanup EXIT INT TERM
