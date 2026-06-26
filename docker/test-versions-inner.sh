@@ -24,6 +24,7 @@ set -u
 # The fixture below builds a session with three windows; window 0 holds two
 # panes, so four panes total.
 EXPECT_WINDOWS=3
+EXPECT_PANES=4
 
 log() { printf '      %s\n' "$1" >&2; }
 
@@ -41,7 +42,7 @@ build_tmux() {
     sleep 1
 
     cd /tmp || { log "cd /tmp failed"; return 1; }
-    curl -fsSL "$url" -o tmux.tar.gz 2>/dev/null || { log "download failed: $url"; return 1; }
+    curl -fsSL --connect-timeout 15 --max-time 300 "$url" -o tmux.tar.gz 2>/dev/null || { log "download failed: $url"; return 1; }
     tar -xzf tmux.tar.gz 2>/dev/null || { log "extract failed"; return 1; }
     cd "tmux-${version}" || { log "cd tmux-${version} failed"; return 1; }
     ./configure >/dev/null 2>&1 || { log "configure failed"; return 1; }
@@ -132,6 +133,13 @@ check_roundtrip() {
     fi
     if [ "$saved_windows" -lt "$EXPECT_WINDOWS" ]; then
         log "saved windows ($saved_windows) < expected $EXPECT_WINDOWS; line: $vtest_line"
+        return 1
+    fi
+    # Absolute floor mirroring EXPECT_WINDOWS: if the live pane query failed,
+    # live_panes is 0 and the >= live check is vacuous, so assert against the
+    # known fixture size too.
+    if [ "$saved_panes" -lt "$EXPECT_PANES" ]; then
+        log "saved panes ($saved_panes) < expected $EXPECT_PANES; line: $vtest_line"
         return 1
     fi
 
