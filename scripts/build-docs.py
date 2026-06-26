@@ -118,41 +118,57 @@ LAYOUT_CSS = """
   position: fixed;
   top: 0;
   left: 0;
-  width: 248px;
+  width: 280px;
   height: 100vh;
   border-right: 1px solid var(--line);
   background: rgba(8, 8, 8, 0.7);
-  padding: 26px 16px;
+  padding: 30px 20px;
   overflow-y: auto;
   z-index: 5;
 }
 .sidebar .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   text-decoration: none;
   color: var(--text);
-  margin-bottom: 24px;
+  margin-bottom: 30px;
 }
-.sidebar .brand img { width: 34px; height: auto; }
-.sidebar .brand span { font-family: "Pixelify Sans", monospace; font-size: 24px; }
-.sidebar nav { display: flex; flex-direction: column; gap: 2px; }
+.sidebar .brand img { width: 38px; height: auto; }
+.sidebar .brand span { font-family: "Pixelify Sans", monospace; font-size: 28px; }
+.sidebar nav { display: flex; flex-direction: column; gap: 4px; }
+/* Pixel font + terminal vibe: nav items read like a menu in a TUI. */
 .sidebar nav a {
+  position: relative;
+  font-family: "Pixelify Sans", monospace;
+  font-size: 19px;
+  letter-spacing: 0.5px;
   color: var(--muted);
   text-decoration: none;
-  padding: 8px 10px;
-  border-left: 2px solid transparent;
-  font-size: 15px;
+  padding: 7px 8px 7px 26px;
 }
-.sidebar nav a:hover { color: var(--text); background: rgba(255, 255, 255, 0.03); }
+/* Terminal-style selection caret, revealed on hover and on the active page. */
+.sidebar nav a::before {
+  content: ">";
+  position: absolute;
+  left: 9px;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.sidebar nav a:hover { color: var(--text); }
+.sidebar nav a:hover::before { opacity: 0.45; }
+/* Active section is underlined (not box-highlighted), keeping it minimal. */
 .sidebar nav a.active {
   color: var(--text);
-  border-left-color: var(--accent);
-  background: rgba(255, 255, 255, 0.05);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 5px;
 }
-.sidebar nav a.external { margin-top: 16px; color: rgb(228, 242, 247); }
-.content { margin-left: 248px; padding: 44px 0 64px; position: relative; z-index: 1; }
-.page { width: min(900px, 90vw); margin: 0 auto; padding: 0 16px; }
+.sidebar nav a.active::before { opacity: 1; }
+.sidebar nav a.external { margin-top: 18px; color: rgb(228, 242, 247); }
+.content { margin-left: 280px; padding: 44px 0 64px; position: relative; z-index: 1; }
+.page { width: min(900px, 92%); margin: 0 auto; padding: 0 16px; }
 .doc-section { margin-bottom: 30px; }
 .doc-section > h1 {
   font-family: "Pixelify Sans", monospace;
