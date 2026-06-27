@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -506,28 +507,29 @@ func (client *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) e
 		}
 	}
 
-	focusWin, focusPane := resolveRestoreFocus(sessionSnapshot, windows)
-
-	_, err = client.Output(
-		"select-window",
-		"-t",
-		sessionWindowTarget(sessionSnapshot.SessionName, focusWin),
+	// Focus a window/pane that actually exists in the restored session. The
+	// recorded indices come from the snapshot and may not match what the
+	// restoring server created — when base-index / pane-base-index differ
+	// between save and restore, the recorded window 0 / pane 0 need not exist —
+	// so resolve against the live layout. Focus is cosmetic: a select failure
+	// must never abort an otherwise-successful restore, which is how `bootstrap`
+	// used to die with "can't find window: 0".
+	win, pane, ok := client.resolveLiveFocus(
+		sessionSnapshot.SessionName,
+		sessionSnapshot,
+		windows,
 	)
-	if err != nil {
-		return fmt.Errorf("select window: %w", err)
-	}
-
-	_, err = client.Output(
-		"select-pane",
-		"-t",
-		sessionPaneTarget(
-			sessionSnapshot.SessionName,
-			focusWin,
-			focusPane,
-		),
-	)
-	if err != nil {
-		return fmt.Errorf("select pane: %w", err)
+	if ok {
+		_, _ = client.Output(
+			"select-window",
+			"-t",
+			sessionWindowTarget(sessionSnapshot.SessionName, win),
+		)
+		_, _ = client.Output(
+			"select-pane",
+			"-t",
+			sessionPaneTarget(sessionSnapshot.SessionName, win, pane),
+		)
 	}
 
 	client.waitForRestoredCommands(sessionSnapshot.SessionName, windows)
@@ -1122,6 +1124,63 @@ func stripOptionPair(args []string, opt string) []string {
 	}
 
 	return out
+}
+
+// resolveLiveFocus picks a window/pane to focus that actually exists in the
+// just-restored session. It starts from the snapshot's recorded focus (via
+// resolveRestoreFocus) but falls back to the first live window/pane whenever the
+// recorded index is absent — which happens when the restoring server's
+// base-index / pane-base-index differ from the saved snapshot. The bool is false
+// when the session has no live windows to focus.
+func (client *Client) resolveLiveFocus(
+	session string,
+	sessionSnapshot snapshot.SessionSnapshot,
+	windows []snapshot.Window,
+) (int, int, bool) {
+	liveWindows := client.liveIndexes("list-windows", sessionTarget(session), "#{window_index}")
+	if len(liveWindows) == 0 {
+		return 0, 0, false
+	}
+
+	wantWin, wantPane := resolveRestoreFocus(sessionSnapshot, windows)
+
+	win := wantWin
+	if !slices.Contains(liveWindows, win) {
+		win = liveWindows[0]
+	}
+
+	pane := wantPane
+	livePanes := client.liveIndexes(
+		"list-panes",
+		sessionWindowTarget(session, win),
+		"#{pane_index}",
+	)
+	if len(livePanes) > 0 && !slices.Contains(livePanes, pane) {
+		pane = livePanes[0]
+	}
+
+	return win, pane, true
+}
+
+// liveIndexes runs a tmux list command and parses the integer index it formats,
+// one per line. It returns nil on any error so callers can fall back gracefully.
+func (client *Client) liveIndexes(listCmd, target, format string) []int {
+	out, err := client.Output(listCmd, "-t", target, "-F", format)
+	if err != nil {
+		return nil
+	}
+
+	var indexes []int
+	for _, line := range splitLines(out) {
+		n, convErr := strconv.Atoi(strings.TrimSpace(line))
+		if convErr != nil {
+			continue
+		}
+
+		indexes = append(indexes, n)
+	}
+
+	return indexes
 }
 
 func (client *Client) createdFirstWindowIndex(session string) (int, error) {

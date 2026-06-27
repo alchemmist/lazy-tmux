@@ -75,6 +75,50 @@ func TestRestoreToleratesBaseIndexMismatch(t *testing.T) {
 	}
 }
 
+// TestRestoreToleratesPaneBaseIndexMismatch covers the `bootstrap` crash where a
+// snapshot captured under base-index/pane-base-index 0 is restored on a server
+// configured with base-index 1 and pane-base-index 1 (a common user config). The
+// recorded window 0 / pane 0 need not exist after restore, so focusing them used
+// to fail hard ("can't find window: 0" / "can't find pane: 0") and abort the
+// whole restore. The restore must now succeed and leave the session alive.
+func TestRestoreToleratesPaneBaseIndexMismatch(t *testing.T) {
+	testutil.IsolatedTmux(t)
+
+	// Reconfigure the isolated server to index windows and panes from 1, so the
+	// snapshot's 0-based indices won't all map onto restored objects.
+	testutil.Tmux(t, "set-option", "-g", "base-index", "1")
+	testutil.Tmux(t, "set-option", "-g", "pane-base-index", "1")
+
+	client := tmux.NewClient("tmux")
+
+	const name = "home"
+
+	snap := snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: name,
+		CurrentWin:  0,
+		CurrentPane: 0,
+		Windows: []snapshot.Window{
+			{
+				Index: 0, Name: "w0", IsActive: true, ActivePane: 0,
+				Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/tmp", IsActive: true}},
+			},
+			{
+				Index: 1, Name: "w1", ActivePane: 0,
+				Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/tmp", IsActive: true}},
+			},
+		},
+	}
+
+	if err := client.RestoreSession(snap); err != nil {
+		t.Fatalf("restore under base-index/pane-base-index 1 must not fail: %v", err)
+	}
+
+	if _, err := testutil.TmuxTry("has-session", "-t", "="+name); err != nil {
+		t.Fatalf("session should be alive after restore: %v", err)
+	}
+}
+
 // TestRestoreWaitsForCommandsToStart is the end-to-end counterpart to issue
 // #106: against a real tmux server, once RestoreSession returns the pane must
 // actually be running its restored command rather than sitting at the shell.
