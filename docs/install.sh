@@ -4,16 +4,103 @@ if (set -o pipefail) 2>/dev/null; then
   set -o pipefail
 fi
 
-info() {
-  printf '%s\n' "==> $*"
+# ---- progress UI -------------------------------------------------------------
+# A yellow progress bar is shown only on a real terminal with color allowed.
+# Piped runs (curl | sh > log), CI, NO_COLOR and TERM=dumb fall back to plain
+# "==> step" lines, so no escape codes or carriage-return spam leak into logs.
+ui=0
+if [ -t 1 ] && [ -z "${CI:-}" ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != "dumb" ]; then
+  ui=1
+fi
+
+YELLOW=''
+RESET=''
+sleep_ok=0
+if [ "$ui" -eq 1 ]; then
+  YELLOW=$(printf '\033[33m')
+  RESET=$(printf '\033[0m')
+  # Only animate the fill if the platform's sleep accepts fractional seconds;
+  # otherwise jump straight to each milestone.
+  if sleep 0.01 2>/dev/null; then
+    sleep_ok=1
+  fi
+fi
+
+BAR_WIDTH=40
+bar_cur=0
+bar_active=0
+
+draw_bar() { # <percent> <label>
+  _pct=$1
+  _label=$2
+  _filled=$(( _pct * BAR_WIDTH / 100 ))
+  _bar=''
+  _i=0
+  while [ "$_i" -lt "$_filled" ]; do
+    _bar="${_bar}■"
+    _i=$(( _i + 1 ))
+  done
+  while [ "$_i" -lt "$BAR_WIDTH" ]; do
+    _bar="${_bar}･"
+    _i=$(( _i + 1 ))
+  done
+  printf '\r%s%s%s %3d%%  %s\033[K' "$YELLOW" "$_bar" "$RESET" "$_pct" "$_label"
+}
+
+step() { # <target percent> <label>
+  _target=$1
+  _label=$2
+  if [ "$ui" -eq 1 ]; then
+    bar_active=1
+    while [ "$bar_cur" -lt "$_target" ]; do
+      bar_cur=$(( bar_cur + 3 ))
+      if [ "$bar_cur" -gt "$_target" ]; then
+        bar_cur=$_target
+      fi
+      draw_bar "$bar_cur" "$_label"
+      if [ "$sleep_ok" -eq 1 ]; then
+        sleep 0.012
+      fi
+    done
+    bar_cur=$_target
+    draw_bar "$bar_cur" "$_label"
+  else
+    printf '==> %s\n' "$_label"
+  fi
+}
+
+bar_done() { # <final label>
+  if [ "$ui" -eq 1 ]; then
+    step 100 "$1"
+    printf '\n'
+    bar_active=0
+  else
+    printf '==> %s\n' "$1"
+  fi
+}
+
+note() {
+  printf '%s\n' "$*"
+}
+
+# Finish the bar's line on stdout (where the bar is drawn), so a following
+# message or shell prompt doesn't land on the progress line — even if stderr
+# is redirected away from the terminal.
+end_bar_line() {
+  if [ "$bar_active" -eq 1 ]; then
+    printf '\n'
+    bar_active=0
+  fi
 }
 
 warn() {
-  printf '%s\n' "warning: $*" >&2
+  end_bar_line
+  printf 'warning: %s\n' "$*" >&2
 }
 
 die() {
-  printf '%s\n' "error: $*" >&2
+  end_bar_line
+  printf 'error: %s\n' "$*" >&2
   exit 1
 }
 
@@ -68,8 +155,10 @@ case "$arch" in
  esac
 
 suffix=""
+kind="TUI binary"
 if [ "$fzf_only" -eq 1 ]; then
   suffix="_fzf"
+  kind="fzf-only binary"
 fi
 
 repo="alchemmist/lazy-tmux"
@@ -77,12 +166,7 @@ asset="lazy-tmux_${os}_${arch}${suffix}.tar.gz"
 url="https://github.com/${repo}/releases/latest/download/${asset}"
 checksums_url="https://github.com/${repo}/releases/latest/download/checksums.txt"
 
-info "Detected platform: ${os}/${arch}"
-if [ "$fzf_only" -eq 1 ]; then
-  info "Selected installer: fzf-only binary"
-else
-  info "Selected installer: TUI binary"
-fi
+note "lazy-tmux · ${os}/${arch} · ${kind}"
 
 if ! command -v tmux >/dev/null 2>&1; then
   warn "tmux is not installed; lazy-tmux requires tmux to run."
@@ -94,14 +178,15 @@ fi
 
 tmp_dir=$(mktemp -d)
 cleanup() {
+  end_bar_line
   rm -rf "$tmp_dir"
 }
 trap cleanup EXIT INT TERM
 
-info "Downloading ${asset}"
+step 30 "Downloading ${asset}"
 curl -fsSL "$url" -o "$tmp_dir/$asset"
 
-info "Verifying checksum"
+step 55 "Verifying checksum"
 curl -fsSL "$checksums_url" -o "$tmp_dir/checksums.txt"
 
 expected_sum=$(awk -v asset="$asset" '$2 == asset {print $1}' "$tmp_dir/checksums.txt")
@@ -121,6 +206,7 @@ if [ "$actual_sum" != "$expected_sum" ]; then
   die "Checksum mismatch for ${asset}"
 fi
 
+step 75 "Extracting archive"
 tar -xzf "$tmp_dir/$asset" -C "$tmp_dir"
 
 bin_name="lazy-tmux"
@@ -139,7 +225,7 @@ fi
 
 mkdir -p "$install_dir"
 
-info "Installing to ${install_dir}"
+step 92 "Installing to ${install_dir}"
 if command -v install >/dev/null 2>&1; then
   install -m 0755 "$tmp_dir/$bin_name" "$install_dir/$bin_name"
 else
@@ -147,9 +233,10 @@ else
   chmod 0755 "$install_dir/$bin_name"
 fi
 
-info "Installed lazy-tmux to $install_dir/$bin_name"
+bar_done "Installed lazy-tmux to ${install_dir}/${bin_name}"
+
 if [ "$fzf_only" -eq 1 ] && ! command -v fzf >/dev/null 2>&1; then
-  info "Note: fzf-only build requires fzf in PATH."
+  note "Note: fzf-only build requires fzf in PATH."
 fi
 
 if [ "$install_dir" = "$HOME/.local/bin" ]; then
