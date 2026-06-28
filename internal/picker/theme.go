@@ -9,12 +9,12 @@ import (
 )
 
 // The picker palette is aligned with the "moss-dark" terminal theme: a muted,
-// desaturated set of pastels on near-black. Sage green is the single accent
-// (title, cursor, selected stripe, restored-state mark); red is reserved for
-// errors. This keeps the picker feeling native in the terminal and in tune with
-// the monochrome lazy-tmux brand.
+// desaturated set of pastels on near-black. Amber is the browse-mode accent
+// (title, cursor, selected stripe, key hints); red is reserved for errors. This
+// keeps the picker feeling native in the terminal and in tune with the
+// monochrome lazy-tmux brand. (Per-mode accents are tracked in #163.)
 const (
-	colAccent  = "#87af87" // sage green — accent
+	colAccent  = "#d7875f" // amber/orange (moss-dark "yellow") — browse-mode accent
 	colText    = "#d0d0d0" // primary text (session / window names)
 	colMeta    = "#9e9e9e" // dimmed meta columns (cmd, captured, …)
 	colFaint   = "#585858" // tree branches, header labels, separators
