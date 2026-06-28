@@ -132,6 +132,30 @@ func TestCLISaveScrollbackLinesValidation(t *testing.T) {
 	}
 }
 
+func TestCLITmuxBinFlagExpandsHome(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skipf("no home dir: %v", err)
+	}
+
+	// A bogus ~-prefixed tmux binary: exec must fail with the EXPANDED path,
+	// proving --tmux-bin gets ~ expansion (exec doesn't do shell expansion).
+	code, _, errOut := run(
+		t, "save", "--all", "--tmux-bin", "~/no-such-tmux-xyz", "--data-dir", t.TempDir(),
+	)
+	if code != 1 {
+		t.Fatalf("expected exit 1, got %d (stderr=%q)", code, errOut)
+	}
+
+	if strings.Contains(errOut, "~/no-such-tmux-xyz") {
+		t.Fatalf("--tmux-bin kept a literal ~: %q", errOut)
+	}
+
+	if !strings.Contains(errOut, filepath.Join(home, "no-such-tmux-xyz")) {
+		t.Fatalf("expected expanded path in error, got %q", errOut)
+	}
+}
+
 func TestCLISetupPrintsKeybinds(t *testing.T) {
 	code, out, _ := run(t, "setup")
 	if code != 0 {

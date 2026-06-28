@@ -161,8 +161,10 @@ func TestSaveAllAndForget(t *testing.T) {
 	testutil.Tmux(t, "new-session", "-d", "-s", "one")
 	testutil.Tmux(t, "new-session", "-d", "-s", "two")
 
-	if code, _, errOut := run(t, "save", "--all", "--data-dir", dir); code != 0 {
+	if code, out, errOut := run(t, "save", "--all", "--data-dir", dir); code != 0 {
 		t.Fatalf("save --all: exit %d stderr=%q", code, errOut)
+	} else if !strings.Contains(out, "saved 2 session(s)") {
+		t.Fatalf("save --all should report the saved count, got %q", out)
 	}
 
 	for _, n := range []string{"one", "two"} {
@@ -187,6 +189,24 @@ func TestSaveAllAndForget(t *testing.T) {
 
 	if !strings.Contains(out, "two") {
 		t.Fatalf("remaining session missing from list: %q", out)
+	}
+}
+
+// TestSaveAllNoSessionsReports covers issue #125: `save --all` must not be a
+// silent no-op when there are no sessions (which is what happens when lazy-tmux
+// is talking to a different/empty tmux than the user). It should say so.
+func TestSaveAllNoSessionsReports(t *testing.T) {
+	testutil.IsolatedTmux(t) // server is running but has no sessions
+
+	dir := t.TempDir()
+
+	code, out, errOut := run(t, "save", "--all", "--data-dir", dir)
+	if code != 0 {
+		t.Fatalf("save --all: exit %d stderr=%q", code, errOut)
+	}
+
+	if !strings.Contains(out, "no running tmux sessions found") {
+		t.Fatalf("save --all with no sessions should report it, got %q", out)
 	}
 }
 

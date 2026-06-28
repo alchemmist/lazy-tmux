@@ -129,11 +129,13 @@ type fileScrollbackConf struct {
 // withFile returns a copy of cfg with every value set in file applied on top.
 func (cfg Config) withFile(file fileConfig) Config {
 	if file.TmuxBin != nil {
-		cfg.TmuxBin = *file.TmuxBin
+		// Expand a leading ~ so e.g. tmux_bin = "~/bin/tmux.appimage" works
+		// (matches data_dir handling).
+		cfg.TmuxBin = ExpandHome(*file.TmuxBin)
 	}
 
 	if file.DataDir != nil {
-		cfg.DataDir = expandHome(*file.DataDir)
+		cfg.DataDir = ExpandHome(*file.DataDir)
 	}
 
 	if file.SaveInterval != nil {
@@ -184,9 +186,10 @@ func (d *duration) UnmarshalText(text []byte) error {
 	return nil
 }
 
-// expandHome resolves a leading ~ in a config-provided path to the user's home
-// directory, so data_dir = "~/snapshots" works as expected.
-func expandHome(path string) string {
+// ExpandHome resolves a leading ~ in a path to the user's home directory, so
+// e.g. "~/snapshots" (data_dir) or "~/bin/tmux.appimage" (tmux_bin, including
+// the --tmux-bin flag) works as expected.
+func ExpandHome(path string) string {
 	if path == "~" || strings.HasPrefix(path, "~/") {
 		home, err := os.UserHomeDir()
 		if err == nil {

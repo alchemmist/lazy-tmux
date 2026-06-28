@@ -182,8 +182,10 @@ func TestSaveAllRestoreSleepWakeup(t *testing.T) {
 	testutil.Tmux(t, "new-session", "-d", "-s", "s1")
 	testutil.Tmux(t, "new-session", "-d", "-s", "s2")
 
-	if err := a.SaveAll(); err != nil {
+	if n, err := a.SaveAll(); err != nil {
 		t.Fatalf("save all: %v", err)
+	} else if n != 2 {
+		t.Fatalf("save all should report 2 saved sessions, got %d", n)
 	}
 
 	if !snapshotExists(dir, "s1") || !snapshotExists(dir, "s2") {
@@ -258,7 +260,9 @@ func TestRunDaemonSavesAll(t *testing.T) {
 	saves := 0
 	a.saveAllFn = func() error {
 		saves++
-		return a.SaveAll()
+		_, err := a.SaveAll()
+
+		return err
 	}
 
 	ch := make(chan time.Time, 1)
