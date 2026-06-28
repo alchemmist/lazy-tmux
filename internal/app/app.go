@@ -55,7 +55,9 @@ type App struct {
 }
 
 func New(cfg config.Config) *App {
-	client := tmux.NewClient(cfg.TmuxBin)
+	// Expand a leading ~ so both tmux_bin (TOML) and --tmux-bin (flag) accept
+	// "~/bin/tmux.appimage"; exec does not do shell tilde expansion.
+	client := tmux.NewClient(config.ExpandHome(cfg.TmuxBin))
 	client.SetRestoreTimeout(cfg.RestoreTimeout)
 	client.SetRestoreAllowlist(cfg.RestoreAllowlist)
 
