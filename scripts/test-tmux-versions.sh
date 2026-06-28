@@ -21,6 +21,11 @@ fi
 
 filtered=""
 for v in $versions; do
+    # Skip pre-releases / release candidates (e.g. 3.7-rc): their tarballs are
+    # not published under this URL scheme, so they only produce noisy ✗ rows.
+    case "$v" in
+        *-*) continue ;;
+    esac
     major=$(echo "$v" | cut -d. -f1)
     minor=$(echo "$v" | cut -d. -f2 | sed 's/[^0-9]//g')
     minor=${minor:-0}
