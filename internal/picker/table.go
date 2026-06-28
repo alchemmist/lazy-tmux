@@ -11,12 +11,17 @@ import (
 
 type pickerColumnID string
 
+// pickerColumnGap is the blank gutter rendered between adjacent columns so they
+// stay visually separated even when each is at its minimum width.
+const pickerColumnGap = 2
+
 type pickerColumnSpec struct {
 	ID         pickerColumnID
 	Title      string
 	MinWidth   int
 	Priority   int
 	Required   bool
+	Grow       bool // absorbs leftover width; non-growing columns stay at MinWidth
 	Value      func(pickerRow) string
 	TrimPrefix string
 }
@@ -37,6 +42,7 @@ var pickerColumnSpecs = []pickerColumnSpec{
 		MinWidth: 10,
 		Priority: 0,
 		Required: true,
+		Grow:     true,
 		Value: func(r pickerRow) string {
 			return r.item
 		},
@@ -44,8 +50,9 @@ var pickerColumnSpecs = []pickerColumnSpec{
 	{
 		ID:       "cmd",
 		Title:    "Cmd",
-		MinWidth: 18,
+		MinWidth: 14,
 		Priority: 1,
+		Grow:     true,
 		Value: func(r pickerRow) string {
 			return r.cmd
 		},
@@ -133,16 +140,38 @@ func buildPickerTableLayout(totalWidth int) pickerTableLayout {
 	}
 
 	if extra > 0 {
-		for i := range columns {
-			columns[i].width += extra / len(columns)
-		}
-
-		for i := 0; i < extra%len(columns); i++ {
-			columns[i].width++
-		}
+		growColumns(columns, extra)
 	}
 
 	return pickerTableLayout{columns: columns}
+}
+
+// growColumns hands the leftover width to the growable columns only (the name
+// and command), keeping the narrow meta columns at their minimum width. If no
+// column is growable it falls back to spreading the width across all of them.
+func growColumns(columns []pickerColumnLayout, extra int) {
+	growers := make([]int, 0, len(columns))
+
+	for i := range columns {
+		if columns[i].spec.Grow {
+			growers = append(growers, i)
+		}
+	}
+
+	if len(growers) == 0 {
+		for i := range columns {
+			growers = append(growers, i)
+		}
+	}
+
+	share := extra / len(growers)
+	for _, i := range growers {
+		columns[i].width += share
+	}
+
+	for k := 0; k < extra%len(growers); k++ {
+		columns[growers[k]].width++
+	}
 }
 
 func shrinkColumnsToFit(columns []pickerColumnLayout, totalWidth int) {
@@ -166,7 +195,16 @@ func tableWidth(columns []pickerColumnLayout) int {
 		width += col.width
 	}
 
-	return width
+	return width + gapWidth(len(columns))
+}
+
+// gapWidth is the total width taken by the gutters between n columns.
+func gapWidth(columns int) int {
+	if columns <= 1 {
+		return 0
+	}
+
+	return pickerColumnGap * (columns - 1)
 }
 
 func widestShrinkableColumn(columns []pickerColumnLayout) int {
@@ -193,7 +231,7 @@ func minTableWidth(specs []pickerColumnSpec) int {
 		width += spec.MinWidth
 	}
 
-	return width
+	return width + gapWidth(len(specs))
 }
 
 func (l pickerTableLayout) header() string {
@@ -246,6 +284,10 @@ func (l pickerTableLayout) renderWith(
 		}
 
 		out.WriteString(style.Render(val))
+
+		if idx != len(l.columns)-1 {
+			out.WriteString(strings.Repeat(" ", pickerColumnGap))
+		}
 	}
 
 	return out.String()
@@ -272,6 +314,8 @@ func (l pickerTableLayout) render(valueFor func(spec pickerColumnSpec) string) s
 		if pad > 0 {
 			out.WriteString(strings.Repeat(" ", pad))
 		}
+
+		out.WriteString(strings.Repeat(" ", pickerColumnGap))
 	}
 
 	return out.String()
