@@ -16,6 +16,7 @@ fi
 YELLOW=''
 RESET=''
 sleep_ok=0
+term_cols=80
 if [ "$ui" -eq 1 ]; then
   YELLOW=$(printf '\033[33m')
   RESET=$(printf '\033[0m')
@@ -24,11 +25,23 @@ if [ "$ui" -eq 1 ]; then
   if sleep 0.01 2>/dev/null; then
     sleep_ok=1
   fi
+  # Terminal width, so a frame never wraps (a wrapped line defeats \r + \033[K
+  # and leaves the previous frame's tail on screen). Fall back to 80 columns.
+  _cols=$(tput cols 2>/dev/null) || _cols=''
+  case $_cols in
+    *[!0-9]* | '') ;;
+    *) term_cols=$_cols ;;
+  esac
 fi
 
 BAR_WIDTH=40
 bar_cur=0
 bar_active=0
+# Columns consumed before the label: the bar (BAR_WIDTH), a space, "%3d%%" (4)
+# and two trailing spaces = BAR_WIDTH + 7, plus 1 column of slack so the cursor
+# never lands in the last column (where some terminals auto-wrap). Budgets how
+# much of the label fits on one row.
+BAR_PREFIX_WIDTH=$(( BAR_WIDTH + 8 ))
 
 draw_bar() { # <percent> <label>
   _pct=$1
@@ -44,7 +57,13 @@ draw_bar() { # <percent> <label>
     _bar="${_bar}･"
     _i=$(( _i + 1 ))
   done
-  printf '\r%s%s%s %3d%%  %s\033[K' "$YELLOW" "$_bar" "$RESET" "$_pct" "$_label"
+  # Clamp the label to what's left on the row so the line never wraps. Labels
+  # are ASCII, so a byte-precision cut ('%.*s') matches the display width.
+  _max=$(( term_cols - BAR_PREFIX_WIDTH ))
+  if [ "$_max" -lt 0 ]; then
+    _max=0
+  fi
+  printf '\r%s%s%s %3d%%  %.*s\033[K' "$YELLOW" "$_bar" "$RESET" "$_pct" "$_max" "$_label"
 }
 
 step() { # <target percent> <label>
@@ -233,7 +252,10 @@ else
   chmod 0755 "$install_dir/$bin_name"
 fi
 
-bar_done "Installed lazy-tmux to ${install_dir}/${bin_name}"
+# Keep the bar's final label short (it would otherwise be the longest line and
+# wrap); print the full install path on its own line below the finished bar.
+bar_done "Installed lazy-tmux"
+note "→ ${install_dir}/${bin_name}"
 
 if [ "$fzf_only" -eq 1 ] && ! command -v fzf >/dev/null 2>&1; then
   note "Note: fzf-only build requires fzf in PATH."
