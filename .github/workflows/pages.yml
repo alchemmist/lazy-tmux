@@ -1,8 +1,10 @@
 name: Deploy docs to GitHub Pages
 
-# The site lives in docs/ and Pages is configured to deploy from GitHub Actions
-# (Settings → Pages → Source: GitHub Actions). This workflow publishes docs/ as
-# the site root.
+# The site lives in docs/ as a Vite + React (Gravity UI) project, statically
+# pre-rendered with vite-react-ssg. Pages is configured to deploy from GitHub
+# Actions (Settings → Pages → Source: GitHub Actions). This workflow builds
+# docs/ and publishes the generated docs/dist as the site root. install.sh,
+# CNAME and assets/ live in docs/public and are copied verbatim into dist.
 
 on:
   push:
@@ -29,15 +31,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Stage docs/ as the site root (drop the generator source)
-        run: |
-          mkdir -p _site
-          cp -R docs/. _site/
-          # _content.html is the build-docs.py source, not a published page.
-          rm -f _site/_content.html
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: docs
+      - name: Build the static site
+        run: npm run build
+        working-directory: docs
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: _site
+          path: docs/dist
 
   deploy:
     needs: build

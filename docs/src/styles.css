@@ -1,0 +1,517 @@
+/* Brand palette layered on top of the Gravity UI dark theme. The page stays
+   near-black (brand), while code sits on a distinctly lighter surface so blocks
+   no longer blend into the background. */
+:root {
+  --bg: #030303;
+  --panel: #0d0d0d;
+  --code-bg: #15171a;
+  --code-border: #2a2e33;
+  --text: #f2f2f2;
+  --muted: #a0a0a0;
+  --line: #202020;
+  --accent: #ffffff;
+  --link: rgb(228, 242, 247);
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+body {
+  font-family: "JetBrains Mono", monospace;
+  line-height: 1.35;
+}
+
+/* Keep the Gravity root transparent so the brand background shows through, and
+   restore the JetBrains Mono body font (Gravity sets its own sans on .g-root,
+   which would otherwise win over body). */
+.g-root {
+  --g-color-base-background: var(--bg);
+
+  background: var(--bg);
+  font-family: "JetBrains Mono", monospace;
+  /* Keep the brand monochrome: the "action" Button stays white-on-dark like the
+     site's original primary CTA instead of Gravity's default accent color. */
+  --g-color-base-brand: #f2f2f2;
+  --g-color-base-brand-hover: #ffffff;
+  --g-color-text-brand-contrast: #050505;
+}
+
+a {
+  color: var(--link);
+}
+
+/* ---- layout shell ---- */
+.shell {
+  min-height: 100vh;
+}
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 280px;
+  height: 100vh;
+  /* Fade the panel out toward its right edge (and no border) so it melts into
+     the ASCII field behind it instead of cutting a hard vertical line. */
+  background: linear-gradient(
+    to right,
+    rgba(6, 6, 6, 0.92) 45%,
+    rgba(6, 6, 6, 0) 100%
+  );
+  padding: 30px 20px;
+  overflow-y: auto;
+  z-index: 5;
+}
+
+.sidebar .brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: var(--text);
+  margin-bottom: 30px;
+}
+.sidebar .brand img {
+  width: 38px;
+  height: auto;
+}
+.sidebar .brand span {
+  font-family: "Pixelify Sans", monospace;
+  font-size: 28px;
+}
+
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+/* Pixel font + terminal vibe: nav items read like a menu in a TUI. */
+.sidebar nav a {
+  position: relative;
+  font-family: "Pixelify Sans", monospace;
+  font-size: 19px;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 7px 8px 7px 26px;
+}
+/* Terminal-style selection caret, revealed on hover and on the active page. */
+.sidebar nav a::before {
+  content: ">";
+  position: absolute;
+  left: 9px;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.sidebar nav a:hover {
+  color: var(--text);
+}
+.sidebar nav a:hover::before {
+  opacity: 0.45;
+}
+/* Active section is underlined (not box-highlighted), keeping it minimal. */
+.sidebar nav a.active {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 5px;
+}
+.sidebar nav a.active::before {
+  opacity: 1;
+}
+.sidebar nav a.external {
+  margin-top: 18px;
+  color: var(--link);
+}
+
+.content {
+  margin-left: 280px;
+  padding: 44px 0 64px;
+  /* Sit above the fixed ASCII background (z-index 0); the sidebar (z-index 5)
+     stays above this. */
+  position: relative;
+  z-index: 1;
+}
+.page {
+  width: min(900px, 92%);
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+/* ---- topbar (mobile only) ---- */
+.topbar {
+  display: none;
+}
+.nav-backdrop {
+  display: none;
+}
+
+/* ---- typography ---- */
+.doc-section {
+  margin-bottom: 30px;
+  /* Larger, more readable body text on the documentation pages. Headings and
+     code blocks set their own sizes, so they are unaffected. */
+  font-size: 17px;
+  line-height: 1.6;
+}
+.doc-section > h1,
+.page-title {
+  font-family: "Pixelify Sans", monospace;
+  font-size: 34px;
+  letter-spacing: 0.4px;
+  margin: 0 0 18px;
+}
+h2 {
+  font-size: 24px;
+  margin: 28px 0 12px;
+}
+h3.cli-subtitle {
+  margin: 25px 0 8px;
+  font-size: 20px;
+}
+ul {
+  padding-left: 20px;
+}
+li {
+  margin: 10px 0;
+}
+.muted {
+  color: var(--muted);
+}
+video {
+  border-radius: 10px;
+}
+
+/* ---- hero (home) ---- */
+.hero {
+  text-align: center;
+  position: relative;
+}
+.content.home .hero {
+  min-height: calc(100vh - 88px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+}
+/* Generative ASCII background, fixed across the whole viewport. Masks are
+   intersected (visible only where ALL are opaque) and differ per page mode. */
+.ascii-field {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+  -webkit-mask-image: var(--ascii-mask);
+  mask-image: var(--ascii-mask);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+/* Home: a clear elliptical hole behind the centered hero text; solid to the
+   left (under the sidebar), dissolving right/top/bottom. */
+.ascii-field--home {
+  opacity: 0.85;
+  --ascii-mask: radial-gradient(
+      ellipse 48% 52% at calc(50% + 150px) 48%,
+      transparent 0%,
+      transparent 14%,
+      rgba(0, 0, 0, 0.5) 34%,
+      #000 64%
+    ),
+    linear-gradient(to right, #000 52%, rgba(0, 0, 0, 0) 100%),
+    linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0) 0%,
+      #000 15%,
+      #000 85%,
+      rgba(0, 0, 0, 0) 100%
+    );
+}
+/* Docs: keep a clear vertical reading column behind the content (~900px wide,
+   centered in the area right of the sidebar). Animation stays to the left (under
+   the menu) and to the right of the column. Dimmer so long text reads easily. */
+.ascii-field--docs {
+  opacity: 0.55;
+  /* The reading column is dimmed, not cleared (mask alpha 0.5), so the field
+     still gently shows through behind the text. Wide ~290px transitions keep the
+     column's edges soft. */
+  --ascii-mask: linear-gradient(
+      to right,
+      #000 calc(50% - 620px),
+      rgba(0, 0, 0, 0.5) calc(50% - 330px),
+      rgba(0, 0, 0, 0.5) calc(50% + 610px),
+      #000 calc(50% + 900px),
+      #000 calc(50% + 960px),
+      rgba(0, 0, 0, 0) 100%
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0) 0%,
+      #000 12%,
+      #000 88%,
+      rgba(0, 0, 0, 0) 100%
+    );
+}
+.hero__brand {
+  display: flex;
+  gap: 1.4em;
+  margin-bottom: 1.2em;
+  align-items: center;
+  justify-content: center;
+}
+.hero__brand img {
+  width: 60px;
+  height: auto;
+}
+.hero__brand h1 {
+  font-family: "Pixelify Sans", monospace;
+  font-size: 55px;
+  line-height: 1;
+  letter-spacing: 1px;
+  margin: 0;
+}
+.hero .subtitle {
+  color: #c8c8c8;
+  font-size: 18px;
+  line-height: 1.7;
+  letter-spacing: 0.2px;
+  margin: 0 auto;
+  max-width: 600px;
+  text-wrap: balance;
+}
+.hero .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+  justify-content: center;
+}
+.hero .try-line {
+  margin-top: 16px;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+/* ---- code: distinct surface + copy affordances ---- */
+.code-block {
+  position: relative;
+  margin: 14px 0;
+  border: 1px solid var(--code-border);
+  border-radius: 8px;
+  background: var(--code-bg);
+  overflow: hidden;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.code-block:hover {
+  border-color: #3a4047;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+.code-block__bar {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+}
+.code-block pre {
+  margin: 0;
+  padding: 14px 16px;
+  padding-right: 44px;
+  overflow-x: auto;
+  color: #ececec;
+  font-size: 14px;
+  line-height: 1.55;
+  font-family: "JetBrains Mono", monospace;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.code-block pre::-webkit-scrollbar {
+  height: 8px;
+}
+.code-block pre::-webkit-scrollbar-thumb {
+  background: var(--line);
+}
+.code-block code {
+  font: inherit;
+  color: inherit;
+  background: none;
+  padding: 0;
+  border: 0;
+}
+
+/* inline code: a clickable chip that copies itself. Only the cursor changes on
+   hover — the chip itself stays put. */
+.inline-code {
+  color: #fff;
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 0.9em;
+  font-family: "JetBrains Mono", monospace;
+  cursor: pointer;
+}
+/* Keep a visible focus ring for keyboard users (this is not hover). */
+.inline-code:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ---- tables ---- */
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+table th {
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  padding: 6px;
+}
+table td {
+  padding: 10px 6px;
+  vertical-align: top;
+}
+table tbody tr {
+  transition: background 0.12s ease;
+}
+table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+.cli-table th:first-child,
+.cli-table td:first-child {
+  width: 260px;
+}
+
+/* ---- warning alert (Gravity Alert) ---- */
+.version-alert {
+  margin-bottom: 16px;
+}
+
+/* ---- footer ---- */
+.site-footer {
+  margin-top: 32px;
+  color: var(--muted);
+  font-size: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.site-footer p {
+  margin: 6px 0;
+}
+
+/* ---- page transition: fade/slide the route content on navigation ---- */
+.route-fade {
+  animation: route-in 0.28s ease both;
+}
+@keyframes route-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .route-fade {
+    animation: none;
+  }
+}
+
+/* ---- responsive: sidebar becomes a drawer ---- */
+@media (max-width: 860px) {
+  /* Sidebar is hidden here, so re-center the masks on the viewport. */
+  .ascii-field--home {
+    --ascii-mask: radial-gradient(
+        ellipse 80% 54% at 50% 48%,
+        transparent 0%,
+        transparent 10%,
+        rgba(0, 0, 0, 0.5) 30%,
+        #000 50%,
+        rgba(0, 0, 0, 0) 100%
+      ),
+      linear-gradient(to bottom, #000 0%, #000 100%);
+  }
+  /* Docs on mobile: content uses the full width, so just dim the field and keep
+     it faint behind the text (clear column centered on the viewport). */
+  .ascii-field--docs {
+    opacity: 0.35;
+    --ascii-mask: linear-gradient(
+        to right,
+        #000 0%,
+        rgba(0, 0, 0, 0) 9%,
+        rgba(0, 0, 0, 0) 91%,
+        #000 100%
+      ),
+      linear-gradient(to bottom, #000 0%, #000 100%);
+  }
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    /* Solid panel for the slide-out drawer (it overlays the page). */
+    background: var(--bg);
+    border-right: 1px solid var(--line);
+  }
+  .shell.nav-open .sidebar {
+    transform: translateX(0);
+  }
+  .shell.nav-open .nav-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 4;
+  }
+  .content {
+    margin-left: 0;
+    padding-top: 66px;
+  }
+  .content.home .hero {
+    min-height: calc(100vh - 110px);
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 52px;
+    padding: 0 14px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    z-index: 6;
+  }
+  .topbar .nav-toggle {
+    cursor: pointer;
+    font-size: 22px;
+    line-height: 1;
+    background: none;
+    border: none;
+    color: var(--text);
+    padding: 0;
+  }
+  .topbar .topbar-brand {
+    color: var(--text);
+    text-decoration: none;
+    font-family: "Pixelify Sans", monospace;
+    font-size: 20px;
+  }
+  .hero__brand h1 {
+    font-size: 44px;
+  }
+  .cli-table th:first-child,
+  .cli-table td:first-child {
+    width: auto;
+  }
+}
