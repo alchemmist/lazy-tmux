@@ -38,7 +38,7 @@ export function TmuxSetup() {
           Feel free to open your config and edit any parameters. For example you
           can configure picker popup size:
         </p>
-        <CodeBlock>{`bind-key f display-popup -w 65% -h 75% -E 'lazy-tmux picker'`}</CodeBlock>
+        <CodeBlock>{`bind-key f display-popup -B -w 65% -h 75% -E 'lazy-tmux picker'`}</CodeBlock>
 
         <p>Or edit time interval:</p>
         <CodeBlock>{`run-shell -b 'lazy-tmux daemon --interval 5m --scrollback > /tmp/lazy-tmux.log 2>&1 || tmux display-message "lazy-tmux daemon already running"'`}</CodeBlock>

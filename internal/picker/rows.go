@@ -5,6 +5,7 @@ package picker
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
@@ -34,7 +35,7 @@ func filteredTreeRows(sessions []Session, query string, windowSort []WindowSortK
 		rows = append(rows, pickerRow{
 			target:     Target{SessionName: sess.Record.SessionName},
 			item:       sess.Record.SessionName,
-			captured:   sess.Record.CapturedAt.Local().Format("2006-01-02 15:04:05"),
+			captured:   relativeTime(sess.Record.CapturedAt, time.Now()),
 			wins:       fmt.Sprintf("%d", sess.Record.Windows),
 			state:      sessionStateIcon(sess.Restored),
 			selectable: false,
@@ -61,6 +62,33 @@ func filteredTreeRows(sessions []Session, query string, windowSort []WindowSortK
 	}
 
 	return rows
+}
+
+// relativeTime renders a capture time as a compact, scannable age such as
+// "just now", "3m ago", "2h ago", "5d ago" or "4mo ago".
+func relativeTime(then, now time.Time) string {
+	if then.IsZero() {
+		return ""
+	}
+
+	delta := max(now.Sub(then), 0)
+
+	switch {
+	case delta < time.Minute:
+		return "just now"
+	case delta < time.Hour:
+		return fmt.Sprintf("%dm ago", int(delta.Minutes()))
+	case delta < 24*time.Hour:
+		return fmt.Sprintf("%dh ago", int(delta.Hours()))
+	case delta < 7*24*time.Hour:
+		return fmt.Sprintf("%dd ago", int(delta.Hours())/24)
+	case delta < 30*24*time.Hour:
+		return fmt.Sprintf("%dw ago", int(delta.Hours())/(24*7))
+	case delta < 365*24*time.Hour:
+		return fmt.Sprintf("%dmo ago", int(delta.Hours())/(24*30))
+	default:
+		return fmt.Sprintf("%dy ago", int(delta.Hours())/(24*365))
+	}
 }
 
 func sessionStateIcon(restored bool) string {
