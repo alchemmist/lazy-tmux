@@ -1,14 +1,16 @@
-# Example lazy-tmux configuration.
+# lazy-tmux configuration.
 #
-# Copy to one of (first match wins):
+# lazy-tmux reads this file from (first match wins):
 #   $LAZY_TMUX_CONFIG
 #   $XDG_CONFIG_HOME/lazy-tmux/lazy-tmux.toml
 #   ~/.config/lazy-tmux/lazy-tmux.toml
 #
 # Every key is optional; omitted keys fall back to the built-in defaults.
 # Command-line flags override anything set here.
+# Run `lazy-tmux config show` to see the effective config actually being read.
 
-# tmux binary to invoke.
+# tmux binary to invoke. A leading ~ is expanded. Set this if your tmux is a
+# shell alias or lives outside PATH (e.g. "~/bin/tmux.appimage").
 tmux_bin = "tmux"
 
 # Directory where session snapshots are stored. A leading ~ is expanded.
