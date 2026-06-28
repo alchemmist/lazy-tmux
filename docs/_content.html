@@ -235,17 +235,30 @@
       }
       pre {
         margin: 0;
-        padding: 12px;
+        padding: 14px 16px;
         border: 1px solid var(--line);
         background: #060606;
         overflow-x: auto;
         color: #ececec;
-        font-size: 15px;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
+        font-size: 14px;
+        line-height: 1.55;
+        scrollbar-width: thin;
+        scrollbar-color: var(--line) transparent;
       }
       pre::-webkit-scrollbar {
-        display: none;
+        height: 8px;
+      }
+      pre::-webkit-scrollbar-thumb {
+        background: var(--line);
+      }
+      /* code inside a pre is a raw block, not an inline chip */
+      pre code {
+        background: none;
+        border: 0;
+        border-radius: 0;
+        padding: 0;
+        font-size: inherit;
+        color: inherit;
       }
       .muted {
         color: var(--muted);
@@ -262,9 +275,10 @@
       }
       code {
         color: #fff;
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 5px;
-        padding: 1px 5px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 1px 6px;
         font-size: 0.9em;
         font-family: "JetBrains Mono", monospace;
       }
