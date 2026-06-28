@@ -64,6 +64,77 @@ func filteredTreeRows(sessions []Session, query string, windowSort []WindowSortK
 	return rows
 }
 
+// modeSessions narrows the session list to those valid for the active mode:
+// wake shows only sleeping (not live) sessions, sleep only live ones; the other
+// modes see every session.
+func (m pickerModel) modeSessions() []Session {
+	switch m.action {
+	case actionWake:
+		return filterSessions(m.sessions, func(s Session) bool { return !s.Restored })
+	case actionSleep:
+		return filterSessions(m.sessions, func(s Session) bool { return s.Restored })
+	default:
+		return m.sessions
+	}
+}
+
+func filterSessions(sessions []Session, keep func(Session) bool) []Session {
+	out := make([]Session, 0, len(sessions))
+
+	for _, s := range sessions {
+		if keep(s) {
+			out = append(out, s)
+		}
+	}
+
+	return out
+}
+
+// decorateRows adapts the base session/window tree to the active mode: new,
+// wake and sleep act on whole sessions, so window rows are dropped; new also
+// prepends a synthetic "＋ new session" row. Delete, rename and browse keep the
+// full tree.
+func (m pickerModel) decorateRows(rows []pickerRow) []pickerRow {
+	switch m.action {
+	case actionNew:
+		out := make([]pickerRow, 0, len(rows)+1)
+		out = append(out, pickerRow{item: "＋ new session", synthetic: true})
+
+		return append(out, sessionRowsOnly(rows)...)
+	case actionWake, actionSleep:
+		return sessionRowsOnly(rows)
+	default:
+		return rows
+	}
+}
+
+func sessionRowsOnly(rows []pickerRow) []pickerRow {
+	out := make([]pickerRow, 0, len(rows))
+
+	for _, r := range rows {
+		if r.target.WindowIndex == nil {
+			out = append(out, r)
+		}
+	}
+
+	return out
+}
+
+// rowSelectable reports whether a row can be acted on in the active mode. Browse
+// keeps the inherent window-only selectability; delete and rename also let you
+// target session headers; new/wake/sleep target sessions (and the synthetic
+// new-session row).
+func (m pickerModel) rowSelectable(row pickerRow) bool {
+	switch m.action {
+	case actionDelete, actionRename:
+		return true // sessions and windows are both valid targets
+	case actionNew, actionWake, actionSleep:
+		return row.synthetic || row.target.WindowIndex == nil
+	default:
+		return row.selectable
+	}
+}
+
 // relativeTime renders a capture time as a compact, scannable age such as
 // "just now", "3m ago", "2h ago", "5d ago" or "4mo ago".
 func relativeTime(then, now time.Time) string {

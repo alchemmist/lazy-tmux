@@ -4,38 +4,217 @@ package picker
 
 import (
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 )
 
-func (m *pickerModel) deleteCurrentWindow() error {
-	row, ok := m.currentRow()
-	if !ok || row.target.WindowIndex == nil {
-		return fmt.Errorf("select a window row to delete")
+// markState describes how much of a row is marked for deletion: a window is
+// either marked or not; a session is empty, partial or fully marked.
+type markState int
+
+const (
+	markNone markState = iota
+	markPartial
+	markFull
+)
+
+// targetKey identifies a window in the mark set; the NUL byte cannot appear in a
+// session name, so it is an unambiguous separator.
+func targetKey(session string, windowIndex int) string {
+	return session + "\x00" + strconv.Itoa(windowIndex)
+}
+
+func parseTargetKey(key string) (session string, windowIndex int, ok bool) {
+	session, rest, found := strings.Cut(key, "\x00")
+	if !found {
+		return "", 0, false
+	}
+
+	idx, err := strconv.Atoi(rest)
+	if err != nil {
+		return "", 0, false
+	}
+
+	return session, idx, true
+}
+
+func (m *pickerModel) sessionWindowIndices(session string) []int {
+	for index := range m.sessions {
+		if m.sessions[index].Record.SessionName != session {
+			continue
+		}
+
+		idxs := make([]int, 0, len(m.sessions[index].Windows))
+		for _, win := range m.sessions[index].Windows {
+			idxs = append(idxs, win.Index)
+		}
+
+		return idxs
+	}
+
+	return nil
+}
+
+// markWindow marks a single window for deletion.
+func (m *pickerModel) markWindow(target Target) {
+	if target.WindowIndex == nil {
+		return
+	}
+
+	m.marked[targetKey(target.SessionName, *target.WindowIndex)] = struct{}{}
+}
+
+// markSession toggles every window of a session: if all are already marked it
+// clears them, otherwise it marks them all (so a fully-marked session deletes).
+func (m *pickerModel) markSession(session string) {
+	idxs := m.sessionWindowIndices(session)
+	if len(idxs) == 0 {
+		return
+	}
+
+	unmarkAll := true
+
+	for _, idx := range idxs {
+		if _, ok := m.marked[targetKey(session, idx)]; !ok {
+			unmarkAll = false
+			break
+		}
+	}
+
+	for _, idx := range idxs {
+		key := targetKey(session, idx)
+		if unmarkAll {
+			delete(m.marked, key)
+		} else {
+			m.marked[key] = struct{}{}
+		}
+	}
+}
+
+// toggleMark flips the mark for the row under the cursor (window: itself;
+// session header: all of its windows).
+func (m *pickerModel) toggleMark(row pickerRow) {
+	if row.synthetic {
+		return
+	}
+
+	if row.target.WindowIndex == nil {
+		m.markSession(row.target.SessionName)
+		return
+	}
+
+	key := targetKey(row.target.SessionName, *row.target.WindowIndex)
+	if _, ok := m.marked[key]; ok {
+		delete(m.marked, key)
+	} else {
+		m.marked[key] = struct{}{}
+	}
+}
+
+func (m pickerModel) markState(row pickerRow) markState {
+	if row.target.WindowIndex != nil {
+		if _, ok := m.marked[targetKey(row.target.SessionName, *row.target.WindowIndex)]; ok {
+			return markFull
+		}
+
+		return markNone
+	}
+
+	idxs := m.sessionWindowIndices(row.target.SessionName)
+	if len(idxs) == 0 {
+		return markNone
+	}
+
+	marked := 0
+
+	for _, idx := range idxs {
+		if _, ok := m.marked[targetKey(row.target.SessionName, idx)]; ok {
+			marked++
+		}
+	}
+
+	switch {
+	case marked == 0:
+		return markNone
+	case marked == len(idxs):
+		return markFull
+	default:
+		return markPartial
+	}
+}
+
+// commitDelete removes every marked window, collapsing a fully-marked session
+// into a single DeleteSession. Windows are removed high-index-first so earlier
+// indices stay valid, and sessions are processed in a stable order.
+func (m *pickerModel) commitDelete() {
+	if len(m.marked) == 0 {
+		m.exitMode()
+		return
+	}
+
+	bySession := map[string][]int{}
+
+	for key := range m.marked {
+		session, idx, ok := parseTargetKey(key)
+		if !ok {
+			continue
+		}
+
+		bySession[session] = append(bySession[session], idx)
+	}
+
+	sessions := make([]string, 0, len(bySession))
+	for session := range bySession {
+		sessions = append(sessions, session)
+	}
+
+	sort.Strings(sessions)
+
+	var firstErr error
+
+	for _, session := range sessions {
+		err := m.deleteMarkedSession(session, bySession[session])
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+
+	if firstErr != nil {
+		m.setStatus(firstErr.Error())
+	} else {
+		m.clearStatus()
+	}
+
+	m.exitMode()
+	m.reload()
+	m.renderViewport()
+}
+
+func (m *pickerModel) deleteMarkedSession(session string, idxs []int) error {
+	if total := len(m.sessionWindowIndices(session)); total > 0 && len(idxs) >= total {
+		return m.deleteSession(session)
 	}
 
 	if m.actions.DeleteWindow == nil {
 		return fmt.Errorf("delete window not available")
 	}
 
-	return m.actions.DeleteWindow(row.target.SessionName, *row.target.WindowIndex)
-}
+	sort.Sort(sort.Reverse(sort.IntSlice(idxs)))
 
-func (m *pickerModel) confirmDeleteSession() {
-	row, ok := m.currentRow()
-	if !ok {
-		m.setStatus("select a session to delete")
-		return
+	var firstErr error
+
+	for _, idx := range idxs {
+		err := m.actions.DeleteWindow(session, idx)
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
 	}
 
-	m.pending = row.target
-	m.mode = modeConfirmDeleteSession
-	m.promptInput = textinput.New()
-	m.promptInput.Prompt = fmt.Sprintf("Delete session %s? type y: ", row.target.SessionName)
-	m.promptInput.Focus()
-	m.resize()
+	return firstErr
 }
 
 func (m *pickerModel) renameCurrentWindow() {
@@ -99,26 +278,13 @@ func (m *pickerModel) newWindow() {
 func (m pickerModel) handlePromptKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "ctrl+c":
-		m.mode = modeBrowse
 		m.promptInput.Blur()
-		m.resize()
+		m.mode = modeBrowse
+		m.exitMode() // cancel the prompt and its action mode, back to browse
 
 		return m, nil
 	case "enter":
 		switch m.mode {
-		case modeConfirmDeleteSession:
-			val := strings.TrimSpace(m.promptInput.Value())
-			if strings.EqualFold(val, "y") {
-				err := m.deleteSession(m.pending.SessionName)
-				if err != nil {
-					m.setStatus(err.Error())
-				} else {
-					m.clearStatus()
-				}
-
-				m.reload()
-				m.renderViewport()
-			}
 		case modeRenameWindow:
 			name := strings.TrimSpace(m.promptInput.Value())
 			if name != "" && m.pending.WindowIndex != nil {
@@ -176,9 +342,9 @@ func (m pickerModel) handlePromptKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.renderViewport()
 		}
 
-		m.mode = modeBrowse
 		m.promptInput.Blur()
-		m.resize()
+		m.mode = modeBrowse
+		m.exitMode() // action completed, return to browse (orange)
 
 		return m, nil
 	}
@@ -306,41 +472,13 @@ func (m *pickerModel) statusHeight() int {
 	return 1
 }
 
-func nearestSelectableRow(rows []pickerRow, from int) int {
-	if len(rows) == 0 {
-		return 0
-	}
-
-	if from < 0 {
-		from = 0
-	}
-
-	if from >= len(rows) {
-		from = len(rows) - 1
-	}
-
-	for i := from; i >= 0; i-- {
-		if rows[i].selectable {
-			return i
-		}
-	}
-
-	for i := from + 1; i < len(rows); i++ {
-		if rows[i].selectable {
-			return i
-		}
-	}
-
-	return 0
-}
-
 func (m *pickerModel) moveNextSelectable() {
 	if len(m.visible) == 0 {
 		return
 	}
 
 	for i := m.cursor + 1; i < len(m.visible); i++ {
-		if m.visible[i].selectable {
+		if m.rowSelectable(m.visible[i]) {
 			m.cursor = i
 			return
 		}
@@ -353,7 +491,7 @@ func (m *pickerModel) movePrevSelectable() {
 	}
 
 	for i := m.cursor - 1; i >= 0; i-- {
-		if m.visible[i].selectable {
+		if m.rowSelectable(m.visible[i]) {
 			m.cursor = i
 			return
 		}

@@ -173,11 +173,18 @@ func TestModelDeleteWindow(t *testing.T) {
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two"))
 
-	// cursor on alpha:1
-	feed(t, m, keyCtrl('d'))
+	// ^d enters delete mode and pre-marks the current window (one of two, so a
+	// window — not the whole session — is removed); ↵ commits.
+	m = feed(t, m, keyCtrl('d'))
+	if m.action != actionDelete {
+		t.Fatalf("ctrl+d should enter delete mode, got %d", m.action)
+	}
+
+	feed(t, m, keyCode(tea.KeyEnter))
+
 	if rec.deletedWindowS != "alpha" || rec.deletedWindow[0] != 1 {
 		t.Fatalf(
-			"ctrl+d should delete current window, got %q idx=%d",
+			"ctrl+d ↵ should delete current window, got %q idx=%d",
 			rec.deletedWindowS,
 			rec.deletedWindow[0],
 		)
@@ -186,9 +193,11 @@ func TestModelDeleteWindow(t *testing.T) {
 
 func TestModelDeleteWindowErrorSetsStatus(t *testing.T) {
 	rec := &recordingActions{failDelete: true}
-	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
+	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two"))
 
 	m = feed(t, m, keyCtrl('d'))
+	m = feed(t, m, keyCode(tea.KeyEnter))
+
 	if m.statusMsg == "" {
 		t.Fatal("a failing delete should set a status message")
 	}
@@ -198,20 +207,52 @@ func TestModelDeleteSessionFlow(t *testing.T) {
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
 
-	m = feed(t, m, keyAlt('d')) // confirm-delete-session mode
-	if m.mode != modeConfirmDeleteSession {
-		t.Fatalf("alt+d should enter confirm mode, got %d", m.mode)
+	m = feed(t, m, keyAlt('d')) // delete mode, whole session pre-marked
+	if m.action != actionDelete {
+		t.Fatalf("alt+d should enter delete mode, got %d", m.action)
 	}
 
-	m = feed(t, m, keyRune('y')) // type confirmation into prompt
 	m = feed(t, m, keyCode(tea.KeyEnter))
 
 	if rec.deletedSession != "alpha" {
 		t.Fatalf("expected session alpha deleted, got %q", rec.deletedSession)
 	}
 
-	if m.mode != modeBrowse {
-		t.Fatalf("should return to browse mode, got %d", m.mode)
+	if m.action != actionBrowse || m.mode != modeBrowse {
+		t.Fatalf("should return to browse, got action=%d mode=%d", m.action, m.mode)
+	}
+}
+
+func TestModelDeleteMultiSelect(t *testing.T) {
+	rec := &recordingActions{}
+	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two", "three"))
+
+	// /delete via the palette starts with nothing marked.
+	m = feed(t, m, keyRune('/'))
+	for _, r := range "delete" {
+		m = feed(t, m, keyRune(r))
+	}
+
+	m = feed(t, m, keyCode(tea.KeyEnter)) // enter delete mode
+	if m.action != actionDelete {
+		t.Fatalf("/delete should enter delete mode, got %d", m.action)
+	}
+
+	// Mark the first two window rows (rows: [hdr, w1, w2, w3]).
+	m.cursor = 1
+	m = feed(t, m, keyRune(' '))
+	m.cursor = 2
+	m = feed(t, m, keyRune(' '))
+
+	feed(t, m, keyCode(tea.KeyEnter))
+
+	// Two of three windows marked -> per-window deletes, not a session delete.
+	if rec.deletedSession != "" {
+		t.Fatalf("partial selection must not delete the session, got %q", rec.deletedSession)
+	}
+
+	if rec.deletedWindowS != "alpha" {
+		t.Fatalf("expected window deletes in alpha, got %q", rec.deletedWindowS)
 	}
 }
 
@@ -219,9 +260,14 @@ func TestModelRenameWindowFlow(t *testing.T) {
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
 
-	m = feed(t, m, keyCtrl('r')) // rename window, prompt preset to "one"
+	m = feed(t, m, keyCtrl('r')) // rename mode, cursor on the window
+	if m.action != actionRename {
+		t.Fatalf("ctrl+r should enter rename mode, got %d", m.action)
+	}
+
+	m = feed(t, m, keyCode(tea.KeyEnter)) // open the prompt (preset to "one")
 	if m.mode != modeRenameWindow {
-		t.Fatalf("ctrl+r should enter rename-window mode, got %d", m.mode)
+		t.Fatalf("↵ should open the rename-window prompt, got %d", m.mode)
 	}
 
 	m = feed(t, m, keyRune('X'))
@@ -236,7 +282,8 @@ func TestModelRenameSessionFlow(t *testing.T) {
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
 
-	m = feed(t, m, keyAlt('r'))
+	m = feed(t, m, keyAlt('r')) // rename mode, cursor on the session header
+	m = feed(t, m, keyCode(tea.KeyEnter))
 	m = feed(t, m, keyRune('Z'))
 	feed(t, m, keyCode(tea.KeyEnter))
 
@@ -249,9 +296,14 @@ func TestModelNewSessionFlow(t *testing.T) {
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
 
-	m = feed(t, m, keyAlt('n'))
+	m = feed(t, m, keyAlt('n')) // new mode, cursor on synthetic "+ new session"
+	if m.action != actionNew {
+		t.Fatalf("alt+n should enter new mode, got %d", m.action)
+	}
+
+	m = feed(t, m, keyCode(tea.KeyEnter)) // open new-session prompt
 	if m.mode != modeNewSession {
-		t.Fatalf("alt+n should enter new-session mode, got %d", m.mode)
+		t.Fatalf("↵ on the synthetic row should open new-session, got %d", m.mode)
 	}
 
 	m = feed(t, m, keyRune('q'))
@@ -267,9 +319,14 @@ func TestModelNewWindowFlow(t *testing.T) {
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
 
-	m = feed(t, m, keyCtrl('n'))
+	m = feed(t, m, keyCtrl('n')) // new mode, cursor on the alpha session header
+	if m.action != actionNew {
+		t.Fatalf("ctrl+n should enter new mode, got %d", m.action)
+	}
+
+	m = feed(t, m, keyCode(tea.KeyEnter)) // open new-window prompt
 	if m.mode != modeNewWindow {
-		t.Fatalf("ctrl+n should enter new-window mode, got %d", m.mode)
+		t.Fatalf("↵ on a session row should open new-window, got %d", m.mode)
 	}
 
 	feed(t, m, keyCode(tea.KeyEnter)) // empty name allowed (auto-named)
@@ -279,18 +336,97 @@ func TestModelNewWindowFlow(t *testing.T) {
 	}
 }
 
-func TestModelWakeupAndSleep(t *testing.T) {
+func TestModelWakeFiltersToSleeping(t *testing.T) {
+	rec := &recordingActions{}
+	m := newTestModel(t, rec,
+		makeSession("sleepy", false, "one"), // not live -> wakeable
+		makeSession("live", true, "two"),    // live -> not wakeable
+	)
+
+	m = feed(t, m, keyAlt('w')) // wake mode
+
+	for _, row := range m.visible {
+		if row.target.SessionName == "live" {
+			t.Fatal("wake mode must hide live sessions")
+		}
+	}
+
+	m = feed(t, m, keyCode(tea.KeyEnter))
+	if rec.wokeUp != "sleepy" {
+		t.Fatalf("↵ in wake mode should wake the sleeping session, got %q", rec.wokeUp)
+	}
+
+	if m.action != actionBrowse {
+		t.Fatalf("acting should return to browse, got %d", m.action)
+	}
+}
+
+func TestModelSleepFiltersToLive(t *testing.T) {
+	rec := &recordingActions{}
+	m := newTestModel(t, rec,
+		makeSession("sleepy", false, "one"),
+		makeSession("live", true, "two"),
+	)
+
+	m = feed(t, m, keyAlt('s')) // sleep mode
+
+	for _, row := range m.visible {
+		if row.target.SessionName == "sleepy" {
+			t.Fatal("sleep mode must hide sleeping sessions")
+		}
+	}
+
+	feed(t, m, keyCode(tea.KeyEnter))
+	if rec.slept != "live" {
+		t.Fatalf("↵ in sleep mode should sleep the live session, got %q", rec.slept)
+	}
+}
+
+func TestModelEscExitsActionMode(t *testing.T) {
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
 
-	m = feed(t, m, keyAlt('w'))
-	if rec.wokeUp != "alpha" {
-		t.Fatalf("alt+w should wake alpha, got %q", rec.wokeUp)
+	m = feed(t, m, keyAlt('d')) // delete mode
+	if m.action != actionDelete {
+		t.Fatalf("alt+d should enter delete mode, got %d", m.action)
 	}
 
-	feed(t, m, keyAlt('s'))
-	if rec.slept != "alpha" {
-		t.Fatalf("alt+s should sleep alpha, got %q", rec.slept)
+	m = feed(t, m, keyCode(tea.KeyEscape))
+
+	if m.action != actionBrowse {
+		t.Fatalf("esc should drop back to browse, got %d", m.action)
+	}
+
+	if m.cancelled {
+		t.Fatal("esc in a mode must cancel the mode, not the picker")
+	}
+
+	if rec.deletedSession != "" || rec.deletedWindowS != "" {
+		t.Fatal("esc must not perform the action")
+	}
+}
+
+func TestModelPaletteOpensOnSlash(t *testing.T) {
+	rec := &recordingActions{}
+	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
+
+	m = feed(t, m, keyRune('/'))
+	if !m.palette {
+		t.Fatal("typing / should open the command palette")
+	}
+
+	// Refine to "/del" and confirm: only delete matches, so ↵ enters delete.
+	for _, r := range "del" {
+		m = feed(t, m, keyRune(r))
+	}
+
+	m = feed(t, m, keyCode(tea.KeyEnter))
+	if m.action != actionDelete {
+		t.Fatalf("/del ↵ should enter delete mode, got %d", m.action)
+	}
+
+	if m.palette {
+		t.Fatal("palette should close once a command runs")
 	}
 }
 

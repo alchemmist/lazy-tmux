@@ -10,9 +10,10 @@ import (
 
 // The picker palette is aligned with the "moss-dark" terminal theme: a muted,
 // desaturated set of pastels on near-black. Amber is the browse-mode accent
-// (title, cursor, selected stripe, key hints); red is reserved for errors. This
-// keeps the picker feeling native in the terminal and in tune with the
-// monochrome lazy-tmux brand. (Per-mode accents are tracked in #163.)
+// (title, cursor, selected stripe, key hints); each action mode (#163) swaps in
+// its own accent so the whole frame visibly recolors. Red is reserved for
+// errors (and reused as the delete-mode accent). This keeps the picker feeling
+// native in the terminal and in tune with the monochrome lazy-tmux brand.
 const (
 	colAccent  = "#d7875f" // amber/orange (moss-dark "yellow") — browse-mode accent
 	colText    = "#d0d0d0" // primary text (session / window names)
@@ -23,6 +24,12 @@ const (
 	colSelText = "#f0f0f0" // selected-row text
 	colError   = "#d75f5f" // error status
 	colCount   = "#9e9e9e" // header counts
+
+	// Per-mode accents (#163), drawn from the moss-dark palette.
+	colDelete    = "#d75f5f" // red — delete mode
+	colRename    = "#5f87af" // blue — rename mode
+	colNew       = "#87af87" // green — new mode
+	colSleepWake = "#8787af" // cyan — wake / sleep modes
 )
 
 type pickerTheme struct {
@@ -37,28 +44,49 @@ type pickerTheme struct {
 	faint      lipgloss.Style
 	stripe     lipgloss.Style
 	selBar     lipgloss.Style
+	mark       lipgloss.Style
 	statusErr  lipgloss.Style
 	helpKey    lipgloss.Style
 	helpText   lipgloss.Style
 }
 
-func newPickerTheme() pickerTheme {
+// accentForMode maps an action mode to its frame accent: amber while browsing,
+// the command's color once a mode is active.
+func accentForMode(mode actionMode) string {
+	if cmd, ok := commandForMode(mode); ok {
+		return cmd.accent
+	}
+
+	return colAccent
+}
+
+// newPickerTheme builds the palette around accent. Browse passes the amber
+// colAccent; each action mode passes its own color so the border, title,
+// prompt, selection stripe, mark and key hints all recolor together. The frame
+// border stays neutral grey while browsing and takes the accent in a mode.
+func newPickerTheme(accent string) pickerTheme {
+	border := colBorder
+	if accent != colAccent {
+		border = accent
+	}
+
 	return pickerTheme{
-		border:     lipgloss.NewStyle().Foreground(lipgloss.Color(colBorder)),
-		title:      lipgloss.NewStyle().Foreground(lipgloss.Color(colAccent)).Bold(true),
+		border:     lipgloss.NewStyle().Foreground(lipgloss.Color(border)),
+		title:      lipgloss.NewStyle().Foreground(lipgloss.Color(accent)).Bold(true),
 		count:      lipgloss.NewStyle().Foreground(lipgloss.Color(colCount)),
-		prompt:     lipgloss.NewStyle().Foreground(lipgloss.Color(colAccent)),
+		prompt:     lipgloss.NewStyle().Foreground(lipgloss.Color(accent)),
 		headerCell: lipgloss.NewStyle().Foreground(lipgloss.Color(colFaint)),
 		name:       lipgloss.NewStyle().Foreground(lipgloss.Color(colText)),
 		session:    lipgloss.NewStyle().Foreground(lipgloss.Color(colText)).Bold(true),
 		meta:       lipgloss.NewStyle().Foreground(lipgloss.Color(colMeta)),
 		faint:      lipgloss.NewStyle().Foreground(lipgloss.Color(colFaint)),
-		stripe:     lipgloss.NewStyle().Foreground(lipgloss.Color(colAccent)),
+		stripe:     lipgloss.NewStyle().Foreground(lipgloss.Color(accent)),
 		selBar: lipgloss.NewStyle().
 			Background(lipgloss.Color(colSelBg)).
 			Foreground(lipgloss.Color(colSelText)),
+		mark:      lipgloss.NewStyle().Foreground(lipgloss.Color(accent)),
 		statusErr: lipgloss.NewStyle().Foreground(lipgloss.Color(colError)),
-		helpKey:   lipgloss.NewStyle().Foreground(lipgloss.Color(colAccent)),
+		helpKey:   lipgloss.NewStyle().Foreground(lipgloss.Color(accent)),
 		helpText:  lipgloss.NewStyle().Foreground(lipgloss.Color(colFaint)),
 	}
 }
