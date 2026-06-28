@@ -21,6 +21,7 @@ var commands = map[string]func(args []string, stdout, stderr io.Writer) int{
 	"wakeup":    runWakeup,
 	"sleep":     runSleep,
 	"forget":    runForget,
+	"config":    runConfig,
 }
 
 var helpFuncs = map[string]func(io.Writer){
@@ -35,6 +36,7 @@ var helpFuncs = map[string]func(io.Writer){
 	"wakeup":    func(w io.Writer) { printSessionHelp("wakeup", true, w) },
 	"sleep":     sleepHelp,
 	"forget":    func(w io.Writer) { printSessionHelp("forget", false, w) },
+	"config":    configHelp,
 }
 
 func main() {
@@ -102,6 +104,7 @@ Commands:
   daemon     Periodically save all sessions
   list       List saved sessions
   setup      Print config keybinds for tmux
+  config     Generate (gen) or show the config file
   version    Print the version
 
 Run 'lazy-tmux <command> -h' for more details.
