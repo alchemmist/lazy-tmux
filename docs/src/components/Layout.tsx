@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { AsciiField } from "./AsciiField";
 
 const NAV: { label: string; to: string }[] = [
   { label: "Home", to: "/" },
@@ -22,6 +23,10 @@ export function Layout() {
 
   return (
     <div className={`shell${navOpen ? " nav-open" : ""}`}>
+      {/* ASCII background on every page. Rendered here (outside
+          .content/.route-fade) so no transformed ancestor confines the fixed
+          canvas to a sub-box. "docs" mode keeps a clear reading column. */}
+      <AsciiField mode={isHome ? "home" : "docs"} />
       <header className="topbar">
         <button
           type="button"

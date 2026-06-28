@@ -55,8 +55,13 @@ a {
   left: 0;
   width: 280px;
   height: 100vh;
-  border-right: 1px solid var(--line);
-  background: rgba(8, 8, 8, 0.7);
+  /* Fade the panel out toward its right edge (and no border) so it melts into
+     the ASCII field behind it instead of cutting a hard vertical line. */
+  background: linear-gradient(
+    to right,
+    rgba(6, 6, 6, 0.92) 45%,
+    rgba(6, 6, 6, 0) 100%
+  );
   padding: 30px 20px;
   overflow-y: auto;
   z-index: 5;
@@ -127,6 +132,10 @@ a {
 .content {
   margin-left: 280px;
   padding: 44px 0 64px;
+  /* Sit above the fixed ASCII background (z-index 0); the sidebar (z-index 5)
+     stays above this. */
+  position: relative;
+  z-index: 1;
 }
 .page {
   width: min(900px, 92%);
@@ -181,12 +190,73 @@ video {
 /* ---- hero (home) ---- */
 .hero {
   text-align: center;
+  position: relative;
 }
 .content.home .hero {
   min-height: calc(100vh - 88px);
   display: flex;
   flex-direction: column;
   justify-content: center;
+  overflow: hidden;
+}
+/* Generative ASCII background, fixed across the whole viewport. Masks are
+   intersected (visible only where ALL are opaque) and differ per page mode. */
+.ascii-field {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+  -webkit-mask-image: var(--ascii-mask);
+  mask-image: var(--ascii-mask);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+/* Home: a clear elliptical hole behind the centered hero text; solid to the
+   left (under the sidebar), dissolving right/top/bottom. */
+.ascii-field--home {
+  opacity: 0.85;
+  --ascii-mask: radial-gradient(
+      ellipse 48% 52% at calc(50% + 150px) 48%,
+      transparent 0%,
+      transparent 14%,
+      rgba(0, 0, 0, 0.5) 34%,
+      #000 64%
+    ),
+    linear-gradient(to right, #000 52%, rgba(0, 0, 0, 0) 100%),
+    linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0) 0%,
+      #000 15%,
+      #000 85%,
+      rgba(0, 0, 0, 0) 100%
+    );
+}
+/* Docs: keep a clear vertical reading column behind the content (~900px wide,
+   centered in the area right of the sidebar). Animation stays to the left (under
+   the menu) and to the right of the column. Dimmer so long text reads easily. */
+.ascii-field--docs {
+  opacity: 0.55;
+  /* The reading column is dimmed, not cleared (mask alpha 0.5), so the field
+     still gently shows through behind the text. Wide ~290px transitions keep the
+     column's edges soft. */
+  --ascii-mask: linear-gradient(
+      to right,
+      #000 calc(50% - 620px),
+      rgba(0, 0, 0, 0.5) calc(50% - 330px),
+      rgba(0, 0, 0, 0.5) calc(50% + 610px),
+      #000 calc(50% + 900px),
+      #000 calc(50% + 960px),
+      rgba(0, 0, 0, 0) 100%
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0) 0%,
+      #000 12%,
+      #000 88%,
+      rgba(0, 0, 0, 0) 100%
+    );
 }
 .hero__brand {
   display: flex;
@@ -358,9 +428,37 @@ table tbody tr:hover {
 
 /* ---- responsive: sidebar becomes a drawer ---- */
 @media (max-width: 860px) {
+  /* Sidebar is hidden here, so re-center the masks on the viewport. */
+  .ascii-field--home {
+    --ascii-mask: radial-gradient(
+        ellipse 80% 54% at 50% 48%,
+        transparent 0%,
+        transparent 10%,
+        rgba(0, 0, 0, 0.5) 30%,
+        #000 50%,
+        rgba(0, 0, 0, 0) 100%
+      ),
+      linear-gradient(to bottom, #000 0%, #000 100%);
+  }
+  /* Docs on mobile: content uses the full width, so just dim the field and keep
+     it faint behind the text (clear column centered on the viewport). */
+  .ascii-field--docs {
+    opacity: 0.35;
+    --ascii-mask: linear-gradient(
+        to right,
+        #000 0%,
+        rgba(0, 0, 0, 0) 9%,
+        rgba(0, 0, 0, 0) 91%,
+        #000 100%
+      ),
+      linear-gradient(to bottom, #000 0%, #000 100%);
+  }
   .sidebar {
     transform: translateX(-100%);
     transition: transform 0.2s ease;
+    /* Solid panel for the slide-out drawer (it overlays the page). */
+    background: var(--bg);
+    border-right: 1px solid var(--line);
   }
   .shell.nav-open .sidebar {
     transform: translateX(0);
