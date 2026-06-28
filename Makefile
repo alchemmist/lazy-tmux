@@ -104,8 +104,8 @@ sandbox:
 	podman run -it --rm lazy-tmux:local-$(TMUX_VERSION)
 
 test-sup-versions:
-	chmod +x scripts/test-tmux-versions.sh
-	./scripts/test-tmux-versions.sh
+	@chmod +x scripts/test-tmux-versions.sh
+	@./scripts/test-tmux-versions.sh
 
 # ---- docs site (Vite + React + Gravity UI, in docs/) ----
 # The site is statically pre-rendered with vite-react-ssg; CI (pages.yml) runs

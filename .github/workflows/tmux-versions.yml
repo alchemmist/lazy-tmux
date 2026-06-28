@@ -23,13 +23,21 @@ jobs:
           fetch-depth: 0
       - name: Run tests & parse results
         run: |
-          make test-sup-versions 2>&1 | tee pr_raw.txt | ./scripts/parse-output.sh > pr.json
+          # The inner test prints the clean version table to stdout and failure
+          # diagnostics to stderr (see docker/test-versions-inner.sh). Keep stderr
+          # OUT of pr_raw.txt — which is embedded verbatim into the PR comment —
+          # so the table renders neatly; diagnostics are kept in pr_err.txt for
+          # debugging.
+          set -o pipefail
+          make test-sup-versions 2>pr_err.txt | tee pr_raw.txt | ./scripts/parse-output.sh > pr.json
       - uses: actions/upload-artifact@v7
+        if: always()
         with:
           name: pr-results
           path: |
             pr.json
             pr_raw.txt
+            pr_err.txt
 
   test-main:
     runs-on: ubuntu-latest
@@ -40,13 +48,17 @@ jobs:
           ref: ${{ github.event.pull_request.base.ref }}
       - name: Run tests & parse results
         run: |
-          make test-sup-versions 2>&1 | tee main_raw.txt | ./scripts/parse-output.sh > main.json
+          # Keep stderr out of main_raw.txt (see the PR job for why).
+          set -o pipefail
+          make test-sup-versions 2>main_err.txt | tee main_raw.txt | ./scripts/parse-output.sh > main.json
       - uses: actions/upload-artifact@v7
+        if: always()
         with:
           name: main-results
           path: |
             main.json
             main_raw.txt
+            main_err.txt
 
   comment:
     needs: [test-pr, test-main]
