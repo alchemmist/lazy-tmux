@@ -18,7 +18,7 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
-const fieldSep = "\x1f"
+const fieldSep = "|"
 
 // defaultRestoreSettleTimeout bounds how long RestoreSession waits for restored
 // pane commands to actually start before returning. restoreSettlePollInterval
@@ -28,14 +28,22 @@ const (
 	restoreSettlePollInterval   = 100 * time.Millisecond
 )
 
-// splitFields splits a tmux -F output line on the field separator. tmux 3.5a
-// (and likely other versions) escapes control bytes in format output as octal
-// (so the 0x1f separator arrives as the literal four characters `\037`),
-// whereas tmux 3.6+ emits the raw byte. Normalize the escaped form back to the
-// separator so capture works across tmux versions.
-func splitFields(line string) []string {
-	line = strings.ReplaceAll(line, `\037`, fieldSep)
-	return strings.Split(line, fieldSep)
+// splitFieldsN splits a tmux -F output line into at most n fields on the field
+// separator.
+//
+// The separator must be a *printable ASCII* character: tmux sanitizes
+// non-printable bytes in format output, and the exact substitution varies by
+// version and build — the 0x1f we used before arrives raw on some builds,
+// octal-escaped as `\037` on tmux 3.5a, and replaced with `_` on others (e.g.
+// the Linux tmux 3.6 built in CI), which silently collapsed every field into one
+// and dropped all windows. A printable '|' is emitted verbatim everywhere.
+//
+// '|' never occurs in the structured fields (indices, pids, the 0/1 active flag,
+// the window layout, or the tty path). The only free-form fields — the window
+// name and the pane current path — are placed LAST in their format strings so
+// SplitN keeps them intact even if they themselves contain a '|'.
+func splitFieldsN(line string, n int) []string {
+	return strings.SplitN(line, fieldSep, n)
 }
 
 var (
@@ -284,7 +292,8 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 		"-t",
 		sessionTarget(name),
 		"-F",
-		"#{window_index}"+fieldSep+"#{window_name}"+fieldSep+"#{window_layout}"+fieldSep+"#{window_active}",
+		// window_name is free-form, so it goes LAST (SplitN keeps it whole).
+		"#{window_index}"+fieldSep+"#{window_layout}"+fieldSep+"#{window_active}"+fieldSep+"#{window_name}",
 	)
 	if err != nil {
 		return snapshot.SessionSnapshot{}, err
@@ -293,7 +302,7 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 	windows := make([]snapshot.Window, 0)
 
 	for _, line := range splitLines(wOut) {
-		parts := splitFields(line)
+		parts := splitFieldsN(line, 4)
 		if len(parts) != 4 {
 			continue
 		}
@@ -301,38 +310,39 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 		idx, _ := strconv.Atoi(parts[0])
 		window := snapshot.Window{
 			Index:    idx,
-			Name:     parts[1],
-			Layout:   parts[2],
-			IsActive: parts[3] == "1",
+			Layout:   parts[1],
+			IsActive: parts[2] == "1",
+			Name:     parts[3],
 		}
 
+		// pane_current_path is free-form, so it goes LAST.
 		pOut, err := client.Output("list-panes", "-t", sessionWindowTarget(name, idx), "-F",
 			"#{pane_index}"+fieldSep+
-				"#{pane_current_path}"+fieldSep+
-				"#{pane_current_command}"+fieldSep+
 				"#{pane_active}"+fieldSep+
 				"#{pane_pid}"+fieldSep+
-				"#{pane_tty}",
+				"#{pane_tty}"+fieldSep+
+				"#{pane_current_command}"+fieldSep+
+				"#{pane_current_path}",
 		)
 		if err != nil {
 			return snapshot.SessionSnapshot{}, err
 		}
 
 		for _, pLine := range splitLines(pOut) {
-			parts := splitFields(pLine)
+			parts := splitFieldsN(pLine, 6)
 			if len(parts) != 6 {
 				continue
 			}
 
 			pIdx, _ := strconv.Atoi(parts[0])
-			panePID, _ := strconv.Atoi(strings.TrimSpace(parts[4]))
-			restoreCmd, _ := client.foregroundCommand(parts[5], panePID)
+			panePID, _ := strconv.Atoi(strings.TrimSpace(parts[2]))
+			restoreCmd, _ := client.foregroundCommand(parts[3], panePID)
 
 			pane := snapshot.Pane{
 				Index:       pIdx,
-				CurrentPath: parts[1],
-				CurrentCmd:  parts[2],
-				IsActive:    parts[3] == "1",
+				IsActive:    parts[1] == "1",
+				CurrentCmd:  parts[4],
+				CurrentPath: parts[5],
 				RestoreCmd:  strings.TrimSpace(restoreCmd),
 			}
 			if pane.IsActive {
