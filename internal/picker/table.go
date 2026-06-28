@@ -60,7 +60,7 @@ var pickerColumnSpecs = []pickerColumnSpec{
 	{
 		ID:       "captured",
 		Title:    "Captured",
-		MinWidth: 14,
+		MinWidth: 10,
 		Priority: 2,
 		Value: func(r pickerRow) string {
 			return r.captured
