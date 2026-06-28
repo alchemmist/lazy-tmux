@@ -347,7 +347,7 @@ func (m *pickerModel) renderViewport() {
 		if rowIndex == m.cursor && row.selectable {
 			body := layout.row(row)
 
-			if pad := barWidth - len([]rune(body)); pad > 0 {
+			if pad := barWidth - displayWidth(body); pad > 0 {
 				body += strings.Repeat(" ", pad)
 			}
 

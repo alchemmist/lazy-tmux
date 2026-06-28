@@ -278,7 +278,7 @@ func (l pickerTableLayout) renderWith(
 
 		val = truncateString(val, col.width)
 
-		pad := col.width - len([]rune(val))
+		pad := col.width - displayWidth(val)
 		if idx != len(l.columns)-1 && pad > 0 {
 			val += strings.Repeat(" ", pad)
 		}
@@ -310,7 +310,7 @@ func (l pickerTableLayout) render(valueFor func(spec pickerColumnSpec) string) s
 
 		out.WriteString(val)
 
-		pad := col.width - len([]rune(val))
+		pad := col.width - displayWidth(val)
 		if pad > 0 {
 			out.WriteString(strings.Repeat(" ", pad))
 		}

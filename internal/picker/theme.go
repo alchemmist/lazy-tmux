@@ -80,13 +80,19 @@ func (t pickerTheme) frameBottom(hints string, width int) string {
 //	with right:  ╭─ left ──────── right ─╮   (head 3 + Lₗ + 1 + fill + 1 + Lᵣ + 3)
 //	without:     ╰─ left ───────────────╯   (head 3 + Lₗ + 1 + fill + 2)
 func (t pickerTheme) frameBar(left, right rune, leftLabel, rightLabel string, width int) string {
-	var buf strings.Builder
-
-	buf.WriteString(t.border.Render(string(left) + "─ "))
-	buf.WriteString(leftLabel)
-
+	// Clamp the labels so they can never push the line past width on a narrow
+	// terminal (only the dashed fill would otherwise absorb the overflow, and a
+	// fill of zero still leaves an over-wide line that breaks the frame math).
 	if rightLabel != "" {
-		fill := max(0, width-8-lipgloss.Width(leftLabel)-lipgloss.Width(rightLabel))
+		budget := max(0, width-8) // head 3 + 2 inner spaces + tail 3
+		rightLabel = clampWidth(rightLabel, budget)
+		leftLabel = clampWidth(leftLabel, budget-displayWidth(rightLabel))
+
+		var buf strings.Builder
+
+		fill := max(0, budget-displayWidth(leftLabel)-displayWidth(rightLabel))
+		buf.WriteString(t.border.Render(string(left) + "─ "))
+		buf.WriteString(leftLabel)
 		buf.WriteString(t.border.Render(" " + strings.Repeat("─", fill) + " "))
 		buf.WriteString(rightLabel)
 		buf.WriteString(t.border.Render(" ─" + string(right)))
@@ -94,7 +100,14 @@ func (t pickerTheme) frameBar(left, right rune, leftLabel, rightLabel string, wi
 		return buf.String()
 	}
 
-	fill := max(0, width-6-lipgloss.Width(leftLabel))
+	budget := max(0, width-6) // head 3 + 1 inner space + tail 2
+	leftLabel = clampWidth(leftLabel, budget)
+
+	var buf strings.Builder
+
+	fill := max(0, budget-displayWidth(leftLabel))
+	buf.WriteString(t.border.Render(string(left) + "─ "))
+	buf.WriteString(leftLabel)
 	buf.WriteString(t.border.Render(" " + strings.Repeat("─", fill) + "─" + string(right)))
 
 	return buf.String()
@@ -104,14 +117,10 @@ func (t pickerTheme) frameBar(left, right rune, leftLabel, rightLabel string, wi
 // space gutter on each side, padding the content to the available width.
 func (t pickerTheme) frameLine(content string, width int) string {
 	inner := max(0, width-4) // 2 borders + 2 gutter spaces
-	pad := max(0, inner-lipgloss.Width(content))
+	content = clampWidth(content, inner)
+	pad := max(0, inner-displayWidth(content))
 
-	return t.border.Render(
-		"│",
-	) + " " + content + strings.Repeat(
-		" ",
-		pad,
-	) + " " + t.border.Render(
-		"│",
-	)
+	side := t.border.Render("│")
+
+	return side + " " + content + strings.Repeat(" ", pad) + " " + side
 }
