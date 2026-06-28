@@ -39,7 +39,17 @@ echo "<summary>Full test output</summary>"
 echo ""
 echo "\`\`\`"
 if [ -n "$PR_RAW" ] && [ -f "$PR_RAW" ]; then
-    cat "$PR_RAW"
+    # Backstop: even with the build log silenced upstream, never let the embedded
+    # output grow past GitHub's comment size limit. Show the tail (the version
+    # results live at the end) and flag the truncation.
+    MAX_LINES=300
+    TOTAL=$(wc -l <"$PR_RAW" | tr -d ' ')
+    if [ "$TOTAL" -gt "$MAX_LINES" ]; then
+        echo "... (truncated, showing last $MAX_LINES of $TOTAL lines) ..."
+        tail -n "$MAX_LINES" "$PR_RAW"
+    else
+        cat "$PR_RAW"
+    fi
 else
     echo "Results unavailable"
 fi
