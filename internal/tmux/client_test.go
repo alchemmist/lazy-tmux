@@ -82,6 +82,40 @@ func TestWaitForRestoredCommandsDisabled(t *testing.T) {
 	}
 }
 
+// The field separator must be printable ASCII: tmux sanitizes non-printable
+// bytes in -F output (the previous 0x1f became "_" on some builds, collapsing
+// every field into one and dropping all windows — see the version-matrix bug).
+func TestFieldSepIsPrintableASCII(t *testing.T) {
+	if len(fieldSep) == 0 {
+		t.Fatal("fieldSep must not be empty")
+	}
+
+	for _, r := range fieldSep {
+		if r < 0x20 || r > 0x7e {
+			t.Fatalf("fieldSep must be printable ASCII, got %q", fieldSep)
+		}
+	}
+}
+
+// The free-form fields (window name, pane current path) are placed last in the
+// -F format strings, so splitFieldsN must keep a trailing field intact even when
+// it contains the separator.
+func TestSplitFieldsNKeepsTrailingFieldIntact(t *testing.T) {
+	line := "3" + fieldSep + "bb,80x24" + fieldSep + "1" + fieldSep + "weird" + fieldSep + "name"
+	got := splitFieldsN(line, 4)
+
+	want := []string{"3", "bb,80x24", "1", "weird" + fieldSep + "name"}
+	if len(got) != len(want) {
+		t.Fatalf("expected %d fields, got %d: %q", len(want), len(got), got)
+	}
+
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("field %d: got %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
 func TestCurrentWindowPane(t *testing.T) {
 	// Active window's index and active pane are authoritative, even when the
 	// base index is 1 (regression guard: current window must not collapse to 0).
