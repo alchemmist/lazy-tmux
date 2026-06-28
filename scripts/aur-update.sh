@@ -73,9 +73,13 @@ grep -q "sha256sums_aarch64 = ${sha_arm64_fzf}" "$srcinfo" || { echo "AUR update
 
 # Guard against the issue #141 regression: the download URL must point at the
 # real (unversioned) release asset, not lazy-tmux_<ver>_linux_*.tar.gz (404).
-grep -q "releases/download/v${ver}/lazy-tmux_linux_amd64.tar.gz" "$srcinfo" || { echo "AUR update failed: versioned asset URL in .SRCINFO (issue #141)" >&2; exit 1; }
+grep -q "releases/download/v${ver}/lazy-tmux_linux_amd64.tar.gz" "$srcinfo" || { echo "AUR update failed: missing unversioned amd64 asset URL in .SRCINFO (issue #141)" >&2; exit 1; }
 grep -qE "releases/download/v${ver}/lazy-tmux_[0-9]" "$srcinfo" && { echo "AUR update failed: .SRCINFO still has a versioned asset URL (issue #141)" >&2; exit 1; }
-grep -q 'releases/download/v${pkgver}/lazy-tmux_linux_amd64.tar.gz' "$pkgbuild" || { echo "AUR update failed: versioned asset URL in PKGBUILD (issue #141)" >&2; exit 1; }
+grep -q 'releases/download/v${pkgver}/lazy-tmux_linux_amd64.tar.gz' "$pkgbuild" || { echo "AUR update failed: missing unversioned amd64 asset URL in PKGBUILD (issue #141)" >&2; exit 1; }
+# Reject any source_* entry whose URL filename still carries the version
+# (the variable form lazy-tmux_${pkgver}_ or a literal digit), so a single
+# unversioned amd64 entry can't mask a still-broken arm64/fzf one.
+grep -qE 'releases/download/v\$\{pkgver\}/lazy-tmux_(\$\{pkgver\}_|[0-9])' "$pkgbuild" && { echo "AUR update failed: PKGBUILD still has a versioned asset URL (issue #141)" >&2; exit 1; }
 
 git -C "$workdir" add PKGBUILD .SRCINFO
 if git -C "$workdir" diff --cached --quiet; then
