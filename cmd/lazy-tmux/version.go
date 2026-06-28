@@ -56,6 +56,27 @@ func resolveVersion() string {
 	return "dev+" + revision
 }
 
+// runVersionCmd is the `version` subcommand entry (it also honors -h/--help so
+// it behaves like the other commands). The bare -v/--version flags are handled
+// directly in runCLI.
+func runVersionCmd(args []string, stdout, _ io.Writer) int {
+	for _, arg := range args {
+		if arg == "-h" || arg == "--help" {
+			versionHelp(stdout)
+			return 0
+		}
+	}
+
+	return runVersion(stdout)
+}
+
+func versionHelp(w io.Writer) {
+	_, _ = fmt.Fprint(w, `Usage: lazy-tmux version
+
+Print the version (also: lazy-tmux --version, lazy-tmux -v)
+`)
+}
+
 func runVersion(stdout io.Writer) int {
 	_, _ = fmt.Fprintf(
 		stdout,

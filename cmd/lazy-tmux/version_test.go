@@ -22,6 +22,21 @@ func TestCLIVersionVariants(t *testing.T) {
 	}
 }
 
+func TestCLIVersionHelp(t *testing.T) {
+	// `help version` and `version -h` both reach the version help, like any
+	// other command.
+	for _, args := range [][]string{{"help", "version"}, {"version", "-h"}, {"version", "--help"}} {
+		code, out, _ := run(t, args...)
+		if code != 0 {
+			t.Fatalf("%v: expected exit 0, got %d", args, code)
+		}
+
+		if !strings.Contains(out, "Usage: lazy-tmux version") {
+			t.Fatalf("%v: expected version help, got %q", args, out)
+		}
+	}
+}
+
 func TestResolveVersionPrefersLdflags(t *testing.T) {
 	orig := version
 	t.Cleanup(func() { version = orig })

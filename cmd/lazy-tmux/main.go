@@ -10,6 +10,7 @@ import (
 var exitFunc = os.Exit
 
 var commands = map[string]func(args []string, stdout, stderr io.Writer) int{
+	"version":   runVersionCmd,
 	"save":      runSave,
 	"restore":   runRestore,
 	"picker":    runPicker,
@@ -23,6 +24,7 @@ var commands = map[string]func(args []string, stdout, stderr io.Writer) int{
 }
 
 var helpFuncs = map[string]func(io.Writer){
+	"version":   versionHelp,
 	"save":      saveHelp,
 	"restore":   restoreHelp,
 	"picker":    pickerHelp,
@@ -46,7 +48,7 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 	}
 
 	cmdName := args[0]
-	if cmdName == "version" || cmdName == "-v" || cmdName == "--version" {
+	if cmdName == "-v" || cmdName == "--version" {
 		return runVersion(stdout)
 	}
 
