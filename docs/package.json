@@ -6,7 +6,7 @@
   "description": "lazy-tmux documentation site (React + Vite + Gravity UI, statically pre-rendered)",
   "scripts": {
     "dev": "vite-react-ssg dev",
-    "build": "vite-react-ssg build",
+    "build": "tsc --noEmit && vite-react-ssg build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
   },

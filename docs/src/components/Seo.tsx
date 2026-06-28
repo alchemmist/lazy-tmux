@@ -17,7 +17,6 @@ const LD_JSON = {
   author: {
     "@type": "Person",
     name: "Anton Grishin (alchemmist)",
-    email: "anton.ingrish@gmail.com",
   },
 };
 

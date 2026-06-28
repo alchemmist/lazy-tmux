@@ -31,6 +31,7 @@ body {
    which would otherwise win over body). */
 .g-root {
   --g-color-base-background: var(--bg);
+
   background: var(--bg);
   font-family: "JetBrains Mono", monospace;
   /* Keep the brand monochrome: the "action" Button stays white-on-dark like the

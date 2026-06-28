@@ -1,7 +1,21 @@
+import type { MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@gravity-ui/uikit";
 import { Seo } from "../components/Seo";
 import { InlineCode } from "../components/InlineCode";
+import { DemoVideo } from "../components/DemoVideo";
+
+// A modified click (middle/right button or a modifier key) should keep the
+// link's native behavior, e.g. open in a new tab, instead of client-routing.
+function isModifiedClick(event: MouseEvent) {
+  return (
+    event.button !== 0 ||
+    event.metaKey ||
+    event.altKey ||
+    event.ctrlKey ||
+    event.shiftKey
+  );
+}
 
 export function Home() {
   const navigate = useNavigate();
@@ -42,6 +56,9 @@ export function Home() {
             size="xl"
             href="/installation"
             onClick={(event) => {
+              if (isModifiedClick(event)) {
+                return;
+              }
               event.preventDefault();
               navigate("/installation");
             }}
@@ -53,6 +70,9 @@ export function Home() {
             size="xl"
             href="/cli"
             onClick={(event) => {
+              if (isModifiedClick(event)) {
+                return;
+              }
               event.preventDefault();
               navigate("/cli");
             }}
@@ -68,10 +88,7 @@ export function Home() {
 
       <section className="doc-section">
         <h1>Demo Preview</h1>
-        <video controls autoPlay muted loop preload="metadata" width="100%">
-          <source src="/assets/demo.mp4" type="video/mp4" />
-          Your browser does not support the video tag.
-        </video>
+        <DemoVideo src="/assets/demo.mp4" />
         <p>
           We create activity in a temporary tmux session, then stop the tmux
           server and restore the sessions with lazy-tmux. Logs are preserved,

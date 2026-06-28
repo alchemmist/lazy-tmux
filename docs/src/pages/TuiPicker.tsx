@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Seo } from "../components/Seo";
 import { InlineCode } from "../components/InlineCode";
+import { DemoVideo } from "../components/DemoVideo";
 
 const KEYS: { key: ReactNode; action: ReactNode }[] = [
   { key: <InlineCode>Type</InlineCode>, action: "Fuzzy search sessions and windows." },
@@ -52,10 +53,7 @@ export function TuiPicker() {
       <section className="doc-section">
         <h1>TUI picker</h1>
 
-        <video controls autoPlay muted loop preload="metadata" width="100%">
-          <source src="/assets/demo-tui.mp4" type="video/mp4" />
-          Your browser does not support the video tag.
-        </video>
+        <DemoVideo src="/assets/demo-tui.mp4" />
 
         <table className="cli-table">
           <thead>
