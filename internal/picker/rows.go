@@ -34,7 +34,7 @@ func filteredTreeRows(sessions []Session, query string, windowSort []WindowSortK
 		rows = append(rows, pickerRow{
 			target:     Target{SessionName: sess.Record.SessionName},
 			item:       sess.Record.SessionName,
-			captured:   sess.Record.CapturedAt.Local().Format("2006-01-02 15:04:05"),
+			captured:   sess.Record.CapturedAt.Local().Format("06-01-02 15:04"),
 			wins:       fmt.Sprintf("%d", sess.Record.Windows),
 			state:      sessionStateIcon(sess.Restored),
 			selectable: false,

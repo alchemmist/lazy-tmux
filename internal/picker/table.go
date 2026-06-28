@@ -44,18 +44,17 @@ var pickerColumnSpecs = []pickerColumnSpec{
 	{
 		ID:       "cmd",
 		Title:    "Cmd",
-		MinWidth: 12,
+		MinWidth: 18,
 		Priority: 1,
 		Value: func(r pickerRow) string {
 			return r.cmd
 		},
 	},
 	{
-		ID:         "captured",
-		Title:      "Captured",
-		MinWidth:   16,
-		Priority:   2,
-		TrimPrefix: "202",
+		ID:       "captured",
+		Title:    "Captured",
+		MinWidth: 14,
+		Priority: 2,
 		Value: func(r pickerRow) string {
 			return r.captured
 		},
