@@ -46,6 +46,10 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 	}
 
 	cmdName := args[0]
+	if cmdName == "version" || cmdName == "-v" || cmdName == "--version" {
+		return runVersion(stdout)
+	}
+
 	if cmdName == "help" || cmdName == "-h" || cmdName == "--help" {
 		if len(args) > 1 {
 			help, ok := helpFuncs[args[1]]
@@ -96,6 +100,7 @@ Commands:
   daemon     Periodically save all sessions
   list       List saved sessions
   setup      Print config keybinds for tmux
+  version    Print the version
 
 Run 'lazy-tmux <command> -h' for more details.
 `)
