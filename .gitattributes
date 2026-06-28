@@ -1,0 +1,8 @@
+# The docs site lives under docs/, which Linguist treats as "documentation" and
+# excludes from language stats by default. Its sources are a real TypeScript/React
+# app, so mark them as code: this makes GitHub's language stats and CodeQL see the
+# TypeScript. Static assets and the lockfile stay out of the stats.
+docs/src/** linguist-documentation=false
+docs/vite.config.ts linguist-documentation=false
+docs/package-lock.json linguist-generated=true
+docs/public/** linguist-vendored=true
