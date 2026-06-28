@@ -1,0 +1,28 @@
+{
+  "name": "lazy-tmux-docs",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "lazy-tmux documentation site (React + Vite + Gravity UI, statically pre-rendered)",
+  "scripts": {
+    "dev": "vite-react-ssg dev",
+    "build": "vite-react-ssg build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@gravity-ui/icons": "^2.13.0",
+    "@gravity-ui/uikit": "^7.18.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11",
+    "vite-react-ssg": "^0.9.0"
+  }
+}
