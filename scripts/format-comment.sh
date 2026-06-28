@@ -43,12 +43,15 @@ if [ -n "$PR_RAW" ] && [ -f "$PR_RAW" ]; then
     # output grow past GitHub's comment size limit. Show the tail (the version
     # results live at the end) and flag the truncation.
     MAX_LINES=300
+    MAX_BYTES=60000 # GitHub truncates comments by body size (~65 KiB limit).
     TOTAL=$(wc -l <"$PR_RAW" | tr -d ' ')
     if [ "$TOTAL" -gt "$MAX_LINES" ]; then
-        echo "... (truncated, showing last $MAX_LINES of $TOTAL lines) ..."
-        tail -n "$MAX_LINES" "$PR_RAW"
+        echo "... (truncated, showing the last $MAX_LINES of $TOTAL lines, capped at $MAX_BYTES bytes) ..."
+        tail -n "$MAX_LINES" "$PR_RAW" | tail -c "$MAX_BYTES"
     else
-        cat "$PR_RAW"
+        # Cap bytes even within the line budget: a few very long lines could still
+        # overflow the comment and hide the version results at the tail.
+        tail -c "$MAX_BYTES" "$PR_RAW"
     fi
 else
     echo "Results unavailable"
