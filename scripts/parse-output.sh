@@ -1,8 +1,8 @@
 #!/bin/sh
-# Парсит вывод make test-sup-versions в JSON
+# Parses the output of `make test-sup-versions` into JSON.
 # Usage: make test-sup-versions | scripts/parse-output.sh > results.json
 
-# Извлекаем галочки (✓)
+# Extract the supported versions (rows marked with a checkmark).
 SUPPORTED=$(grep -oP "tmux \S+\s+✓" | awk '{print $2}' | sort -V)
 
 echo "{"

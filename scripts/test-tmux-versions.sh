@@ -4,9 +4,20 @@ IMAGE="lazy-tmux:version-test"
 
 printf "\nBuilding test image (once)...\n"
 # Build the matrix image from docker/version-test.Dockerfile, which compiles
-# lazy-tmux from this repo's source (not the published binary). Keep stderr so a
-# build failure surfaces instead of silently yielding an image without the binary.
-docker build -t "$IMAGE" -f docker/version-test.Dockerfile . >/dev/null
+# lazy-tmux from this repo's source (not the published binary). BuildKit writes
+# its progress to stderr, so redirecting only stdout (>/dev/null) still leaked
+# the entire apt-get/BuildKit transcript into this script's output — which the CI
+# workflow embeds verbatim into the PR comment, blowing past GitHub's size limit.
+# Capture the whole build log to a file and print it only on failure, so a broken
+# build still surfaces while the success path stays quiet.
+build_log=$(mktemp)
+if ! docker build -t "$IMAGE" -f docker/version-test.Dockerfile . >"$build_log" 2>&1; then
+    printf "ERROR: failed to build test image:\n" >&2
+    cat "$build_log" >&2
+    rm -f "$build_log"
+    exit 1
+fi
+rm -f "$build_log"
 
 printf "Fetching tmux releases from GitHub...\n"
 versions=$(curl -sf "https://api.github.com/repos/tmux/tmux/releases?per_page=100" \

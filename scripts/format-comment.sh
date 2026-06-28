@@ -1,18 +1,18 @@
 #!/bin/bash
-# Сравнивает результаты тестов версий и генерирует Markdown для комментария
+# Compares the version-test results and generates the Markdown comment body.
 # Usage: scripts/format-comment.sh pr.json main.json pr_raw.txt > comment.md
 
 PR_JSON=$1
 MAIN_JSON=$2
 PR_RAW=${3:-}
 
-# Получаем отсортированные списки
+# Sorted version lists for the PR branch and the base branch.
 PR_LIST=$(jq -r '.versions[]' "$PR_JSON" | sort)
 MAIN_LIST=$(jq -r '.versions[]' "$MAIN_JSON" | sort)
 
-# Новые в PR
+# Versions newly supported in the PR.
 NEW=$(comm -23 <(echo "$PR_LIST") <(echo "$MAIN_LIST"))
-# Пропавшие в PR
+# Versions no longer supported in the PR.
 MISSING=$(comm -13 <(echo "$PR_LIST") <(echo "$MAIN_LIST"))
 
 echo "<!-- tmux-versions-marker -->"
@@ -39,7 +39,20 @@ echo "<summary>Full test output</summary>"
 echo ""
 echo "\`\`\`"
 if [ -n "$PR_RAW" ] && [ -f "$PR_RAW" ]; then
-    cat "$PR_RAW"
+    # Backstop: even with the build log silenced upstream, never let the embedded
+    # output grow past GitHub's comment size limit. Show the tail (the version
+    # results live at the end) and flag the truncation.
+    MAX_LINES=300
+    MAX_BYTES=60000 # GitHub truncates comments by body size (~65 KiB limit).
+    TOTAL=$(wc -l <"$PR_RAW" | tr -d ' ')
+    if [ "$TOTAL" -gt "$MAX_LINES" ]; then
+        echo "... (truncated, showing the last $MAX_LINES of $TOTAL lines, capped at $MAX_BYTES bytes) ..."
+        tail -n "$MAX_LINES" "$PR_RAW" | tail -c "$MAX_BYTES"
+    else
+        # Cap bytes even within the line budget: a few very long lines could still
+        # overflow the comment and hide the version results at the tail.
+        tail -c "$MAX_BYTES" "$PR_RAW"
+    fi
 else
     echo "Results unavailable"
 fi
