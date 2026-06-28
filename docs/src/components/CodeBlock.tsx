@@ -1,4 +1,4 @@
-import { ClipboardButton } from "@gravity-ui/uikit";
+import { ClipboardButton, useToaster } from "@gravity-ui/uikit";
 
 interface CodeBlockProps {
   /** Raw code to render and copy. Whitespace is preserved verbatim. */
@@ -6,9 +6,10 @@ interface CodeBlockProps {
 }
 
 // A block of code on a surface that stands clearly above the page background,
-// with a Gravity UI copy button in the top-right corner.
+// with a Gravity UI copy button (animated check) in the top-right corner.
 export function CodeBlock({ children }: CodeBlockProps) {
   const code = children.replace(/\n$/, "");
+  const toaster = useToaster();
 
   return (
     <div className="code-block">
@@ -18,6 +19,14 @@ export function CodeBlock({ children }: CodeBlockProps) {
           size="s"
           view="flat"
           className="code-block__copy"
+          onCopy={() =>
+            toaster.add({
+              name: "copy-block",
+              title: "Copied to clipboard",
+              theme: "success",
+              autoHiding: 1500,
+            })
+          }
         />
       </div>
       <pre>

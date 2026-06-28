@@ -1,3 +1,4 @@
+import { Alert } from "@gravity-ui/uikit";
 import { Seo } from "../components/Seo";
 import { CodeBlock } from "../components/CodeBlock";
 import { InlineCode } from "../components/InlineCode";
@@ -13,13 +14,18 @@ export function Installation() {
       <section className="doc-section">
         <h1>Installation</h1>
 
-        <div className="callout-warn">
-          <p className="callout-warn__title">⚠️ tmux version requirement</p>
-          <p>
-            lazy-tmux requires <strong>tmux 3.6</strong> or{" "}
-            <strong>tmux 3.6a</strong>. Older versions may not work correctly.
-          </p>
-        </div>
+        <Alert
+          theme="warning"
+          align="center"
+          className="version-alert"
+          title="tmux version requirement"
+          message={
+            <>
+              lazy-tmux requires <strong>tmux 3.6</strong> or{" "}
+              <strong>tmux 3.6a</strong>. Older versions may not work correctly.
+            </>
+          }
+        />
 
         <p>Install with builtin powerful TUI picker:</p>
         <CodeBlock>curl -fsSL https://lazy-tmux.xyz/install.sh | sh</CodeBlock>

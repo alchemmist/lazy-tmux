@@ -1,8 +1,11 @@
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@gravity-ui/uikit";
 import { Seo } from "../components/Seo";
 import { InlineCode } from "../components/InlineCode";
 
 export function Home() {
+  const navigate = useNavigate();
+
   return (
     <>
       <Seo
@@ -25,20 +28,37 @@ export function Home() {
           lazily and seamlessly when you select one.
         </p>
         <div className="actions">
-          <a
-            className="btn"
+          <Button
+            view="action"
+            size="xl"
             href="https://github.com/alchemmist/lazy-tmux"
             target="_blank"
             rel="noopener noreferrer"
           >
             GitHub
-          </a>
-          <Link className="btn alt" to="/installation">
+          </Button>
+          <Button
+            view="outlined"
+            size="xl"
+            href="/installation"
+            onClick={(event) => {
+              event.preventDefault();
+              navigate("/installation");
+            }}
+          >
             Install
-          </Link>
-          <Link className="btn alt" to="/cli">
+          </Button>
+          <Button
+            view="outlined"
+            size="xl"
+            href="/cli"
+            onClick={(event) => {
+              event.preventDefault();
+              navigate("/cli");
+            }}
+          >
             Docs
-          </Link>
+          </Button>
         </div>
         <p className="try-line">
           Try lazy-tmux right now:{" "}

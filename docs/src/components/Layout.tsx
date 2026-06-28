@@ -65,7 +65,10 @@ export function Layout() {
 
       <main className={`content${isHome ? " home" : ""}`}>
         <div className="page">
-          <Outlet />
+          {/* key by path so the route content re-runs its fade-in on navigation */}
+          <div className="route-fade" key={location.pathname}>
+            <Outlet />
+          </div>
           <Footer />
         </div>
       </main>
