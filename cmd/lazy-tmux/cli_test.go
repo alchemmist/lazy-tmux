@@ -167,6 +167,16 @@ func TestCLISetupPrintsKeybinds(t *testing.T) {
 			t.Fatalf("setup output missing %q: %q", want, out)
 		}
 	}
+
+	// The popup keybind must use single percent signs (printed verbatim, not via
+	// Fprintf) — regression guard for the doubled "75%%"/"85%%" bug.
+	if !strings.Contains(out, "-w 75% -h 85%") {
+		t.Fatalf("expected single-percent popup geometry, got %q", out)
+	}
+
+	if strings.Contains(out, "%%") {
+		t.Fatalf("setup output has a doubled percent sign: %q", out)
+	}
 }
 
 func TestCLIListEmptyStore(t *testing.T) {
