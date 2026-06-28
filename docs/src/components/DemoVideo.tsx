@@ -13,10 +13,16 @@ export function DemoVideo({ src }: DemoVideoProps) {
   const reducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
-    if (!reducedMotion) {
-      videoRef.current?.play().catch(() => {
+    const video = videoRef.current;
+    if (!video) {
+      return;
+    }
+    if (reducedMotion === false) {
+      video.play().catch(() => {
         /* autoplay blocked — controls remain available */
       });
+    } else if (reducedMotion === true) {
+      video.pause();
     }
   }, [reducedMotion]);
 
