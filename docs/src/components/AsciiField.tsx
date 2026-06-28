@@ -5,7 +5,8 @@ const RAMP = " .·:-=+*#%@";
 const CELL_W = 9;
 const CELL_H = 15;
 const TARGET_FPS = 30;
-const WARM = "rgba(255, 210, 90,";
+// WARM is the site's base accent (#d7875f) — the same amber used by the picker.
+const WARM = "rgba(215, 135, 95,";
 const COOL = "rgba(232, 232, 232,";
 
 // A generative ASCII background: several drifting sine waves interfere into an
