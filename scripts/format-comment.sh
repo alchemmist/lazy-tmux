@@ -1,18 +1,18 @@
 #!/bin/bash
-# Сравнивает результаты тестов версий и генерирует Markdown для комментария
+# Compares the version-test results and generates the Markdown comment body.
 # Usage: scripts/format-comment.sh pr.json main.json pr_raw.txt > comment.md
 
 PR_JSON=$1
 MAIN_JSON=$2
 PR_RAW=${3:-}
 
-# Получаем отсортированные списки
+# Sorted version lists for the PR branch and the base branch.
 PR_LIST=$(jq -r '.versions[]' "$PR_JSON" | sort)
 MAIN_LIST=$(jq -r '.versions[]' "$MAIN_JSON" | sort)
 
-# Новые в PR
+# Versions newly supported in the PR.
 NEW=$(comm -23 <(echo "$PR_LIST") <(echo "$MAIN_LIST"))
-# Пропавшие в PR
+# Versions no longer supported in the PR.
 MISSING=$(comm -13 <(echo "$PR_LIST") <(echo "$MAIN_LIST"))
 
 echo "<!-- tmux-versions-marker -->"
