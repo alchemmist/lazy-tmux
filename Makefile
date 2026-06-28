@@ -94,9 +94,14 @@ docker-hub:
 	podman tag lazy-tmux:$$SANDBOX_TAG alchemmist/lazy-tmux:$$SANDBOX_TAG; \
 	podman push alchemmist/lazy-tmux:$$SANDBOX_TAG
 
+# Build and drop into the interactive sandbox. Pick the tmux version with
+# TMUX_VERSION (defaults to 3.6a); each version gets its own cached image tag.
+#   make sandbox                  # tmux 3.6a
+#   make sandbox TMUX_VERSION=3.5a
+TMUX_VERSION ?= 3.6a
 sandbox:
-	podman build -t lazy-tmux:local -f docker/sandbox.Dockerfile .
-	podman run -it --rm lazy-tmux:local
+	podman build --build-arg TMUX_VERSION=$(TMUX_VERSION) -t lazy-tmux:local-$(TMUX_VERSION) -f docker/sandbox.Dockerfile .
+	podman run -it --rm lazy-tmux:local-$(TMUX_VERSION)
 
 test-sup-versions:
 	chmod +x scripts/test-tmux-versions.sh

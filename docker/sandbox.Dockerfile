@@ -32,7 +32,12 @@ ENV SHELL=/usr/bin/zsh
 
 COPY docker/install-tmux.sh .
 
-RUN TMUX_VERSION=3.6a ./install-tmux.sh
+# Which tmux release to build into the sandbox. Override per build, e.g.
+#   make sandbox TMUX_VERSION=3.5a
+#   podman build --build-arg TMUX_VERSION=3.4 -f docker/sandbox.Dockerfile .
+ARG TMUX_VERSION=3.6a
+
+RUN TMUX_VERSION=${TMUX_VERSION} ./install-tmux.sh
 
 WORKDIR /root
 
