@@ -34,6 +34,19 @@ func TestCLIConfigGenAndShow(t *testing.T) {
 	}
 }
 
+func TestCLIConfigRejectsExtraArgs(t *testing.T) {
+	for _, args := range [][]string{{"config", "gen", "extra"}, {"config", "show", "extra"}} {
+		code, _, errOut := run(t, args...)
+		if code != 1 {
+			t.Fatalf("%v: expected exit 1, got %d", args, code)
+		}
+
+		if !strings.Contains(errOut, "unexpected arguments") {
+			t.Fatalf("%v: expected unexpected-args error, got %q", args, errOut)
+		}
+	}
+}
+
 func TestCLIConfigUnknownSubcommand(t *testing.T) {
 	code, _, errOut := run(t, "config", "bogus")
 	if code != 1 {

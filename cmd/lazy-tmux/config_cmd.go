@@ -51,6 +51,11 @@ func runConfigGen(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
+	if flags.NArg() != 0 {
+		writeErr(stderr, fmt.Errorf("unexpected arguments: %v", flags.Args()))
+		return 1
+	}
+
 	written, err := config.GenerateConfig(*path, *force)
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("config gen: %w", err))
@@ -75,6 +80,11 @@ func runConfigShow(args []string, stdout, stderr io.Writer) int {
 
 		writeErr(stderr, fmt.Errorf("parse flags: %w", err))
 
+		return 1
+	}
+
+	if flags.NArg() != 0 {
+		writeErr(stderr, fmt.Errorf("unexpected arguments: %v", flags.Args()))
 		return 1
 	}
 
