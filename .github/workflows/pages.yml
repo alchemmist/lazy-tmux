@@ -35,7 +35,7 @@ jobs:
           cp -R docs/. _site/
           # _content.html is the build-docs.py source, not a published page.
           rm -f _site/_content.html
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
 
