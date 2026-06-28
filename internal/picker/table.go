@@ -5,6 +5,8 @@ package picker
 import (
 	"sort"
 	"strings"
+
+	"charm.land/lipgloss/v2"
 )
 
 type pickerColumnID string
@@ -201,6 +203,53 @@ func (l pickerTableLayout) header() string {
 
 func (l pickerTableLayout) row(row pickerRow) string {
 	return l.render(func(spec pickerColumnSpec) string { return spec.Value(row) })
+}
+
+// styledHeader renders the column titles in the faint header style.
+func (l pickerTableLayout) styledHeader(theme pickerTheme) string {
+	return l.renderWith(func(spec pickerColumnSpec) (string, lipgloss.Style) {
+		return spec.Title, theme.headerCell
+	})
+}
+
+// styledRow renders a row with the name column bright (bold for session
+// headers) and the meta columns dimmed.
+func (l pickerTableLayout) styledRow(row pickerRow, theme pickerTheme) string {
+	return l.renderWith(func(spec pickerColumnSpec) (string, lipgloss.Style) {
+		if spec.ID == "item" {
+			if row.selectable {
+				return spec.Value(row), theme.name
+			}
+
+			return spec.Value(row), theme.session
+		}
+
+		return spec.Value(row), theme.meta
+	})
+}
+
+func (l pickerTableLayout) renderWith(
+	cell func(spec pickerColumnSpec) (string, lipgloss.Style),
+) string {
+	var out strings.Builder
+
+	for idx, col := range l.columns {
+		val, style := cell(col.spec)
+		if col.spec.TrimPrefix != "" {
+			val = strings.TrimPrefix(val, col.spec.TrimPrefix)
+		}
+
+		val = truncateString(val, col.width)
+
+		pad := col.width - len([]rune(val))
+		if idx != len(l.columns)-1 && pad > 0 {
+			val += strings.Repeat(" ", pad)
+		}
+
+		out.WriteString(style.Render(val))
+	}
+
+	return out.String()
 }
 
 func (l pickerTableLayout) render(valueFor func(spec pickerColumnSpec) string) string {
