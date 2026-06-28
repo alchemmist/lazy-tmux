@@ -27,8 +27,9 @@ func runSetup(args []string, stdout, stderr io.Writer) int {
 		">/tmp/lazy-tmux.log 2>&1 || tmux display-message \"lazy-tmux daemon already running\"'"
 
 	// These lines are printed verbatim (Fprintln, not Fprintf), so percent signs
-	// must be single — tmux wants `-w 75% -h 85%`.
-	const popupKey = "bind-key f display-popup -w 75% -h 85% -E 'lazy-tmux picker'"
+	// must be single — tmux wants `-w 75% -h 85%`. `-B` drops the popup's own
+	// border since the picker draws its own frame (avoids a double border).
+	const popupKey = "bind-key f display-popup -B -w 75% -h 85% -E 'lazy-tmux picker'"
 
 	const saveKey = "bind-key C-s run-shell 'lazy-tmux save --all --scrollback && " +
 		"tmux display-message \"All sessions saved successfully!\"'"

@@ -174,6 +174,12 @@ func TestCLISetupPrintsKeybinds(t *testing.T) {
 		t.Fatalf("expected single-percent popup geometry, got %q", out)
 	}
 
+	// The popup must be borderless (-B): the picker draws its own frame, so the
+	// tmux popup border would be a redundant double border.
+	if !strings.Contains(out, "display-popup -B ") {
+		t.Fatalf("expected borderless popup (-B), got %q", out)
+	}
+
 	if strings.Contains(out, "%%") {
 		t.Fatalf("setup output has a doubled percent sign: %q", out)
 	}
