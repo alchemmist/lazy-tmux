@@ -66,20 +66,22 @@ func New(cfg config.Config) *App {
 	}
 }
 
-func (a *App) SaveAll() error {
+// SaveAll snapshots every running tmux session and returns how many were saved
+// (0 when no tmux server is running or it has no sessions).
+func (a *App) SaveAll() (int, error) {
 	sessions, err := a.tmux.ListSessions()
 	if err != nil {
-		return fmt.Errorf("list sessions: %w", err)
+		return 0, fmt.Errorf("list sessions: %w", err)
 	}
 
 	for _, name := range sessions {
 		err := a.SaveSession(name)
 		if err != nil {
-			return err
+			return 0, err
 		}
 	}
 
-	return nil
+	return len(sessions), nil
 }
 
 func (a *App) SaveSession(session string) error {
@@ -185,7 +187,9 @@ func (a *App) runDaemonSaveAll() error {
 		return a.saveAllFn()
 	}
 
-	return a.SaveAll()
+	_, err := a.SaveAll()
+
+	return err
 }
 
 func (a *App) captureShellScrollback(snap *snapshot.SessionSnapshot) {

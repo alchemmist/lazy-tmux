@@ -148,6 +148,24 @@ func TestLoadFromExpandsHomeInDataDir(t *testing.T) {
 	}
 }
 
+func TestLoadFromExpandsHomeInTmuxBin(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skipf("no home dir: %v", err)
+	}
+
+	path := writeConfig(t, "tmux_bin = \"~/bin/tmux.appimage\"\n")
+
+	cfg, err := LoadFrom(path)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	if want := filepath.Join(home, "bin/tmux.appimage"); cfg.TmuxBin != want {
+		t.Fatalf("home expansion: got %q want %q", cfg.TmuxBin, want)
+	}
+}
+
 func TestLoadFromMalformedFileErrors(t *testing.T) {
 	path := writeConfig(t, "this is not = valid = toml\n")
 

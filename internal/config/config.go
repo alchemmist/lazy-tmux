@@ -129,7 +129,9 @@ type fileScrollbackConf struct {
 // withFile returns a copy of cfg with every value set in file applied on top.
 func (cfg Config) withFile(file fileConfig) Config {
 	if file.TmuxBin != nil {
-		cfg.TmuxBin = *file.TmuxBin
+		// Expand a leading ~ so e.g. tmux_bin = "~/bin/tmux.appimage" works
+		// (matches data_dir handling).
+		cfg.TmuxBin = expandHome(*file.TmuxBin)
 	}
 
 	if file.DataDir != nil {
