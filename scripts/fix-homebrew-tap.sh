@@ -23,7 +23,7 @@ mkdir -p Formula
 moved=false
 for f in *.rb; do
   if [ -f "$f" ]; then
-    # Удаляем старый файл в Formula, если он есть
+    # Remove the old file under Formula/ if it exists.
     if [ -f "Formula/$f" ]; then
       git rm -f "Formula/$f"
     fi
