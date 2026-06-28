@@ -7,3 +7,7 @@ cover.out
 cover.html
 .DS_Store
 cover.html
+
+# docs site (Vite): dependencies and caches
+node_modules/
+.vite/
