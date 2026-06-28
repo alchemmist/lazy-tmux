@@ -1,0 +1,400 @@
+/* Brand palette layered on top of the Gravity UI dark theme. The page stays
+   near-black (brand), while code sits on a distinctly lighter surface so blocks
+   no longer blend into the background. */
+:root {
+  --bg: #030303;
+  --panel: #0d0d0d;
+  --code-bg: #15171a;
+  --code-border: #2a2e33;
+  --text: #f2f2f2;
+  --muted: #a0a0a0;
+  --line: #202020;
+  --accent: #ffffff;
+  --link: rgb(228, 242, 247);
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+body {
+  line-height: 1.45;
+}
+
+/* Keep the Gravity root transparent so the brand background shows through. */
+.g-root {
+  --g-color-base-background: var(--bg);
+  background: var(--bg);
+}
+
+a {
+  color: var(--link);
+}
+
+/* ---- layout shell ---- */
+.shell {
+  min-height: 100vh;
+}
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 280px;
+  height: 100vh;
+  border-right: 1px solid var(--line);
+  background: rgba(8, 8, 8, 0.7);
+  padding: 30px 20px;
+  overflow-y: auto;
+  z-index: 5;
+}
+
+.sidebar .brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: var(--text);
+  margin-bottom: 30px;
+}
+.sidebar .brand img {
+  width: 38px;
+  height: auto;
+}
+.sidebar .brand span {
+  font-family: "Pixelify Sans", monospace;
+  font-size: 28px;
+}
+
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sidebar nav a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 15px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+.sidebar nav a:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+.sidebar nav a.active {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+}
+.sidebar nav a.external {
+  margin-top: 18px;
+  color: var(--link);
+}
+
+.content {
+  margin-left: 280px;
+  padding: 44px 0 64px;
+}
+.page {
+  width: min(900px, 92%);
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+/* ---- topbar (mobile only) ---- */
+.topbar {
+  display: none;
+}
+.nav-backdrop {
+  display: none;
+}
+
+/* ---- typography ---- */
+.doc-section {
+  margin-bottom: 30px;
+}
+.doc-section > h1,
+.page-title {
+  font-family: "Pixelify Sans", monospace;
+  font-size: 34px;
+  letter-spacing: 0.4px;
+  margin: 0 0 18px;
+}
+h2 {
+  font-size: 24px;
+  margin: 28px 0 12px;
+}
+h3.cli-subtitle {
+  margin: 25px 0 8px;
+  font-size: 20px;
+}
+ul {
+  padding-left: 20px;
+}
+li {
+  margin: 10px 0;
+}
+.muted {
+  color: var(--muted);
+}
+video {
+  border-radius: 10px;
+}
+
+/* ---- hero (home) ---- */
+.hero {
+  text-align: center;
+}
+.content.home .hero {
+  min-height: calc(100vh - 88px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.hero__brand {
+  display: flex;
+  gap: 1.4em;
+  margin-bottom: 1.2em;
+  align-items: center;
+  justify-content: center;
+}
+.hero__brand img {
+  width: 60px;
+  height: auto;
+}
+.hero__brand h1 {
+  font-family: "Pixelify Sans", monospace;
+  font-size: 55px;
+  line-height: 1;
+  letter-spacing: 1px;
+  margin: 0;
+}
+.hero .subtitle {
+  color: var(--muted);
+  font-size: 1.2rem;
+  margin: 0 auto 0.5rem;
+  max-width: 680px;
+}
+.hero .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+  justify-content: center;
+}
+.hero .try-line {
+  margin-top: 16px;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+/* ---- code: distinct surface + copy affordances ---- */
+.code-block {
+  position: relative;
+  margin: 14px 0;
+  border: 1px solid var(--code-border);
+  border-radius: 8px;
+  background: var(--code-bg);
+  overflow: hidden;
+}
+.code-block__bar {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+}
+.code-block pre {
+  margin: 0;
+  padding: 14px 16px;
+  padding-right: 44px;
+  overflow-x: auto;
+  color: #ececec;
+  font-size: 14px;
+  line-height: 1.55;
+  font-family: "JetBrains Mono", monospace;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.code-block pre::-webkit-scrollbar {
+  height: 8px;
+}
+.code-block pre::-webkit-scrollbar-thumb {
+  background: var(--line);
+}
+.code-block code {
+  font: inherit;
+  color: inherit;
+  background: none;
+  padding: 0;
+  border: 0;
+}
+
+/* inline code: a clickable chip that copies itself */
+.inline-code {
+  position: relative;
+  color: #fff;
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 0.9em;
+  font-family: "JetBrains Mono", monospace;
+  cursor: pointer;
+  transition: border-color 0.12s ease;
+}
+.inline-code:hover,
+.inline-code:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+.inline-code.is-copied {
+  border-color: var(--accent);
+}
+.inline-code__hint {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: #000;
+  font-family: system-ui, sans-serif;
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ---- tables ---- */
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+table th {
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  padding: 6px;
+}
+table td {
+  padding: 10px 6px;
+  vertical-align: top;
+}
+.cli-table th:first-child,
+.cli-table td:first-child {
+  width: 260px;
+}
+
+/* ---- callouts ---- */
+.callout-warn {
+  background: rgba(255, 165, 0, 0.08);
+  border: 1px solid rgba(255, 165, 0, 0.3);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+.callout-warn p {
+  margin: 0;
+}
+.callout-warn .callout-warn__title {
+  font-weight: 700;
+  color: #d4a017;
+  margin-bottom: 8px;
+}
+
+/* ---- footer ---- */
+.site-footer {
+  margin-top: 32px;
+  color: var(--muted);
+  font-size: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.site-footer p {
+  margin: 6px 0;
+}
+
+/* ---- buttons (hero CTAs) ---- */
+.btn {
+  display: inline-block;
+  border: 1px solid var(--text);
+  color: var(--bg);
+  background: var(--accent);
+  padding: 8px 13px;
+  text-decoration: none;
+  font-size: 16px;
+  border-radius: 6px;
+}
+.btn.alt {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--line);
+}
+
+/* ---- responsive: sidebar becomes a drawer ---- */
+@media (max-width: 860px) {
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+  }
+  .shell.nav-open .sidebar {
+    transform: translateX(0);
+  }
+  .shell.nav-open .nav-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 4;
+  }
+  .content {
+    margin-left: 0;
+    padding-top: 66px;
+  }
+  .content.home .hero {
+    min-height: calc(100vh - 110px);
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 52px;
+    padding: 0 14px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    z-index: 6;
+  }
+  .topbar .nav-toggle {
+    cursor: pointer;
+    font-size: 22px;
+    line-height: 1;
+    background: none;
+    border: none;
+    color: var(--text);
+    padding: 0;
+  }
+  .topbar .topbar-brand {
+    color: var(--text);
+    text-decoration: none;
+    font-family: "Pixelify Sans", monospace;
+    font-size: 20px;
+  }
+  .hero__brand h1 {
+    font-size: 44px;
+  }
+  .cli-table th:first-child,
+  .cli-table td:first-child {
+    width: auto;
+  }
+}

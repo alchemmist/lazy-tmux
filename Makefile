@@ -7,7 +7,7 @@ MAKEFLAGS += --no-builtin-variables
 
 BINARY := lazy-tmux
 
-.PHONY: check build build-fzf build-all test test-cov integration-test fmt install clean dist dist-tui dist-fzf tag sandbox test-sup-versions docker-hub vet setup-env golangci-lint
+.PHONY: check build build-fzf build-all test test-cov integration-test fmt install clean dist dist-tui dist-fzf tag sandbox test-sup-versions docker-hub vet setup-env golangci-lint docs-install docs-dev docs-build docs-preview
 
 check: build vet golangci-lint test integration-test
 
@@ -106,6 +106,21 @@ sandbox:
 test-sup-versions:
 	chmod +x scripts/test-tmux-versions.sh
 	./scripts/test-tmux-versions.sh
+
+# ---- docs site (Vite + React + Gravity UI, in docs/) ----
+# The site is statically pre-rendered with vite-react-ssg; CI (pages.yml) runs
+# the same npm steps. install.sh, CNAME and assets/ live in docs/public.
+docs-install:
+	npm --prefix docs ci
+
+docs-dev:
+	npm --prefix docs run dev
+
+docs-build:
+	npm --prefix docs run build
+
+docs-preview: docs-build
+	npm --prefix docs run preview
 
 clean:
 	rm -rf bin dist coverage.out cover.html cover.out .cache
