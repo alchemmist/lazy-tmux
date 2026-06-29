@@ -81,6 +81,27 @@ func (t pickerTheme) statusStyle(status WindowStatus) lipgloss.Style {
 	}
 }
 
+// statusStyleOn returns the status color, optionally over the selected-row
+// background so the dot keeps its meaning even under the cursor.
+func (t pickerTheme) statusStyleOn(status WindowStatus, selected bool) lipgloss.Style {
+	style := t.statusStyle(status)
+	if selected {
+		style = style.Background(lipgloss.Color(colSelBg))
+	}
+
+	return style
+}
+
+// markStyle returns the multi-select mark color, optionally over the
+// selected-row background.
+func (t pickerTheme) markStyle(selected bool) lipgloss.Style {
+	if selected {
+		return t.mark.Background(lipgloss.Color(colSelBg))
+	}
+
+	return t.mark
+}
+
 // accentForMode maps an action mode to its frame accent: amber while browsing,
 // the command's color once a mode is active.
 func accentForMode(mode actionMode) string {

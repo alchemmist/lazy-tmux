@@ -756,32 +756,46 @@ func (m *pickerModel) renderViewport() {
 	lines := make([]string, 0, len(m.visible))
 
 	for rowIndex, row := range m.visible {
-		marker := m.markerFor(row)
-
 		if rowIndex == m.cursor && m.rowSelectable(row) {
-			body := marker + layout.row(row)
+			body := m.selectedMarker(row) + layout.selectedRow(row, m.theme)
 
 			if pad := barWidth - displayWidth(body); pad > 0 {
-				body += strings.Repeat(" ", pad)
+				body += m.theme.selBar.Render(strings.Repeat(" ", pad))
 			}
 
-			lines = append(lines, m.theme.stripe.Render("▌")+m.theme.selBar.Render(" "+body))
+			lines = append(lines, m.theme.stripe.Render("▌")+m.theme.selBar.Render(" ")+body)
 
 			continue
 		}
 
-		lines = append(lines, "  "+marker+layout.styledRow(row, m.theme))
+		lines = append(lines, "  "+m.markerFor(row)+layout.styledRow(row, m.theme))
 	}
 
 	m.viewport.SetContent(strings.Join(lines, "\n"))
 }
 
-// markerFor returns the leading multi-select indicator for a row: empty outside
-// delete mode, otherwise a filled/partial/empty circle (plus a trailing space)
-// reflecting how much of the row is marked. The width is constant (markerWidth)
-// so columns stay aligned across rows.
-func (m pickerModel) markerFor(row pickerRow) string {
+// markGlyph returns the multi-select indicator glyph for a row, and whether one
+// applies (only window/session rows in delete mode have one).
+func (m pickerModel) markGlyph(row pickerRow) (string, bool) {
 	if m.action != actionDelete || row.synthetic {
+		return "", false
+	}
+
+	switch m.markState(row) {
+	case markFull:
+		return "●", true
+	case markPartial:
+		return "◐", true
+	default:
+		return "○", true
+	}
+}
+
+// markerFor returns the leading multi-select indicator for a non-selected row.
+// The width is constant (markerWidth) so columns stay aligned across rows.
+func (m pickerModel) markerFor(row pickerRow) string {
+	glyph, ok := m.markGlyph(row)
+	if !ok {
 		if m.markerWidth() > 0 {
 			return strings.Repeat(" ", m.markerWidth())
 		}
@@ -789,16 +803,22 @@ func (m pickerModel) markerFor(row pickerRow) string {
 		return ""
 	}
 
-	glyph := "○"
+	return m.theme.mark.Render(glyph) + " "
+}
 
-	switch m.markState(row) {
-	case markFull:
-		glyph = "●"
-	case markPartial:
-		glyph = "◐"
+// selectedMarker is markerFor for the cursor row: the mark glyph keeps its color
+// on the selection background, and the gap is filled with the selection bar.
+func (m pickerModel) selectedMarker(row pickerRow) string {
+	glyph, ok := m.markGlyph(row)
+	if !ok {
+		if m.markerWidth() > 0 {
+			return m.theme.selBar.Render(strings.Repeat(" ", m.markerWidth()))
+		}
+
+		return ""
 	}
 
-	return m.theme.mark.Render(glyph) + " "
+	return m.theme.markStyle(true).Render(glyph) + m.theme.selBar.Render(" ")
 }
 
 // markerWidth is the fixed width reserved for the delete-mode mark column.

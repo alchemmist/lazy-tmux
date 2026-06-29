@@ -271,6 +271,44 @@ func (l pickerTableLayout) styledRow(row pickerRow, theme pickerTheme) string {
 	})
 }
 
+// selectedRow renders the cursor row: every cell sits on the selection
+// background, but the State status dot keeps its own color (instead of being
+// flattened to the selection foreground) so its meaning stays readable under
+// the cursor.
+func (l pickerTableLayout) selectedRow(row pickerRow, theme pickerTheme) string {
+	sel := theme.selBar
+
+	var out strings.Builder
+
+	for idx, col := range l.columns {
+		val := col.spec.Value(row)
+		if col.spec.TrimPrefix != "" {
+			val = strings.TrimPrefix(val, col.spec.TrimPrefix)
+		}
+
+		val = truncateString(val, col.width)
+
+		style := sel
+		if col.spec.ID == "state" && row.status != StatusNone {
+			style = theme.statusStyleOn(row.status, true)
+		}
+
+		out.WriteString(style.Render(val))
+
+		if idx == len(l.columns)-1 {
+			continue
+		}
+
+		if pad := col.width - displayWidth(val); pad > 0 {
+			out.WriteString(sel.Render(strings.Repeat(" ", pad)))
+		}
+
+		out.WriteString(sel.Render(strings.Repeat(" ", pickerColumnGap)))
+	}
+
+	return out.String()
+}
+
 func (l pickerTableLayout) renderWith(
 	cell func(spec pickerColumnSpec) (string, lipgloss.Style),
 ) string {
