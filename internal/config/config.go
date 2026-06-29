@@ -19,6 +19,7 @@ type Config struct {
 	SaveInterval   time.Duration
 	RestoreTimeout time.Duration
 	Scrollback     ScrollbackConfig
+	Integrations   IntegrationsConfig
 
 	// RestoreAllowlist limits which commands are replayed on restore, matched by
 	// executable name. A nil slice means no allowlist is configured and every
@@ -33,6 +34,22 @@ type ScrollbackConfig struct {
 	Lines   int
 }
 
+// IntegrationsConfig controls the program-integration framework: a master switch
+// plus per-integration settings.
+type IntegrationsConfig struct {
+	Enabled bool
+	Claude  ClaudeIntegrationConfig
+}
+
+// ClaudeIntegrationConfig configures the Claude Code integration (restore a
+// `claude` pane as `claude --resume <session-id>`).
+type ClaudeIntegrationConfig struct {
+	Enabled bool
+	// Home is the Claude Code data directory; transcripts live under
+	// <Home>/projects/<cwd>/<session-id>.jsonl.
+	Home string
+}
+
 func Default() Config {
 	return Config{
 		TmuxBin:        "tmux",
@@ -42,6 +59,13 @@ func Default() Config {
 		Scrollback: ScrollbackConfig{
 			Enabled: false,
 			Lines:   5000,
+		},
+		Integrations: IntegrationsConfig{
+			Enabled: true,
+			Claude: ClaudeIntegrationConfig{
+				Enabled: true,
+				Home:    "~/.claude",
+			},
 		},
 	}
 }
@@ -113,17 +137,28 @@ func LoadFrom(path string) (Config, error) {
 // leaves the corresponding default untouched, rather than overwriting it with a
 // zero value.
 type fileConfig struct {
-	TmuxBin          *string             `toml:"tmux_bin"`
-	DataDir          *string             `toml:"data_dir"`
-	SaveInterval     *duration           `toml:"save_interval"`
-	RestoreTimeout   *duration           `toml:"restore_timeout"`
-	RestoreAllowlist *[]string           `toml:"restore_allowlist"`
-	Scrollback       *fileScrollbackConf `toml:"scrollback"`
+	TmuxBin          *string               `toml:"tmux_bin"`
+	DataDir          *string               `toml:"data_dir"`
+	SaveInterval     *duration             `toml:"save_interval"`
+	RestoreTimeout   *duration             `toml:"restore_timeout"`
+	RestoreAllowlist *[]string             `toml:"restore_allowlist"`
+	Scrollback       *fileScrollbackConf   `toml:"scrollback"`
+	Integrations     *fileIntegrationsConf `toml:"integrations"`
 }
 
 type fileScrollbackConf struct {
 	Enabled *bool `toml:"enabled"`
 	Lines   *int  `toml:"lines"`
+}
+
+type fileIntegrationsConf struct {
+	Enabled *bool                  `toml:"enabled"`
+	Claude  *fileClaudeIntegration `toml:"claude"`
+}
+
+type fileClaudeIntegration struct {
+	Enabled *bool   `toml:"enabled"`
+	Home    *string `toml:"home"`
 }
 
 // withFile returns a copy of cfg with every value set in file applied on top.
@@ -167,7 +202,29 @@ func (cfg Config) withFile(file fileConfig) Config {
 		}
 	}
 
+	if file.Integrations != nil {
+		cfg.Integrations = cfg.Integrations.withFile(*file.Integrations)
+	}
+
 	return cfg
+}
+
+func (ic IntegrationsConfig) withFile(file fileIntegrationsConf) IntegrationsConfig {
+	if file.Enabled != nil {
+		ic.Enabled = *file.Enabled
+	}
+
+	if file.Claude != nil {
+		if file.Claude.Enabled != nil {
+			ic.Claude.Enabled = *file.Claude.Enabled
+		}
+
+		if file.Claude.Home != nil {
+			ic.Claude.Home = ExpandHome(*file.Claude.Home)
+		}
+	}
+
+	return ic
 }
 
 // duration lets the TOML decoder accept Go duration strings like "5m" or "10s".

@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/config"
+	"github.com/alchemmist/lazy-tmux/internal/integration"
+	"github.com/alchemmist/lazy-tmux/internal/integration/claude"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 	"github.com/alchemmist/lazy-tmux/internal/store"
 	"github.com/alchemmist/lazy-tmux/internal/tmux"
@@ -48,10 +50,11 @@ type tmuxClient interface {
 }
 
 type App struct {
-	cfg       config.Config
-	store     *store.Store
-	tmux      tmuxClient
-	saveAllFn func() error
+	cfg          config.Config
+	store        *store.Store
+	tmux         tmuxClient
+	integrations *integration.Registry
+	saveAllFn    func() error
 }
 
 func New(cfg config.Config) *App {
@@ -61,11 +64,31 @@ func New(cfg config.Config) *App {
 	client.SetRestoreTimeout(cfg.RestoreTimeout)
 	client.SetRestoreAllowlist(cfg.RestoreAllowlist)
 
+	registry := buildRegistry(cfg.Integrations)
+	client.SetRestoreResolver(registry)
+
 	return &App{
-		cfg:   cfg,
-		store: store.New(cfg.DataDir),
-		tmux:  client,
+		cfg:          cfg,
+		store:        store.New(cfg.DataDir),
+		tmux:         client,
+		integrations: registry,
 	}
+}
+
+// buildRegistry assembles the enabled program integrations from config. With the
+// master switch off it returns an empty (inert) registry.
+func buildRegistry(cfg config.IntegrationsConfig) *integration.Registry {
+	if !cfg.Enabled {
+		return integration.NewRegistry()
+	}
+
+	var items []integration.Integration
+
+	if cfg.Claude.Enabled {
+		items = append(items, claude.New(config.ExpandHome(cfg.Claude.Home)))
+	}
+
+	return integration.NewRegistry(items...)
 }
 
 // SaveAll snapshots every running tmux session and returns how many were saved
@@ -95,6 +118,10 @@ func (a *App) SaveSession(session string) error {
 	if a.cfg.Scrollback.Enabled {
 		a.captureShellScrollback(&snap)
 	}
+
+	// Enrich panes with program-integration metadata (e.g. the Claude session
+	// id) so restore can replay a smarter command. Inert when disabled.
+	a.integrations.Enrich(&snap)
 
 	err = a.store.SaveSession(snap)
 	if err != nil {

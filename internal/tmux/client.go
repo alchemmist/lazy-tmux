@@ -91,6 +91,16 @@ type Client struct {
 	// nothing).
 	allowlist    map[string]struct{}
 	allowlistSet bool
+
+	// resolver lets a program-integration registry override the restore command
+	// for a pane (e.g. `claude --resume <id>`). nil keeps the default behavior.
+	resolver RestoreCommandResolver
+}
+
+// RestoreCommandResolver lets an external registry rewrite the command replayed
+// for a pane on restore. Returning "" defers to the default restore command.
+type RestoreCommandResolver interface {
+	Resolve(pane snapshot.Pane) string
 }
 
 func NewClient(bin string) *Client {
@@ -145,6 +155,12 @@ func (client *Client) SetRestoreAllowlist(list []string) {
 			client.allowlist[name] = struct{}{}
 		}
 	}
+}
+
+// SetRestoreResolver installs a program-integration resolver that may override
+// the command replayed for a pane on restore. Passing nil restores the default.
+func (client *Client) SetRestoreResolver(resolver RestoreCommandResolver) {
+	client.resolver = resolver
 }
 
 func sessionTarget(name string) string {
@@ -662,6 +678,20 @@ func firstPanePath(w snapshot.Window) string {
 	return filepath.Clean(path)
 }
 
+// effectiveRestoreCommand is the command actually replayed for a pane: a
+// program integration's override when one applies, otherwise the default
+// normalized command. Both the replay and the settle-wait predictor go through
+// this so they always agree on what a pane will run.
+func (client *Client) effectiveRestoreCommand(pane snapshot.Pane) string {
+	if client.resolver != nil {
+		if override := strings.TrimSpace(client.resolver.Resolve(pane)); override != "" {
+			return override
+		}
+	}
+
+	return normalizedCommand(pane.RestoreCmd, pane.CurrentCmd)
+}
+
 func normalizedCommand(restore, current string) string {
 	restore = sanitizeCommand(restore)
 	if restore != "" && !isShellCommand(restore) {
@@ -727,7 +757,7 @@ func (client *Client) restoreWindowCommands(
 	sort.Slice(panes, func(i, j int) bool { return panes[i].Index < panes[j].Index })
 
 	for _, pane := range panes {
-		cmd := normalizedCommand(pane.RestoreCmd, pane.CurrentCmd)
+		cmd := client.effectiveRestoreCommand(pane)
 		if strings.TrimSpace(cmd) == "" {
 			continue
 		}
@@ -771,7 +801,7 @@ func (client *Client) expectedPaneCommands(windows []snapshot.Window) map[string
 
 	for _, window := range windows {
 		for _, pane := range window.Panes {
-			exe := executableName(normalizedCommand(pane.RestoreCmd, pane.CurrentCmd))
+			exe := executableName(client.effectiveRestoreCommand(pane))
 			if exe == "" || !client.commandAllowed(exe) {
 				continue
 			}

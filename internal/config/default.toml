@@ -34,3 +34,21 @@ restore_timeout = "5s"
 enabled = false
 # Maximum scrollback lines captured per pane.
 lines = 5000
+
+# Program integrations adapt interactive programs to lazy-tmux's save/restore.
+# When a pane runs a supported program, lazy-tmux records program-specific state
+# on save and replays a smarter command on restore. Integrations compose with
+# restore_allowlist: if an allowlist is set, the program must be in it (e.g.
+# "claude") for its command to be replayed.
+[integrations]
+# Master switch for all program integrations.
+enabled = true
+
+# Claude Code: restore a `claude` pane as `claude --resume <session-id>` so the
+# conversation continues instead of starting fresh.
+[integrations.claude]
+enabled = true
+# Claude Code data directory. Transcripts are read from
+# <home>/projects/<cwd>/<session-id>.jsonl to resolve the pane's session. A
+# leading ~ is expanded.
+home = "~/.claude"

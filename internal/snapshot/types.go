@@ -29,6 +29,12 @@ type Pane struct {
 	RestoreCmd  string         `json:"restore_cmd,omitempty"`
 	Scrollback  *ScrollbackRef `json:"scrollback,omitempty"`
 	IsActive    bool           `json:"is_active"`
+
+	// Meta carries program-integration metadata captured at save time, keyed by
+	// "<integration>.<key>" (e.g. "claude.session_id"). It is opaque to the core
+	// save/restore path; integrations read it back to build a resume command.
+	// Omitted when empty, so older snapshots and JSON stay unaffected.
+	Meta map[string]string `json:"meta,omitempty"`
 }
 
 type ScrollbackRef struct {
