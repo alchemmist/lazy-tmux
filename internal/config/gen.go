@@ -82,5 +82,11 @@ func (c Config) Render() string {
 	fmt.Fprintf(&buf, "enabled = %t\n", c.Scrollback.Enabled)
 	fmt.Fprintf(&buf, "lines   = %d\n", c.Scrollback.Lines)
 
+	buf.WriteString("\n[integrations]\n")
+	fmt.Fprintf(&buf, "enabled = %t\n", c.Integrations.Enabled)
+	buf.WriteString("\n[integrations.claude]\n")
+	fmt.Fprintf(&buf, "enabled = %t\n", c.Integrations.Claude.Enabled)
+	fmt.Fprintf(&buf, "home    = %s\n", strconv.Quote(c.Integrations.Claude.Home))
+
 	return buf.String()
 }
