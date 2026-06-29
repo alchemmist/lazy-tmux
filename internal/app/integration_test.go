@@ -18,7 +18,7 @@ func TestBuildRegistryEnabledResolvesClaude(t *testing.T) {
 	reg := buildRegistry(config.IntegrationsConfig{
 		Enabled: true,
 		Claude:  config.ClaudeIntegrationConfig{Enabled: true, Home: "~/.claude"},
-	})
+	}, "")
 
 	if got := reg.Resolve(claudePane()); got != "claude --resume sess-9" {
 		t.Fatalf("enabled claude should resolve resume command, got %q", got)
@@ -29,7 +29,7 @@ func TestBuildRegistryMasterSwitchOff(t *testing.T) {
 	reg := buildRegistry(config.IntegrationsConfig{
 		Enabled: false,
 		Claude:  config.ClaudeIntegrationConfig{Enabled: true, Home: "~/.claude"},
-	})
+	}, "")
 
 	if got := reg.Resolve(claudePane()); got != "" {
 		t.Fatalf("master switch off should disable all integrations, got %q", got)
@@ -40,7 +40,7 @@ func TestBuildRegistryClaudeDisabled(t *testing.T) {
 	reg := buildRegistry(config.IntegrationsConfig{
 		Enabled: true,
 		Claude:  config.ClaudeIntegrationConfig{Enabled: false},
-	})
+	}, "")
 
 	if got := reg.Resolve(claudePane()); got != "" {
 		t.Fatalf("disabled claude should not resolve, got %q", got)

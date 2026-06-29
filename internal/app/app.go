@@ -64,7 +64,7 @@ func New(cfg config.Config) *App {
 	client.SetRestoreTimeout(cfg.RestoreTimeout)
 	client.SetRestoreAllowlist(cfg.RestoreAllowlist)
 
-	registry := buildRegistry(cfg.Integrations)
+	registry := buildRegistry(cfg.Integrations, ClaudeStatusDir(cfg.DataDir))
 	client.SetRestoreResolver(registry)
 
 	return &App{
@@ -75,9 +75,16 @@ func New(cfg config.Config) *App {
 	}
 }
 
+// ClaudeStatusDir is where the `lazy-tmux hook claude-status` command writes
+// per-project Claude status files, derived from the data dir.
+func ClaudeStatusDir(dataDir string) string {
+	return filepath.Join(dataDir, "claude-status")
+}
+
 // buildRegistry assembles the enabled program integrations from config. With the
-// master switch off it returns an empty (inert) registry.
-func buildRegistry(cfg config.IntegrationsConfig) *integration.Registry {
+// master switch off it returns an empty (inert) registry. statusDir is where the
+// Claude integration reads hook-written live-status files.
+func buildRegistry(cfg config.IntegrationsConfig, statusDir string) *integration.Registry {
 	if !cfg.Enabled {
 		return integration.NewRegistry()
 	}
@@ -85,7 +92,7 @@ func buildRegistry(cfg config.IntegrationsConfig) *integration.Registry {
 	var items []integration.Integration
 
 	if cfg.Claude.Enabled {
-		items = append(items, claude.New(config.ExpandHome(cfg.Claude.Home)))
+		items = append(items, claude.New(config.ExpandHome(cfg.Claude.Home), statusDir))
 	}
 
 	return integration.NewRegistry(items...)

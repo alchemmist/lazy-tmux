@@ -48,6 +48,37 @@ type pickerTheme struct {
 	statusErr  lipgloss.Style
 	helpKey    lipgloss.Style
 	helpText   lipgloss.Style
+
+	// Per-status dot styles, fixed regardless of the active mode accent so a
+	// "working" dot is always green, "needs you" always amber, etc.
+	statusWorking          lipgloss.Style
+	statusAwaitingDecision lipgloss.Style
+	statusAwaitingInput    lipgloss.Style
+	statusIdle             lipgloss.Style
+	statusError            lipgloss.Style
+}
+
+// statusDot is the glyph shown in the State column for a window with a live
+// program status.
+const statusDot = "●"
+
+// statusStyle returns the fixed color for a window status (StatusNone yields a
+// plain style — it is never rendered as a dot).
+func (t pickerTheme) statusStyle(status WindowStatus) lipgloss.Style {
+	switch status {
+	case StatusWorking:
+		return t.statusWorking
+	case StatusAwaitingDecision:
+		return t.statusAwaitingDecision
+	case StatusAwaitingInput:
+		return t.statusAwaitingInput
+	case StatusIdle:
+		return t.statusIdle
+	case StatusError:
+		return t.statusError
+	default:
+		return lipgloss.NewStyle()
+	}
 }
 
 // accentForMode maps an action mode to its frame accent: amber while browsing,
@@ -88,6 +119,12 @@ func newPickerTheme(accent string) pickerTheme {
 		statusErr: lipgloss.NewStyle().Foreground(lipgloss.Color(colError)),
 		helpKey:   lipgloss.NewStyle().Foreground(lipgloss.Color(accent)),
 		helpText:  lipgloss.NewStyle().Foreground(lipgloss.Color(colFaint)),
+
+		statusWorking:          lipgloss.NewStyle().Foreground(lipgloss.Color(colNew)),
+		statusAwaitingDecision: lipgloss.NewStyle().Foreground(lipgloss.Color(colAccent)),
+		statusAwaitingInput:    lipgloss.NewStyle().Foreground(lipgloss.Color(colRename)),
+		statusIdle:             lipgloss.NewStyle().Foreground(lipgloss.Color(colFaint)),
+		statusError:            lipgloss.NewStyle().Foreground(lipgloss.Color(colError)),
 	}
 }
 

@@ -261,6 +261,12 @@ func (l pickerTableLayout) styledRow(row pickerRow, theme pickerTheme) string {
 			return spec.Value(row), theme.session
 		}
 
+		// The State cell carries the live status dot for window rows; color it
+		// by status rather than dimming it like other meta columns.
+		if spec.ID == "state" && row.status != StatusNone {
+			return spec.Value(row), theme.statusStyle(row.status)
+		}
+
 		return spec.Value(row), theme.meta
 	})
 }

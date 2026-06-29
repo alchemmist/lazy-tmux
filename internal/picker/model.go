@@ -5,11 +5,19 @@ package picker
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/textinput"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 )
+
+// statusRefreshInterval is how often the picker re-reads live window statuses
+// (e.g. Claude working/idle) so the dots update while it stays open.
+const statusRefreshInterval = 2 * time.Second
+
+// statusTickMsg drives the periodic live-status refresh.
+type statusTickMsg struct{}
 
 type pickerRow struct {
 	target     Target
@@ -19,8 +27,9 @@ type pickerRow struct {
 	state      string
 	cmd        string
 	windowName string
-	selectable bool // inherent browse-mode selectability (window rows)
-	synthetic  bool // the "＋ new session" row injected in new mode
+	status     WindowStatus // live program status (window rows); drives the State dot
+	selectable bool         // inherent browse-mode selectability (window rows)
+	synthetic  bool         // the "＋ new session" row injected in new mode
 }
 
 type pickerModel struct {
@@ -93,7 +102,11 @@ func newPickerModel(sessions []Session, windowSort []WindowSortKey, actions Acti
 }
 
 func (m pickerModel) Init() tea.Cmd {
-	return textinput.Blink
+	return tea.Batch(textinput.Blink, scheduleStatusRefresh())
+}
+
+func scheduleStatusRefresh() tea.Cmd {
+	return tea.Tick(statusRefreshInterval, func(time.Time) tea.Msg { return statusTickMsg{} })
 }
 
 func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -105,6 +118,15 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.renderViewport()
 
 		return m, nil
+	case statusTickMsg:
+		// Refresh live window statuses while browsing; never disturb an active
+		// prompt or palette. Always re-arm the ticker.
+		if m.mode == modeBrowse && !m.palette {
+			m.reload()
+			m.renderViewport()
+		}
+
+		return m, scheduleStatusRefresh()
 	case tea.MouseWheelMsg:
 		if m.mode != modeBrowse || m.palette {
 			return m, nil

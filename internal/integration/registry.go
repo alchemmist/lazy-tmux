@@ -49,6 +49,30 @@ func (r *Registry) Resolve(pane snapshot.Pane) string {
 	return integ.RestoreCommand(pane, subMeta(pane.Meta, integ.Name()))
 }
 
+// Status reports the live status of a pane from the first matching integration
+// that implements StatusReporter. ok=false means no status is available (the
+// picker shows no dot).
+func (r *Registry) Status(pane snapshot.Pane) (Status, bool) {
+	if r == nil {
+		return StatusUnknown, false
+	}
+
+	for _, integ := range r.items {
+		if !integ.Matches(pane) {
+			continue
+		}
+
+		reporter, ok := integ.(StatusReporter)
+		if !ok {
+			continue
+		}
+
+		return reporter.Status(pane)
+	}
+
+	return StatusUnknown, false
+}
+
 func (r *Registry) enrichPane(pane *snapshot.Pane) {
 	integ := r.match(*pane)
 	if integ == nil {

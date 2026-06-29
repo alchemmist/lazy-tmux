@@ -47,13 +47,22 @@ func filteredTreeRows(sessions []Session, query string, windowSort []WindowSortK
 				branch = "╰─"
 			}
 
-			wi := win.Index
+			windowIdx := win.Index
+
+			status := sess.Statuses[win.Index]
+			state := ""
+
+			if status != StatusNone {
+				state = statusDot
+			}
+
 			rows = append(rows, pickerRow{
-				target:     Target{SessionName: sess.Record.SessionName, WindowIndex: &wi},
+				target:     Target{SessionName: sess.Record.SessionName, WindowIndex: &windowIdx},
 				item:       fmt.Sprintf("  %s [%d] %s", branch, win.Index, win.Name),
 				captured:   "",
 				wins:       "",
-				state:      "",
+				state:      state,
+				status:     status,
 				cmd:        windowPreviewCommand(win),
 				windowName: win.Name,
 				selectable: true,

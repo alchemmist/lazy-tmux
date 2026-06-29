@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/alchemmist/lazy-tmux/internal/integration"
 	"github.com/alchemmist/lazy-tmux/internal/picker"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
@@ -52,14 +53,62 @@ func (a *App) pickerSessions(opts PickerSortOptions) ([]picker.Session, error) {
 		}
 
 		_, restored := live[rec.SessionName]
-		sessions = append(sessions, picker.Session{
+
+		session := picker.Session{
 			Record:   rec,
 			Windows:  snap.Windows,
 			Restored: restored,
-		})
+		}
+
+		// Live program status (e.g. Claude working / awaiting input) only makes
+		// sense for sessions currently running in tmux.
+		if restored {
+			session.Statuses = a.windowStatuses(snap.Windows)
+		}
+
+		sessions = append(sessions, session)
 	}
 
 	return sessions, nil
+}
+
+// windowStatuses resolves the live integration status of each window (keyed by
+// window index) from its panes. Reads are cheap and best-effort; windows with no
+// reported status are omitted.
+func (a *App) windowStatuses(windows []snapshot.Window) map[int]picker.WindowStatus {
+	statuses := make(map[int]picker.WindowStatus)
+
+	for _, window := range windows {
+		for paneIdx := range window.Panes {
+			status, ok := a.integrations.Status(window.Panes[paneIdx])
+			if !ok {
+				continue
+			}
+
+			statuses[window.Index] = toPickerStatus(status)
+
+			break
+		}
+	}
+
+	return statuses
+}
+
+func toPickerStatus(status integration.Status) picker.WindowStatus {
+	switch status {
+	case integration.StatusWorking:
+		return picker.StatusWorking
+	case integration.StatusAwaitingDecision:
+		return picker.StatusAwaitingDecision
+	case integration.StatusAwaitingInput:
+		return picker.StatusAwaitingInput
+	case integration.StatusIdle:
+		return picker.StatusIdle
+	case integration.StatusError:
+		return picker.StatusError
+	default:
+		return picker.StatusNone
+	}
 }
 
 func (a *App) SelectTargetWithTUI() (PickerTarget, error) {
