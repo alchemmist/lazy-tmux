@@ -17,15 +17,19 @@ const (
 	transcriptExt = ".jsonl"
 )
 
-// Integration resolves and replays Claude Code sessions. home is the Claude data
-// directory (default ~/.claude); transcripts live under <home>/projects/<cwd>/.
+// Integration resolves and replays Claude Code sessions, and reports their live
+// status. home is the Claude data directory (default ~/.claude); transcripts
+// live under <home>/projects/<cwd>/. statusDir is lazy-tmux's directory of
+// hook-written status files (see status.go).
 type Integration struct {
-	home string
+	home      string
+	statusDir string
 }
 
-// New builds the integration rooted at the given Claude data directory.
-func New(home string) *Integration {
-	return &Integration{home: home}
+// New builds the integration rooted at the given Claude data directory, writing
+// and reading live-status files under statusDir.
+func New(home, statusDir string) *Integration {
+	return &Integration{home: home, statusDir: statusDir}
 }
 
 func (i *Integration) Name() string { return "claude" }
@@ -81,7 +85,7 @@ func (i *Integration) latestSessionID(cwd string) (string, bool) {
 		return "", false
 	}
 
-	dir := filepath.Join(i.home, "projects", encodeProjectDir(cwd))
+	dir := filepath.Join(i.home, "projects", EncodeProjectDir(cwd))
 
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -114,10 +118,10 @@ func (i *Integration) latestSessionID(cwd string) (string, bool) {
 	return newestID, found
 }
 
-// encodeProjectDir mirrors Claude Code's per-project directory naming: the
+// EncodeProjectDir mirrors Claude Code's per-project directory naming: the
 // absolute cwd with path separators and dots replaced by "-", e.g.
 // "/Users/me/code/lazy-tmux" -> "-Users-me-code-lazy-tmux".
-func encodeProjectDir(cwd string) string {
+func EncodeProjectDir(cwd string) string {
 	replacer := strings.NewReplacer("/", "-", ".", "-")
 	return replacer.Replace(cwd)
 }

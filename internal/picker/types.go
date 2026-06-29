@@ -11,7 +11,24 @@ type Session struct {
 	Record   snapshot.Record
 	Windows  []snapshot.Window
 	Restored bool
+
+	// Statuses holds the live program status per window index (e.g. a Claude
+	// window that is working / awaiting a decision / idle). Only populated for
+	// live sessions; windows without a status are absent.
+	Statuses map[int]WindowStatus
 }
+
+// WindowStatus is a live program status surfaced as a colored dot in the picker.
+type WindowStatus int
+
+const (
+	StatusNone WindowStatus = iota
+	StatusWorking
+	StatusAwaitingDecision
+	StatusAwaitingInput
+	StatusIdle
+	StatusError
+)
 
 type Actions struct {
 	DeleteWindow  func(session string, windowIndex int) error

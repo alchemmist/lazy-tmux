@@ -95,6 +95,24 @@ export function TuiPicker() {
           <InlineCode>Esc</InlineCode> returns to the resting browse mode.
         </p>
 
+        <h2>Claude status dots</h2>
+        <p>
+          For live sessions, windows running <InlineCode>claude</InlineCode> show a colored status
+          glyph in the <strong>State</strong> column, so you can tell at a glance which Claude is
+          busy and which one is waiting for you — without switching around. Each state has both a
+          distinct shape and color, so it stays readable in monochrome terminals:{" "}
+          <strong>● green</strong> = working, <strong>? amber</strong> = waiting for your answer to a
+          question or permission, <strong>◌ blue</strong> = waiting for input,{" "}
+          <strong>○ grey</strong> = idle. The glyphs refresh while the picker is open.
+        </p>
+        <p>
+          Working/idle is detected out of the box. For the precise “waiting for your answer” state,
+          install the Claude Code hooks once:{" "}
+          <InlineCode>lazy-tmux claude-hooks</InlineCode> (merges into{" "}
+          <InlineCode>~/.claude/settings.json</InlineCode>, preserving your existing hooks;{" "}
+          <InlineCode>lazy-tmux claude-hooks --uninstall</InlineCode> removes them).
+        </p>
+
         <table className="cli-table">
           <thead>
             <tr>

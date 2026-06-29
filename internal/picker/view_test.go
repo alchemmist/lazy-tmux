@@ -35,4 +35,29 @@ func TestViewFrameWidthInvariant(t *testing.T) {
 
 	pal := feed(t, m, keyRune('/'))
 	check("palette", pal)
+
+	// A session carrying live window statuses must still keep the frame aligned.
+	withStatus := makeSession("live", true, "claude", "shell")
+	withStatus.Statuses = map[int]WindowStatus{1: StatusWorking, 2: StatusAwaitingDecision}
+	check("status", newTestModel(t, rec, withStatus))
+}
+
+func TestViewRendersStatusDot(t *testing.T) {
+	rec := &recordingActions{}
+
+	sess := makeSession("live", true, "claude")
+	sess.Statuses = map[int]WindowStatus{1: StatusWorking}
+
+	m := newTestModel(t, rec, sess)
+
+	if !strings.Contains(m.View().Content, glyphWorking) {
+		t.Fatal("expected a working status glyph in the rendered view")
+	}
+
+	// A window with no status shows none.
+	plain := makeSession("plain", true, "vim")
+
+	if strings.Contains(newTestModel(t, rec, plain).View().Content, glyphWorking) {
+		t.Fatal("window without a status must not render a glyph")
+	}
 }

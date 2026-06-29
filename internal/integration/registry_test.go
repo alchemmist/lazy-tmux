@@ -92,6 +92,42 @@ func TestRegistryResolveNoMatch(t *testing.T) {
 	}
 }
 
+// fakeStatusIntegration matches by CurrentCmd and reports a fixed status.
+type fakeStatusIntegration struct {
+	fakeIntegration
+
+	status Status
+}
+
+func (f fakeStatusIntegration) Status(snapshot.Pane) (Status, bool) {
+	return f.status, true
+}
+
+func TestRegistryStatus(t *testing.T) {
+	reg := NewRegistry(fakeStatusIntegration{
+		fakeIntegration: fakeIntegration{name: "fake", matchCmd: "myprog"},
+		status:          StatusAwaitingDecision,
+	})
+
+	got, ok := reg.Status(snapshot.Pane{CurrentCmd: "myprog"})
+	if !ok || got != StatusAwaitingDecision {
+		t.Fatalf("expected awaiting-decision, got %v ok=%v", got, ok)
+	}
+
+	if _, ok := reg.Status(snapshot.Pane{CurrentCmd: "other"}); ok {
+		t.Fatal("non-matching pane should have no status")
+	}
+}
+
+func TestRegistryStatusNonReporter(t *testing.T) {
+	// An integration that matches but does not implement StatusReporter.
+	reg := NewRegistry(fakeIntegration{name: "fake", matchCmd: "myprog"})
+
+	if _, ok := reg.Status(snapshot.Pane{CurrentCmd: "myprog"}); ok {
+		t.Fatal("integration without StatusReporter should yield no status")
+	}
+}
+
 func TestRegistryNilSafe(t *testing.T) {
 	var reg *Registry
 

@@ -48,6 +48,85 @@ type pickerTheme struct {
 	statusErr  lipgloss.Style
 	helpKey    lipgloss.Style
 	helpText   lipgloss.Style
+
+	// Per-status dot styles, fixed regardless of the active mode accent so a
+	// "working" dot is always green, "needs you" always amber, etc.
+	statusWorking          lipgloss.Style
+	statusAwaitingDecision lipgloss.Style
+	statusAwaitingInput    lipgloss.Style
+	statusIdle             lipgloss.Style
+	statusError            lipgloss.Style
+}
+
+// Per-status glyphs shown in the State column. Each status uses a distinct
+// shape (not just color) so the meaning survives monochrome terminals and
+// color-impaired vision: a solid dot is working, "?" asks for a decision, a
+// dotted ring waits for input, a hollow ring is idle, "✕" is an error.
+const (
+	glyphWorking          = "●"
+	glyphAwaitingDecision = "?"
+	glyphAwaitingInput    = "◌"
+	glyphIdle             = "○"
+	glyphError            = "✕"
+)
+
+// statusGlyph returns the State-column glyph for a window status (empty for
+// StatusNone, which is never rendered).
+func statusGlyph(status WindowStatus) string {
+	switch status {
+	case StatusWorking:
+		return glyphWorking
+	case StatusAwaitingDecision:
+		return glyphAwaitingDecision
+	case StatusAwaitingInput:
+		return glyphAwaitingInput
+	case StatusIdle:
+		return glyphIdle
+	case StatusError:
+		return glyphError
+	default:
+		return ""
+	}
+}
+
+// statusStyle returns the fixed color for a window status (StatusNone yields a
+// plain style — it is never rendered as a dot).
+func (t pickerTheme) statusStyle(status WindowStatus) lipgloss.Style {
+	switch status {
+	case StatusWorking:
+		return t.statusWorking
+	case StatusAwaitingDecision:
+		return t.statusAwaitingDecision
+	case StatusAwaitingInput:
+		return t.statusAwaitingInput
+	case StatusIdle:
+		return t.statusIdle
+	case StatusError:
+		return t.statusError
+	default:
+		return lipgloss.NewStyle()
+	}
+}
+
+// statusStyleOn returns the status color, optionally over the selected-row
+// background so the dot keeps its meaning even under the cursor.
+func (t pickerTheme) statusStyleOn(status WindowStatus, selected bool) lipgloss.Style {
+	style := t.statusStyle(status)
+	if selected {
+		style = style.Background(lipgloss.Color(colSelBg))
+	}
+
+	return style
+}
+
+// markStyle returns the multi-select mark color, optionally over the
+// selected-row background.
+func (t pickerTheme) markStyle(selected bool) lipgloss.Style {
+	if selected {
+		return t.mark.Background(lipgloss.Color(colSelBg))
+	}
+
+	return t.mark
 }
 
 // accentForMode maps an action mode to its frame accent: amber while browsing,
@@ -88,6 +167,12 @@ func newPickerTheme(accent string) pickerTheme {
 		statusErr: lipgloss.NewStyle().Foreground(lipgloss.Color(colError)),
 		helpKey:   lipgloss.NewStyle().Foreground(lipgloss.Color(accent)),
 		helpText:  lipgloss.NewStyle().Foreground(lipgloss.Color(colFaint)),
+
+		statusWorking:          lipgloss.NewStyle().Foreground(lipgloss.Color(colNew)),
+		statusAwaitingDecision: lipgloss.NewStyle().Foreground(lipgloss.Color(colAccent)),
+		statusAwaitingInput:    lipgloss.NewStyle().Foreground(lipgloss.Color(colRename)),
+		statusIdle:             lipgloss.NewStyle().Foreground(lipgloss.Color(colFaint)),
+		statusError:            lipgloss.NewStyle().Foreground(lipgloss.Color(colError)),
 	}
 }
 

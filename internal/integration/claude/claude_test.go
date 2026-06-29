@@ -14,7 +14,7 @@ import (
 func writeTranscript(t *testing.T, home, cwd, id string, mod time.Time) {
 	t.Helper()
 
-	dir := filepath.Join(home, "projects", encodeProjectDir(cwd))
+	dir := filepath.Join(home, "projects", EncodeProjectDir(cwd))
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
@@ -37,7 +37,7 @@ func TestCaptureReturnsNewestSession(t *testing.T) {
 	writeTranscript(t, home, cwd, "old-session", base)
 	writeTranscript(t, home, cwd, "new-session", base.Add(time.Hour))
 
-	integ := New(home)
+	integ := New(home, "")
 
 	meta, err := integ.Capture(snapshot.Pane{CurrentPath: cwd, CurrentCmd: "claude"})
 	if err != nil {
@@ -50,7 +50,7 @@ func TestCaptureReturnsNewestSession(t *testing.T) {
 }
 
 func TestCaptureMissingProjectDir(t *testing.T) {
-	integ := New(t.TempDir())
+	integ := New(t.TempDir(), "")
 
 	meta, err := integ.Capture(snapshot.Pane{CurrentPath: "/no/such/dir", CurrentCmd: "claude"})
 	if err != nil {
@@ -66,7 +66,7 @@ func TestCaptureIgnoresNonTranscripts(t *testing.T) {
 	home := t.TempDir()
 	cwd := "/Users/me/proj"
 
-	dir := filepath.Join(home, "projects", encodeProjectDir(cwd))
+	dir := filepath.Join(home, "projects", EncodeProjectDir(cwd))
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -75,14 +75,14 @@ func TestCaptureIgnoresNonTranscripts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	meta, _ := New(home).Capture(snapshot.Pane{CurrentPath: cwd})
+	meta, _ := New(home, "").Capture(snapshot.Pane{CurrentPath: cwd})
 	if len(meta) != 0 {
 		t.Fatalf("non-.jsonl files must be ignored, got %v", meta)
 	}
 }
 
 func TestMatches(t *testing.T) {
-	integ := New(t.TempDir())
+	integ := New(t.TempDir(), "")
 
 	cases := []struct {
 		pane snapshot.Pane
@@ -104,7 +104,7 @@ func TestMatches(t *testing.T) {
 }
 
 func TestRestoreCommand(t *testing.T) {
-	integ := New(t.TempDir())
+	integ := New(t.TempDir(), "")
 
 	if got := integ.RestoreCommand(
 		snapshot.Pane{},
@@ -119,11 +119,11 @@ func TestRestoreCommand(t *testing.T) {
 }
 
 func TestEncodeProjectDir(t *testing.T) {
-	if got := encodeProjectDir("/Users/me/code/lazy-tmux"); got != "-Users-me-code-lazy-tmux" {
+	if got := EncodeProjectDir("/Users/me/code/lazy-tmux"); got != "-Users-me-code-lazy-tmux" {
 		t.Fatalf("unexpected encoding: %q", got)
 	}
 
-	if got := encodeProjectDir("/a/b.c/d"); got != "-a-b-c-d" {
+	if got := EncodeProjectDir("/a/b.c/d"); got != "-a-b-c-d" {
 		t.Fatalf("dots should map to '-', got %q", got)
 	}
 }
