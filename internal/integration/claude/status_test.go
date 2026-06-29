@@ -60,13 +60,37 @@ func TestStatusFallsBackToSessionFile(t *testing.T) {
 	home := t.TempDir()
 	cwd := "/Users/me/proj"
 
-	writeSessionFile(t, home, "111", cwd, "busy", 200)
-	writeSessionFile(t, home, "222", cwd, "idle", 100) // older, ignored
+	// Both alive (use this process's pid); the freshest wins.
+	writeSessionFile(t, home, "busy", cwd, "busy", 200)
+	writeSessionFile(t, home, "idle", cwd, "idle", 100) // older, ignored
 
-	// No hook status dir -> fall back to the freshest session file (busy).
 	got, ok := New(home, t.TempDir()).Status(snapshot.Pane{CurrentPath: cwd})
 	if !ok || got != integration.StatusWorking {
-		t.Fatalf("expected working from busy session file, got %v ok=%v", got, ok)
+		t.Fatalf("expected working from freshest live session file, got %v ok=%v", got, ok)
+	}
+}
+
+func TestStatusSessionFileWaiting(t *testing.T) {
+	home := t.TempDir()
+	cwd := "/Users/me/proj"
+
+	writeSessionFile(t, home, "w", cwd, "waiting", 300)
+
+	got, ok := New(home, t.TempDir()).Status(snapshot.Pane{CurrentPath: cwd})
+	if !ok || got != integration.StatusAwaitingDecision {
+		t.Fatalf("expected awaiting-decision from a waiting session, got %v ok=%v", got, ok)
+	}
+}
+
+func TestStatusSessionFileSkipsDeadProcess(t *testing.T) {
+	home := t.TempDir()
+	cwd := "/Users/me/proj"
+
+	// A dead pid must be ignored so a stale file never shows a dot.
+	writeSessionFilePID(t, home, "dead", 2147483600, cwd, "busy", 999)
+
+	if _, ok := New(home, t.TempDir()).Status(snapshot.Pane{CurrentPath: cwd}); ok {
+		t.Fatal("dead session process must yield no status")
 	}
 }
 
@@ -81,7 +105,20 @@ func TestStatusNoneWhenUnknown(t *testing.T) {
 	}
 }
 
-func writeSessionFile(t *testing.T, home, pid, cwd, status string, updatedAt int64) {
+// writeSessionFile writes a Claude session file with this (alive) test process's
+// pid, so the liveness check passes.
+func writeSessionFile(t *testing.T, home, name, cwd, status string, updatedAt int64) {
+	t.Helper()
+	writeSessionFilePID(t, home, name, os.Getpid(), cwd, status, updatedAt)
+}
+
+func writeSessionFilePID(
+	t *testing.T,
+	home, name string,
+	pid int,
+	cwd, status string,
+	updatedAt int64,
+) {
 	t.Helper()
 
 	dir := filepath.Join(home, "sessions")
@@ -89,9 +126,9 @@ func writeSessionFile(t *testing.T, home, pid, cwd, status string, updatedAt int
 		t.Fatal(err)
 	}
 
-	body := `{"cwd":"` + cwd + `","status":"` + status + `","updated_at":` +
-		strconv.FormatInt(updatedAt, 10) + `}`
-	if err := os.WriteFile(filepath.Join(dir, pid+".json"), []byte(body), 0o644); err != nil {
+	body := `{"pid":` + strconv.Itoa(pid) + `,"cwd":"` + cwd + `","status":"` + status +
+		`","updatedAt":` + strconv.FormatInt(updatedAt, 10) + `}`
+	if err := os.WriteFile(filepath.Join(dir, name+".json"), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }

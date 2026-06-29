@@ -2,10 +2,12 @@ package claude
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/integration"
@@ -21,11 +23,10 @@ const (
 	StateIdle             = "idle"              // Stop — turn finished
 )
 
-// statusFile is the on-disk shape written by the hook command (status.json per
-// project dir) and a superset of Claude's own <home>/sessions/<pid>.json.
+// statusFile is the on-disk shape written by lazy-tmux's hook command (one per
+// project dir) and read back by statusFromHook.
 type statusFile struct {
-	State     string `json:"state,omitempty"`  // hook-written lazy-tmux state
-	Status    string `json:"status,omitempty"` // Claude session-file status (busy|idle)
+	State     string `json:"state,omitempty"`
 	CWD       string `json:"cwd,omitempty"`
 	SessionID string `json:"session_id,omitempty"`
 	UpdatedAt int64  `json:"updated_at,omitempty"`
@@ -75,8 +76,20 @@ func (i *Integration) statusFromHook(cwd string) (integration.Status, bool) {
 	}
 }
 
-// statusFromSessionFile scans <home>/sessions/*.json for the freshest entry
-// whose cwd matches, mapping Claude's own busy/idle status.
+// claudeSession is Claude Code's own per-process session file
+// (<home>/sessions/<pid>.json). Note the camelCase keys — these differ from
+// lazy-tmux's hook status file.
+type claudeSession struct {
+	PID       int    `json:"pid"`
+	CWD       string `json:"cwd"`
+	Status    string `json:"status"` // busy | waiting | idle
+	UpdatedAt int64  `json:"updatedAt"`
+}
+
+// statusFromSessionFile reads Claude Code's own session files as a zero-setup
+// source of truth: among the files matching cwd whose process is still alive, it
+// takes the freshest and maps Claude's busy/waiting/idle. Dead sessions are
+// skipped so stale files never show a misleading dot.
 func (i *Integration) statusFromSessionFile(cwd string) (integration.Status, bool) {
 	if strings.TrimSpace(i.home) == "" {
 		return integration.StatusUnknown, false
@@ -88,7 +101,7 @@ func (i *Integration) statusFromSessionFile(cwd string) (integration.Status, boo
 	}
 
 	var (
-		best      statusFile
+		best      claudeSession
 		bestFound bool
 	)
 
@@ -97,17 +110,22 @@ func (i *Integration) statusFromSessionFile(cwd string) (integration.Status, boo
 			continue
 		}
 
-		var file statusFile
-		if !readJSONFile(filepath.Join(i.home, "sessions", entry.Name()), &file) {
+		data, err := os.ReadFile(filepath.Join(i.home, "sessions", entry.Name()))
+		if err != nil {
 			continue
 		}
 
-		if file.CWD != cwd {
+		var sess claudeSession
+		if json.Unmarshal(data, &sess) != nil {
 			continue
 		}
 
-		if !bestFound || file.UpdatedAt > best.UpdatedAt {
-			best = file
+		if sess.CWD != cwd || !processAlive(sess.PID) {
+			continue
+		}
+
+		if !bestFound || sess.UpdatedAt > best.UpdatedAt {
+			best = sess
 			bestFound = true
 		}
 	}
@@ -119,11 +137,25 @@ func (i *Integration) statusFromSessionFile(cwd string) (integration.Status, boo
 	switch best.Status {
 	case "busy":
 		return integration.StatusWorking, true
+	case "waiting":
+		return integration.StatusAwaitingDecision, true
 	case "idle":
 		return integration.StatusIdle, true
 	default:
 		return integration.StatusUnknown, false
 	}
+}
+
+// processAlive reports whether a pid refers to a running process (signal 0
+// probe). EPERM means the process exists but is owned by another user.
+func processAlive(pid int) bool {
+	if pid <= 0 {
+		return false
+	}
+
+	err := syscall.Kill(pid, 0)
+
+	return err == nil || errors.Is(err, syscall.EPERM)
 }
 
 // WriteStatus records a Claude pane's live state under statusDir, keyed by the
