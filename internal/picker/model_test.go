@@ -258,18 +258,21 @@ func TestModelDeleteMultiSelect(t *testing.T) {
 		t.Fatalf("partial selection must not delete the session, got %q", rec.deletedSession)
 	}
 
-	deleted := map[int]bool{}
-	for _, call := range rec.deletedWindowCalls {
-		if call.session != "alpha" {
-			t.Fatalf("expected window deletes in alpha, got %q", call.session)
-		}
-
-		deleted[call.index] = true
+	// Both marked windows must be deleted high-index-first so earlier indices
+	// stay valid (commitDelete deletes in descending order).
+	want := []deletedWindowCall{
+		{session: "alpha", index: 2},
+		{session: "alpha", index: 1},
 	}
 
-	// Both marked windows (1 and 2) must be deleted, and only those.
-	if len(rec.deletedWindowCalls) != 2 || !deleted[1] || !deleted[2] {
-		t.Fatalf("expected windows 1 and 2 deleted, got %+v", rec.deletedWindowCalls)
+	if len(rec.deletedWindowCalls) != len(want) {
+		t.Fatalf("expected %d delete calls, got %+v", len(want), rec.deletedWindowCalls)
+	}
+
+	for i, call := range rec.deletedWindowCalls {
+		if call != want[i] {
+			t.Fatalf("expected delete calls %+v, got %+v", want, rec.deletedWindowCalls)
+		}
 	}
 }
 
