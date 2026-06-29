@@ -50,14 +50,14 @@ func TestViewRendersStatusDot(t *testing.T) {
 
 	m := newTestModel(t, rec, sess)
 
-	if !strings.Contains(m.View().Content, statusDot) {
-		t.Fatal("expected a status dot in the rendered view")
+	if !strings.Contains(m.View().Content, glyphWorking) {
+		t.Fatal("expected a working status glyph in the rendered view")
 	}
 
 	// A window with no status shows none.
 	plain := makeSession("plain", true, "vim")
 
-	if strings.Contains(newTestModel(t, rec, plain).View().Content, statusDot) {
-		t.Fatal("window without a status must not render a dot")
+	if strings.Contains(newTestModel(t, rec, plain).View().Content, glyphWorking) {
+		t.Fatal("window without a status must not render a glyph")
 	}
 }

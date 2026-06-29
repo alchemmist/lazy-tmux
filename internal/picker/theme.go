@@ -58,9 +58,36 @@ type pickerTheme struct {
 	statusError            lipgloss.Style
 }
 
-// statusDot is the glyph shown in the State column for a window with a live
-// program status.
-const statusDot = "●"
+// Per-status glyphs shown in the State column. Each status uses a distinct
+// shape (not just color) so the meaning survives monochrome terminals and
+// color-impaired vision: a solid dot is working, "?" asks for a decision, a
+// dotted ring waits for input, a hollow ring is idle, "✕" is an error.
+const (
+	glyphWorking          = "●"
+	glyphAwaitingDecision = "?"
+	glyphAwaitingInput    = "◌"
+	glyphIdle             = "○"
+	glyphError            = "✕"
+)
+
+// statusGlyph returns the State-column glyph for a window status (empty for
+// StatusNone, which is never rendered).
+func statusGlyph(status WindowStatus) string {
+	switch status {
+	case StatusWorking:
+		return glyphWorking
+	case StatusAwaitingDecision:
+		return glyphAwaitingDecision
+	case StatusAwaitingInput:
+		return glyphAwaitingInput
+	case StatusIdle:
+		return glyphIdle
+	case StatusError:
+		return glyphError
+	default:
+		return ""
+	}
+}
 
 // statusStyle returns the fixed color for a window status (StatusNone yields a
 // plain style — it is never rendered as a dot).

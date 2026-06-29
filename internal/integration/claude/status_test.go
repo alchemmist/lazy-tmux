@@ -56,6 +56,24 @@ func TestStatusHookStatesMap(t *testing.T) {
 	}
 }
 
+func TestStatusHookIgnoresCWDMismatch(t *testing.T) {
+	statusDir := t.TempDir()
+	pane := "/Users/me/code/proj"
+
+	// A hook file sitting at this pane's encoded path but recording a different
+	// cwd (an encoding collision) must not leak another project's status.
+	body := `{"state":"working","cwd":"/some/other/project"}`
+	path := filepath.Join(statusDir, EncodeProjectDir(pane)+".json")
+
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, ok := New("", statusDir).Status(snapshot.Pane{CurrentPath: pane}); ok {
+		t.Fatal("hook status with a mismatched cwd must be ignored")
+	}
+}
+
 func TestStatusFallsBackToSessionFile(t *testing.T) {
 	home := t.TempDir()
 	cwd := "/Users/me/proj"

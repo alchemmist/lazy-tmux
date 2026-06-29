@@ -50,11 +50,7 @@ func filteredTreeRows(sessions []Session, query string, windowSort []WindowSortK
 			windowIdx := win.Index
 
 			status := sess.Statuses[win.Index]
-			state := ""
-
-			if status != StatusNone {
-				state = statusDot
-			}
+			state := statusGlyph(status)
 
 			rows = append(rows, pickerRow{
 				target:     Target{SessionName: sess.Record.SessionName, WindowIndex: &windowIdx},

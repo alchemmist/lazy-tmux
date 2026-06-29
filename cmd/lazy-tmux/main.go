@@ -109,6 +109,8 @@ Commands:
   list       List saved sessions
   setup      Print config keybinds for tmux
   config     Generate (gen) or show the config file
+  claude-hooks  Install or remove Claude Code status hooks
+  hook       Internal hook entrypoints (used by Claude Code)
   version    Print the version
 
 Run 'lazy-tmux <command> -h' for more details.

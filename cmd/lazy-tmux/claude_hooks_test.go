@@ -141,6 +141,53 @@ func TestApplyClaudeHooksUninstallIsSurgical(t *testing.T) {
 	}
 }
 
+func TestApplyClaudeHooksUninstallNoFileIsNoOp(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+
+	changed, err := applyClaudeHooks(path, "/bin/lazy-tmux", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if changed {
+		t.Fatal("uninstall with no settings file should be a no-op")
+	}
+
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatal("uninstall must not create a settings file")
+	}
+}
+
+func TestApplyClaudeHooksUninstallKeepsSiblingInGroup(t *testing.T) {
+	// A user command sharing the same group as ours must survive uninstall.
+	mixed := `{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {"type": "command", "command": "/bin/lazy-tmux hook claude-status --state working"},
+          {"type": "command", "command": "user-thing.sh"}
+        ]
+      }
+    ]
+  }
+}`
+	path := writeSettings(t, mixed)
+
+	if _, err := applyClaudeHooks(path, "/bin/lazy-tmux", true); err != nil {
+		t.Fatal(err)
+	}
+
+	data, _ := os.ReadFile(path)
+	if n := countOurHooks(t, path); n != 0 {
+		t.Fatalf("uninstall left %d of our hooks", n)
+	}
+
+	if !strings.Contains(string(data), "user-thing.sh") {
+		t.Fatal("uninstall removed a sibling command from the shared group")
+	}
+}
+
 func TestApplyClaudeHooksCreatesMissingFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "nested", "settings.json")
 

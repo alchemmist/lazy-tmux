@@ -104,6 +104,11 @@ func applyClaudeHooks(path, binary string, uninstall bool) (bool, error) {
 		return false, err
 	}
 
+	// Nothing to remove from a Claude install that has no settings file yet.
+	if uninstall && len(original) == 0 {
+		return false, nil
+	}
+
 	hooks := map[string][]json.RawMessage{}
 
 	if raw, ok := root["hooks"]; ok {
@@ -182,32 +187,44 @@ func applyClaudeHooks(path, binary string, uninstall bool) (bool, error) {
 	return true, nil
 }
 
-// dropOurGroups returns the hook groups with any group containing a command that
-// includes marker removed (so re-install replaces stale entries / old paths).
+// dropOurGroups removes only lazy-tmux-owned hook entries (those whose command
+// contains marker), preserving any other commands a user added to the same
+// matcher group. A group left empty afterwards is dropped. Groups that don't
+// parse round-trip untouched.
 func dropOurGroups(groups []json.RawMessage, marker string) []json.RawMessage {
 	kept := make([]json.RawMessage, 0, len(groups))
 
 	for _, raw := range groups {
 		var group hookGroup
+
 		err := json.Unmarshal(raw, &group)
-		if err == nil && groupHasMarker(group, marker) {
+		if err != nil {
+			kept = append(kept, raw)
 			continue
 		}
 
-		kept = append(kept, raw)
+		filtered := group.Hooks[:0]
+
+		for _, entry := range group.Hooks {
+			if !strings.Contains(entry.Command, marker) {
+				filtered = append(filtered, entry)
+			}
+		}
+
+		group.Hooks = filtered
+		if len(group.Hooks) == 0 {
+			continue
+		}
+
+		pruned, err := json.Marshal(group)
+		if err != nil {
+			return kept
+		}
+
+		kept = append(kept, pruned)
 	}
 
 	return kept
-}
-
-func groupHasMarker(group hookGroup, marker string) bool {
-	for _, entry := range group.Hooks {
-		if strings.Contains(entry.Command, marker) {
-			return true
-		}
-	}
-
-	return false
 }
 
 // readSettings reads path as a top-level JSON object preserving key order-free

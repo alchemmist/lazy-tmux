@@ -98,11 +98,12 @@ export function TuiPicker() {
         <h2>Claude status dots</h2>
         <p>
           For live sessions, windows running <InlineCode>claude</InlineCode> show a colored status
-          dot in the <strong>State</strong> column, so you can tell at a glance which Claude is busy
-          and which one is waiting for you — without switching around:{" "}
-          <strong>green</strong> = working, <strong>amber</strong> = waiting for your answer to a
-          question or permission, <strong>blue</strong> = waiting for input, <strong>grey</strong> =
-          idle. The dots refresh while the picker is open.
+          glyph in the <strong>State</strong> column, so you can tell at a glance which Claude is
+          busy and which one is waiting for you — without switching around. Each state has both a
+          distinct shape and color, so it stays readable in monochrome terminals:{" "}
+          <strong>● green</strong> = working, <strong>? amber</strong> = waiting for your answer to a
+          question or permission, <strong>◌ blue</strong> = waiting for input,{" "}
+          <strong>○ grey</strong> = idle. The glyphs refresh while the picker is open.
         </p>
         <p>
           Working/idle is detected out of the box. For the precise “waiting for your answer” state,

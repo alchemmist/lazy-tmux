@@ -62,6 +62,12 @@ func (i *Integration) statusFromHook(cwd string) (integration.Status, bool) {
 		return integration.StatusUnknown, false
 	}
 
+	// Guard against encoded-path collisions: only trust the file when its
+	// recorded cwd matches this pane's. Older files without a cwd are accepted.
+	if file.CWD != "" && file.CWD != cwd {
+		return integration.StatusUnknown, false
+	}
+
 	switch file.State {
 	case StateWorking:
 		return integration.StatusWorking, true
@@ -179,9 +185,18 @@ func WriteStatus(statusDir, cwd, state, sessionID string, now time.Time) error {
 
 	path := filepath.Join(statusDir, EncodeProjectDir(cwd)+".json")
 
-	err = os.WriteFile(path, data, 0o644)
+	// Write to a temp file in the same dir and rename, so a concurrent picker
+	// read never observes partial JSON.
+	tmp := path + ".tmp"
+
+	err = os.WriteFile(tmp, data, 0o644)
 	if err != nil {
-		return fmt.Errorf("write status %s: %w", path, err)
+		return fmt.Errorf("write temp status %s: %w", tmp, err)
+	}
+
+	err = os.Rename(tmp, path)
+	if err != nil {
+		return fmt.Errorf("replace status %s: %w", path, err)
 	}
 
 	return nil
