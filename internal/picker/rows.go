@@ -97,10 +97,18 @@ func filterSessions(sessions []Session, keep func(Session) bool) []Session {
 func (m pickerModel) decorateRows(rows []pickerRow) []pickerRow {
 	switch m.action {
 	case actionNew:
-		out := make([]pickerRow, 0, len(rows)+1)
+		sessionRows := sessionRowsOnly(rows)
+
+		// While the user is filtering, drop the synthetic row so Enter binds to
+		// the matched session (new window) rather than "new session".
+		if strings.TrimSpace(m.queryInput.Value()) != "" {
+			return sessionRows
+		}
+
+		out := make([]pickerRow, 0, len(sessionRows)+1)
 		out = append(out, pickerRow{item: "＋ new session", synthetic: true})
 
-		return append(out, sessionRowsOnly(rows)...)
+		return append(out, sessionRows...)
 	case actionWake, actionSleep:
 		return sessionRowsOnly(rows)
 	default:

@@ -59,17 +59,23 @@ func makeSession(name string, restored bool, windowNames ...string) Session {
 // struct is the picker's real dependency boundary; production wires these to
 // the app (which talks to real tmux). Driving them here exercises the model's
 // dispatch logic without a terminal.
+type deletedWindowCall struct {
+	session string
+	index   int
+}
+
 type recordingActions struct {
-	deletedWindow  [2]int
-	deletedWindowS string
-	deletedSession string
-	renamedWindow  string
-	renamedSession string
-	newSession     string
-	newWindow      [2]string
-	wokeUp         string
-	slept          string
-	failDelete     bool
+	deletedWindow      [2]int
+	deletedWindowS     string
+	deletedWindowCalls []deletedWindowCall
+	deletedSession     string
+	renamedWindow      string
+	renamedSession     string
+	newSession         string
+	newWindow          [2]string
+	wokeUp             string
+	slept              string
+	failDelete         bool
 }
 
 func (r *recordingActions) toActions(sessions []Session) Actions {
@@ -81,6 +87,7 @@ func (r *recordingActions) toActions(sessions []Session) Actions {
 
 			r.deletedWindowS = s
 			r.deletedWindow = [2]int{idx, idx}
+			r.deletedWindowCalls = append(r.deletedWindowCalls, deletedWindowCall{s, idx})
 
 			return nil
 		},
@@ -251,8 +258,18 @@ func TestModelDeleteMultiSelect(t *testing.T) {
 		t.Fatalf("partial selection must not delete the session, got %q", rec.deletedSession)
 	}
 
-	if rec.deletedWindowS != "alpha" {
-		t.Fatalf("expected window deletes in alpha, got %q", rec.deletedWindowS)
+	deleted := map[int]bool{}
+	for _, call := range rec.deletedWindowCalls {
+		if call.session != "alpha" {
+			t.Fatalf("expected window deletes in alpha, got %q", call.session)
+		}
+
+		deleted[call.index] = true
+	}
+
+	// Both marked windows (1 and 2) must be deleted, and only those.
+	if len(rec.deletedWindowCalls) != 2 || !deleted[1] || !deleted[2] {
+		t.Fatalf("expected windows 1 and 2 deleted, got %+v", rec.deletedWindowCalls)
 	}
 }
 
@@ -333,6 +350,38 @@ func TestModelNewWindowFlow(t *testing.T) {
 
 	if rec.newWindow[0] != "alpha" {
 		t.Fatalf("expected new window in alpha, got %q", rec.newWindow[0])
+	}
+}
+
+func TestModelNewFilteringBindsToSession(t *testing.T) {
+	rec := &recordingActions{}
+	m := newTestModel(t, rec, makeSession("alpha", false, "one"), makeSession("beta", false, "two"))
+
+	m = feed(t, m, keyAlt('n')) // new mode, cursor on synthetic row
+
+	// Filter to "beta": the synthetic "+ new session" row must drop out so the
+	// only target is the matched session, and Enter creates a window in it.
+	m = feed(t, m, keyRune('b'))
+
+	for _, row := range m.visible {
+		if row.synthetic {
+			t.Fatal("synthetic new-session row must be hidden while filtering")
+		}
+	}
+
+	m = feed(t, m, keyCode(tea.KeyEnter)) // open new-window prompt
+	if m.mode != modeNewWindow {
+		t.Fatalf("filtered ↵ should bind to new-window, got %d", m.mode)
+	}
+
+	feed(t, m, keyCode(tea.KeyEnter))
+
+	if rec.newWindow[0] != "beta" {
+		t.Fatalf("expected new window in beta, got %q", rec.newWindow[0])
+	}
+
+	if rec.newSession != "" {
+		t.Fatalf("filtering must not trigger new-session, got %q", rec.newSession)
 	}
 }
 

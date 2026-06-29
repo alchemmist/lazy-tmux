@@ -500,8 +500,12 @@ func (m *pickerModel) focusSynthetic() {
 }
 
 // exitMode returns to the resting browse (orange) mode, dropping the action,
-// palette and marks and restoring the full list.
+// palette and marks and restoring the full list. It keeps the cursor on the row
+// that was acted on (so Esc lands you back where you were) when that row still
+// exists.
 func (m *pickerModel) exitMode() {
+	prev, hadRow := m.currentRow()
+
 	m.action = actionBrowse
 	m.palette = false
 	m.paletteIdx = 0
@@ -511,6 +515,16 @@ func (m *pickerModel) exitMode() {
 	m.cursor = 0
 	m.resize()
 	m.applyFilter()
+
+	if hadRow && !prev.synthetic {
+		if prev.target.WindowIndex != nil {
+			m.focusWindow(prev.target)
+		} else {
+			m.focusSession(prev.target.SessionName)
+			m.cursor = m.nearestSelectable(m.cursor)
+		}
+	}
+
 	m.ensureCursorVisible()
 	m.renderViewport()
 }
