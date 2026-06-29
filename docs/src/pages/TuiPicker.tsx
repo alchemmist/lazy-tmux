@@ -5,40 +5,72 @@ import { DemoVideo } from "../components/DemoVideo";
 
 const KEYS: { key: ReactNode; action: ReactNode }[] = [
   { key: <InlineCode>Type</InlineCode>, action: "Fuzzy search sessions and windows." },
+  {
+    key: <InlineCode>/</InlineCode>,
+    action: (
+      <>
+        Open the command palette: <InlineCode>/delete</InlineCode>, <InlineCode>/rename</InlineCode>,{" "}
+        <InlineCode>/new</InlineCode>, <InlineCode>/wake</InlineCode>, <InlineCode>/sleep</InlineCode>.{" "}
+        <InlineCode>Tab</InlineCode> completes, <InlineCode>Enter</InlineCode> runs the highlighted
+        command and enters its color-coded mode.
+      </>
+    ),
+  },
   { key: <InlineCode>{"<C-j>"}</InlineCode>, action: "Move down to the next selectable row." },
   { key: <InlineCode>{"<C-k>"}</InlineCode>, action: "Move up to the previous selectable row." },
-  { key: <InlineCode>Enter</InlineCode>, action: "Restore the selected session or window." },
+  {
+    key: <InlineCode>Enter</InlineCode>,
+    action: "Restore the selected target — or, inside a mode, perform that mode's action.",
+  },
+  {
+    key: <InlineCode>Esc</InlineCode>,
+    action: "Cancel the active mode and return to browse; in browse mode, close the picker.",
+  },
   {
     key: (
       <>
-        <InlineCode>Esc</InlineCode>, <InlineCode>{"<C-c>"}</InlineCode>,{" "}
-        <InlineCode>{"<C-q>"}</InlineCode>
+        <InlineCode>{"<C-c>"}</InlineCode>, <InlineCode>{"<C-q>"}</InlineCode>
       </>
     ),
     action: "Cancel and close the picker.",
   },
-  { key: <InlineCode>{"<C-d>"}</InlineCode>, action: "Delete window under cursor." },
+  {
+    key: <InlineCode>Space</InlineCode>,
+    action: (
+      <>
+        In delete mode, mark or unmark the row under the cursor. Marking a session marks all of its
+        windows, so a fully-marked session is deleted as a whole.
+      </>
+    ),
+  },
+  {
+    key: <InlineCode>{"<C-d>"}</InlineCode>,
+    action: "Enter delete mode with the window under the cursor already marked.",
+  },
   {
     key: <InlineCode>{"<Alt-d>"}</InlineCode>,
-    action: 'Delete the session that owns the window under the cursor. Confirm by typing "y".',
+    action: "Enter delete mode with the whole session under the cursor marked.",
   },
-  { key: <InlineCode>{"<C-r>"}</InlineCode>, action: "Rename window under cursor." },
+  {
+    key: <InlineCode>{"<C-r>"}</InlineCode>,
+    action: "Enter rename mode on the window under the cursor.",
+  },
   {
     key: <InlineCode>{"<Alt-r>"}</InlineCode>,
-    action: "Rename the session that owns the window under the cursor.",
+    action: "Enter rename mode on the session that owns the window under the cursor.",
   },
   {
     key: <InlineCode>{"<C-n>"}</InlineCode>,
-    action: "Create new window in session under cursor. Enter window name.",
+    action: "Enter new mode to add a window to the session under the cursor.",
   },
-  { key: <InlineCode>{"<Alt-n>"}</InlineCode>, action: "Create new session. Enter session name." },
+  { key: <InlineCode>{"<Alt-n>"}</InlineCode>, action: "Enter new mode to create a fresh session." },
   {
     key: <InlineCode>{"<Alt-w>"}</InlineCode>,
-    action: "Wakeup: Restore a saved session that is not currently running.",
+    action: "Enter wake mode (sleeping sessions only): restore a saved session that is not running.",
   },
   {
     key: <InlineCode>{"<Alt-s>"}</InlineCode>,
-    action: "Sleep: Save session state and close a running session.",
+    action: "Enter sleep mode (live sessions only): save a running session's state and close it.",
   },
 ];
 
@@ -54,6 +86,14 @@ export function TuiPicker() {
         <h1>TUI picker</h1>
 
         <DemoVideo src="/assets/demo-tui.mp4" />
+
+        <p>
+          Actions are organized into <strong>color-coded modes</strong>. Type <InlineCode>/</InlineCode>{" "}
+          to open the command palette, or use the shortcut for a mode directly. While a mode is
+          active the whole frame recolors (red for delete, blue for rename, green for new, cyan for
+          wake/sleep), the list is filtered to the targets that mode can act on, and{" "}
+          <InlineCode>Esc</InlineCode> returns to the resting browse mode.
+        </p>
 
         <table className="cli-table">
           <thead>
