@@ -7,8 +7,87 @@ import (
 	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/config"
+	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
+
+// recordingTmux is a tmuxClient that records how RestoreTarget hands off to the
+// session. Methods RestoreTarget doesn't touch are inherited from the embedded
+// (nil) interface and panic if called, surfacing any unexpected dependency.
+type recordingTmux struct {
+	tmuxClient
+
+	inside   bool
+	switched string
+	attached string
+}
+
+func (r *recordingTmux) RestoreSession(snapshot.SessionSnapshot) error { return nil }
+func (r *recordingTmux) InsideTmux() bool                              { return r.inside }
+
+func (r *recordingTmux) SwitchClient(
+	target string,
+) error {
+	r.switched = target
+	return nil
+}
+
+func (r *recordingTmux) AttachSession(
+	target string,
+) error {
+	r.attached = target
+	return nil
+}
+
+func TestRestoreTargetHandsOff(t *testing.T) {
+	idx := 2
+
+	cases := []struct {
+		name         string
+		inside       bool
+		windowIndex  *int
+		wantSwitched string
+		wantAttached string
+	}{
+		{name: "inside tmux switches", inside: true, wantSwitched: "s1"},
+		{name: "outside tmux attaches", inside: false, wantAttached: "s1"},
+		{
+			name:         "outside tmux attaches to window",
+			inside:       false,
+			windowIndex:  &idx,
+			wantAttached: "s1:2",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			a, _ := newTestApp(t)
+
+			if err := a.store.SaveSession(snapshot.SessionSnapshot{SessionName: "s1"}); err != nil {
+				t.Fatalf("save snapshot: %v", err)
+			}
+
+			fake := &recordingTmux{inside: tc.inside}
+			a.tmux = fake
+
+			err := a.RestoreTarget(
+				PickerTarget{SessionName: "s1", WindowIndex: tc.windowIndex},
+				true,
+			)
+			if err != nil {
+				t.Fatalf("restore target: %v", err)
+			}
+
+			if fake.switched != tc.wantSwitched {
+				t.Fatalf("switched = %q, want %q", fake.switched, tc.wantSwitched)
+			}
+
+			if fake.attached != tc.wantAttached {
+				t.Fatalf("attached = %q, want %q", fake.attached, tc.wantAttached)
+			}
+		})
+	}
+}
 
 func newTestApp(t *testing.T) (*App, string) {
 	t.Helper()

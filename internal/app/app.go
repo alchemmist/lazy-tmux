@@ -31,6 +31,8 @@ type tmuxSessionCapturer interface {
 type tmuxSessionRestorer interface {
 	RestoreSession(snap snapshot.SessionSnapshot) error
 	SwitchClient(target string) error
+	AttachSession(target string) error
+	InsideTmux() bool
 }
 
 type tmuxSessionMutator interface {
@@ -167,18 +169,13 @@ func (a *App) RestoreTarget(target PickerTarget, switchClient bool) error {
 		return fmt.Errorf("restore session: %w", err)
 	}
 
-	if switchClient {
-		switchTarget := session
-		if target.WindowIndex != nil {
-			switchTarget = fmt.Sprintf("%s:%d", session, *target.WindowIndex)
-		}
-
-		err := a.tmux.SwitchClient(switchTarget)
-		if err != nil {
-			return fmt.Errorf("switch client: %w", err)
-		}
+	switchTarget := session
+	if target.WindowIndex != nil {
+		switchTarget = fmt.Sprintf("%s:%d", session, *target.WindowIndex)
 	}
 
+	// Mark accessed before any hand-off: AttachSession replaces this process, so
+	// nothing after it would run.
 	err = a.store.MarkSessionAccessed(
 		session,
 		time.Now().UTC(),
@@ -186,6 +183,23 @@ func (a *App) RestoreTarget(target PickerTarget, switchClient bool) error {
 	if err != nil &&
 		!errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("mark session accessed: %w", err)
+	}
+
+	if switchClient {
+		// Inside tmux, hop the current client to the session. Outside tmux,
+		// attach so the user lands inside the restored session instead of being
+		// left at the shell with a detached session (#182).
+		if a.tmux.InsideTmux() {
+			err = a.tmux.SwitchClient(switchTarget)
+			if err != nil {
+				return fmt.Errorf("switch client: %w", err)
+			}
+		} else {
+			err = a.tmux.AttachSession(switchTarget)
+			if err != nil {
+				return fmt.Errorf("attach session: %w", err)
+			}
+		}
 	}
 
 	return nil
