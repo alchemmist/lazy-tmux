@@ -13,9 +13,11 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+	"github.com/charmbracelet/x/term"
 )
 
 const fieldSep = "|"
@@ -260,6 +262,49 @@ func (client *Client) SwitchClient(session string) error {
 	_, err := client.Output("switch-client", "-t", sessionTarget(session))
 
 	return err
+}
+
+// InsideTmux reports whether we are running inside a tmux client (so the caller
+// can switch-client) versus a plain shell (so it must attach-session instead).
+func (client *Client) InsideTmux() bool {
+	return strings.TrimSpace(os.Getenv("TMUX")) != ""
+}
+
+// attachExec hands the terminal off to tmux. It is a package var so tests can
+// stub it without replacing the test process. syscall.Exec returns only on
+// failure to launch; on success the current process image is replaced by tmux.
+var attachExec = syscall.Exec
+
+// hasControllingTTY reports whether stdout is a real terminal. attach-session
+// needs one; a package var so tests can force it. It uses a real isatty probe
+// on the fd rather than os.ModeCharDevice, which also matches non-terminals
+// such as /dev/null and would let the attach fall through to "open terminal
+// failed".
+var hasControllingTTY = func() bool {
+	return term.IsTerminal(os.Stdout.Fd())
+}
+
+// AttachSession replaces the current process with `tmux attach-session -t
+// <target>`, so a picker/restore run from a plain shell drops the user inside
+// the restored session (and detaching returns them to that shell). target may
+// carry a window, e.g. "name:2", matching SwitchClient. It returns only when
+// the attach fails to launch.
+func (client *Client) AttachSession(target string) error {
+	// attach-session needs a controlling terminal; without one (piped output,
+	// headless CI, fzf --filter) tmux would fail with "open terminal failed".
+	// Leave the session restored-but-detached instead of erroring.
+	if !hasControllingTTY() {
+		return nil
+	}
+
+	bin, err := exec.LookPath(client.bin)
+	if err != nil {
+		return fmt.Errorf("locate tmux %q: %w", client.bin, err)
+	}
+
+	args := []string{bin, "attach-session", "-t", sessionTarget(target)}
+
+	return attachExec(bin, args, os.Environ())
 }
 
 func (client *Client) KillWindow(session string, windowIndex int) error {

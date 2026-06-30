@@ -372,3 +372,90 @@ func TestNewSessionArgs(t *testing.T) {
 		t.Fatalf("expected -c /work in args: %#v", args)
 	}
 }
+
+func TestInsideTmux(t *testing.T) {
+	client := NewClient("tmux")
+
+	t.Setenv("TMUX", "")
+
+	if client.InsideTmux() {
+		t.Fatal("InsideTmux must be false when $TMUX is empty")
+	}
+
+	t.Setenv("TMUX", "/tmp/tmux-1000/default,1234,0")
+
+	if !client.InsideTmux() {
+		t.Fatal("InsideTmux must be true when $TMUX is set")
+	}
+}
+
+func TestAttachSessionExecsTmux(t *testing.T) {
+	var (
+		gotArgv0 string
+		gotArgs  []string
+	)
+
+	origExec := attachExec
+	attachExec = func(argv0 string, argv, _ []string) error {
+		gotArgv0 = argv0
+		gotArgs = argv
+
+		return nil
+	}
+
+	origTTY := hasControllingTTY
+	hasControllingTTY = func() bool { return true }
+
+	t.Cleanup(func() {
+		attachExec = origExec
+		hasControllingTTY = origTTY
+	})
+
+	// "sh" resolves on every supported platform, so LookPath succeeds.
+	if err := NewClient("sh").AttachSession("proj:2"); err != nil {
+		t.Fatalf("attach session: %v", err)
+	}
+
+	if gotArgv0 == "" {
+		t.Fatal("expected a resolved tmux binary path")
+	}
+
+	want := []string{gotArgv0, "attach-session", "-t", "=proj:2"}
+	if len(gotArgs) != len(want) {
+		t.Fatalf("argv = %v, want %v", gotArgs, want)
+	}
+
+	for i := range want {
+		if gotArgs[i] != want[i] {
+			t.Fatalf("argv = %v, want %v", gotArgs, want)
+		}
+	}
+}
+
+func TestAttachSessionWithoutTTYIsNoOp(t *testing.T) {
+	called := false
+
+	origExec := attachExec
+	attachExec = func(string, []string, []string) error {
+		called = true
+		return nil
+	}
+
+	origTTY := hasControllingTTY
+	hasControllingTTY = func() bool { return false }
+
+	t.Cleanup(func() {
+		attachExec = origExec
+		hasControllingTTY = origTTY
+	})
+
+	// Without a controlling terminal, attach must be skipped (tmux would fail
+	// with "open terminal failed"), leaving the session restored-but-detached.
+	if err := NewClient("sh").AttachSession("proj"); err != nil {
+		t.Fatalf("attach session: %v", err)
+	}
+
+	if called {
+		t.Fatal("attach must not exec tmux without a controlling TTY")
+	}
+}
