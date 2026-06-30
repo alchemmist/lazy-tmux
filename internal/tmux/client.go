@@ -274,12 +274,30 @@ func (client *Client) InsideTmux() bool {
 // failure to launch; on success the current process image is replaced by tmux.
 var attachExec = syscall.Exec
 
+// hasControllingTTY reports whether stdout is a real terminal. attach-session
+// needs one; a package var so tests can force it.
+var hasControllingTTY = func() bool {
+	info, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+
+	return info.Mode()&os.ModeCharDevice != 0
+}
+
 // AttachSession replaces the current process with `tmux attach-session -t
 // <target>`, so a picker/restore run from a plain shell drops the user inside
 // the restored session (and detaching returns them to that shell). target may
 // carry a window, e.g. "name:2", matching SwitchClient. It returns only when
 // the attach fails to launch.
 func (client *Client) AttachSession(target string) error {
+	// attach-session needs a controlling terminal; without one (piped output,
+	// headless CI, fzf --filter) tmux would fail with "open terminal failed".
+	// Leave the session restored-but-detached instead of erroring.
+	if !hasControllingTTY() {
+		return nil
+	}
+
 	bin, err := exec.LookPath(client.bin)
 	if err != nil {
 		return fmt.Errorf("locate tmux %q: %w", client.bin, err)

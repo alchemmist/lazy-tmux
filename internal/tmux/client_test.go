@@ -395,7 +395,7 @@ func TestAttachSessionExecsTmux(t *testing.T) {
 		gotArgs  []string
 	)
 
-	orig := attachExec
+	origExec := attachExec
 	attachExec = func(argv0 string, argv, _ []string) error {
 		gotArgv0 = argv0
 		gotArgs = argv
@@ -403,7 +403,13 @@ func TestAttachSessionExecsTmux(t *testing.T) {
 		return nil
 	}
 
-	t.Cleanup(func() { attachExec = orig })
+	origTTY := hasControllingTTY
+	hasControllingTTY = func() bool { return true }
+
+	t.Cleanup(func() {
+		attachExec = origExec
+		hasControllingTTY = origTTY
+	})
 
 	// "sh" resolves on every supported platform, so LookPath succeeds.
 	if err := NewClient("sh").AttachSession("proj:2"); err != nil {
@@ -423,5 +429,33 @@ func TestAttachSessionExecsTmux(t *testing.T) {
 		if gotArgs[i] != want[i] {
 			t.Fatalf("argv = %v, want %v", gotArgs, want)
 		}
+	}
+}
+
+func TestAttachSessionWithoutTTYIsNoOp(t *testing.T) {
+	called := false
+
+	origExec := attachExec
+	attachExec = func(string, []string, []string) error {
+		called = true
+		return nil
+	}
+
+	origTTY := hasControllingTTY
+	hasControllingTTY = func() bool { return false }
+
+	t.Cleanup(func() {
+		attachExec = origExec
+		hasControllingTTY = origTTY
+	})
+
+	// Without a controlling terminal, attach must be skipped (tmux would fail
+	// with "open terminal failed"), leaving the session restored-but-detached.
+	if err := NewClient("sh").AttachSession("proj"); err != nil {
+		t.Fatalf("attach session: %v", err)
+	}
+
+	if called {
+		t.Fatal("attach must not exec tmux without a controlling TTY")
 	}
 }
