@@ -1,7 +1,7 @@
 <h2>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/logo-white.svg">
-    <img src="./docs/assets/logo.svg" alt="Favicon Preview" width="60" align="center">
+    <source media="(prefers-color-scheme: dark)" srcset="./docs/public/assets/logo-white.svg">
+    <img src="./docs/public/assets/logo.svg" alt="Favicon Preview" width="60" align="center">
   </picture>
   &nbsp;&nbsp;&nbsp;lazy-tmux
 </h2>
@@ -41,32 +41,5 @@ Binary will compiled in `bin/lazy-tmux`. For more development options run `make 
 > **tmux version requirement:** lazy-tmux requires **tmux 3.6** or **tmux 3.6a**.
 > Older versions may not work correctly.
 
-## Configuration
-
-lazy-tmux reads an optional TOML config file. It is looked up in this order:
-
-1. `$LAZY_TMUX_CONFIG` (explicit path)
-2. `$XDG_CONFIG_HOME/lazy-tmux/lazy-tmux.toml`
-3. `~/.config/lazy-tmux/lazy-tmux.toml`
-
-The file is optional — a missing file just uses the built-in defaults. Settings
-are layered: **built-in defaults → config file → command-line flags**, so a flag
-always overrides the file for that run.
-
-```toml
-# ~/.config/lazy-tmux/lazy-tmux.toml — all keys are optional
-
-tmux_bin        = "tmux"      # tmux binary to use
-data_dir        = "~/.local/share/lazy-tmux"  # where snapshots are stored
-save_interval   = "5m"        # daemon autosave interval (Go duration)
-restore_timeout = "5s"        # max wait for restored pane commands to start (0 disables)
-
-# Allowlist of commands lazy-tmux may replay on restore, matched by program
-# name. Omit the key to restore every command (default). Set it to restore only
-# these programs; set it to [] to restore no commands at all.
-restore_allowlist = ["nvim", "vim", "htop", "less", "tail", "ssh"]
-
-[scrollback]
-enabled = false               # capture shell pane scrollback
-lines   = 5000                # max scrollback lines per pane
-```
+For configuration, CLI reference, and usage, see the docs at
+[lazy-tmux.xyz](https://lazy-tmux.xyz).
