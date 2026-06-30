@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+	"github.com/charmbracelet/x/term"
 )
 
 const fieldSep = "|"
@@ -275,14 +276,12 @@ func (client *Client) InsideTmux() bool {
 var attachExec = syscall.Exec
 
 // hasControllingTTY reports whether stdout is a real terminal. attach-session
-// needs one; a package var so tests can force it.
+// needs one; a package var so tests can force it. It uses a real isatty probe
+// on the fd rather than os.ModeCharDevice, which also matches non-terminals
+// such as /dev/null and would let the attach fall through to "open terminal
+// failed".
 var hasControllingTTY = func() bool {
-	info, err := os.Stdout.Stat()
-	if err != nil {
-		return false
-	}
-
-	return info.Mode()&os.ModeCharDevice != 0
+	return term.IsTerminal(os.Stdout.Fd())
 }
 
 // AttachSession replaces the current process with `tmux attach-session -t
