@@ -97,6 +97,15 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 			writeErr(stderr, fmt.Errorf("select target: %w", err))
 			return 1
 		}
+
+		// The interactive TUI shows a loading animation while the pick restores.
+		err = tmuxApp.RestoreTargetAnimated(target)
+		if err != nil {
+			writeErr(stderr, fmt.Errorf("restore target: %w", err))
+			return 1
+		}
+
+		return 0
 	}
 
 	err = tmuxApp.RestoreTarget(target, true)

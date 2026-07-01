@@ -154,52 +154,13 @@ func (a *App) Restore(session string, switchClient bool) error {
 }
 
 func (a *App) RestoreTarget(target PickerTarget, switchClient bool) error {
-	session := strings.TrimSpace(target.SessionName)
-	if session == "" {
-		return fmt.Errorf("empty session name")
-	}
-
-	snap, err := a.store.LoadSession(session)
+	err := a.restoreSessionForTarget(target)
 	if err != nil {
-		return fmt.Errorf("load session: %w", err)
-	}
-
-	err = a.tmux.RestoreSession(snap)
-	if err != nil && err != tmux.ErrSessionExists {
-		return fmt.Errorf("restore session: %w", err)
-	}
-
-	switchTarget := session
-	if target.WindowIndex != nil {
-		switchTarget = fmt.Sprintf("%s:%d", session, *target.WindowIndex)
-	}
-
-	// Mark accessed before any hand-off: AttachSession replaces this process, so
-	// nothing after it would run.
-	err = a.store.MarkSessionAccessed(
-		session,
-		time.Now().UTC(),
-	)
-	if err != nil &&
-		!errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("mark session accessed: %w", err)
+		return err
 	}
 
 	if switchClient {
-		// Inside tmux, hop the current client to the session. Outside tmux,
-		// attach so the user lands inside the restored session instead of being
-		// left at the shell with a detached session (#182).
-		if a.tmux.InsideTmux() {
-			err = a.tmux.SwitchClient(switchTarget)
-			if err != nil {
-				return fmt.Errorf("switch client: %w", err)
-			}
-		} else {
-			err = a.tmux.AttachSession(switchTarget)
-			if err != nil {
-				return fmt.Errorf("attach session: %w", err)
-			}
-		}
+		return a.handoffToTarget(target)
 	}
 
 	return nil
@@ -230,6 +191,61 @@ func (a *App) ListRecords() ([]snapshot.Record, error) {
 	}
 
 	return records, nil
+}
+
+// restoreSessionForTarget loads and restores the session (creating it if needed)
+// and marks it accessed. It does not switch or attach — that is handoffToTarget,
+// kept separate so the loading animation can run between the two.
+func (a *App) restoreSessionForTarget(target PickerTarget) error {
+	session := strings.TrimSpace(target.SessionName)
+	if session == "" {
+		return fmt.Errorf("empty session name")
+	}
+
+	snap, err := a.store.LoadSession(session)
+	if err != nil {
+		return fmt.Errorf("load session: %w", err)
+	}
+
+	err = a.tmux.RestoreSession(snap)
+	if err != nil && err != tmux.ErrSessionExists {
+		return fmt.Errorf("restore session: %w", err)
+	}
+
+	err = a.store.MarkSessionAccessed(session, time.Now().UTC())
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("mark session accessed: %w", err)
+	}
+
+	return nil
+}
+
+// handoffToTarget moves the user into the restored session: inside tmux it hops
+// the current client, outside tmux it attaches (so the user lands inside instead
+// of being left at the shell — #182). Outside tmux this replaces the process.
+func (a *App) handoffToTarget(target PickerTarget) error {
+	session := strings.TrimSpace(target.SessionName)
+
+	switchTarget := session
+	if target.WindowIndex != nil {
+		switchTarget = fmt.Sprintf("%s:%d", session, *target.WindowIndex)
+	}
+
+	if a.tmux.InsideTmux() {
+		err := a.tmux.SwitchClient(switchTarget)
+		if err != nil {
+			return fmt.Errorf("switch client: %w", err)
+		}
+
+		return nil
+	}
+
+	err := a.tmux.AttachSession(switchTarget)
+	if err != nil {
+		return fmt.Errorf("attach session: %w", err)
+	}
+
+	return nil
 }
 
 func (a *App) runDaemonSaveAll() error {
