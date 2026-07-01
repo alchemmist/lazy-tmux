@@ -134,8 +134,10 @@ func (a *App) RestoreTargetAnimated(target PickerTarget) error {
 		return restoreErr
 	}
 
+	// The animation is cosmetic: a render failure must not skip the hand-off and
+	// leave the session restored but never switched/attached. Log and continue.
 	if animErr != nil {
-		return fmt.Errorf("restore animation: %w", animErr)
+		log.Printf("lazy-tmux: restore animation: %v", animErr)
 	}
 
 	return a.handoffToTarget(target)

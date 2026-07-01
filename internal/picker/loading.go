@@ -146,8 +146,10 @@ func (m loadingModel) field(width, height int) string {
 		caption = "restoring " + m.name + "…"
 	}
 
+	// Center by display width; frameLine pads the rest of the row to innerW, so
+	// no stale field glyphs remain to the right of the caption.
 	captionRow := innerH / 2
-	capStart := max(0, (innerW-len([]rune(caption)))/2)
+	capStart := max(0, (innerW-displayWidth(caption))/2)
 
 	var buf strings.Builder
 
