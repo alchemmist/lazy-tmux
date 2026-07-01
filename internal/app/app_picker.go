@@ -111,6 +111,36 @@ func toPickerStatus(status integration.Status) picker.WindowStatus {
 	}
 }
 
+// RestoreTargetAnimated restores target while showing the ASCII loading field in
+// the terminal, then hands off (switch/attach). Used by the interactive TUI
+// picker so a slow restore shows motion instead of a black popup (#199). Without
+// a TTY the animation is a no-op and this behaves like RestoreTarget(_, true).
+func (a *App) RestoreTargetAnimated(target PickerTarget) error {
+	done := make(chan struct{})
+
+	var restoreErr error
+
+	go func() {
+		restoreErr = a.restoreSessionForTarget(target)
+		close(done)
+	}()
+
+	// Shows the field until done is closed; a no-op (returns immediately) without
+	// a TTY, so we always wait on done ourselves before handing off.
+	animErr := picker.RunRestoreAnimation(target.SessionName, done)
+	<-done
+
+	if restoreErr != nil {
+		return restoreErr
+	}
+
+	if animErr != nil {
+		return fmt.Errorf("restore animation: %w", animErr)
+	}
+
+	return a.handoffToTarget(target)
+}
+
 func (a *App) SelectTargetWithTUI() (PickerTarget, error) {
 	return a.SelectTargetWithTUISorted(DefaultPickerSortOptions())
 }
