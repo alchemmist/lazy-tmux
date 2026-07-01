@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func TestLoadingViewHiddenBeforeGrace(t *testing.T) {
@@ -48,6 +49,21 @@ func TestLoadingViewRendersFieldAndCaption(t *testing.T) {
 	// The field should contain at least one non-space ramp glyph somewhere.
 	if !strings.ContainsAny(view.Content, ".·:-=+*#%@") {
 		t.Fatal("expected the ascii field to render ramp glyphs")
+	}
+
+	// The animation lives inside the picker's rounded frame.
+	for _, corner := range []string{"╭", "╮", "╰", "╯", "│"} {
+		if !strings.Contains(view.Content, corner) {
+			t.Fatalf("expected the rounded frame char %q around the animation", corner)
+		}
+	}
+
+	// Every framed line must be the same display width, or the border misaligns.
+	want := ansi.StringWidth(lines[0])
+	for i, ln := range lines {
+		if got := ansi.StringWidth(ln); got != want {
+			t.Fatalf("line %d width %d != %d: %q", i, got, want, ln)
+		}
 	}
 }
 

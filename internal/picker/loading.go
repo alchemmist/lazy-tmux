@@ -41,6 +41,7 @@ type loadingModel struct {
 	frame   int
 	started bool // grace elapsed → render the field (else stay invisible)
 
+	theme pickerTheme
 	dim   lipgloss.Style
 	mid   lipgloss.Style
 	hot   lipgloss.Style
@@ -51,6 +52,7 @@ func newLoadingModel(sessionName string, done <-chan struct{}) loadingModel {
 	return loadingModel{
 		name:  strings.TrimSpace(sessionName),
 		done:  done,
+		theme: newPickerTheme(colAccent),
 		dim:   lipgloss.NewStyle().Foreground(lipgloss.Color(colFaint)),
 		mid:   lipgloss.NewStyle().Foreground(lipgloss.Color(colText)),
 		hot:   lipgloss.NewStyle().Foreground(lipgloss.Color(colAccent)),
@@ -126,47 +128,57 @@ func (m loadingModel) View() tea.View {
 	return view
 }
 
-// field renders one animation frame: a width×height grid of ramp glyphs from the
-// interfering-sine field, with a centered "restoring <name>…" caption.
+// field renders one animation frame inside the picker's rounded frame (same
+// border, corners and title as the browser), with the ASCII field filling the
+// inner area and a centered "restoring <name>…" caption.
 func (m loadingModel) field(width, height int) string {
+	// The frame owns the outer edge: 2 border rows (top/bottom) and, per inner
+	// row, 2 side borders + 2 gutter spaces (see theme.frameLine).
+	innerW := max(1, width-4)
+	innerH := max(1, height-2)
+
 	phase := float64(m.frame) / animFPS
-	cols := float64(width)
-	rows := float64(height)
+	cols := float64(innerW)
+	rows := float64(innerH)
 
 	caption := "restoring…"
 	if m.name != "" {
 		caption = "restoring " + m.name + "…"
 	}
 
-	captionRow := height / 2
-	capStart := max(0, (width-len([]rune(caption)))/2)
+	captionRow := innerH / 2
+	capStart := max(0, (innerW-len([]rune(caption)))/2)
 
 	var buf strings.Builder
 
-	for row := range height {
+	buf.WriteString(m.theme.frameTop("lazy-tmux", "", width))
+	buf.WriteString("\n")
+
+	for row := range innerH {
+		var line string
+
 		// The caption owns its row: a clean band keeps it readable over the field.
 		if row == captionRow {
-			buf.WriteString(strings.Repeat(" ", capStart) + m.label.Render(caption))
+			line = strings.Repeat(" ", capStart) + m.label.Render(caption)
 		} else {
-			m.writeFieldRow(&buf, row, width, cols, rows, phase)
+			line = m.fieldRow(row, innerW, cols, rows, phase)
 		}
 
-		if row < height-1 {
-			buf.WriteByte('\n')
-		}
+		buf.WriteString(m.theme.frameLine(line, width))
+		buf.WriteString("\n")
 	}
+
+	hints := m.theme.helpKey.Render("esc") + m.theme.helpText.Render(" cancel")
+	buf.WriteString(m.theme.frameBottom(hints, width))
 
 	return buf.String()
 }
 
-// writeFieldRow renders one field row, grouping runs of same-styled glyphs so
+// fieldRow renders one inner field row, grouping runs of same-styled glyphs so
 // each frame emits few ANSI escapes.
-func (m loadingModel) writeFieldRow(
-	buf *strings.Builder,
-	row, width int,
-	cols, rows, phase float64,
-) {
+func (m loadingModel) fieldRow(row, width int, cols, rows, phase float64) string {
 	var (
+		buf   strings.Builder
 		run   strings.Builder
 		tier  = -1
 		flush = func(next int) {
@@ -189,6 +201,8 @@ func (m loadingModel) writeFieldRow(
 	}
 
 	flush(-1)
+
+	return buf.String()
 }
 
 func (m loadingModel) styleFor(tier int) lipgloss.Style {
