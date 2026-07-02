@@ -7,7 +7,6 @@ linters:
   default: all
 
   disable:
-    - testpackage
     - paralleltest
     - mnd
     - goconst
