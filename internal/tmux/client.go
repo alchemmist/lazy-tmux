@@ -1,3 +1,6 @@
+// Package tmux is a thin client over the tmux binary: it shells out to tmux to
+// capture live sessions into snapshots and to restore snapshots back into
+// running sessions.
 package tmux
 
 import (
@@ -58,6 +61,10 @@ func splitFieldsN(line string, n int) []string {
 	return strings.SplitN(line, fieldSep, n)
 }
 
+// ErrSessionNotFound is returned by CaptureSession when the named session does
+// not exist on the server; ErrSessionExists is returned by RestoreSession when
+// a live session already holds the snapshot's name. Callers match them with
+// errors.Is to distinguish these expected states from real tmux failures.
 var (
 	ErrSessionNotFound = errors.New("tmux session not found")
 	ErrSessionExists   = errors.New("tmux session already exists")
@@ -94,6 +101,9 @@ func (execRunner) runCommand(args ...string) commandResult {
 	return commandResult{string(out), nil}
 }
 
+// Client drives a tmux server by invoking the tmux binary. It is stateless
+// apart from restore policy (settle timeout, allow/denylist, resolver), so a
+// single Client can serve any number of capture/restore calls.
 type Client struct {
 	bin           string
 	runner        commandRunner
@@ -122,6 +132,9 @@ type RestoreCommandResolver interface {
 	Resolve(pane snapshot.Pane) string
 }
 
+// NewClient returns a Client that executes the given tmux binary with the
+// default restore settle timeout. An empty or blank bin falls back to "tmux"
+// resolved via PATH.
 func NewClient(bin string) *Client {
 	if strings.TrimSpace(bin) == "" {
 		bin = "tmux"
@@ -130,6 +143,9 @@ func NewClient(bin string) *Client {
 	return &Client{bin: bin, runner: execRunner{}, settleTimeout: defaultRestoreSettleTimeout}
 }
 
+// NewClientWithRunner is NewClient with an injectable command runner, so tests
+// can fake tmux output without a real server. A nil runner falls back to the
+// default exec-based one.
 func NewClientWithRunner(bin string, cmdRunner commandRunner) *Client {
 	if strings.TrimSpace(bin) == "" {
 		bin = "tmux"
@@ -221,6 +237,9 @@ func sessionPaneTarget(name string, windowIndex, paneIndex int) string {
 	return fmt.Sprintf("%s:%d.%d", sessionTarget(name), windowIndex, paneIndex)
 }
 
+// PaneTarget formats a tmux pane target ("=session:window.pane") for the given
+// session, window and pane indexes. The "=" prefix forces an exact session-name
+// match so tmux does not prefix-match a different session.
 func PaneTarget(name string, windowIndex, paneIndex int) string {
 	return sessionPaneTarget(name, windowIndex, paneIndex)
 }
@@ -229,6 +248,9 @@ func sessionWindowBaseTarget(name string) string {
 	return sessionTarget(name) + ":"
 }
 
+// Run executes tmux with the given arguments, wiring its stdout/stderr to the
+// current process so interactive commands (e.g. attach) render directly. Use
+// Output instead when the command's output must be parsed.
 func (client *Client) Run(args ...string) error {
 	// #nosec G204 -- client.bin is the tmux binary, user-configured on purpose (--tmux-bin)
 	cmd := exec.CommandContext(context.Background(), client.bin, args...)
@@ -243,6 +265,9 @@ func (client *Client) Run(args ...string) error {
 	return nil
 }
 
+// Output executes tmux with the given arguments and returns its combined
+// stdout/stderr. On failure the error message embeds the tmux command line and
+// its trimmed output.
 func (client *Client) Output(args ...string) (string, error) {
 	allArgs := append([]string{client.bin}, args...)
 	res := client.runner.runCommand(allArgs...)
@@ -250,12 +275,17 @@ func (client *Client) Output(args ...string) (string, error) {
 	return res.stdout, res.err
 }
 
+// SessionExists reports whether a session with exactly the given name is live
+// on the server. Any has-session failure — including "no server running" —
+// counts as not existing.
 func (client *Client) SessionExists(name string) bool {
 	_, err := client.Output("has-session", "-t", sessionTarget(name))
 
 	return err == nil
 }
 
+// ListSessions returns the names of all live sessions, sorted alphabetically.
+// A tmux server that is not running yields (nil, nil) rather than an error.
 func (client *Client) ListSessions() ([]string, error) {
 	out, err := client.Output("list-sessions", "-F", "#{session_name}")
 	if err != nil {
@@ -272,6 +302,9 @@ func (client *Client) ListSessions() ([]string, error) {
 	return lines, nil
 }
 
+// CurrentSession returns the name of the session the calling client is
+// attached to, as reported by "display-message -p #S". It errors when run
+// outside tmux with no server to answer.
 func (client *Client) CurrentSession() (string, error) {
 	out, err := client.Output("display-message", "-p", "#S")
 	if err != nil {
@@ -281,6 +314,9 @@ func (client *Client) CurrentSession() (string, error) {
 	return strings.TrimSpace(out), nil
 }
 
+// SocketPath returns the server's socket path, used to disambiguate sessions
+// across servers. It never fails: when tmux cannot answer (or answers empty)
+// it returns the literal "default".
 func (client *Client) SocketPath() string {
 	out, err := client.Output("display-message", "-p", "#{socket_path}")
 	if err != nil {
@@ -295,6 +331,9 @@ func (client *Client) SocketPath() string {
 	return v
 }
 
+// SwitchClient switches the attached tmux client to the given session. Outside
+// tmux (no TMUX env var) it is a silent no-op, since there is no client to
+// switch; callers use AttachSession for that case.
 func (client *Client) SwitchClient(session string) error {
 	if os.Getenv("TMUX") == "" {
 		return nil
@@ -352,36 +391,49 @@ func (client *Client) AttachSession(target string) error {
 	return attachExec(bin, args, os.Environ())
 }
 
+// KillWindow kills the window at the given index in the session. Killing the
+// last window kills the session as a whole (tmux semantics).
 func (client *Client) KillWindow(session string, windowIndex int) error {
 	_, err := client.Output("kill-window", "-t", sessionWindowTarget(session, windowIndex))
 
 	return err
 }
 
+// KillSession kills the live session with exactly the given name, detaching
+// any clients attached to it. It errors when the session does not exist.
 func (client *Client) KillSession(session string) error {
 	_, err := client.Output("kill-session", "-t", sessionTarget(session))
 
 	return err
 }
 
+// RenameWindow renames the window at the given index in the session. The
+// rename also disables tmux's automatic-rename for that window.
 func (client *Client) RenameWindow(session string, windowIndex int, name string) error {
 	_, err := client.Output("rename-window", "-t", sessionWindowTarget(session, windowIndex), name)
 
 	return err
 }
 
+// RenameSession renames a live session. It errors when the source session does
+// not exist or the new name is already taken.
 func (client *Client) RenameSession(session, name string) error {
 	_, err := client.Output("rename-session", "-t", sessionTarget(session), name)
 
 	return err
 }
 
+// NewSession creates a detached session with the given name and a single
+// default window. It errors when a session with that name already exists.
 func (client *Client) NewSession(name string) error {
 	_, err := client.Output("new-session", "-d", "-s", name)
 
 	return err
 }
 
+// NewWindow appends a new detached window to the session, letting tmux pick
+// the next free index. A blank name is omitted so tmux applies its default
+// window naming instead of creating a window literally named "".
 func (client *Client) NewWindow(session, name string) error {
 	args := []string{"new-window", "-d", "-t", sessionWindowBaseTarget(session)}
 	if strings.TrimSpace(name) != "" {
@@ -393,6 +445,10 @@ func (client *Client) NewWindow(session, name string) error {
 	return err
 }
 
+// CaptureSession snapshots a live session: every window (index, name, layout,
+// active flag) and every pane (index, path, current and restorable foreground
+// command). It returns ErrSessionNotFound when the session does not exist.
+// Scrollback and integration metadata are attached by later passes, not here.
 func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, error) {
 	if !client.SessionExists(name) {
 		return snapshot.SessionSnapshot{}, ErrSessionNotFound
@@ -573,6 +629,12 @@ func resolveRestoreFocus(
 	return win, pane
 }
 
+// RestoreSession recreates a session from a snapshot: windows and panes with
+// their layouts and working directories, saved scrollback, and the pane
+// commands the allow/denylist permits, then waits (up to the settle timeout)
+// for those commands to actually start. It returns ErrSessionExists when a
+// live session already has the snapshot's name, and never attaches — callers
+// decide between SwitchClient and AttachSession.
 func (client *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) error {
 	if sessionSnapshot.SessionName == "" {
 		return errEmptySessionName
@@ -687,6 +749,9 @@ func newWindowArgs(sessionName string, win snapshot.Window) []string {
 	return args
 }
 
+// CapturePaneScrollback returns the last `lines` lines of a pane's history,
+// with ANSI escape sequences preserved (-e) so colors survive a restore. A
+// non-positive lines value defaults to 5000.
 func (client *Client) CapturePaneScrollback(target string, lines int) (string, error) {
 	if lines <= 0 {
 		lines = 5000

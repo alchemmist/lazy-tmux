@@ -10,7 +10,6 @@ linters:
     - paralleltest
     - funlen
     - cyclop
-    - revive
 
     - wsl
     - wsl_v5

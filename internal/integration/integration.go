@@ -38,6 +38,8 @@ type StatusReporter interface {
 // Status is the live state of a running, integrated pane.
 type Status int
 
+// The live pane states an integration can report; StatusUnknown is the zero
+// value for panes whose state cannot be determined.
 const (
 	StatusUnknown          Status = iota
 	StatusWorking                 // actively doing work (e.g. Claude is generating)

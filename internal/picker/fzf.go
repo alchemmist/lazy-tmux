@@ -24,6 +24,8 @@ var (
 // fzfSelectionTimeout bounds how long a non-interactive --filter run may take.
 const fzfSelectionTimeout = 30 * time.Second
 
+// ErrNoSessions and ErrNoWindows are returned by the choosers when there is
+// nothing to pick from: no saved sessions at all, or sessions without windows.
 var (
 	ErrNoSessions = errors.New("no sessions available")
 	ErrNoWindows  = errors.New("no windows available")
@@ -78,6 +80,9 @@ func runFZF(input *bytes.Buffer, withNth string) (string, error) {
 	return selected, nil
 }
 
+// ChooseSessionFZF presents a session-level fzf list (name, captured time,
+// window count) and returns the name of the selected session. It returns
+// ErrNoSessions when records is empty.
 func ChooseSessionFZF(records []snapshot.Record) (string, error) {
 	if len(records) == 0 {
 		return "", ErrNoSessions

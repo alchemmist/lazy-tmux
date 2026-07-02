@@ -70,20 +70,7 @@ func runSave(args []string, stdout, stderr io.Writer) int {
 
 	switch {
 	case *all:
-		var saved int
-		saved, err = tmuxApp.SaveAll()
-		if err == nil {
-			if saved == 0 {
-				// Don't leave the user staring at silence (issue #125): a likely
-				// cause is lazy-tmux talking to a different tmux than theirs
-				// (e.g. tmux is a shell alias) — point them at tmux_bin.
-				_, _ = fmt.Fprintln(stdout,
-					"no running tmux sessions found "+
-						"(if you do have sessions, set tmux_bin / --tmux-bin to your tmux binary)")
-			} else {
-				_, _ = fmt.Fprintf(stdout, "saved %d session(s)\n", saved)
-			}
-		}
+		err = saveAllSessions(tmuxApp, stdout)
 	case strings.TrimSpace(*session) != "":
 		err = tmuxApp.SaveSession(strings.TrimSpace(*session))
 	default:
@@ -97,6 +84,28 @@ func runSave(args []string, stdout, stderr io.Writer) int {
 	}
 
 	return 0
+}
+
+// saveAllSessions saves every running session and reports the count — or a
+// hint when nothing was found.
+func saveAllSessions(tmuxApp *app.App, stdout io.Writer) error {
+	saved, err := tmuxApp.SaveAll()
+	if err != nil {
+		return err //nolint:wrapcheck // the caller wraps all save paths uniformly
+	}
+
+	if saved == 0 {
+		// Don't leave the user staring at silence (issue #125): a likely
+		// cause is lazy-tmux talking to a different tmux than theirs
+		// (e.g. tmux is a shell alias) — point them at tmux_bin.
+		_, _ = fmt.Fprintln(stdout,
+			"no running tmux sessions found "+
+				"(if you do have sessions, set tmux_bin / --tmux-bin to your tmux binary)")
+	} else {
+		_, _ = fmt.Fprintf(stdout, "saved %d session(s)\n", saved)
+	}
+
+	return nil
 }
 
 func saveHelp(w io.Writer) {

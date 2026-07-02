@@ -27,6 +27,11 @@ var newDaemonTicker = func(d time.Duration) daemonTicker {
 	return &realDaemonTicker{Ticker: time.NewTicker(d)}
 }
 
+// RunDaemon saves all running tmux sessions immediately and then on every tick
+// of interval (falling back to the configured SaveInterval when interval <= 0),
+// blocking until the process is killed. A per-socket flock makes it return
+// errDaemonRunning when another daemon already serves the same tmux socket;
+// individual save failures are logged to stderr and do not stop the loop.
 func (a *App) RunDaemon(interval time.Duration) error {
 	if interval <= 0 {
 		interval = a.cfg.SaveInterval

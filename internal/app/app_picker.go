@@ -158,10 +158,16 @@ func (a *App) RestoreTargetInteractive(target PickerTarget) error {
 	return a.handoffToTarget(target, true)
 }
 
+// SelectTargetWithTUI runs the interactive TUI picker with the default sort
+// order and returns the chosen session/window target.
 func (a *App) SelectTargetWithTUI() (PickerTarget, error) {
 	return a.SelectTargetWithTUISorted(DefaultPickerSortOptions())
 }
 
+// SelectTargetWithTUISorted runs the interactive TUI picker sorted by opts and
+// returns the chosen target. The picker is wired with the App's CRUD actions
+// (delete/rename/new/wakeup/sleep) plus a reload callback. Having no saved
+// sessions is not an error: the picker opens empty so the user can create one.
 func (a *App) SelectTargetWithTUISorted(opts PickerSortOptions) (PickerTarget, error) {
 	sessions, err := a.pickerSessions(opts)
 	if err != nil {
@@ -203,6 +209,8 @@ func (a *App) SelectTargetWithTUISorted(opts PickerSortOptions) (PickerTarget, e
 	return target, nil
 }
 
+// SelectWithTUI runs the TUI picker and returns only the chosen session name,
+// discarding any window selection.
 func (a *App) SelectWithTUI() (string, error) {
 	target, err := a.SelectTargetWithTUI()
 	if err != nil {
@@ -212,10 +220,15 @@ func (a *App) SelectWithTUI() (string, error) {
 	return target.SessionName, nil
 }
 
+// SelectWithFZF runs the fzf session picker with the default sort order and
+// returns the chosen session name.
 func (a *App) SelectWithFZF() (string, error) {
 	return a.SelectWithFZFSorted(DefaultPickerSortOptions())
 }
 
+// SelectWithFZFSorted runs the fzf session picker sorted by opts and returns
+// the chosen session name. Unlike the TUI picker, it errors when there are no
+// saved sessions.
 func (a *App) SelectWithFZFSorted(opts PickerSortOptions) (string, error) {
 	records, err := a.pickerRecords(opts)
 	if err != nil {

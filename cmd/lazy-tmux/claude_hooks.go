@@ -97,6 +97,41 @@ func runClaudeHooks(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
+// mergeClaudeHookSpecs rewrites each of our hook events inside hooks in place:
+// existing lazy-tmux groups (matched by marker) are dropped, and unless
+// uninstalling a fresh group pointing at binary is appended. User-owned groups
+// under the same events are never touched.
+func mergeClaudeHookSpecs(hooks map[string][]json.RawMessage, binary string, uninstall bool) error {
+	for _, spec := range claudeHookSpecs() {
+		command := fmt.Sprintf("%s hook claude-status --state %s", binary, spec.state)
+		marker := fmt.Sprintf("%s --state %s", claudeHookCommandMarker, spec.state)
+
+		kept := dropOurGroups(hooks[spec.event], marker)
+
+		if !uninstall {
+			group := hookGroup{
+				Matcher: spec.matcher,
+				Hooks:   []hookEntry{{Type: "command", Command: command}},
+			}
+
+			raw, err := json.Marshal(group)
+			if err != nil {
+				return fmt.Errorf("marshal hook group: %w", err)
+			}
+
+			kept = append(kept, raw)
+		}
+
+		if len(kept) == 0 {
+			delete(hooks, spec.event)
+		} else {
+			hooks[spec.event] = kept
+		}
+	}
+
+	return nil
+}
+
 // applyClaudeHooks merges (or removes) lazy-tmux's status hooks in the Claude
 // settings.json at path, preserving every other key and the user's own hooks. It
 // backs the file up before writing and is idempotent. Returns whether the file
@@ -121,31 +156,9 @@ func applyClaudeHooks(path, binary string, uninstall bool) (bool, error) {
 		}
 	}
 
-	for _, spec := range claudeHookSpecs() {
-		command := fmt.Sprintf("%s hook claude-status --state %s", binary, spec.state)
-		marker := fmt.Sprintf("%s --state %s", claudeHookCommandMarker, spec.state)
-
-		kept := dropOurGroups(hooks[spec.event], marker)
-
-		if !uninstall {
-			group := hookGroup{
-				Matcher: spec.matcher,
-				Hooks:   []hookEntry{{Type: "command", Command: command}},
-			}
-
-			raw, err := json.Marshal(group)
-			if err != nil {
-				return false, fmt.Errorf("marshal hook group: %w", err)
-			}
-
-			kept = append(kept, raw)
-		}
-
-		if len(kept) == 0 {
-			delete(hooks, spec.event)
-		} else {
-			hooks[spec.event] = kept
-		}
+	err = mergeClaudeHookSpecs(hooks, binary, uninstall)
+	if err != nil {
+		return false, err
 	}
 
 	if len(hooks) == 0 {

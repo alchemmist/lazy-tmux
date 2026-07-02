@@ -106,6 +106,31 @@ func (i *Integration) statusFromSessionFile(cwd string) (integration.Status, boo
 		return integration.StatusUnknown, false
 	}
 
+	best, found := freshestLiveSession(filepath.Join(i.home, "sessions"), entries, cwd)
+	if !found {
+		return integration.StatusUnknown, false
+	}
+
+	switch best.Status {
+	case "busy":
+		return integration.StatusWorking, true
+	case "waiting":
+		return integration.StatusAwaitingDecision, true
+	case "idle":
+		return integration.StatusIdle, true
+	default:
+		return integration.StatusUnknown, false
+	}
+}
+
+// freshestLiveSession scans dir's *.json session files and returns the one with
+// the newest UpdatedAt whose cwd matches and whose process is still alive.
+// Unreadable or malformed files are skipped.
+func freshestLiveSession(
+	dir string,
+	entries []os.DirEntry,
+	cwd string,
+) (claudeSession, bool) {
 	var (
 		best      claudeSession
 		bestFound bool
@@ -116,7 +141,9 @@ func (i *Integration) statusFromSessionFile(cwd string) (integration.Status, boo
 			continue
 		}
 
-		data, err := os.ReadFile(filepath.Join(i.home, "sessions", entry.Name()))
+		data, err := os.ReadFile(
+			filepath.Join(dir, entry.Name()),
+		) // #nosec G304 -- session files under the user's Claude home
 		if err != nil {
 			continue
 		}
@@ -136,20 +163,7 @@ func (i *Integration) statusFromSessionFile(cwd string) (integration.Status, boo
 		}
 	}
 
-	if !bestFound {
-		return integration.StatusUnknown, false
-	}
-
-	switch best.Status {
-	case "busy":
-		return integration.StatusWorking, true
-	case "waiting":
-		return integration.StatusAwaitingDecision, true
-	case "idle":
-		return integration.StatusIdle, true
-	default:
-		return integration.StatusUnknown, false
-	}
+	return best, bestFound
 }
 
 // processAlive reports whether a pid refers to a running process (signal 0

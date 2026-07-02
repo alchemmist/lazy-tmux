@@ -98,12 +98,12 @@ func (r *recordingActions) toActions(sessions []Session) Actions {
 
 			return nil
 		},
-		RenameWindow: func(s string, idx int, n string) error {
+		RenameWindow: func(_ string, _ int, n string) error {
 			r.renamedWindow = n
 
 			return nil
 		},
-		RenameSession: func(s, n string) error {
+		RenameSession: func(_, n string) error {
 			r.renamedSession = n
 
 			return nil

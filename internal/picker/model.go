@@ -947,6 +947,9 @@ var newPickerRunner = func(m pickerModel) pickerRunner {
 	return tea.NewProgram(m)
 }
 
+// ChooseTarget runs the interactive bubbletea picker over the given sessions
+// and returns the user's selection. It fails when the TUI is disabled, the
+// picker errors, the user cancels, or nothing ends up selected.
 func ChooseTarget(sessions []Session, windowSort []WindowSortKey, actions Actions) (Target, error) {
 	if tuiDisabled() {
 		return Target{}, errTUIDisabled

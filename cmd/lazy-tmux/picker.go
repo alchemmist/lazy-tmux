@@ -76,46 +76,62 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 
 	tmuxApp := app.New(cfg)
 
-	var target app.PickerTarget
-
-	switch {
-	case *fzfEngine && *windows:
-		target, err = tmuxApp.SelectTargetWithFZFSorted(sortOpts)
-		if err != nil {
-			writeErr(stderr, fmt.Errorf("select target: %w", err))
-
-			return 1
-		}
-	case *fzfEngine:
-		session, err := tmuxApp.SelectWithFZFSorted(sortOpts)
-		if err != nil {
-			writeErr(stderr, fmt.Errorf("select target: %w", err))
-
-			return 1
-		}
-
-		target = app.PickerTarget{SessionName: session}
-	default:
-		target, err = tmuxApp.SelectTargetWithTUISorted(sortOpts)
-		if err != nil {
-			writeErr(stderr, fmt.Errorf("select target: %w", err))
-
-			return 1
-		}
-
-		// The interactive TUI shows a loading animation while the pick restores.
-		err = tmuxApp.RestoreTargetAnimated(target)
-		if err != nil {
-			writeErr(stderr, fmt.Errorf("restore target: %w", err))
-
-			return 1
-		}
-
-		return 0
+	if *fzfEngine {
+		return runFZFPicker(tmuxApp, *windows, sortOpts, stderr)
 	}
 
-	// The fzf engine is also an interactive picker: attach into the pick even
-	// from a plain shell (no animation — it has no TUI to draw into).
+	return runTUIPicker(tmuxApp, sortOpts, stderr)
+}
+
+// runTUIPicker opens the built-in TUI, then restores the pick behind the
+// loading animation.
+func runTUIPicker(tmuxApp *app.App, sortOpts app.PickerSortOptions, stderr io.Writer) int {
+	target, err := tmuxApp.SelectTargetWithTUISorted(sortOpts)
+	if err != nil {
+		writeErr(stderr, fmt.Errorf("select target: %w", err))
+
+		return 1
+	}
+
+	err = tmuxApp.RestoreTargetAnimated(target)
+	if err != nil {
+		writeErr(stderr, fmt.Errorf("restore target: %w", err))
+
+		return 1
+	}
+
+	return 0
+}
+
+// runFZFPicker picks a session (or a window when windows is true) via the fzf
+// engine and attaches into the pick even from a plain shell — fzf has no TUI to
+// draw an animation into.
+func runFZFPicker(
+	tmuxApp *app.App,
+	windows bool,
+	sortOpts app.PickerSortOptions,
+	stderr io.Writer,
+) int {
+	var (
+		target app.PickerTarget
+		err    error
+	)
+
+	if windows {
+		target, err = tmuxApp.SelectTargetWithFZFSorted(sortOpts)
+	} else {
+		var session string
+
+		session, err = tmuxApp.SelectWithFZFSorted(sortOpts)
+		target = app.PickerTarget{SessionName: session}
+	}
+
+	if err != nil {
+		writeErr(stderr, fmt.Errorf("select target: %w", err))
+
+		return 1
+	}
+
 	err = tmuxApp.RestoreTargetInteractive(target)
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("restore target: %w", err))

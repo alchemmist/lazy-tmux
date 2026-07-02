@@ -1,3 +1,6 @@
+// Package config loads lazy-tmux's TOML configuration: built-in defaults
+// overlaid with the config file, which CLI flags and env overrides may in turn
+// override. Unknown keys in the file are rejected so typos fail loudly.
 package config
 
 import (
@@ -22,6 +25,8 @@ var (
 	errConfigExists = errors.New("already exists (use --force to overwrite)")
 )
 
+// Config is the effective lazy-tmux configuration after defaults, the TOML
+// file and any flag/env overrides have been merged.
 type Config struct {
 	TmuxBin        string
 	DataDir        string
@@ -46,6 +51,8 @@ type Config struct {
 	RestoreDenylist []string
 }
 
+// ScrollbackConfig controls capturing shell-pane scrollback into snapshots:
+// whether it happens at all and how many lines deep.
 type ScrollbackConfig struct {
 	Enabled bool
 	Lines   int
@@ -79,6 +86,9 @@ const (
 	DefaultScrollbackLines = 5000
 )
 
+// Default returns the built-in configuration used when no config file, flag or
+// env override sets a value. Notably scrollback capture is off by default while
+// the integrations framework (including Claude) is on.
 func Default() Config {
 	return Config{
 		TmuxBin:        defaultTmuxBin,

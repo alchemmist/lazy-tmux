@@ -1,3 +1,6 @@
+// Package store persists session snapshots on disk under the data dir: one
+// JSON file per session, pane scrollback in a sibling directory, and an index
+// with per-session records.
 package store
 
 import (
@@ -34,15 +37,23 @@ const (
 	scrollbackFilePerm = 0o600
 )
 
+// Store is the on-disk snapshot store rooted at a base dir. A mutex serializes
+// all mutations, and every write goes through a temp file plus rename so a
+// crash never leaves a half-written snapshot or index behind.
 type Store struct {
 	baseDir string
 	mu      sync.Mutex
 }
 
+// New returns a Store rooted at baseDir. The directory layout is created
+// lazily on the first save, so New itself never touches the filesystem.
 func New(baseDir string) *Store {
 	return &Store{baseDir: baseDir}
 }
 
+// DefaultDataDir returns the store's default base dir: $LAZY_TMUX_DATA_DIR
+// when set, otherwise ~/.local/share/lazy-tmux, falling back to the relative
+// ".lazy-tmux" when the home directory cannot be resolved.
 func DefaultDataDir() string {
 	if v := strings.TrimSpace(os.Getenv("LAZY_TMUX_DATA_DIR")); v != "" {
 		return v
@@ -56,6 +67,10 @@ func DefaultDataDir() string {
 	return filepath.Join(home, ".local", "share", "lazy-tmux")
 }
 
+// SaveSession persists a snapshot: pane scrollback is split out into per-pane
+// files (replaced by refs in the JSON), the session JSON is written atomically,
+// and the index record is refreshed while preserving the session's recorded
+// LastAccessed time. A zero CapturedAt is stamped with the current UTC time.
 func (s *Store) SaveSession(sessionSnapshot snapshot.SessionSnapshot) error {
 	if sessionSnapshot.SessionName == "" {
 		return errEmptySessionName
@@ -124,6 +139,9 @@ func (s *Store) SaveSession(sessionSnapshot snapshot.SessionSnapshot) error {
 	return writeJSONAtomic(s.indexPath(), idx)
 }
 
+// DeleteSession removes a session's JSON file, its scrollback directory and
+// its index entry. It is idempotent: deleting a session that has no files on
+// disk still succeeds and just cleans the index.
 func (s *Store) DeleteSession(name string) error {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -172,6 +190,9 @@ func (s *Store) DeleteSession(name string) error {
 	return writeJSONAtomic(s.indexPath(), idx)
 }
 
+// LoadSession reads a session snapshot from disk and hydrates pane scrollback
+// content from its ref files. A ref whose file has since disappeared is
+// skipped, not an error, so a partially pruned store still loads.
 func (s *Store) LoadSession(name string) (snapshot.SessionSnapshot, error) {
 	var out snapshot.SessionSnapshot
 
@@ -198,6 +219,9 @@ func (s *Store) LoadSession(name string) (snapshot.SessionSnapshot, error) {
 	return out, nil
 }
 
+// SessionPath returns the path of the session's JSON file under the data dir,
+// with the name sanitized for the filesystem. The file need not exist; only an
+// empty name is an error.
 func (s *Store) SessionPath(name string) (string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -207,6 +231,9 @@ func (s *Store) SessionPath(name string) (string, error) {
 	return s.sessionPath(name), nil
 }
 
+// SessionExists reports whether a snapshot file for the session is on disk. It
+// stats the JSON file directly rather than consulting the index, so it stays
+// truthful even when the two drift apart.
 func (s *Store) SessionExists(name string) (bool, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -230,6 +257,9 @@ func (s *Store) SessionExists(name string) (bool, error) {
 	return true, nil
 }
 
+// ListRecords returns every session record from the index, newest capture
+// first, with ties broken by session name for a stable order. A store with no
+// index yet yields (nil, nil).
 func (s *Store) ListRecords() ([]snapshot.Record, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -259,6 +289,8 @@ func (s *Store) ListRecords() ([]snapshot.Record, error) {
 	return records, nil
 }
 
+// LatestRecord returns the most recently captured session record. It returns
+// os.ErrNotExist when the store holds no records at all.
 func (s *Store) LatestRecord() (snapshot.Record, error) {
 	recs, err := s.ListRecords()
 	if err != nil {
@@ -272,6 +304,9 @@ func (s *Store) LatestRecord() (snapshot.Record, error) {
 	return recs[0], nil
 }
 
+// ScrollbackExists reports whether the session has a scrollback directory on
+// disk. Sessions saved without any scrollback content have none, so false is a
+// normal answer for an existing session.
 func (s *Store) ScrollbackExists(name string) (bool, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -298,6 +333,9 @@ func (s *Store) ScrollbackExists(name string) (bool, error) {
 	return true, nil
 }
 
+// IndexEntryExists reports whether the index holds a record for the session.
+// Unlike SessionExists it consults only the index, which lets callers detect
+// index/file drift by comparing the two.
 func (s *Store) IndexEntryExists(name string) (bool, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -317,6 +355,9 @@ func (s *Store) IndexEntryExists(name string) (bool, error) {
 	return ok, nil
 }
 
+// MarkSessionAccessed stamps the session's index record with the given access
+// time (in UTC; a zero value means now) so pickers can sort by recency. It
+// returns os.ErrNotExist when the session has no index record.
 func (s *Store) MarkSessionAccessed(name string, accessTime time.Time) error {
 	name = strings.TrimSpace(name)
 	if name == "" {
