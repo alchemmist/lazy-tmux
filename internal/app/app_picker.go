@@ -140,7 +140,21 @@ func (a *App) RestoreTargetAnimated(target PickerTarget) error {
 		log.Printf("lazy-tmux: restore animation: %v", animErr)
 	}
 
-	return a.handoffToTarget(target)
+	// allowAttach: the user picked this session interactively and wants to land
+	// in it, even from a plain shell outside tmux.
+	return a.handoffToTarget(target, true)
+}
+
+// RestoreTargetInteractive restores target and hands off, attaching outside tmux
+// (the user picked it interactively). Used by the fzf picker engine, which has
+// no TUI to draw the loading animation into.
+func (a *App) RestoreTargetInteractive(target PickerTarget) error {
+	err := a.restoreSessionForTarget(target)
+	if err != nil {
+		return err
+	}
+
+	return a.handoffToTarget(target, true)
 }
 
 func (a *App) SelectTargetWithTUI() (PickerTarget, error) {

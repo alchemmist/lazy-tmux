@@ -108,7 +108,9 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 
-	err = tmuxApp.RestoreTarget(target, true)
+	// The fzf engine is also an interactive picker: attach into the pick even
+	// from a plain shell (no animation — it has no TUI to draw into).
+	err = tmuxApp.RestoreTargetInteractive(target)
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("restore target: %w", err))
 		return 1

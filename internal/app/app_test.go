@@ -44,15 +44,28 @@ func TestRestoreTargetHandsOff(t *testing.T) {
 
 	cases := []struct {
 		name         string
+		interactive  bool // RestoreTargetInteractive vs. the plain CLI RestoreTarget
 		inside       bool
 		windowIndex  *int
 		wantSwitched string
 		wantAttached string
 	}{
-		{name: "inside tmux switches", inside: true, wantSwitched: "s1"},
-		{name: "outside tmux attaches", inside: false, wantAttached: "s1"},
+		// Inside tmux both paths switch the client.
+		{name: "cli inside tmux switches", inside: true, wantSwitched: "s1"},
+		{name: "picker inside tmux switches", interactive: true, inside: true, wantSwitched: "s1"},
+
+		// Outside tmux only the interactive picker attaches; the plain CLI restore
+		// stays scriptable and does neither.
+		{name: "cli outside tmux does not attach", inside: false},
 		{
-			name:         "outside tmux attaches to window",
+			name:         "picker outside tmux attaches",
+			interactive:  true,
+			inside:       false,
+			wantAttached: "s1",
+		},
+		{
+			name:         "picker outside tmux attaches to window",
+			interactive:  true,
 			inside:       false,
 			windowIndex:  &idx,
 			wantAttached: "s1:2",
@@ -70,10 +83,15 @@ func TestRestoreTargetHandsOff(t *testing.T) {
 			fake := &recordingTmux{inside: tc.inside}
 			a.tmux = fake
 
-			err := a.RestoreTarget(
-				PickerTarget{SessionName: "s1", WindowIndex: tc.windowIndex},
-				true,
-			)
+			target := PickerTarget{SessionName: "s1", WindowIndex: tc.windowIndex}
+
+			var err error
+			if tc.interactive {
+				err = a.RestoreTargetInteractive(target)
+			} else {
+				err = a.RestoreTarget(target, true)
+			}
+
 			if err != nil {
 				t.Fatalf("restore target: %v", err)
 			}

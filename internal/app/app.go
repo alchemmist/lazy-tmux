@@ -160,7 +160,9 @@ func (a *App) RestoreTarget(target PickerTarget, switchClient bool) error {
 	}
 
 	if switchClient {
-		return a.handoffToTarget(target)
+		// CLI restore/bootstrap: switch inside tmux, but never attach outside it —
+		// keep it scriptable.
+		return a.handoffToTarget(target, false)
 	}
 
 	return nil
@@ -220,10 +222,13 @@ func (a *App) restoreSessionForTarget(target PickerTarget) error {
 	return nil
 }
 
-// handoffToTarget moves the user into the restored session: inside tmux it hops
-// the current client, outside tmux it attaches (so the user lands inside instead
-// of being left at the shell — #182). Outside tmux this replaces the process.
-func (a *App) handoffToTarget(target PickerTarget) error {
+// handoffToTarget moves the user into the restored session. Inside tmux it hops
+// the current client to the session. Outside tmux it attaches only when
+// allowAttach is set — that path is reserved for the interactive picker, where
+// the user picked a session and wants to land in it. Plain CLI commands
+// (restore/bootstrap) pass allowAttach=false so they stay scriptable and don't
+// hijack the terminal with a blocking attach.
+func (a *App) handoffToTarget(target PickerTarget, allowAttach bool) error {
 	session := strings.TrimSpace(target.SessionName)
 
 	switchTarget := session
@@ -237,6 +242,12 @@ func (a *App) handoffToTarget(target PickerTarget) error {
 			return fmt.Errorf("switch client: %w", err)
 		}
 
+		return nil
+	}
+
+	// Outside tmux: attach only for the interactive picker; otherwise leave the
+	// session restored-but-detached so scripts aren't blocked (#182/#183).
+	if !allowAttach {
 		return nil
 	}
 
