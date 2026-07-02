@@ -68,6 +68,7 @@ type pickerModel struct {
 	paletteIdx  int                 // highlighted command in the palette
 	promptInput textinput.Model
 	pending     Target
+	helpOpen    bool // full keybind help panel is showing (browse mode only)
 }
 
 // pickerMode is the text-prompt overlay (rename/new). It is orthogonal to the
@@ -167,6 +168,15 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handlePromptKey(msg)
 		}
 
+		// The help panel is a modal overlay: any key dismisses it and is consumed
+		// so it doesn't also act on the list underneath.
+		if m.helpOpen {
+			m.helpOpen = false
+			m.renderViewport()
+
+			return m, nil
+		}
+
 		if next, cmd, handled := m.dispatchBrowseKey(msg); handled {
 			return next, cmd
 		}
@@ -210,9 +220,12 @@ func (m pickerModel) View() tea.View {
 	buf.WriteString(m.theme.frameLine(input, width))
 	buf.WriteString("\n")
 
-	if m.palette {
+	switch {
+	case m.helpOpen:
+		m.writeHelp(&buf, width)
+	case m.palette:
 		m.writePalette(&buf, width)
-	} else {
+	default:
 		m.writeTable(&buf, width)
 	}
 
@@ -227,9 +240,9 @@ func (m pickerModel) View() tea.View {
 }
 
 // handleWheel scrolls the cursor while browsing; wheel input is ignored inside
-// prompts and the palette.
+// prompts, the palette and the help panel.
 func (m pickerModel) handleWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
-	if m.mode != modeBrowse || m.palette {
+	if m.mode != modeBrowse || m.palette || m.helpOpen {
 		return m, nil
 	}
 
@@ -248,7 +261,7 @@ func (m pickerModel) handleWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 
 // handleClick selects the row under a left click while browsing.
 func (m pickerModel) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
-	if m.mode != modeBrowse || m.palette || msg.Button != tea.MouseLeft {
+	if m.mode != modeBrowse || m.palette || m.helpOpen || msg.Button != tea.MouseLeft {
 		return m, nil
 	}
 
@@ -325,11 +338,15 @@ func (m pickerModel) writePalette(buf *strings.Builder, width int) {
 		return
 	}
 
-	for i, cmd := range matches {
+	for idx, cmd := range matches {
 		name := m.theme.title.Render("/" + cmd.name)
-		line := name + "  " + m.theme.meta.Render(cmd.desc)
+		line := name + "  " + m.theme.helpKey.Render(
+			cmd.chord,
+		) + "  " + m.theme.meta.Render(
+			cmd.desc,
+		)
 
-		if i == m.paletteIdx {
+		if idx == m.paletteIdx {
 			line = m.theme.stripe.Render("▌") + " " + line
 		} else {
 			line = "  " + line
@@ -337,6 +354,78 @@ func (m pickerModel) writePalette(buf *strings.Builder, width int) {
 
 		buf.WriteString(m.theme.frameLine(line, width))
 		buf.WriteString("\n")
+	}
+}
+
+// helpEntry is one keybinding row in the full help panel.
+type helpEntry struct{ keys, label string }
+
+// helpSection groups related keybindings under a heading.
+type helpSection struct {
+	title   string
+	entries []helpEntry
+}
+
+// helpSections is the full keybinding reference shown by the `?` panel. The
+// action chords act on the row under the cursor: ^ variants target the current
+// window, ⌥ variants the current session.
+//
+//nolint:gochecknoglobals // static help-panel table, never mutated
+var helpSections = []helpSection{
+	{
+		title: "Navigate",
+		entries: []helpEntry{
+			{"^j / ^k", "move down / up"},
+			{"↵", "restore the selected session/window"},
+			{"type", "filter the list"},
+			{"esc", "quit"},
+		},
+	},
+	{
+		title: "Act on the row under the cursor",
+		entries: []helpEntry{
+			{"^d / ⌥d", "delete window / session"},
+			{"^r / ⌥r", "rename window / session"},
+			{"^n / ⌥n", "new window / session"},
+			{"⌥w", "wake a sleeping session"},
+			{"⌥s", "sleep a live session"},
+			{"/", "command palette (same actions, typed)"},
+		},
+	},
+}
+
+// writeHelp renders the full keybinding reference into buf, replacing the table
+// while the `?` panel is open.
+func (m pickerModel) writeHelp(buf *strings.Builder, width int) {
+	// The widest key column across all sections, so labels line up.
+	keyW := 0
+	for _, section := range helpSections {
+		for _, entry := range section.entries {
+			if w := displayWidth(entry.keys); w > keyW {
+				keyW = w
+			}
+		}
+	}
+
+	for sectionIdx, section := range helpSections {
+		if sectionIdx > 0 {
+			buf.WriteString(m.theme.frameLine("", width))
+			buf.WriteString("\n")
+		}
+
+		buf.WriteString(m.theme.frameLine(m.theme.title.Render(section.title), width))
+		buf.WriteString("\n")
+
+		for _, entry := range section.entries {
+			keyCell := entry.keys + strings.Repeat(" ", keyW-displayWidth(entry.keys))
+			line := "  " + m.theme.helpKey.Render(
+				keyCell,
+			) + "   " + m.theme.meta.Render(
+				entry.label,
+			)
+			buf.WriteString(m.theme.frameLine(line, width))
+			buf.WriteString("\n")
+		}
 	}
 }
 
@@ -415,8 +504,12 @@ func (m pickerModel) helpHints() string {
 		cmd, _ := commandForMode(m.action)
 		pairs = append([]hint{{cmd.label, ""}}, cmd.hints...)
 		pairs = append(pairs, hintMove, hintCancel)
+	case m.helpOpen:
+		pairs = []hint{{"any key", "close help"}}
 	default:
-		pairs = []hint{{"↵", "select"}, hintMove, {"/", "commands"}, {keyEsc, "quit"}}
+		pairs = []hint{
+			{"↵", "select"}, hintMove, {"/", "commands"}, {"?", "help"}, {keyEsc, "quit"},
+		}
 	}
 
 	parts := make([]string, 0, len(pairs))
@@ -446,6 +539,14 @@ func (m pickerModel) handleBrowseKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, b
 		m.cancelled = true
 
 		return m, tea.Quit, true
+	case "?":
+		// Toggle the help panel, but only when the search box is empty so a real
+		// "?" can still be typed to filter.
+		if m.queryInput.Value() == "" {
+			m.helpOpen = true
+
+			return m, nil, true
+		}
 	case "ctrl+d", "alt+d", "ctrl+r", "alt+r", "ctrl+n", "alt+n", "alt+w", "alt+s":
 		m.enterModeShortcut(msg.String())
 		m.renderViewport()

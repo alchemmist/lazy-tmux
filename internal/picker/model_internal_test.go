@@ -4,6 +4,7 @@ package picker
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -665,3 +666,46 @@ type staticRunner struct {
 }
 
 func (s staticRunner) Run() (tea.Model, error) { return s.model, nil }
+
+func TestModelHelpToggle(t *testing.T) {
+	t.Parallel()
+
+	rec := &recordingActions{}
+	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two"))
+
+	// "?" on an empty query opens the help panel.
+	m = feed(t, m, keyRune('?'))
+	if !m.helpOpen {
+		t.Fatal("'?' should open the help panel")
+	}
+
+	view := m.View().Content
+	if !strings.Contains(view, "Navigate") || !strings.Contains(view, "sleep a live session") {
+		t.Fatalf("help panel should list keybindings, got:\n%s", view)
+	}
+
+	// Any key closes it and is consumed (no accidental selection/mode change).
+	m = feed(t, m, keyCode(tea.KeyEnter))
+	if m.helpOpen {
+		t.Fatal("any key should close the help panel")
+	}
+
+	if m.selected.SessionName != "" {
+		t.Fatal("the key that closed help must not also select a row")
+	}
+}
+
+func TestModelHelpNotTriggeredWhileTyping(t *testing.T) {
+	t.Parallel()
+
+	rec := &recordingActions{}
+	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
+
+	// With a non-empty query, "?" is a normal filter character, not a help toggle.
+	m = feed(t, m, keyRune('a'))
+	m = feed(t, m, keyRune('?'))
+
+	if m.helpOpen {
+		t.Fatal("'?' must not open help while typing a query")
+	}
+}
