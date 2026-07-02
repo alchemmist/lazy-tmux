@@ -7,7 +7,8 @@ linters:
   default: all
 
   disable:
-
+    # Kept off after the #69 rollout: wsl's whitespace choreography fought the
+    # formatter stack (gofumpt + golines) more than it helped.
     - wsl
     - wsl_v5
 
