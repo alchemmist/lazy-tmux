@@ -13,6 +13,22 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
+// Sentinel errors surfaced in the picker's status line.
+var (
+	errDeleteWindowUnavailable  = errors.New("delete window not available")
+	errDeleteSessionUnavailable = errors.New("delete session not available")
+	errSelectSessionToDelete    = errors.New("select a session to delete")
+	errRenameWindowUnavailable  = errors.New("rename window not available")
+	errRenameSessionUnavailable = errors.New("rename session not available")
+	errNewSessionUnavailable    = errors.New("new session not available")
+	errNewWindowUnavailable     = errors.New("new window not available")
+	errSelectSessionForWindow   = errors.New("select a session to create a window")
+	errSelectSessionToWakeup    = errors.New("select a session to wakeup")
+	errWakeupUnavailable        = errors.New("wakeup not available")
+	errSelectSessionToSleep     = errors.New("select a session to sleep")
+	errSleepUnavailable         = errors.New("sleep not available")
+)
+
 // markState describes how much of a row is marked for deletion: a window is
 // either marked or not; a session is empty, partial or fully marked.
 type markState int
@@ -205,7 +221,7 @@ func (m *pickerModel) deleteMarkedSession(session string, idxs []int) error {
 	}
 
 	if m.actions.DeleteWindow == nil {
-		return errors.New("delete window not available")
+		return errDeleteWindowUnavailable
 	}
 
 	sort.Sort(sort.Reverse(sort.IntSlice(idxs)))
@@ -359,11 +375,11 @@ func (m *pickerModel) commitPrompt() {
 
 func (m *pickerModel) deleteSession(session string) error {
 	if m.actions.DeleteSession == nil {
-		return errors.New("delete session not available")
+		return errDeleteSessionUnavailable
 	}
 
 	if strings.TrimSpace(session) == "" {
-		return errors.New("select a session to delete")
+		return errSelectSessionToDelete
 	}
 
 	return m.actions.DeleteSession(session)
@@ -371,7 +387,7 @@ func (m *pickerModel) deleteSession(session string) error {
 
 func (m *pickerModel) renameWindow(session string, windowIndex int, name string) error {
 	if m.actions.RenameWindow == nil {
-		return errors.New("rename window not available")
+		return errRenameWindowUnavailable
 	}
 
 	return m.actions.RenameWindow(session, windowIndex, name)
@@ -379,7 +395,7 @@ func (m *pickerModel) renameWindow(session string, windowIndex int, name string)
 
 func (m *pickerModel) renameSession(session, name string) error {
 	if m.actions.RenameSession == nil {
-		return errors.New("rename session not available")
+		return errRenameSessionUnavailable
 	}
 
 	return m.actions.RenameSession(session, name)
@@ -387,7 +403,7 @@ func (m *pickerModel) renameSession(session, name string) error {
 
 func (m *pickerModel) createSession(name string) error {
 	if m.actions.NewSession == nil {
-		return errors.New("new session not available")
+		return errNewSessionUnavailable
 	}
 
 	return m.actions.NewSession(name)
@@ -395,11 +411,11 @@ func (m *pickerModel) createSession(name string) error {
 
 func (m *pickerModel) createWindow(session, name string) error {
 	if m.actions.NewWindow == nil {
-		return errors.New("new window not available")
+		return errNewWindowUnavailable
 	}
 
 	if strings.TrimSpace(session) == "" {
-		return errors.New("select a session to create a window")
+		return errSelectSessionForWindow
 	}
 
 	return m.actions.NewWindow(session, name)
@@ -408,11 +424,11 @@ func (m *pickerModel) createWindow(session, name string) error {
 func (m *pickerModel) wakeupSession() error {
 	row, ok := m.currentRow()
 	if !ok {
-		return errors.New("select a session to wakeup")
+		return errSelectSessionToWakeup
 	}
 
 	if m.actions.Wakeup == nil {
-		return errors.New("wakeup not available")
+		return errWakeupUnavailable
 	}
 
 	return m.actions.Wakeup(row.target.SessionName)
@@ -421,11 +437,11 @@ func (m *pickerModel) wakeupSession() error {
 func (m *pickerModel) sleepSession() error {
 	row, ok := m.currentRow()
 	if !ok {
-		return errors.New("select a session to sleep")
+		return errSelectSessionToSleep
 	}
 
 	if m.actions.Sleep == nil {
-		return errors.New("sleep not available")
+		return errSleepUnavailable
 	}
 
 	return m.actions.Sleep(row.target.SessionName)

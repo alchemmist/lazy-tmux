@@ -39,7 +39,7 @@ func runRestore(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if strings.TrimSpace(*session) == "" {
-		writeErr(stderr, errors.New("restore requires --session"))
+		writeErr(stderr, fmt.Errorf("restore %w", errRequiresSession))
 
 		return 1
 	}

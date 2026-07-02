@@ -11,6 +11,8 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
+var errBoom = errors.New("boom")
+
 // keyRune builds a printable key press (routed into the query/prompt input).
 func keyRune(r rune) tea.KeyPressMsg {
 	return tea.KeyPressMsg{Code: r, Text: string(r)}
@@ -82,7 +84,7 @@ func (r *recordingActions) toActions(sessions []Session) Actions {
 	return Actions{
 		DeleteWindow: func(s string, idx int) error {
 			if r.failDelete {
-				return errors.New("boom")
+				return errBoom
 			}
 
 			r.deletedWindowS = s

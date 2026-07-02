@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -19,7 +18,7 @@ import (
 // must not fail the host on transient errors.
 func runHook(args []string, _, stderr io.Writer) int {
 	if len(args) == 0 {
-		writeErr(stderr, errors.New("usage: lazy-tmux hook claude-status --state <state>"))
+		writeErr(stderr, errHookUsage)
 
 		return exitUsage
 	}
@@ -28,7 +27,7 @@ func runHook(args []string, _, stderr io.Writer) int {
 	case "claude-status":
 		return runClaudeStatusHook(args[1:], os.Stdin, stderr)
 	default:
-		writeErr(stderr, fmt.Errorf("unknown hook %q", args[0]))
+		writeErr(stderr, fmt.Errorf("%w %q", errUnknownHook, args[0]))
 
 		return exitUsage
 	}
@@ -50,7 +49,7 @@ func runClaudeStatusHook(args []string, stdin io.Reader, stderr io.Writer) int {
 	}
 
 	if !claude.ValidState(*state) {
-		writeErr(stderr, fmt.Errorf("invalid --state %q", *state))
+		writeErr(stderr, fmt.Errorf("%w %q", errInvalidHookState, *state))
 
 		return exitUsage
 	}

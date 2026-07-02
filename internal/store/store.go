@@ -14,6 +14,16 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
+// Sentinel errors of the on-disk store; paths and names wrap them at the call
+// sites so messages stay unchanged.
+var (
+	errEmptySessionName         = errors.New("empty session name")
+	errEmptyScrollbackRef       = errors.New("empty scrollback ref")
+	errScrollbackRefOutsideBase = errors.New("invalid scrollback ref outside base dir")
+	errInvalidScrollbackSession = errors.New("invalid session name for scrollback")
+	errPathOutsideBase          = errors.New("invalid path outside base dir")
+)
+
 const (
 	indexFileName      = "index.json"
 	sessionsDirName    = "sessions"
@@ -48,7 +58,7 @@ func DefaultDataDir() string {
 
 func (s *Store) SaveSession(sessionSnapshot snapshot.SessionSnapshot) error {
 	if sessionSnapshot.SessionName == "" {
-		return errors.New("empty session name")
+		return errEmptySessionName
 	}
 
 	if sessionSnapshot.CapturedAt.IsZero() {
@@ -117,7 +127,7 @@ func (s *Store) SaveSession(sessionSnapshot snapshot.SessionSnapshot) error {
 func (s *Store) DeleteSession(name string) error {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return errors.New("empty session name")
+		return errEmptySessionName
 	}
 
 	s.mu.Lock()
@@ -191,7 +201,7 @@ func (s *Store) LoadSession(name string) (snapshot.SessionSnapshot, error) {
 func (s *Store) SessionPath(name string) (string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return "", errors.New("empty session name")
+		return "", errEmptySessionName
 	}
 
 	return s.sessionPath(name), nil
@@ -200,7 +210,7 @@ func (s *Store) SessionPath(name string) (string, error) {
 func (s *Store) SessionExists(name string) (bool, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return false, errors.New("empty session name")
+		return false, errEmptySessionName
 	}
 
 	s.mu.Lock()
@@ -265,7 +275,7 @@ func (s *Store) LatestRecord() (snapshot.Record, error) {
 func (s *Store) ScrollbackExists(name string) (bool, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return false, errors.New("empty session name")
+		return false, errEmptySessionName
 	}
 
 	safeName, err := safeScrollbackSessionName(name)
@@ -291,7 +301,7 @@ func (s *Store) ScrollbackExists(name string) (bool, error) {
 func (s *Store) IndexEntryExists(name string) (bool, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return false, errors.New("empty session name")
+		return false, errEmptySessionName
 	}
 
 	s.mu.Lock()
@@ -310,7 +320,7 @@ func (s *Store) IndexEntryExists(name string) (bool, error) {
 func (s *Store) MarkSessionAccessed(name string, accessTime time.Time) error {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return errors.New("empty session name")
+		return errEmptySessionName
 	}
 
 	if accessTime.IsZero() {
@@ -586,7 +596,7 @@ func (s *Store) hydrateScrollback(sessionSnapshot *snapshot.SessionSnapshot) err
 func safeScrollbackPath(baseRoot, baseDir, ref string) (string, error) {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
-		return "", errors.New("empty scrollback ref")
+		return "", errEmptyScrollbackRef
 	}
 
 	candidate := filepath.Clean(filepath.Join(baseDir, ref))
@@ -629,7 +639,7 @@ func safeScrollbackPath(baseRoot, baseDir, ref string) (string, error) {
 	cleanRel := filepath.Clean(rel)
 	if filepath.IsAbs(cleanRel) || cleanRel == ".." ||
 		strings.HasPrefix(cleanRel, ".."+string(os.PathSeparator)) {
-		return "", fmt.Errorf("invalid scrollback ref outside base dir: %s", ref)
+		return "", fmt.Errorf("%w: %s", errScrollbackRefOutsideBase, ref)
 	}
 
 	return finalEval, nil
@@ -638,19 +648,19 @@ func safeScrollbackPath(baseRoot, baseDir, ref string) (string, error) {
 func safeScrollbackSessionName(sessionName string) (string, error) {
 	name := sanitizeName(sessionName)
 	if name == "" || name == "." || name == ".." {
-		return "", fmt.Errorf("invalid session name for scrollback: %q", sessionName)
+		return "", fmt.Errorf("%w: %q", errInvalidScrollbackSession, sessionName)
 	}
 
 	if strings.ContainsRune(name, filepath.Separator) {
-		return "", fmt.Errorf("invalid session name for scrollback: %q", sessionName)
+		return "", fmt.Errorf("%w: %q", errInvalidScrollbackSession, sessionName)
 	}
 
 	if filepath.Separator != '/' && strings.Contains(name, "/") {
-		return "", fmt.Errorf("invalid session name for scrollback: %q", sessionName)
+		return "", fmt.Errorf("%w: %q", errInvalidScrollbackSession, sessionName)
 	}
 
 	if filepath.Separator != '\\' && strings.Contains(name, "\\") {
-		return "", fmt.Errorf("invalid session name for scrollback: %q", sessionName)
+		return "", fmt.Errorf("%w: %q", errInvalidScrollbackSession, sessionName)
 	}
 
 	return name, nil
@@ -675,7 +685,7 @@ func ensureUnderDir(baseDir, child, ref string) error {
 	cleanRel := filepath.Clean(rel)
 	if filepath.IsAbs(cleanRel) || cleanRel == ".." ||
 		strings.HasPrefix(cleanRel, ".."+string(os.PathSeparator)) {
-		return fmt.Errorf("invalid path outside base dir: %s", ref)
+		return fmt.Errorf("%w: %s", errPathOutsideBase, ref)
 	}
 
 	return nil

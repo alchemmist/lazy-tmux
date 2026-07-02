@@ -10,7 +10,6 @@ linters:
     - paralleltest
     - funlen
     - exhaustruct
-    - err113
     - cyclop
     - revive
     - gosec

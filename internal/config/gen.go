@@ -26,7 +26,7 @@ func GenerateConfig(path string, force bool) (string, error) {
 	}
 
 	if strings.TrimSpace(path) == "" {
-		return "", errors.New("could not determine a config path (pass --path or set $HOME)")
+		return "", errNoConfigPath
 	}
 
 	if !force {
@@ -34,7 +34,7 @@ func GenerateConfig(path string, force bool) (string, error) {
 
 		switch {
 		case statErr == nil:
-			return path, fmt.Errorf("%s already exists (use --force to overwrite)", path)
+			return path, fmt.Errorf("%s %w", path, errConfigExists)
 		case !errors.Is(statErr, fs.ErrNotExist):
 			return path, fmt.Errorf("stat %s: %w", path, statErr)
 		}

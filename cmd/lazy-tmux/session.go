@@ -53,7 +53,7 @@ func runSessionOp(
 	}
 
 	if strings.TrimSpace(*session) == "" {
-		writeErr(stderr, fmt.Errorf("%s requires --session", name))
+		writeErr(stderr, fmt.Errorf("%s %w", name, errRequiresSession))
 
 		return 1
 	}

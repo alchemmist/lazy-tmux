@@ -7,6 +7,22 @@ import (
 	"os"
 )
 
+// Sentinel errors of the CLI layer; dynamic details are wrapped around them so
+// callers (and tests) can match with errors.Is while messages stay unchanged.
+var (
+	errUnknownCommand          = errors.New("unknown command")
+	errUnknownConfigSubcommand = errors.New("unknown config subcommand")
+	errUnexpectedArguments     = errors.New("unexpected arguments")
+	errScrollbackLinesInvalid  = errors.New("scrollback requires scrollback lines > 0")
+	errHookUsage               = errors.New("usage: lazy-tmux hook claude-status --state <state>")
+	errUnknownHook             = errors.New("unknown hook")
+	errInvalidHookState        = errors.New("invalid --state")
+	errWindowsRequiresFzf      = errors.New(
+		"--windows requires --fzf-engine (the TUI already lists windows)",
+	)
+	errRequiresSession = errors.New("requires --session")
+)
+
 //nolint:gochecknoglobals // test seam: CLI tests stub process exit
 var exitFunc = os.Exit
 
@@ -95,7 +111,7 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 		if len(args) > 1 {
 			help, ok := helpFuncs()[args[1]]
 			if !ok {
-				writeErr(stderr, fmt.Errorf("unknown command: %s", args[1]))
+				writeErr(stderr, fmt.Errorf("%w: %s", errUnknownCommand, args[1]))
 
 				return 1
 			}
@@ -110,7 +126,7 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 
 	cmd, ok := commands()[cmdName]
 	if !ok {
-		writeErr(stderr, fmt.Errorf("unknown command: %s", cmdName))
+		writeErr(stderr, fmt.Errorf("%w: %s", errUnknownCommand, cmdName))
 
 		return 1
 	}

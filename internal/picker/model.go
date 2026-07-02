@@ -13,6 +13,14 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
+// Sentinel errors of the TUI picker runner.
+var (
+	errTUIDisabled       = errors.New("TUI picker disabled in fzf-only build")
+	errUnexpectedModel   = errors.New("unexpected picker model type")
+	errSelectionCanceled = errors.New("selection canceled")
+	errNoSessionSelected = errors.New("no session selected")
+)
+
 // statusRefreshInterval is how often the picker re-reads live window statuses
 // (e.g. Claude working/idle) so the dots update while it stays open.
 const statusRefreshInterval = 2 * time.Second
@@ -941,7 +949,7 @@ var newPickerRunner = func(m pickerModel) pickerRunner {
 
 func ChooseTarget(sessions []Session, windowSort []WindowSortKey, actions Actions) (Target, error) {
 	if tuiDisabled() {
-		return Target{}, errors.New("TUI picker disabled in fzf-only build")
+		return Target{}, errTUIDisabled
 	}
 
 	m := newPickerModel(sessions, windowSort, actions)
@@ -954,15 +962,15 @@ func ChooseTarget(sessions []Session, windowSort []WindowSortKey, actions Action
 
 	result, ok := finalModel.(pickerModel)
 	if !ok {
-		return Target{}, errors.New("unexpected picker model type")
+		return Target{}, errUnexpectedModel
 	}
 
 	if result.cancelled {
-		return Target{}, errors.New("selection canceled")
+		return Target{}, errSelectionCanceled
 	}
 
 	if strings.TrimSpace(result.selected.SessionName) == "" {
-		return Target{}, errors.New("no session selected")
+		return Target{}, errNoSessionSelected
 	}
 
 	return result.selected, nil

@@ -7,6 +7,8 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
+var errBoom = errors.New("boom")
+
 // fakeIntegration matches panes by CurrentCmd and echoes its metadata back so
 // tests can verify namespacing and de-namespacing.
 type fakeIntegration struct {
@@ -60,7 +62,7 @@ func TestRegistryEnrichSwallowsCaptureFailures(t *testing.T) {
 	reg := NewRegistry(fakeIntegration{
 		name:       "fake",
 		matchCmd:   "myprog",
-		captureErr: errors.New("boom"),
+		captureErr: errBoom,
 	})
 
 	snap := paneSnap(snapshot.Pane{CurrentCmd: "myprog"})

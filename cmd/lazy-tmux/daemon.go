@@ -63,7 +63,7 @@ func runDaemon(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if cfg.Scrollback.Enabled && cfg.Scrollback.Lines <= 0 {
-		writeErr(stderr, errors.New("scrollback requires scrollback lines > 0"))
+		writeErr(stderr, errScrollbackLinesInvalid)
 
 		return 1
 	}

@@ -16,6 +16,21 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/tmux"
 )
 
+// Sentinel errors of session CRUD; dynamic details wrap them so callers can
+// match with errors.Is while the rendered messages stay unchanged.
+var (
+	errEmptySessionName    = errors.New("empty session name")
+	errSessionNameEmpty    = errors.New("session name is empty")
+	errWindowNameEmpty     = errors.New("window name is empty")
+	errSourceSessionEmpty  = errors.New("source session is empty")
+	errWindowNotInSnapshot = errors.New("window not found in snapshot")
+	errAlreadyExists       = errors.New("already exists")
+	errAlreadyInStorage    = errors.New("already exists in storage")
+	errAlreadyAwake        = errors.New("is already awake")
+	errNotRunning          = errors.New("is not running")
+	errDaemonRunning       = errors.New("daemon already running")
+)
+
 type tmuxSessionManager interface {
 	ListSessions() ([]string, error)
 	CurrentSession() (string, error)
@@ -202,7 +217,7 @@ func (a *App) ListRecords() ([]snapshot.Record, error) {
 func (a *App) restoreSessionForTarget(target PickerTarget) error {
 	session := strings.TrimSpace(target.SessionName)
 	if session == "" {
-		return errors.New("empty session name")
+		return errEmptySessionName
 	}
 
 	snap, err := a.store.LoadSession(session)

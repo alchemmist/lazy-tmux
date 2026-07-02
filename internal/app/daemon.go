@@ -1,7 +1,6 @@
 package app
 
 import (
-	"errors"
 	"fmt"
 	"hash/fnv"
 	"os"
@@ -82,7 +81,7 @@ func acquireLock(socketPath string) (func(), error) {
 	if err != nil {
 		_ = file.Close()
 
-		return nil, errors.New("daemon already running")
+		return nil, errDaemonRunning
 	}
 
 	return func() {

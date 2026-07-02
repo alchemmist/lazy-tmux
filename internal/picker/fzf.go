@@ -14,6 +14,13 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
+// Sentinel errors of the fzf-driven choosers.
+var (
+	errFzfTimedOut      = errors.New("fzf selection timed out")
+	errNoSelection      = errors.New("no selection made")
+	errInvalidFzfOutput = errors.New("invalid fzf output")
+)
+
 // fzfSelectionTimeout bounds how long a non-interactive --filter run may take.
 const fzfSelectionTimeout = 30 * time.Second
 
@@ -51,7 +58,7 @@ func runFZF(input *bytes.Buffer, withNth string) (string, error) {
 	out, err := cmd.Output()
 	if err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			return "", errors.New("fzf selection timed out")
+			return "", errFzfTimedOut
 		}
 
 		return "", fmt.Errorf("fzf selection canceled or failed: %w", err)
@@ -62,7 +69,7 @@ func runFZF(input *bytes.Buffer, withNth string) (string, error) {
 	selected = strings.SplitN(selected, "\n", 2)[0]
 
 	if strings.TrimSpace(selected) == "" {
-		return "", errors.New("no selection made")
+		return "", errNoSelection
 	}
 
 	return selected, nil
@@ -92,7 +99,7 @@ func ChooseSessionFZF(records []snapshot.Record) (string, error) {
 
 	parts := strings.Split(selected, "\t")
 	if strings.TrimSpace(parts[0]) == "" {
-		return "", errors.New("invalid fzf output")
+		return "", errInvalidFzfOutput
 	}
 
 	return parts[0], nil
@@ -143,7 +150,7 @@ func windowFZFLines(sessions []Session, windowSort []WindowSortKey) []string {
 func parseWindowSelection(line string) (Target, error) {
 	parts := strings.Split(line, "\t")
 	if len(parts) < 2 || strings.TrimSpace(parts[0]) == "" {
-		return Target{}, errors.New("invalid fzf output")
+		return Target{}, errInvalidFzfOutput
 	}
 
 	index, err := strconv.Atoi(strings.TrimSpace(parts[1]))

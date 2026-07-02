@@ -27,7 +27,7 @@ func runConfig(args []string, stdout, stderr io.Writer) int {
 
 		return 0
 	default:
-		writeErr(stderr, fmt.Errorf("unknown config subcommand: %s", args[0]))
+		writeErr(stderr, fmt.Errorf("%w: %s", errUnknownConfigSubcommand, args[0]))
 		configHelp(stderr)
 
 		return 1
@@ -55,7 +55,7 @@ func runConfigGen(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if flags.NArg() != 0 {
-		writeErr(stderr, fmt.Errorf("unexpected arguments: %v", flags.Args()))
+		writeErr(stderr, fmt.Errorf("%w: %v", errUnexpectedArguments, flags.Args()))
 
 		return 1
 	}
@@ -90,7 +90,7 @@ func runConfigShow(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if flags.NArg() != 0 {
-		writeErr(stderr, fmt.Errorf("unexpected arguments: %v", flags.Args()))
+		writeErr(stderr, fmt.Errorf("%w: %v", errUnexpectedArguments, flags.Args()))
 
 		return 1
 	}

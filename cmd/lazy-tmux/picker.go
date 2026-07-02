@@ -44,7 +44,7 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 	if *windows && !*fzfEngine {
 		writeErr(
 			stderr,
-			errors.New("--windows requires --fzf-engine (the TUI already lists windows)"),
+			errWindowsRequiresFzf,
 		)
 
 		return 1

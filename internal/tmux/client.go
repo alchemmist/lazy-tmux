@@ -20,6 +20,16 @@ import (
 	"github.com/charmbracelet/x/term"
 )
 
+// Sentinel errors of the tmux client; details wrap them at the call sites.
+var (
+	errEmptySessionName     = errors.New("empty session name")
+	errSnapshotHasNoWindows = errors.New("session snapshot has no windows")
+	errEmptyTTYPath         = errors.New("empty tty path")
+	errUnsupportedTTYPath   = errors.New("unsupported tty path")
+	errTTYNotCharDevice     = errors.New("tty path is not a character device")
+	errNoWindowsAfterCreate = errors.New("no windows found after session creation")
+)
+
 const fieldSep = "|"
 
 // defaultRestoreSettleTimeout bounds how long RestoreSession waits for restored
@@ -559,7 +569,7 @@ func resolveRestoreFocus(
 
 func (client *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) error {
 	if sessionSnapshot.SessionName == "" {
-		return errors.New("empty session name")
+		return errEmptySessionName
 	}
 
 	if client.SessionExists(sessionSnapshot.SessionName) {
@@ -567,7 +577,7 @@ func (client *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) e
 	}
 
 	if len(sessionSnapshot.Windows) == 0 {
-		return errors.New("session snapshot has no windows")
+		return errSnapshotHasNoWindows
 	}
 
 	windows := make([]snapshot.Window, len(sessionSnapshot.Windows))
@@ -1007,11 +1017,11 @@ func (client *Client) restoreWindowScrollback(
 func writePaneTTY(path, content string) error {
 	path = strings.TrimSpace(path)
 	if path == "" {
-		return errors.New("empty tty path")
+		return errEmptyTTYPath
 	}
 
 	if !strings.HasPrefix(path, "/dev/pts/") && !strings.HasPrefix(path, "/dev/tty") {
-		return fmt.Errorf("unsupported tty path: %s", path)
+		return fmt.Errorf("%w: %s", errUnsupportedTTYPath, path)
 	}
 
 	fi, err := os.Stat(path)
@@ -1020,7 +1030,7 @@ func writePaneTTY(path, content string) error {
 	}
 
 	if fi.Mode()&os.ModeCharDevice == 0 {
-		return fmt.Errorf("tty path is not a character device: %s", path)
+		return fmt.Errorf("%w: %s", errTTYNotCharDevice, path)
 	}
 
 	ttyFile, err := os.OpenFile(path, os.O_WRONLY, 0)
@@ -1329,7 +1339,7 @@ func (client *Client) createdFirstWindowIndex(session string) (int, error) {
 
 	lines := splitLines(out)
 	if len(lines) == 0 {
-		return 0, errors.New("no windows found after session creation")
+		return 0, errNoWindowsAfterCreate
 	}
 
 	idx, err := strconv.Atoi(lines[0])

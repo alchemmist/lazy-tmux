@@ -13,6 +13,15 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/store"
 )
 
+// Sentinel errors; details are wrapped around them at the call sites.
+var (
+	errUnknownConfigKeys = errors.New("unknown keys")
+	errNoConfigPath      = errors.New(
+		"could not determine a config path (pass --path or set $HOME)",
+	)
+	errConfigExists = errors.New("already exists (use --force to overwrite)")
+)
+
 type Config struct {
 	TmuxBin        string
 	DataDir        string
@@ -147,7 +156,7 @@ func LoadFrom(path string) (Config, error) {
 	// Reject unknown keys so typos (e.g. "tmux_binn") fail loudly instead of
 	// being silently ignored.
 	if undecoded := meta.Undecoded(); len(undecoded) > 0 {
-		return cfg, fmt.Errorf("config %s: unknown keys: %v", path, undecoded)
+		return cfg, fmt.Errorf("config %s: %w: %v", path, errUnknownConfigKeys, undecoded)
 	}
 
 	return cfg.withFile(file), nil
