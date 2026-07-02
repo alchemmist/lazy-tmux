@@ -48,6 +48,11 @@ func TestCLIHelpVariants(t *testing.T) {
 		if !strings.Contains(out, "tmux session snapshots with lazy restore") {
 			t.Fatalf("%s: expected help text, got %q", arg, out)
 		}
+
+		// The help banner leads with the ascii crescent-moon logo (#38).
+		if !strings.Contains(out, asciiMoon) {
+			t.Fatalf("%s: expected the ascii moon banner in help", arg)
+		}
 	}
 }
 
