@@ -7,7 +7,7 @@ export function Configuration() {
     <>
       <Seo
         title="Configuration — lazy-tmux"
-        description="lazy-tmux TOML config file: lookup order, precedence, restore command allowlist and restore settle timeout."
+        description="lazy-tmux TOML config file: lookup order, precedence, restore command allow/denylist and restore settle timeout."
         slug="configuration"
       />
       <section className="doc-section">
@@ -50,6 +50,12 @@ restore_timeout = "5s"                         # max wait for restored pane comm
 # only those programs; use an empty list [] to restore no commands at all.
 restore_allowlist = ["nvim", "vim", "htop", "less", "tail", "ssh"]
 
+# Denylist of commands lazy-tmux must never replay, matched by program name.
+# Use this instead of an allowlist when you trust most commands and only want to
+# exclude a few. The denylist wins over the allowlist. Omit or leave empty to
+# block nothing (default).
+restore_denylist = ["npm", "node"]
+
 [scrollback]
 enabled = false   # capture shell pane scrollback
 lines   = 5000    # max scrollback lines per pane`}</CodeBlock>
@@ -78,6 +84,18 @@ lines   = 5000    # max scrollback lines per pane`}</CodeBlock>
         <p className="muted">
           Matching is by program name, so <InlineCode>nvim</InlineCode> also
           matches <InlineCode>/usr/bin/nvim main.go</InlineCode>.
+        </p>
+
+        <h3 className="cli-subtitle">Restore command denylist</h3>
+        <p className="muted">
+          The inverse of the allowlist: rather than enumerating everything you
+          trust, list only the few programs to block with{" "}
+          <InlineCode>restore_denylist</InlineCode>. Handy when you trust almost
+          everything and just want to stop a long-running server or a program
+          that re-prompts from being replayed. It composes with the allowlist and{" "}
+          <strong>wins over it</strong> — a command is replayed only when it is
+          not denied and (no allowlist is set or it is allowed). Matching is by
+          program name, and an omitted or empty list blocks nothing.
         </p>
 
         <h3 className="cli-subtitle">Restore settle timeout</h3>

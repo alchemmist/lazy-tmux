@@ -27,6 +27,14 @@ type Config struct {
 	// one — activates the allowlist: only the listed commands are restored, and
 	// an empty list restores none.
 	RestoreAllowlist []string
+
+	// RestoreDenylist blocks specific commands from being replayed on restore,
+	// matched by executable name. It is the inverse of RestoreAllowlist: instead
+	// of enumerating everything you trust, you list only the few programs to
+	// exclude. The denylist wins over the allowlist — a command is replayed only
+	// when it is not denied and (no allowlist is set or it is allowed). A nil or
+	// empty slice blocks nothing (the default).
+	RestoreDenylist []string
 }
 
 type ScrollbackConfig struct {
@@ -142,6 +150,7 @@ type fileConfig struct {
 	SaveInterval     *duration             `toml:"save_interval"`
 	RestoreTimeout   *duration             `toml:"restore_timeout"`
 	RestoreAllowlist *[]string             `toml:"restore_allowlist"`
+	RestoreDenylist  *[]string             `toml:"restore_denylist"`
 	Scrollback       *fileScrollbackConf   `toml:"scrollback"`
 	Integrations     *fileIntegrationsConf `toml:"integrations"`
 }
@@ -190,6 +199,12 @@ func (cfg Config) withFile(file fileConfig) Config {
 		}
 
 		cfg.RestoreAllowlist = allowlist
+	}
+
+	if file.RestoreDenylist != nil {
+		// Unlike the allowlist, the denylist has no "configured-but-empty"
+		// meaning: an empty list simply blocks nothing, so a plain copy is fine.
+		cfg.RestoreDenylist = *file.RestoreDenylist
 	}
 
 	if file.Scrollback != nil {

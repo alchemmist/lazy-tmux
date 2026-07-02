@@ -78,6 +78,17 @@ func (c Config) Render() string {
 		fmt.Fprintf(&buf, "restore_allowlist = [%s]\n", strings.Join(quoted, ", "))
 	}
 
+	if len(c.RestoreDenylist) == 0 {
+		buf.WriteString("# restore_denylist not set (no command is blocked)\n")
+	} else {
+		quoted := make([]string, len(c.RestoreDenylist))
+		for i, cmd := range c.RestoreDenylist {
+			quoted[i] = strconv.Quote(cmd)
+		}
+
+		fmt.Fprintf(&buf, "restore_denylist = [%s]\n", strings.Join(quoted, ", "))
+	}
+
 	buf.WriteString("\n[scrollback]\n")
 	fmt.Fprintf(&buf, "enabled = %t\n", c.Scrollback.Enabled)
 	fmt.Fprintf(&buf, "lines   = %d\n", c.Scrollback.Lines)

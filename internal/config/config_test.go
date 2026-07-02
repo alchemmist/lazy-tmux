@@ -216,6 +216,30 @@ func TestLoadFromRestoreAllowlist(t *testing.T) {
 	}
 }
 
+func TestLoadFromRestoreDenylist(t *testing.T) {
+	// Absent key -> nil (nothing blocked).
+	cfg, err := LoadFrom(writeConfig(t, "tmux_bin = \"tmux\"\n"))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	if cfg.RestoreDenylist != nil {
+		t.Fatalf("absent denylist should be nil, got %#v", cfg.RestoreDenylist)
+	}
+
+	// Populated list.
+	cfg, err = LoadFrom(writeConfig(t, "restore_denylist = [\"npm\", \"node\"]\n"))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	if len(cfg.RestoreDenylist) != 2 ||
+		cfg.RestoreDenylist[0] != "npm" ||
+		cfg.RestoreDenylist[1] != "node" {
+		t.Fatalf("denylist: got %#v", cfg.RestoreDenylist)
+	}
+}
+
 func TestLoadFromUnknownKeyErrors(t *testing.T) {
 	// A typo'd key must fail loudly rather than be silently ignored.
 	path := writeConfig(t, "tmux_binn = \"tmux\"\n")

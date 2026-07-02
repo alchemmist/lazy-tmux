@@ -29,6 +29,13 @@ restore_timeout = "5s"
 # programs; use an empty list [] to restore no commands at all.
 # restore_allowlist = ["nvim", "vim", "htop", "less", "tail", "ssh"]
 
+# Denylist of commands lazy-tmux must never replay on restore, matched by program
+# name. Use this instead of an allowlist when you trust most commands and only
+# want to exclude a few (e.g. long-running servers). The denylist wins over the
+# allowlist: a denied command is skipped even if the allowlist would permit it.
+# Omit or leave empty to block nothing (the default).
+# restore_denylist = ["htop", "npm", "node"]
+
 [scrollback]
 # Capture and replay shell pane scrollback on save/restore.
 enabled = false
