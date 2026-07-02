@@ -9,7 +9,6 @@ linters:
   disable:
     - paralleltest
     - funlen
-    - exhaustruct
     - cyclop
     - revive
     - gosec
@@ -28,6 +27,7 @@ linters:
           - noinlineerr
           - goconst
           - mnd
+          - exhaustruct
 
   settings:
     # Allow all imports unless explicitly denied: the linter is enabled so real
@@ -42,8 +42,19 @@ linters:
     # values a switch does not special-case.
     exhaustive:
       default-signifies-exhaustive: true
+    # snapshot.* literals must stay exhaustive (forgetting a field there loses
+    # data); the excluded types rely on Go zero values by design — bubbletea
+    # models start empty, spec tables default optional flags, clients/stores
+    # fill private state (mutex, caches) lazily, and nil allow/denylists and a
+    # nil Target.WindowIndex are semantic.
     exhaustruct:
       allow-empty: true
+      exclude:
+        - 'github\.com/alchemmist/lazy-tmux/internal/picker\.(pickerModel|loadingModel|pickerRow|pickerColumnSpec|Target|Session)'
+        - 'github\.com/alchemmist/lazy-tmux/internal/tmux\.Client'
+        - 'github\.com/alchemmist/lazy-tmux/internal/store\.Store'
+        - 'github\.com/alchemmist/lazy-tmux/internal/app\.App'
+        - 'github\.com/alchemmist/lazy-tmux/internal/config\.Config'
     # Occurrence counting must skip test fixtures, or repeated test literals
     # force pointless production constants.
     goconst:

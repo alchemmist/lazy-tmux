@@ -418,10 +418,12 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 
 		idx, _ := strconv.Atoi(parts[0])
 		window := snapshot.Window{
-			Index:    idx,
-			Layout:   parts[1],
-			IsActive: parts[2] == "1",
-			Name:     parts[3],
+			Index:      idx,
+			Layout:     parts[1],
+			IsActive:   parts[2] == "1",
+			Name:       parts[3],
+			ActivePane: 0,   // set below from the active pane
+			Panes:      nil, // appended below
 		}
 
 		// pane_current_path is free-form, so it goes LAST.
@@ -453,6 +455,8 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 				CurrentCmd:  parts[4],
 				CurrentPath: parts[5],
 				RestoreCmd:  strings.TrimSpace(restoreCmd),
+				Scrollback:  nil, // attached by the scrollback capture pass
+				Meta:        nil, // attached by integrations
 			}
 			if pane.IsActive {
 				window.ActivePane = pane.Index

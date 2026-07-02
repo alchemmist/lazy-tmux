@@ -312,6 +312,9 @@ func (a *App) captureShellScrollback(snap *snapshot.SessionSnapshot) {
 
 			pane.Scrollback = &snapshot.ScrollbackRef{
 				Content: out + "\n",
+				Ref:     "",
+				Lines:   0,
+				Bytes:   0,
 			}
 		}
 	}

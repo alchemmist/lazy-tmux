@@ -298,9 +298,19 @@ func (a *App) NewWindow(session, name string) error {
 	snap.Windows = append(snap.Windows, snapshot.Window{
 		Index:      idx,
 		Name:       name,
+		Layout:     "",
+		IsActive:   false,
 		ActivePane: 0,
 		Panes: []snapshot.Pane{
-			{Index: 0},
+			{
+				Index:       0,
+				IsActive:    false,
+				CurrentPath: "",
+				CurrentCmd:  "",
+				RestoreCmd:  "",
+				Scrollback:  nil,
+				Meta:        nil,
+			},
 		},
 	})
 
