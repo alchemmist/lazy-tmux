@@ -484,49 +484,10 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 			Panes:      nil, // appended below
 		}
 
-		// pane_current_path is free-form, so it goes LAST.
-		pOut, err := client.Output("list-panes", "-t", sessionWindowTarget(name, idx), "-F",
-			"#{pane_index}"+fieldSep+
-				"#{pane_active}"+fieldSep+
-				"#{pane_pid}"+fieldSep+
-				"#{pane_tty}"+fieldSep+
-				"#{pane_current_command}"+fieldSep+
-				"#{pane_current_path}",
-		)
+		err = client.capturePanes(name, &window)
 		if err != nil {
 			return snapshot.SessionSnapshot{}, err
 		}
-
-		for _, pLine := range splitLines(pOut) {
-			parts := splitFieldsN(pLine, paneLineFields)
-			if len(parts) != paneLineFields {
-				continue
-			}
-
-			pIdx, _ := strconv.Atoi(parts[0])
-			panePID, _ := strconv.Atoi(strings.TrimSpace(parts[2]))
-			restoreCmd, _ := client.foregroundCommand(parts[3], panePID)
-
-			pane := snapshot.Pane{
-				Index:       pIdx,
-				IsActive:    parts[1] == "1",
-				CurrentCmd:  parts[4],
-				CurrentPath: parts[5],
-				RestoreCmd:  strings.TrimSpace(restoreCmd),
-				Scrollback:  nil, // attached by the scrollback capture pass
-				Meta:        nil, // attached by integrations
-			}
-			if pane.IsActive {
-				window.ActivePane = pane.Index
-			}
-
-			window.Panes = append(window.Panes, pane)
-		}
-
-		sort.Slice(
-			window.Panes,
-			func(i, j int) bool { return window.Panes[i].Index < window.Panes[j].Index },
-		)
 
 		windows = append(windows, window)
 	}
@@ -652,35 +613,7 @@ func (client *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) e
 	copy(windows, sessionSnapshot.Windows)
 	sort.Slice(windows, func(i, j int) bool { return windows[i].Index < windows[j].Index })
 
-	first := windows[0]
-
-	err := client.runWithShellFallback(
-		newSessionArgs(sessionSnapshot.SessionName, first),
-		"",
-	)
-	if err != nil {
-		return err
-	}
-
-	createdIdx, err := client.createdFirstWindowIndex(
-		sessionSnapshot.SessionName,
-	)
-	if err != nil {
-		return err
-	}
-
-	if createdIdx != first.Index {
-		_, err = client.Output(
-			"move-window",
-			"-s", sessionWindowTarget(sessionSnapshot.SessionName, createdIdx),
-			"-t", sessionWindowTarget(sessionSnapshot.SessionName, first.Index),
-		)
-		if err != nil {
-			return err
-		}
-	}
-
-	err = client.populateWindow(sessionSnapshot.SessionName, first, first.Index)
+	err := client.restoreFirstWindow(sessionSnapshot.SessionName, windows[0])
 	if err != nil {
 		return err
 	}
@@ -694,30 +627,7 @@ func (client *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) e
 		}
 	}
 
-	// Focus a window/pane that actually exists in the restored session. The
-	// recorded indices come from the snapshot and may not match what the
-	// restoring server created — when base-index / pane-base-index differ
-	// between save and restore, the recorded window 0 / pane 0 need not exist —
-	// so resolve against the live layout. Focus is cosmetic: a select failure
-	// must never abort an otherwise-successful restore, which is how `bootstrap`
-	// used to die with "can't find window: 0".
-	win, pane, ok := client.resolveLiveFocus(
-		sessionSnapshot.SessionName,
-		sessionSnapshot,
-		windows,
-	)
-	if ok {
-		_, _ = client.Output(
-			"select-window",
-			"-t",
-			sessionWindowTarget(sessionSnapshot.SessionName, win),
-		)
-		_, _ = client.Output(
-			"select-pane",
-			"-t",
-			sessionPaneTarget(sessionSnapshot.SessionName, win, pane),
-		)
-	}
+	client.selectRestoredFocus(sessionSnapshot, windows)
 
 	client.waitForRestoredCommands(sessionSnapshot.SessionName, windows)
 
@@ -767,6 +677,121 @@ func (client *Client) createAndPopulateWindow(sessionName string, win snapshot.W
 	}
 
 	return client.populateWindow(sessionName, win, win.Index)
+}
+
+// selectRestoredFocus focuses a window/pane that actually exists in the
+// restored session. The recorded indices come from the snapshot and may not
+// match what the restoring server created — when base-index / pane-base-index
+// differ between save and restore, the recorded window 0 / pane 0 need not
+// exist — so it resolves against the live layout. Focus is cosmetic: a select
+// failure must never abort an otherwise-successful restore, which is how
+// `bootstrap` used to die with "can't find window: 0".
+func (client *Client) selectRestoredFocus(
+	sessionSnapshot snapshot.SessionSnapshot,
+	windows []snapshot.Window,
+) {
+	win, pane, ok := client.resolveLiveFocus(
+		sessionSnapshot.SessionName,
+		sessionSnapshot,
+		windows,
+	)
+	if !ok {
+		return
+	}
+
+	_, _ = client.Output(
+		"select-window",
+		"-t",
+		sessionWindowTarget(sessionSnapshot.SessionName, win),
+	)
+	_, _ = client.Output(
+		"select-pane",
+		"-t",
+		sessionPaneTarget(sessionSnapshot.SessionName, win, pane),
+	)
+}
+
+// restoreFirstWindow creates the detached restored session with the snapshot's
+// first window, moves that window to its recorded index when the server picked
+// a different one, and populates its panes.
+func (client *Client) restoreFirstWindow(sessionName string, first snapshot.Window) error {
+	err := client.runWithShellFallback(
+		newSessionArgs(sessionName, first),
+		"",
+	)
+	if err != nil {
+		return err
+	}
+
+	createdIdx, err := client.createdFirstWindowIndex(sessionName)
+	if err != nil {
+		return err
+	}
+
+	if createdIdx != first.Index {
+		_, err = client.Output(
+			"move-window",
+			"-s", sessionWindowTarget(sessionName, createdIdx),
+			"-t", sessionWindowTarget(sessionName, first.Index),
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return client.populateWindow(sessionName, first, first.Index)
+}
+
+// capturePanes lists and parses the panes of the given window in the named
+// session, appending them to the window sorted by pane index and recording the
+// active pane's index in window.ActivePane. Scrollback and integration
+// metadata are attached by later passes, not here.
+func (client *Client) capturePanes(name string, window *snapshot.Window) error {
+	// pane_current_path is free-form, so it goes LAST.
+	pOut, err := client.Output("list-panes", "-t", sessionWindowTarget(name, window.Index), "-F",
+		"#{pane_index}"+fieldSep+
+			"#{pane_active}"+fieldSep+
+			"#{pane_pid}"+fieldSep+
+			"#{pane_tty}"+fieldSep+
+			"#{pane_current_command}"+fieldSep+
+			"#{pane_current_path}",
+	)
+	if err != nil {
+		return err
+	}
+
+	for _, pLine := range splitLines(pOut) {
+		parts := splitFieldsN(pLine, paneLineFields)
+		if len(parts) != paneLineFields {
+			continue
+		}
+
+		pIdx, _ := strconv.Atoi(parts[0])
+		panePID, _ := strconv.Atoi(strings.TrimSpace(parts[2]))
+		restoreCmd, _ := client.foregroundCommand(parts[3], panePID)
+
+		pane := snapshot.Pane{
+			Index:       pIdx,
+			IsActive:    parts[1] == "1",
+			CurrentCmd:  parts[4],
+			CurrentPath: parts[5],
+			RestoreCmd:  strings.TrimSpace(restoreCmd),
+			Scrollback:  nil, // attached by the scrollback capture pass
+			Meta:        nil, // attached by integrations
+		}
+		if pane.IsActive {
+			window.ActivePane = pane.Index
+		}
+
+		window.Panes = append(window.Panes, pane)
+	}
+
+	sort.Slice(
+		window.Panes,
+		func(i, j int) bool { return window.Panes[i].Index < window.Panes[j].Index },
+	)
+
+	return nil
 }
 
 func (client *Client) populateWindow(
@@ -1179,8 +1204,10 @@ type psProcess struct {
 	cmd  string
 }
 
-func pickForegroundCommand(lines []string, panePID int) string {
-	// First pass: collect all non-shell processes
+// collectCandidateProcesses parses ps output lines into candidate foreground
+// processes, skipping unparsable lines, the pane's shell process itself and
+// shell commands.
+func collectCandidateProcesses(lines []string, panePID int) []psProcess {
 	allProcesses := make([]psProcess, 0, len(lines))
 
 	for _, line := range lines {
@@ -1206,6 +1233,17 @@ func pickForegroundCommand(lines []string, panePID int) string {
 			cmd:  cmd,
 		})
 	}
+
+	return allProcesses
+}
+
+// pickForegroundCommand chooses the command to restore for a pane from ps
+// output: among non-shell processes it prefers a foreground ("+") root process
+// (one whose parent is outside the candidate set), then any root process, then
+// any foreground process, then the first candidate.
+func pickForegroundCommand(lines []string, panePID int) string {
+	// First pass: collect all non-shell processes
+	allProcesses := collectCandidateProcesses(lines, panePID)
 
 	if len(allProcesses) == 0 {
 		return ""

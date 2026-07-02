@@ -116,27 +116,7 @@ func (s *Store) SaveSession(sessionSnapshot snapshot.SessionSnapshot) error {
 		return fmt.Errorf("rename tmp file: %w", err)
 	}
 
-	idx, err := s.loadIndexUnlocked()
-	if err != nil {
-		return err
-	}
-
-	panes := 0
-	for _, w := range sessionSnapshot.Windows {
-		panes += len(w.Panes)
-	}
-
-	idx.Sessions[sessionSnapshot.SessionName] = snapshot.Record{
-		SessionName:  sessionSnapshot.SessionName,
-		File:         path,
-		CapturedAt:   sessionSnapshot.CapturedAt.UTC(),
-		LastAccessed: idx.Sessions[sessionSnapshot.SessionName].LastAccessed,
-		Windows:      len(sessionSnapshot.Windows),
-		Panes:        panes,
-	}
-	idx.Updated = time.Now().UTC()
-
-	return writeJSONAtomic(s.indexPath(), idx)
+	return s.updateIndexUnlocked(sessionSnapshot, path)
 }
 
 // DeleteSession removes a session's JSON file, its scrollback directory and
@@ -383,6 +363,33 @@ func (s *Store) MarkSessionAccessed(name string, accessTime time.Time) error {
 
 	rec.LastAccessed = accessTime.UTC()
 	idx.Sessions[name] = rec
+	idx.Updated = time.Now().UTC()
+
+	return writeJSONAtomic(s.indexPath(), idx)
+}
+
+// updateIndexUnlocked refreshes the saved session's index record — preserving
+// its recorded LastAccessed time — and writes the index atomically. The caller
+// must hold the store mutex.
+func (s *Store) updateIndexUnlocked(sessionSnapshot snapshot.SessionSnapshot, path string) error {
+	idx, err := s.loadIndexUnlocked()
+	if err != nil {
+		return err
+	}
+
+	panes := 0
+	for _, w := range sessionSnapshot.Windows {
+		panes += len(w.Panes)
+	}
+
+	idx.Sessions[sessionSnapshot.SessionName] = snapshot.Record{
+		SessionName:  sessionSnapshot.SessionName,
+		File:         path,
+		CapturedAt:   sessionSnapshot.CapturedAt.UTC(),
+		LastAccessed: idx.Sessions[sessionSnapshot.SessionName].LastAccessed,
+		Windows:      len(sessionSnapshot.Windows),
+		Panes:        panes,
+	}
 	idx.Updated = time.Now().UTC()
 
 	return writeJSONAtomic(s.indexPath(), idx)

@@ -183,24 +183,35 @@ func applyClaudeHooks(path, binary string, uninstall bool) (bool, error) {
 		return false, nil
 	}
 
+	err = writeSettingsFile(path, original, updated)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+// writeSettingsFile backs the previous settings up (when any existed), makes
+// sure the config directory exists, and writes the updated settings to path.
+func writeSettingsFile(path string, original, updated []byte) error {
 	if len(original) > 0 {
 		err := os.WriteFile(path+".lazy-tmux.bak", original, 0o600)
 		if err != nil {
-			return false, fmt.Errorf("back up %s: %w", path, err)
+			return fmt.Errorf("back up %s: %w", path, err)
 		}
 	}
 
-	err = os.MkdirAll(filepath.Dir(path), 0o750)
+	err := os.MkdirAll(filepath.Dir(path), 0o750)
 	if err != nil {
-		return false, fmt.Errorf("create config dir: %w", err)
+		return fmt.Errorf("create config dir: %w", err)
 	}
 
 	err = os.WriteFile(path, updated, 0o600)
 	if err != nil {
-		return false, fmt.Errorf("write %s: %w", path, err)
+		return fmt.Errorf("write %s: %w", path, err)
 	}
 
-	return true, nil
+	return nil
 }
 
 // dropOurGroups removes only lazy-tmux-owned hook entries (those whose command

@@ -49,24 +49,11 @@ func runSleep(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	if flagPassed(flags, "data-dir") {
-		cfg.DataDir = *dataDir
-	}
+	applyDirBinOverrides(flags, &cfg, dataDir, tmuxBin)
 
-	if flagPassed(flags, "tmux-bin") {
-		cfg.TmuxBin = *tmuxBin
-	}
-
-	if flagPassed(flags, "scrollback") {
-		cfg.Scrollback.Enabled = *scrollback
-	}
-
-	if flagPassed(flags, "scrollback-lines") {
-		cfg.Scrollback.Lines = *scrollbackLines
-	}
-
-	if cfg.Scrollback.Enabled && cfg.Scrollback.Lines <= 0 {
-		writeErr(stderr, errScrollbackLinesInvalid)
+	err = applyScrollbackOverrides(flags, &cfg, scrollback, scrollbackLines)
+	if err != nil {
+		writeErr(stderr, err)
 
 		return 1
 	}

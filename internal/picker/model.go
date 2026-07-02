@@ -159,46 +159,15 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, scheduleStatusRefresh()
 	case tea.MouseWheelMsg:
-		if m.mode != modeBrowse || m.palette {
-			return m, nil
-		}
-
-		switch msg.Button {
-		case tea.MouseWheelUp:
-			m.movePrevSelectable()
-		case tea.MouseWheelDown:
-			m.moveNextSelectable()
-		}
-
-		m.ensureCursorVisible()
-		m.renderViewport()
-
-		return m, nil
+		return m.handleWheel(msg)
 	case tea.MouseClickMsg:
-		if m.mode != modeBrowse || m.palette || msg.Button != tea.MouseLeft {
-			return m, nil
-		}
-
-		idx, ok := m.rowAtY(msg.Y)
-		if !ok {
-			return m, nil
-		}
-
-		return m.handleRowClick(idx)
+		return m.handleClick(msg)
 	case tea.KeyPressMsg:
 		if m.mode != modeBrowse {
 			return m.handlePromptKey(msg)
 		}
 
-		if m.palette {
-			if next, handled := m.handlePaletteKey(msg); handled {
-				return next, nil
-			}
-		} else if m.action != actionBrowse {
-			if next, cmd, handled := m.handleActionKey(msg); handled {
-				return next, cmd
-			}
-		} else if next, cmd, handled := m.handleBrowseKey(msg); handled {
+		if next, cmd, handled := m.dispatchBrowseKey(msg); handled {
 			return next, cmd
 		}
 	}
@@ -255,6 +224,57 @@ func (m pickerModel) View() tea.View {
 	view.MouseMode = tea.MouseModeCellMotion
 
 	return view
+}
+
+// handleWheel scrolls the cursor while browsing; wheel input is ignored inside
+// prompts and the palette.
+func (m pickerModel) handleWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
+	if m.mode != modeBrowse || m.palette {
+		return m, nil
+	}
+
+	switch msg.Button {
+	case tea.MouseWheelUp:
+		m.movePrevSelectable()
+	case tea.MouseWheelDown:
+		m.moveNextSelectable()
+	}
+
+	m.ensureCursorVisible()
+	m.renderViewport()
+
+	return m, nil
+}
+
+// handleClick selects the row under a left click while browsing.
+func (m pickerModel) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
+	if m.mode != modeBrowse || m.palette || msg.Button != tea.MouseLeft {
+		return m, nil
+	}
+
+	idx, ok := m.rowAtY(msg.Y)
+	if !ok {
+		return m, nil
+	}
+
+	return m.handleRowClick(idx)
+}
+
+// dispatchBrowseKey routes a browse-mode key press to the palette, the active
+// action mode or the plain browse handler; handled=false lets the key fall
+// through to the query input.
+func (m pickerModel) dispatchBrowseKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
+	if m.palette {
+		next, handled := m.handlePaletteKey(msg)
+
+		return next, nil, handled
+	}
+
+	if m.action != actionBrowse {
+		return m.handleActionKey(msg)
+	}
+
+	return m.handleBrowseKey(msg)
 }
 
 // titleText is "lazy-tmux" while browsing, or "lazy-tmux · DELETE" in a mode.

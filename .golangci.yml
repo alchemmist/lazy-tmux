@@ -8,8 +8,6 @@ linters:
 
   disable:
     - paralleltest
-    - funlen
-    - cyclop
 
     - wsl
     - wsl_v5
@@ -32,6 +30,8 @@ linters:
           - mnd
           - exhaustruct
           - gosec
+          - funlen
+          - cyclop
 
   settings:
     # Allow all imports unless explicitly denied: the linter is enabled so real
@@ -42,10 +42,18 @@ linters:
           list-mode: lax
           allow:
             - $all
+    # The default of 10 is too strict for flag-parsing CLI entrypoints and the
+    # bubbletea Update dispatcher; 15 still forces genuinely tangled functions
+    # apart without mangling linear switch dispatch.
+    cyclop:
+      max-complexity: 15
     # A default branch is this codebase's deliberate catch-all for the enum
     # values a switch does not special-case.
     exhaustive:
       default-signifies-exhaustive: true
+    # Comment lines should not count against a function's length budget.
+    funlen:
+      ignore-comments: true
     # snapshot.* literals must stay exhaustive (forgetting a field there loses
     # data); the excluded types rely on Go zero values by design — bubbletea
     # models start empty, spec tables default optional flags, clients/stores

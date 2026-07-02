@@ -92,6 +92,36 @@ var pickerColumnSpecs = []pickerColumnSpec{
 }
 
 func buildPickerTableLayout(totalWidth int) pickerTableLayout {
+	active, activeSet := activeColumnSpecs(totalWidth)
+
+	columns := make([]pickerColumnLayout, 0, len(active))
+
+	for _, spec := range pickerColumnSpecs {
+		if _, ok := activeSet[spec.ID]; !ok {
+			continue
+		}
+
+		columns = append(columns, pickerColumnLayout{spec: spec, width: spec.MinWidth})
+	}
+
+	extra := totalWidth - minTableWidth(active)
+	if extra < 0 {
+		shrinkColumnsToFit(columns, totalWidth)
+
+		return pickerTableLayout{columns: columns}
+	}
+
+	if extra > 0 {
+		growColumns(columns, extra)
+	}
+
+	return pickerTableLayout{columns: columns}
+}
+
+// activeColumnSpecs picks which columns fit into totalWidth: all required
+// columns, then optional ones by ascending priority (ID as tie-break) until the
+// next one would overflow.
+func activeColumnSpecs(totalWidth int) ([]pickerColumnSpec, map[pickerColumnID]struct{}) {
 	required := make([]pickerColumnSpec, 0, len(pickerColumnSpecs))
 	optional := make([]pickerColumnSpec, 0, len(pickerColumnSpecs))
 
@@ -131,28 +161,7 @@ func buildPickerTableLayout(totalWidth int) pickerTableLayout {
 		activeSet[spec.ID] = struct{}{}
 	}
 
-	columns := make([]pickerColumnLayout, 0, len(active))
-
-	for _, spec := range pickerColumnSpecs {
-		if _, ok := activeSet[spec.ID]; !ok {
-			continue
-		}
-
-		columns = append(columns, pickerColumnLayout{spec: spec, width: spec.MinWidth})
-	}
-
-	extra := totalWidth - minTableWidth(active)
-	if extra < 0 {
-		shrinkColumnsToFit(columns, totalWidth)
-
-		return pickerTableLayout{columns: columns}
-	}
-
-	if extra > 0 {
-		growColumns(columns, extra)
-	}
-
-	return pickerTableLayout{columns: columns}
+	return active, activeSet
 }
 
 // growColumns hands the leftover width to the growable columns only (the name

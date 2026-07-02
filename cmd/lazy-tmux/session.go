@@ -28,16 +28,7 @@ func runSessionOp(
 	dataDir := flags.String("data-dir", "", "snapshot directory")
 	tmuxBin := flags.String("tmux-bin", "", "tmux binary")
 
-	// Only operations that actually restore a session honor --restore-timeout, so
-	// it is not registered for the likes of forget where it would be a no-op.
-	var restoreTimeout *time.Duration
-	if restores {
-		restoreTimeout = flags.Duration(
-			"restore-timeout",
-			config.Default().RestoreTimeout,
-			"max wait for restored pane commands to start (0 disables)",
-		)
-	}
+	restoreTimeout := registerRestoreTimeout(flags, restores)
 
 	err := flags.Parse(args)
 	if err != nil {
@@ -63,13 +54,7 @@ func runSessionOp(
 		return 1
 	}
 
-	if flagPassed(flags, "data-dir") {
-		cfg.DataDir = *dataDir
-	}
-
-	if flagPassed(flags, "tmux-bin") {
-		cfg.TmuxBin = *tmuxBin
-	}
+	applyDirBinOverrides(flags, &cfg, dataDir, tmuxBin)
 
 	if restoreTimeout != nil && flagPassed(flags, "restore-timeout") {
 		cfg.RestoreTimeout = *restoreTimeout
@@ -85,6 +70,21 @@ func runSessionOp(
 	}
 
 	return 0
+}
+
+// registerRestoreTimeout registers the --restore-timeout flag on flags for
+// operations that actually restore a session; it returns nil for the likes of
+// forget where the flag would be a no-op.
+func registerRestoreTimeout(flags *flag.FlagSet, restores bool) *time.Duration {
+	if !restores {
+		return nil
+	}
+
+	return flags.Duration(
+		"restore-timeout",
+		config.Default().RestoreTimeout,
+		"max wait for restored pane commands to start (0 disables)",
+	)
 }
 
 func printSessionHelp(name string, restores bool, writer io.Writer) {

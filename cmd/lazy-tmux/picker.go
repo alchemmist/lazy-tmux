@@ -42,10 +42,7 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 	// Validate flag combinations before any config loading, so invalid usage is
 	// rejected deterministically rather than masked by an unrelated config error.
 	if *windows && !*fzfEngine {
-		writeErr(
-			stderr,
-			errWindowsRequiresFzf,
-		)
+		writeErr(stderr, errWindowsRequiresFzf)
 
 		return 1
 	}
@@ -55,13 +52,7 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	if flagPassed(flags, "data-dir") {
-		cfg.DataDir = *dataDir
-	}
-
-	if flagPassed(flags, "tmux-bin") {
-		cfg.TmuxBin = *tmuxBin
-	}
+	applyDirBinOverrides(flags, &cfg, dataDir, tmuxBin)
 
 	if flagPassed(flags, "restore-timeout") {
 		cfg.RestoreTimeout = *restoreTimeout
