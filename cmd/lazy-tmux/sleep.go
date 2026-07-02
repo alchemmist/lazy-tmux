@@ -24,6 +24,7 @@ func runSleep(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			sleepHelp(stdout)
+
 			return 0
 		}
 
@@ -33,7 +34,8 @@ func runSleep(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if strings.TrimSpace(*session) == "" {
-		writeErr(stderr, fmt.Errorf("sleep requires --session"))
+		writeErr(stderr, errors.New("sleep requires --session"))
+
 		return 1
 	}
 
@@ -59,7 +61,8 @@ func runSleep(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if cfg.Scrollback.Enabled && cfg.Scrollback.Lines <= 0 {
-		writeErr(stderr, fmt.Errorf("scrollback requires scrollback lines > 0"))
+		writeErr(stderr, errors.New("scrollback requires scrollback lines > 0"))
+
 		return 1
 	}
 
@@ -68,6 +71,7 @@ func runSleep(args []string, stdout, stderr io.Writer) int {
 	err = a.Sleep(strings.TrimSpace(*session))
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("sleep session: %w", err))
+
 		return 1
 	}
 

@@ -239,6 +239,7 @@ func (client *Client) Output(args ...string) (string, error) {
 
 func (client *Client) SessionExists(name string) bool {
 	_, err := client.Output("has-session", "-t", sessionTarget(name))
+
 	return err == nil
 }
 
@@ -336,26 +337,31 @@ func (client *Client) AttachSession(target string) error {
 
 func (client *Client) KillWindow(session string, windowIndex int) error {
 	_, err := client.Output("kill-window", "-t", sessionWindowTarget(session, windowIndex))
+
 	return err
 }
 
 func (client *Client) KillSession(session string) error {
 	_, err := client.Output("kill-session", "-t", sessionTarget(session))
+
 	return err
 }
 
 func (client *Client) RenameWindow(session string, windowIndex int, name string) error {
 	_, err := client.Output("rename-window", "-t", sessionWindowTarget(session, windowIndex), name)
+
 	return err
 }
 
 func (client *Client) RenameSession(session, name string) error {
 	_, err := client.Output("rename-session", "-t", sessionTarget(session), name)
+
 	return err
 }
 
 func (client *Client) NewSession(name string) error {
 	_, err := client.Output("new-session", "-d", "-s", name)
+
 	return err
 }
 
@@ -565,7 +571,7 @@ func (client *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) e
 
 	first := windows[0]
 
-	_, err := client.runWithShellFallback(
+	err := client.runWithShellFallback(
 		newSessionArgs(sessionSnapshot.SessionName, first),
 		"",
 	)
@@ -669,7 +675,7 @@ func (client *Client) CapturePaneScrollback(target string, lines int) (string, e
 }
 
 func (client *Client) createAndPopulateWindow(sessionName string, win snapshot.Window) error {
-	_, err := client.runWithShellFallback(newWindowArgs(sessionName, win), "")
+	err := client.runWithShellFallback(newWindowArgs(sessionName, win), "")
 	if err != nil {
 		return err
 	}
@@ -723,7 +729,7 @@ func (client *Client) ensurePaneCount(
 			args = append(args, "-c", pane.CurrentPath)
 		}
 
-		_, err := client.runWithShellFallback(args, "")
+		err := client.runWithShellFallback(args, "")
 		if err != nil {
 			return err
 		}
@@ -1199,10 +1205,10 @@ func splitLines(in string) []string {
 	return out
 }
 
-func (client *Client) runWithShellFallback(args []string, cmd string) (string, error) {
-	out, err := client.Output(args...)
+func (client *Client) runWithShellFallback(args []string, cmd string) error {
+	_, err := client.Output(args...)
 	if err == nil {
-		return out, nil
+		return nil
 	}
 
 	// 1) Command failed to start; retry without explicit command to keep window/pane.
@@ -1210,22 +1216,22 @@ func (client *Client) runWithShellFallback(args []string, cmd string) (string, e
 	if strings.TrimSpace(cmd) != "" && len(args) > 0 {
 		withoutCmd = args[:len(args)-1]
 
-		out2, err2 := client.Output(withoutCmd...)
+		_, err2 := client.Output(withoutCmd...)
 		if err2 == nil {
-			return out2, nil
+			return nil
 		}
 	}
 
 	// 2) If directory is broken, retry without "-c <path>" too.
 	minimal := stripOptionPair(withoutCmd, "-c")
 	if len(minimal) > 0 {
-		out3, err3 := client.Output(minimal...)
+		_, err3 := client.Output(minimal...)
 		if err3 == nil {
-			return out3, nil
+			return nil
 		}
 	}
 
-	return out, err
+	return err
 }
 
 func stripOptionPair(args []string, opt string) []string {
@@ -1234,6 +1240,7 @@ func stripOptionPair(args []string, opt string) []string {
 	for idx := 0; idx < len(args); idx++ {
 		if args[idx] == opt {
 			idx++ // skip option value
+
 			continue
 		}
 

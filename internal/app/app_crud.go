@@ -12,26 +12,44 @@ import (
 
 func (a *App) DeleteWindow(session string, windowIndex int) error {
 	if a.tmux.SessionExists(session) {
-		err := a.tmux.KillWindow(session, windowIndex)
-		if err != nil {
-			var exitErr *exec.ExitError
-			if !errors.As(err, &exitErr) {
-				return fmt.Errorf("kill window: %w", err)
-			}
-		} else {
-			if !a.tmux.SessionExists(session) {
-				err := a.store.DeleteSession(session)
-				if err != nil {
-					return fmt.Errorf("delete session: %w", err)
-				}
-
-				return nil
-			}
-
-			return a.SaveSession(session)
+		handled, err := a.deleteLiveWindow(session, windowIndex)
+		if handled {
+			return err
 		}
 	}
 
+	return a.deleteSnapshotWindow(session, windowIndex)
+}
+
+// deleteLiveWindow removes a window from the running session. handled=false
+// means tmux rejected the kill with an exit error (e.g. the window exists only
+// in the snapshot) and the caller should edit the snapshot instead.
+func (a *App) deleteLiveWindow(session string, windowIndex int) (bool, error) {
+	err := a.tmux.KillWindow(session, windowIndex)
+	if err != nil {
+		var exitErr *exec.ExitError
+		if !errors.As(err, &exitErr) {
+			return true, fmt.Errorf("kill window: %w", err)
+		}
+
+		return false, nil
+	}
+
+	if !a.tmux.SessionExists(session) {
+		err := a.store.DeleteSession(session)
+		if err != nil {
+			return true, fmt.Errorf("delete session: %w", err)
+		}
+
+		return true, nil
+	}
+
+	return true, a.SaveSession(session)
+}
+
+// deleteSnapshotWindow removes a window from the stored snapshot, deleting the
+// whole snapshot when the last window goes away.
+func (a *App) deleteSnapshotWindow(session string, windowIndex int) error {
 	snap, err := a.store.LoadSession(session)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -47,6 +65,7 @@ func (a *App) DeleteWindow(session string, windowIndex int) error {
 	for _, write := range snap.Windows {
 		if write.Index == windowIndex {
 			removed = true
+
 			continue
 		}
 
@@ -54,7 +73,7 @@ func (a *App) DeleteWindow(session string, windowIndex int) error {
 	}
 
 	if !removed {
-		return fmt.Errorf("window not found in snapshot")
+		return errors.New("window not found in snapshot")
 	}
 
 	if len(windows) == 0 {
@@ -78,7 +97,7 @@ func (a *App) DeleteWindow(session string, windowIndex int) error {
 
 func (a *App) Forget(session string) error {
 	if strings.TrimSpace(session) == "" {
-		return fmt.Errorf("session name is empty")
+		return errors.New("session name is empty")
 	}
 
 	err := a.store.DeleteSession(strings.TrimSpace(session))
@@ -107,7 +126,7 @@ func (a *App) DeleteSession(session string) error {
 
 func (a *App) RenameWindow(session string, windowIndex int, name string) error {
 	if strings.TrimSpace(name) == "" {
-		return fmt.Errorf("window name is empty")
+		return errors.New("window name is empty")
 	}
 
 	if a.tmux.SessionExists(session) {
@@ -134,7 +153,7 @@ func (a *App) RenameWindow(session string, windowIndex int, name string) error {
 	}
 
 	if !updated {
-		return fmt.Errorf("window not found in snapshot")
+		return errors.New("window not found in snapshot")
 	}
 
 	err = a.store.SaveSession(snap)
@@ -147,11 +166,11 @@ func (a *App) RenameWindow(session string, windowIndex int, name string) error {
 
 func (a *App) RenameSession(session, name string) error {
 	if strings.TrimSpace(name) == "" {
-		return fmt.Errorf("session name is empty")
+		return errors.New("session name is empty")
 	}
 
 	if strings.TrimSpace(session) == "" {
-		return fmt.Errorf("source session is empty")
+		return errors.New("source session is empty")
 	}
 
 	if session == name {
@@ -210,7 +229,7 @@ func (a *App) RenameSession(session, name string) error {
 
 func (a *App) NewSession(name string) error {
 	if strings.TrimSpace(name) == "" {
-		return fmt.Errorf("session name is empty")
+		return errors.New("session name is empty")
 	}
 
 	exists, err := a.store.SessionExists(name)
@@ -228,12 +247,14 @@ func (a *App) NewSession(name string) error {
 	snap, err := a.tmux.CaptureSession(name)
 	if err != nil {
 		_ = a.tmux.KillSession(name)
+
 		return fmt.Errorf("capture session: %w", err)
 	}
 
 	err = a.store.SaveSession(snap)
 	if err != nil {
 		_ = a.tmux.KillSession(name)
+
 		return fmt.Errorf("save session: %w", err)
 	}
 
@@ -242,7 +263,7 @@ func (a *App) NewSession(name string) error {
 
 func (a *App) NewWindow(session, name string) error {
 	if strings.TrimSpace(session) == "" {
-		return fmt.Errorf("session name is empty")
+		return errors.New("session name is empty")
 	}
 
 	if a.tmux.SessionExists(session) {
@@ -304,7 +325,7 @@ func nextWindowIndex(windows []snapshot.Window) int {
 
 func (a *App) Wakeup(session string) error {
 	if strings.TrimSpace(session) == "" {
-		return fmt.Errorf("session name is empty")
+		return errors.New("session name is empty")
 	}
 	// Check if session already exists
 	if a.tmux.SessionExists(session) {
@@ -316,7 +337,7 @@ func (a *App) Wakeup(session string) error {
 
 func (a *App) Sleep(session string) error {
 	if strings.TrimSpace(session) == "" {
-		return fmt.Errorf("session name is empty")
+		return errors.New("session name is empty")
 	}
 	// Check if session exists
 	if !a.tmux.SessionExists(session) {

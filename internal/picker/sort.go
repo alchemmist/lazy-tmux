@@ -1,6 +1,7 @@
 package picker
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -107,7 +108,7 @@ func parseSessionSortKeys(expr string) ([]SessionSortKey, error) {
 	}
 
 	if len(keys) == 0 {
-		return nil, fmt.Errorf("empty session sort expression")
+		return nil, errors.New("empty session sort expression")
 	}
 
 	return keys, nil
@@ -139,7 +140,7 @@ func parseWindowSortKeys(expr string) ([]WindowSortKey, error) {
 	}
 
 	if len(keys) == 0 {
-		return nil, fmt.Errorf("empty window sort expression")
+		return nil, errors.New("empty window sort expression")
 	}
 
 	return keys, nil
@@ -152,7 +153,7 @@ func splitSortExpr(expr string) ([]string, error) {
 	for _, ch := range chunks {
 		v := strings.TrimSpace(ch)
 		if v == "" {
-			return nil, fmt.Errorf("empty sort term in expression")
+			return nil, errors.New("empty sort term in expression")
 		}
 
 		out = append(out, v)
@@ -205,7 +206,9 @@ func parseWindowSortPart(part string) (WindowSortField, bool, error) {
 	return field, desc, nil
 }
 
-func splitSortPart(part string) (name, dir string, hasDir bool) {
+// splitSortPart splits one "field:direction" sort term into the field name,
+// the direction, and whether a direction was given at all.
+func splitSortPart(part string) (string, string, bool) {
 	left, right, ok := strings.Cut(strings.TrimSpace(part), ":")
 	if !ok {
 		return strings.TrimSpace(part), "", false

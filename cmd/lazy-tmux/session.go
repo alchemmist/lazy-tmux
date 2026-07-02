@@ -43,6 +43,7 @@ func runSessionOp(
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			printSessionHelp(name, restores, stdout)
+
 			return 0
 		}
 
@@ -53,6 +54,7 @@ func runSessionOp(
 
 	if strings.TrimSpace(*session) == "" {
 		writeErr(stderr, fmt.Errorf("%s requires --session", name))
+
 		return 1
 	}
 
@@ -78,6 +80,7 @@ func runSessionOp(
 	err = operation(a, strings.TrimSpace(*session))
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("%s session: %w", name, err))
+
 		return 1
 	}
 

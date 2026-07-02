@@ -202,7 +202,7 @@ func (a *App) ListRecords() ([]snapshot.Record, error) {
 func (a *App) restoreSessionForTarget(target PickerTarget) error {
 	session := strings.TrimSpace(target.SessionName)
 	if session == "" {
-		return fmt.Errorf("empty session name")
+		return errors.New("empty session name")
 	}
 
 	snap, err := a.store.LoadSession(session)
@@ -211,7 +211,7 @@ func (a *App) restoreSessionForTarget(target PickerTarget) error {
 	}
 
 	err = a.tmux.RestoreSession(snap)
-	if err != nil && err != tmux.ErrSessionExists {
+	if err != nil && !errors.Is(err, tmux.ErrSessionExists) {
 		return fmt.Errorf("restore session: %w", err)
 	}
 

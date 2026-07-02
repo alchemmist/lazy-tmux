@@ -88,8 +88,8 @@ func (i *Integration) statusFromHook(cwd string) (integration.Status, bool) {
 type claudeSession struct {
 	PID       int    `json:"pid"`
 	CWD       string `json:"cwd"`
-	Status    string `json:"status"` // busy | waiting | idle
-	UpdatedAt int64  `json:"updatedAt"`
+	Status    string `json:"status"`    // busy | waiting | idle
+	UpdatedAt int64  `json:"updatedAt"` //nolint:tagliatelle // external format owned by Claude Code
 }
 
 // statusFromSessionFile reads Claude Code's own session files as a zero-setup

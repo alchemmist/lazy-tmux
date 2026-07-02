@@ -29,6 +29,7 @@ func (r *recordingTmux) SwitchClient(
 	target string,
 ) error {
 	r.switched = target
+
 	return nil
 }
 
@@ -36,6 +37,7 @@ func (r *recordingTmux) AttachSession(
 	target string,
 ) error {
 	r.attached = target
+
 	return nil
 }
 
@@ -118,6 +120,7 @@ func newTestApp(t *testing.T) (*App, string) {
 
 func snapshotExists(dir, name string) bool {
 	_, err := os.Stat(filepath.Join(dir, "sessions", name+".json"))
+
 	return err == nil
 }
 

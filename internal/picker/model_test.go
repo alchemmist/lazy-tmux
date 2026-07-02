@@ -91,14 +91,42 @@ func (r *recordingActions) toActions(sessions []Session) Actions {
 
 			return nil
 		},
-		DeleteSession: func(s string) error { r.deletedSession = s; return nil },
-		RenameWindow:  func(s string, idx int, n string) error { r.renamedWindow = n; return nil },
-		RenameSession: func(s, n string) error { r.renamedSession = n; return nil },
-		NewSession:    func(n string) error { r.newSession = n; return nil },
-		NewWindow:     func(s, n string) error { r.newWindow = [2]string{s, n}; return nil },
-		Wakeup:        func(s string) error { r.wokeUp = s; return nil },
-		Sleep:         func(s string) error { r.slept = s; return nil },
-		Reload:        func() ([]Session, error) { return sessions, nil },
+		DeleteSession: func(s string) error {
+			r.deletedSession = s
+
+			return nil
+		},
+		RenameWindow: func(s string, idx int, n string) error {
+			r.renamedWindow = n
+
+			return nil
+		},
+		RenameSession: func(s, n string) error {
+			r.renamedSession = n
+
+			return nil
+		},
+		NewSession: func(n string) error {
+			r.newSession = n
+
+			return nil
+		},
+		NewWindow: func(s, n string) error {
+			r.newWindow = [2]string{s, n}
+
+			return nil
+		},
+		Wakeup: func(s string) error {
+			r.wokeUp = s
+
+			return nil
+		},
+		Sleep: func(s string) error {
+			r.slept = s
+
+			return nil
+		},
+		Reload: func() ([]Session, error) { return sessions, nil },
 	}
 }
 
@@ -539,6 +567,7 @@ func TestChooseTargetSuccess(t *testing.T) {
 	idx := 2
 	newPickerRunner = func(m pickerModel) pickerRunner {
 		m.selected = Target{SessionName: "alpha", WindowIndex: &idx}
+
 		return staticRunner{model: m}
 	}
 
@@ -562,6 +591,7 @@ func TestChooseTargetCancelled(t *testing.T) {
 
 	newPickerRunner = func(m pickerModel) pickerRunner {
 		m.cancelled = true
+
 		return staticRunner{model: m}
 	}
 

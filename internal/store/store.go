@@ -432,6 +432,7 @@ func (s *Store) planScrollbackUnlocked(
 			content := pane.Scrollback.Content
 			if strings.TrimSpace(content) == "" {
 				pane.Scrollback = nil
+
 				continue
 			}
 
@@ -585,7 +586,7 @@ func (s *Store) hydrateScrollback(sessionSnapshot *snapshot.SessionSnapshot) err
 func safeScrollbackPath(baseRoot, baseDir, ref string) (string, error) {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
-		return "", fmt.Errorf("empty scrollback ref")
+		return "", errors.New("empty scrollback ref")
 	}
 
 	candidate := filepath.Clean(filepath.Join(baseDir, ref))

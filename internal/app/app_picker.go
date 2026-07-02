@@ -49,6 +49,7 @@ func (a *App) pickerSessions(opts PickerSortOptions) ([]picker.Session, error) {
 		snap, err := a.store.LoadSession(rec.SessionName)
 		if err != nil {
 			log.Printf("picker: skip session %s: %v", rec.SessionName, err)
+
 			continue
 		}
 

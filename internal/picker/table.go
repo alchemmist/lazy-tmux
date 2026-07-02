@@ -113,14 +113,17 @@ func buildPickerTableLayout(totalWidth int) pickerTableLayout {
 		activeSet[spec.ID] = struct{}{}
 	}
 
-	for i := range optional {
-		candidate := append(active, optional[i])
-		if minTableWidth(candidate) <= totalWidth {
-			active = candidate
-			activeSet[optional[i].ID] = struct{}{}
-		} else {
+	for _, spec := range optional {
+		candidate := make([]pickerColumnSpec, 0, len(active)+1)
+		candidate = append(candidate, active...)
+		candidate = append(candidate, spec)
+
+		if minTableWidth(candidate) > totalWidth {
 			break
 		}
+
+		active = candidate
+		activeSet[spec.ID] = struct{}{}
 	}
 
 	columns := make([]pickerColumnLayout, 0, len(active))
@@ -136,6 +139,7 @@ func buildPickerTableLayout(totalWidth int) pickerTableLayout {
 	extra := totalWidth - minTableWidth(active)
 	if extra < 0 {
 		shrinkColumnsToFit(columns, totalWidth)
+
 		return pickerTableLayout{columns: columns}
 	}
 
@@ -169,7 +173,7 @@ func growColumns(columns []pickerColumnLayout, extra int) {
 		columns[i].width += share
 	}
 
-	for k := 0; k < extra%len(growers); k++ {
+	for k := range extra % len(growers) {
 		columns[growers[k]].width++
 	}
 }
@@ -349,6 +353,7 @@ func (l pickerTableLayout) render(valueFor func(spec pickerColumnSpec) string) s
 		val = truncateString(val, col.width)
 		if idx == len(l.columns)-1 {
 			out.WriteString(val)
+
 			continue
 		}
 

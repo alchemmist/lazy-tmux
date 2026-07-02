@@ -30,6 +30,7 @@ func readSnapshot(t *testing.T, dir, name string) snapshot.SessionSnapshot {
 
 func sessionAlive(name string) bool {
 	_, err := testutil.TmuxTry("has-session", "-t", "="+name)
+
 	return err == nil
 }
 

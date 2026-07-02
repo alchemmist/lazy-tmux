@@ -30,6 +30,7 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			pickerHelp(stdout)
+
 			return 0
 		}
 
@@ -43,7 +44,7 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 	if *windows && !*fzfEngine {
 		writeErr(
 			stderr,
-			fmt.Errorf("--windows requires --fzf-engine (the TUI already lists windows)"),
+			errors.New("--windows requires --fzf-engine (the TUI already lists windows)"),
 		)
 
 		return 1
@@ -69,6 +70,7 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 	sortOpts, err := app.ParsePickerSortOptions(*sessionSort, *windowSort)
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("parse sort options: %w", err))
+
 		return 1
 	}
 
@@ -81,12 +83,14 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 		target, err = tmuxApp.SelectTargetWithFZFSorted(sortOpts)
 		if err != nil {
 			writeErr(stderr, fmt.Errorf("select target: %w", err))
+
 			return 1
 		}
 	case *fzfEngine:
 		session, err := tmuxApp.SelectWithFZFSorted(sortOpts)
 		if err != nil {
 			writeErr(stderr, fmt.Errorf("select target: %w", err))
+
 			return 1
 		}
 
@@ -95,6 +99,7 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 		target, err = tmuxApp.SelectTargetWithTUISorted(sortOpts)
 		if err != nil {
 			writeErr(stderr, fmt.Errorf("select target: %w", err))
+
 			return 1
 		}
 
@@ -102,6 +107,7 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 		err = tmuxApp.RestoreTargetAnimated(target)
 		if err != nil {
 			writeErr(stderr, fmt.Errorf("restore target: %w", err))
+
 			return 1
 		}
 
@@ -113,6 +119,7 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 	err = tmuxApp.RestoreTargetInteractive(target)
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("restore target: %w", err))
+
 		return 1
 	}
 

@@ -50,6 +50,7 @@ func main() {
 func runCLI(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		printUsage(stdout)
+
 		return 2
 	}
 
@@ -63,6 +64,7 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 			help, ok := helpFuncs[args[1]]
 			if !ok {
 				writeErr(stderr, fmt.Errorf("unknown command: %s", args[1]))
+
 				return 1
 			}
 
@@ -77,6 +79,7 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 	cmd, ok := commands[cmdName]
 	if !ok {
 		writeErr(stderr, fmt.Errorf("unknown command: %s", cmdName))
+
 		return 1
 	}
 

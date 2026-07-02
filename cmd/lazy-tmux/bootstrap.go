@@ -27,6 +27,7 @@ func runBootstrap(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			bootstrapHelp(stdout)
+
 			return 0
 		}
 
@@ -57,6 +58,7 @@ func runBootstrap(args []string, stdout, stderr io.Writer) int {
 	err = a.Bootstrap(*session)
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("bootstrap session: %w", err))
+
 		return 1
 	}
 

@@ -16,6 +16,7 @@ func loadConfig(stderr io.Writer) (config.Config, bool) {
 	cfg, err := config.Load()
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("load config: %w", err))
+
 		return cfg, false
 	}
 

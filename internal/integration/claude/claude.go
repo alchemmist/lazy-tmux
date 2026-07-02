@@ -123,6 +123,7 @@ func (i *Integration) latestSessionID(cwd string) (string, bool) {
 // "/Users/me/code/lazy-tmux" -> "-Users-me-code-lazy-tmux".
 func EncodeProjectDir(cwd string) string {
 	replacer := strings.NewReplacer("/", "-", ".", "-")
+
 	return replacer.Replace(cwd)
 }
 

@@ -490,6 +490,7 @@ func TestAttachSessionWithoutTTYIsNoOp(t *testing.T) {
 	origExec := attachExec
 	attachExec = func(string, []string, []string) error {
 		called = true
+
 		return nil
 	}
 

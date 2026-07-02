@@ -63,6 +63,7 @@ func runVersionCmd(args []string, stdout, _ io.Writer) int {
 	for _, arg := range args {
 		if arg == "-h" || arg == "--help" {
 			versionHelp(stdout)
+
 			return 0
 		}
 	}

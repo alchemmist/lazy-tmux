@@ -17,9 +17,10 @@ import (
 // runHook dispatches the hook writers invoked by external programs (e.g. Claude
 // Code). These run inside another tool's hook pipeline, so they must be fast and
 // must not fail the host on transient errors.
-func runHook(args []string, stdout, stderr io.Writer) int {
+func runHook(args []string, _, stderr io.Writer) int {
 	if len(args) == 0 {
 		writeErr(stderr, errors.New("usage: lazy-tmux hook claude-status --state <state>"))
+
 		return 2
 	}
 
@@ -28,6 +29,7 @@ func runHook(args []string, stdout, stderr io.Writer) int {
 		return runClaudeStatusHook(args[1:], os.Stdin, stderr)
 	default:
 		writeErr(stderr, fmt.Errorf("unknown hook %q", args[0]))
+
 		return 2
 	}
 }
@@ -43,11 +45,13 @@ func runClaudeStatusHook(args []string, stdin io.Reader, stderr io.Writer) int {
 	err := flags.Parse(args)
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("parse flags: %w", err))
+
 		return 2
 	}
 
 	if !claude.ValidState(*state) {
 		writeErr(stderr, fmt.Errorf("invalid --state %q", *state))
+
 		return 2
 	}
 

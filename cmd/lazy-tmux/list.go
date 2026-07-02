@@ -21,6 +21,7 @@ func runList(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			listHelp(stdout)
+
 			return 0
 		}
 
@@ -47,6 +48,7 @@ func runList(args []string, stdout, stderr io.Writer) int {
 	recs, err := a.ListRecords()
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("list records: %w", err))
+
 		return 1
 	}
 

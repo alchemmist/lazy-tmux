@@ -14,6 +14,7 @@ type recordingRunner struct {
 
 func (r *recordingRunner) runCommand(args ...string) commandResult {
 	r.calls = append(r.calls, append([]string(nil), args...))
+
 	return commandResult{}
 }
 

@@ -23,6 +23,7 @@ func runDaemon(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			daemonHelp(stdout)
+
 			return 0
 		}
 
@@ -57,7 +58,8 @@ func runDaemon(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if cfg.Scrollback.Enabled && cfg.Scrollback.Lines <= 0 {
-		writeErr(stderr, fmt.Errorf("scrollback requires scrollback lines > 0"))
+		writeErr(stderr, errors.New("scrollback requires scrollback lines > 0"))
+
 		return 1
 	}
 
@@ -66,6 +68,7 @@ func runDaemon(args []string, stdout, stderr io.Writer) int {
 	err = a.RunDaemon(cfg.SaveInterval)
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("run daemon: %w", err))
+
 		return 1
 	}
 

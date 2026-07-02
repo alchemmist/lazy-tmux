@@ -71,6 +71,7 @@ func (m loadingModel) Init() tea.Cmd {
 func waitForRestore(done <-chan struct{}) tea.Cmd {
 	return func() tea.Msg {
 		<-done
+
 		return restoreDoneMsg{}
 	}
 }

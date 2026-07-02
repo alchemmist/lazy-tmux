@@ -15,6 +15,7 @@ func runSetup(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			setupHelp(stdout)
+
 			return 0
 		}
 

@@ -86,7 +86,13 @@ func TestLoadingGraceRevealsField(t *testing.T) {
 	m := newLoadingModel("x", make(chan struct{}))
 
 	updated, cmd := m.Update(graceMsg{})
-	if !updated.(loadingModel).started {
+
+	lm, ok := updated.(loadingModel)
+	if !ok {
+		t.Fatalf("expected loadingModel, got %T", updated)
+	}
+
+	if !lm.started {
 		t.Fatal("graceMsg must reveal the field (started=true)")
 	}
 

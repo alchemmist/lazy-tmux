@@ -25,6 +25,7 @@ func runSave(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			saveHelp(stdout)
+
 			return 0
 		}
 
@@ -55,7 +56,8 @@ func runSave(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if cfg.Scrollback.Enabled && cfg.Scrollback.Lines <= 0 {
-		writeErr(stderr, fmt.Errorf("scrollback requires scrollback lines > 0"))
+		writeErr(stderr, errors.New("scrollback requires scrollback lines > 0"))
+
 		return 1
 	}
 
@@ -85,6 +87,7 @@ func runSave(args []string, stdout, stderr io.Writer) int {
 
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("save session: %w", err))
+
 		return 1
 	}
 

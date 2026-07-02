@@ -53,6 +53,7 @@ func runClaudeHooks(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			claudeHooksHelp(stdout)
+
 			return 0
 		}
 
@@ -64,6 +65,7 @@ func runClaudeHooks(args []string, stdout, stderr io.Writer) int {
 	cfg, err := config.Load()
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("load config: %w", err))
+
 		return 1
 	}
 
@@ -77,6 +79,7 @@ func runClaudeHooks(args []string, stdout, stderr io.Writer) int {
 	changed, err := applyClaudeHooks(path, binary, *uninstall)
 	if err != nil {
 		writeErr(stderr, err)
+
 		return 1
 	}
 
@@ -200,6 +203,7 @@ func dropOurGroups(groups []json.RawMessage, marker string) []json.RawMessage {
 		err := json.Unmarshal(raw, &group)
 		if err != nil {
 			kept = append(kept, raw)
+
 			continue
 		}
 

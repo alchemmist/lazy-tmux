@@ -48,7 +48,7 @@ func runFZF(input *bytes.Buffer, withNth string) (string, error) {
 	out, err := cmd.Output()
 	if err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			return "", fmt.Errorf("fzf selection timed out")
+			return "", errors.New("fzf selection timed out")
 		}
 
 		return "", fmt.Errorf("fzf selection canceled or failed: %w", err)
@@ -59,7 +59,7 @@ func runFZF(input *bytes.Buffer, withNth string) (string, error) {
 	selected = strings.SplitN(selected, "\n", 2)[0]
 
 	if strings.TrimSpace(selected) == "" {
-		return "", fmt.Errorf("no selection made")
+		return "", errors.New("no selection made")
 	}
 
 	return selected, nil
@@ -89,7 +89,7 @@ func ChooseSessionFZF(records []snapshot.Record) (string, error) {
 
 	parts := strings.Split(selected, "\t")
 	if strings.TrimSpace(parts[0]) == "" {
-		return "", fmt.Errorf("invalid fzf output")
+		return "", errors.New("invalid fzf output")
 	}
 
 	return parts[0], nil
@@ -140,7 +140,7 @@ func windowFZFLines(sessions []Session, windowSort []WindowSortKey) []string {
 func parseWindowSelection(line string) (Target, error) {
 	parts := strings.Split(line, "\t")
 	if len(parts) < 2 || strings.TrimSpace(parts[0]) == "" {
-		return Target{}, fmt.Errorf("invalid fzf output")
+		return Target{}, errors.New("invalid fzf output")
 	}
 
 	index, err := strconv.Atoi(strings.TrimSpace(parts[1]))

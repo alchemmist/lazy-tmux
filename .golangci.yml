@@ -8,33 +8,18 @@ linters:
 
   disable:
     - testpackage
-    - unparam
-    - tagliatelle
-    - recvcheck
     - paralleltest
-    - nlreturn
-    - nonamedreturns
-    - perfsprint
-    - nestif
     - mnd
     - goconst
     - ireturn
-    - gocritic
     - gochecknoglobals
-    - intrange
-    - forcetypeassert
     - funlen
-    - gosmopolitan
     - exhaustruct
     - err113
     - exhaustive
-    - depguard
-    - dupword
     - cyclop
-    - errorlint
     - revive
     - gosec
-    - gocognit
 
     - wsl
     - wsl_v5
@@ -50,8 +35,27 @@ linters:
           - noinlineerr
 
   settings:
+    # Allow all imports unless explicitly denied: the linter is enabled so real
+    # deny rules can be added later without ceremony.
+    depguard:
+      rules:
+        main:
+          list-mode: lax
+          allow:
+            - $all
     exhaustruct:
       allow-empty: true
+    # Timestamps are deliberately rendered in the user's local timezone (list
+    # output, picker rows); this is a local CLI tool, not an i18n concern.
+    gosmopolitan:
+      allow-time-local: true
+    # Snapshot and config files use snake_case keys by design; renaming struct
+    # tags would break every snapshot already on disk.
+    tagliatelle:
+      case:
+        rules:
+          json: snake
+          toml: snake
     varnamelen:
       ignore-names:
         - ok

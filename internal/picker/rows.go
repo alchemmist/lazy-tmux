@@ -4,6 +4,7 @@ package picker
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -36,7 +37,7 @@ func filteredTreeRows(sessions []Session, query string, windowSort []WindowSortK
 			target:     Target{SessionName: sess.Record.SessionName},
 			item:       sess.Record.SessionName,
 			captured:   relativeTime(sess.Record.CapturedAt, time.Now()),
-			wins:       fmt.Sprintf("%d", sess.Record.Windows),
+			wins:       strconv.Itoa(sess.Record.Windows),
 			state:      sessionStateIcon(sess.Restored),
 			selectable: false,
 		})

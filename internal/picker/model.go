@@ -3,6 +3,7 @@
 package picker
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -32,6 +33,10 @@ type pickerRow struct {
 	synthetic  bool         // the "＋ new session" row injected in new mode
 }
 
+// the tea.Model interface (Init/Update/View), while internal helpers mutate the
+// model through pointer receivers before it is returned — a deliberate mix.
+//
+//nolint:recvcheck // bubbletea's Elm architecture requires value receivers for
 type pickerModel struct {
 	sessions    []Session
 	windowSort  []WindowSortKey
@@ -160,8 +165,8 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if m.palette {
-			if next, cmd, handled := m.handlePaletteKey(msg); handled {
-				return next, cmd
+			if next, handled := m.handlePaletteKey(msg); handled {
+				return next, nil
 			}
 		} else if m.action != actionBrowse {
 			if next, cmd, handled := m.handleActionKey(msg); handled {
@@ -296,6 +301,7 @@ func (m pickerModel) handleRowClick(idx int) (tea.Model, tea.Cmd) {
 	if m.action == actionBrowse {
 		if idx == m.cursor {
 			m.selected = m.visible[idx].target
+
 			return m, tea.Quit
 		}
 
@@ -326,6 +332,7 @@ func (m *pickerModel) syncPalette() {
 	m.palette = m.action == actionBrowse && strings.HasPrefix(m.queryInput.Value(), "/")
 	if !m.palette {
 		m.paletteIdx = 0
+
 		return
 	}
 
@@ -339,7 +346,9 @@ func (m pickerModel) commandPrefix() string {
 	return strings.TrimPrefix(m.queryInput.Value(), "/")
 }
 
-func (m pickerModel) counts() (sessions, windows int) {
+// counts returns the number of sessions and the total number of windows.
+func (m pickerModel) counts() (int, int) {
+	windows := 0
 	for i := range m.sessions {
 		windows += len(m.sessions[i].Windows)
 	}
@@ -368,6 +377,7 @@ func (m pickerModel) helpHints() string {
 	for _, pair := range pairs {
 		if pair.label == "" {
 			parts = append(parts, m.theme.helpKey.Render(pair.key))
+
 			continue
 		}
 
@@ -387,6 +397,7 @@ func (m pickerModel) handleBrowseKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, b
 	switch msg.String() {
 	case "ctrl+c", "ctrl+q", "esc":
 		m.cancelled = true
+
 		return m, tea.Quit, true
 	case "ctrl+d", "alt+d", "ctrl+r", "alt+r", "ctrl+n", "alt+n", "alt+w", "alt+s":
 		m.enterModeShortcut(msg.String())
@@ -408,6 +419,7 @@ func (m pickerModel) handleBrowseKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, b
 	case "enter":
 		if m.cursor >= 0 && m.cursor < len(m.visible) && m.visible[m.cursor].selectable {
 			m.selected = m.visible[m.cursor].target
+
 			return m, tea.Quit, true
 		}
 	}
@@ -553,25 +565,26 @@ func (m *pickerModel) exitMode() {
 
 // handlePaletteKey drives the slash-command dropdown. Printable keys fall
 // through (handled=false) so the typed command name keeps editing the query.
-func (m pickerModel) handlePaletteKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
+func (m pickerModel) handlePaletteKey(msg tea.KeyPressMsg) (tea.Model, bool) {
 	matches := matchCommands(m.commandPrefix())
 
 	switch msg.String() {
 	case "esc", "ctrl+c":
 		m.exitMode()
-		return m, nil, true
+
+		return m, true
 	case "ctrl+k":
 		if m.paletteIdx > 0 {
 			m.paletteIdx--
 		}
 
-		return m, nil, true
+		return m, true
 	case "ctrl+j":
 		if m.paletteIdx < len(matches)-1 {
 			m.paletteIdx++
 		}
 
-		return m, nil, true
+		return m, true
 	case "tab":
 		if len(matches) > 0 {
 			m.queryInput.SetValue("/" + matches[m.paletteIdx].name)
@@ -579,17 +592,17 @@ func (m pickerModel) handlePaletteKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, 
 			m.syncPalette()
 		}
 
-		return m, nil, true
+		return m, true
 	case "enter":
 		if len(matches) > 0 {
 			m.enterMode(matches[m.paletteIdx].mode)
 			m.renderViewport()
 		}
 
-		return m, nil, true
+		return m, true
 	}
 
-	return m, nil, false
+	return m, false
 }
 
 // handleActionKey drives an active action mode. Unhandled printable keys fall
@@ -598,9 +611,11 @@ func (m pickerModel) handleActionKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, b
 	switch msg.String() {
 	case "ctrl+c", "ctrl+q":
 		m.cancelled = true
+
 		return m, tea.Quit, true
 	case "esc":
 		m.exitMode()
+
 		return m, nil, true
 	case "ctrl+k":
 		m.movePrevSelectable()
@@ -627,6 +642,7 @@ func (m pickerModel) handleActionKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, b
 		return m, nil, true
 	case "enter":
 		next, cmd := m.commitAction()
+
 		return next, cmd, true
 	}
 
@@ -663,6 +679,7 @@ func (m *pickerModel) beginRename() {
 	row, ok := m.currentRow()
 	if !ok {
 		m.exitMode()
+
 		return
 	}
 
@@ -679,6 +696,7 @@ func (m *pickerModel) beginNew() {
 	row, ok := m.currentRow()
 	if !ok {
 		m.exitMode()
+
 		return
 	}
 
@@ -748,6 +766,7 @@ func (m pickerModel) nearestSelectable(from int) int {
 func (m *pickerModel) renderViewport() {
 	if len(m.visible) == 0 {
 		m.viewport.SetContent("")
+
 		return
 	}
 
@@ -899,7 +918,7 @@ var newPickerRunner = func(m pickerModel) pickerRunner {
 
 func ChooseTarget(sessions []Session, windowSort []WindowSortKey, actions Actions) (Target, error) {
 	if tuiDisabled() {
-		return Target{}, fmt.Errorf("TUI picker disabled in fzf-only build")
+		return Target{}, errors.New("TUI picker disabled in fzf-only build")
 	}
 
 	m := newPickerModel(sessions, windowSort, actions)
@@ -912,15 +931,15 @@ func ChooseTarget(sessions []Session, windowSort []WindowSortKey, actions Action
 
 	result, ok := finalModel.(pickerModel)
 	if !ok {
-		return Target{}, fmt.Errorf("unexpected picker model type")
+		return Target{}, errors.New("unexpected picker model type")
 	}
 
 	if result.cancelled {
-		return Target{}, fmt.Errorf("selection canceled")
+		return Target{}, errors.New("selection canceled")
 	}
 
 	if strings.TrimSpace(result.selected.SessionName) == "" {
-		return Target{}, fmt.Errorf("no session selected")
+		return Target{}, errors.New("no session selected")
 	}
 
 	return result.selected, nil
