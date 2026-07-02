@@ -65,6 +65,7 @@ func New(cfg config.Config) *App {
 	client := tmux.NewClient(config.ExpandHome(cfg.TmuxBin))
 	client.SetRestoreTimeout(cfg.RestoreTimeout)
 	client.SetRestoreAllowlist(cfg.RestoreAllowlist)
+	client.SetRestoreDenylist(cfg.RestoreDenylist)
 
 	registry := buildRegistry(cfg.Integrations, ClaudeStatusDir(cfg.DataDir))
 	client.SetRestoreResolver(registry)

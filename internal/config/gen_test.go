@@ -59,6 +59,7 @@ func TestRenderEffectiveConfig(t *testing.T) {
 		"save_interval",
 		"[scrollback]",
 		"restore_allowlist not set",
+		"restore_denylist not set",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("render missing %q in:\n%s", want, out)
@@ -68,5 +69,10 @@ func TestRenderEffectiveConfig(t *testing.T) {
 	cfg.RestoreAllowlist = []string{"nvim", "vim"}
 	if got := cfg.Render(); !strings.Contains(got, `restore_allowlist = ["nvim", "vim"]`) {
 		t.Fatalf("render allowlist wrong:\n%s", got)
+	}
+
+	cfg.RestoreDenylist = []string{"npm", "node"}
+	if got := cfg.Render(); !strings.Contains(got, `restore_denylist = ["npm", "node"]`) {
+		t.Fatalf("render denylist wrong:\n%s", got)
 	}
 }

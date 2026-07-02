@@ -94,6 +94,11 @@ type Client struct {
 	allowlist    map[string]struct{}
 	allowlistSet bool
 
+	// denylist blocks specific commands from being replayed, keyed by executable
+	// name. It takes precedence over the allowlist: a denied command is never
+	// restored even when the allowlist would permit it.
+	denylist map[string]struct{}
+
 	// resolver lets a program-integration registry override the restore command
 	// for a pane (e.g. `claude --resume <id>`). nil keeps the default behavior.
 	resolver RestoreCommandResolver
@@ -155,6 +160,28 @@ func (client *Client) SetRestoreAllowlist(list []string) {
 		name := executableName(strings.TrimSpace(item))
 		if name != "" {
 			client.allowlist[name] = struct{}{}
+		}
+	}
+}
+
+// SetRestoreDenylist configures which commands RestoreSession must never replay,
+// matched by executable name. It composes with the allowlist and wins over it: a
+// denied command is skipped even when an allowlist would permit it. A nil or
+// empty slice blocks nothing. List entries are normalized to their executable
+// name, so both "node" and "/usr/bin/node" match a pane running node.
+func (client *Client) SetRestoreDenylist(list []string) {
+	if len(list) == 0 {
+		client.denylist = nil
+
+		return
+	}
+
+	client.denylist = make(map[string]struct{}, len(list))
+
+	for _, item := range list {
+		name := executableName(strings.TrimSpace(item))
+		if name != "" {
+			client.denylist[name] = struct{}{}
 		}
 	}
 }
@@ -825,9 +852,14 @@ func (client *Client) restoreWindowCommands(
 }
 
 // commandAllowed reports whether a command with the given executable name may be
-// restored under the current allowlist. With no allowlist configured every
-// command is allowed.
+// restored. The denylist wins over the allowlist: a denied command is never
+// restored. Otherwise, with no allowlist configured every command is allowed;
+// with one configured only listed commands are.
 func (client *Client) commandAllowed(executable string) bool {
+	if _, denied := client.denylist[executable]; denied {
+		return false
+	}
+
 	if !client.allowlistSet {
 		return true
 	}

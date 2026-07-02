@@ -165,15 +165,31 @@ func TestRestoreWaitsForCommandsToStart(t *testing.T) {
 // allowlist configured, only permitted commands are replayed; a disallowed
 // command leaves its pane at the shell.
 func TestRestoreAllowlistFiltersCommands(t *testing.T) {
+	assertGuardedRestore(t, "guarded", func(client *tmux.Client) {
+		client.SetRestoreAllowlist([]string{"cat"}) // allow cat, block everything else
+	})
+}
+
+// TestRestoreDenylistBlocksCommands covers issue #203 end-to-end: a command in
+// the denylist is not replayed even with no allowlist configured; other panes
+// still restore normally.
+func TestRestoreDenylistBlocksCommands(t *testing.T) {
+	assertGuardedRestore(t, "denied", func(client *tmux.Client) {
+		client.SetRestoreDenylist([]string{"tail"}) // block tail, restore everything else
+	})
+}
+
+// assertGuardedRestore restores a two-pane session (pane 0 = cat, pane 1 = tail)
+// through a client configured by configure, then asserts the allowed pane runs
+// cat while the blocked pane does not run tail. Both commands block on stdin, so
+// a restored command shows up as the pane's foreground command.
+func assertGuardedRestore(t *testing.T, name string, configure func(*tmux.Client)) {
+	t.Helper()
 	testutil.IsolatedTmux(t)
 
 	client := tmux.NewClient("tmux")
-	client.SetRestoreAllowlist([]string{"cat"}) // allow cat, block everything else
+	configure(client)
 
-	const name = "guarded"
-
-	// Two panes: one runs an allowed command (cat), one a blocked command (tail).
-	// Both block on stdin, so if restored they would show as the foreground cmd.
 	snap := snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: name,
@@ -211,7 +227,7 @@ func TestRestoreAllowlistFiltersCommands(t *testing.T) {
 	}
 
 	if cmds["0"] != "cat" {
-		t.Fatalf("allowed pane should run cat, got %q (all: %v)", cmds["0"], cmds)
+		t.Fatalf("permitted pane should run cat, got %q (all: %v)", cmds["0"], cmds)
 	}
 
 	if cmds["1"] == "tail" {

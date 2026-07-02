@@ -212,6 +212,58 @@ func TestRestoreAllowlist(t *testing.T) {
 	}
 }
 
+func TestRestoreDenylist(t *testing.T) {
+	client := NewClient("tmux")
+
+	// No denylist configured: everything is allowed.
+	if !client.commandAllowed("node") {
+		t.Fatal("with no denylist, all commands must be allowed")
+	}
+
+	// Configured denylist: listed executables are blocked (path entries normalized).
+	client.SetRestoreDenylist([]string{"node", "/usr/bin/htop", "  npm  "})
+
+	for _, blocked := range []string{"node", "htop", "npm"} {
+		if client.commandAllowed(blocked) {
+			t.Fatalf("%q should be blocked", blocked)
+		}
+	}
+
+	for _, allowed := range []string{"nvim", "vim", "less"} {
+		if !client.commandAllowed(allowed) {
+			t.Fatalf("%q should be allowed", allowed)
+		}
+	}
+
+	// Clearing with nil (or empty) restores allow-all behavior.
+	client.SetRestoreDenylist(nil)
+
+	if !client.commandAllowed("node") {
+		t.Fatal("a nil denylist must allow all commands again")
+	}
+}
+
+func TestRestoreDenylistWinsOverAllowlist(t *testing.T) {
+	client := NewClient("tmux")
+
+	// A command in both lists is blocked: the denylist takes precedence.
+	client.SetRestoreAllowlist([]string{"nvim", "node"})
+	client.SetRestoreDenylist([]string{"node"})
+
+	if !client.commandAllowed("nvim") {
+		t.Fatal("nvim is allowed and not denied -> should be restored")
+	}
+
+	if client.commandAllowed("node") {
+		t.Fatal("node is denied -> must be blocked even though the allowlist permits it")
+	}
+
+	// A command that is neither allowed nor denied stays blocked by the allowlist.
+	if client.commandAllowed("htop") {
+		t.Fatal("htop is not in the allowlist -> should stay blocked")
+	}
+}
+
 func TestExpectedPaneCommandsRespectsAllowlist(t *testing.T) {
 	windows := []snapshot.Window{
 		{
