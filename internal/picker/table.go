@@ -35,6 +35,7 @@ type pickerTableLayout struct {
 	columns []pickerColumnLayout
 }
 
+//nolint:gochecknoglobals // static column-layout table, never mutated
 var pickerColumnSpecs = []pickerColumnSpec{
 	{
 		ID:       "item",

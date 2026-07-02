@@ -11,12 +11,9 @@ linters:
     - paralleltest
     - mnd
     - goconst
-    - ireturn
-    - gochecknoglobals
     - funlen
     - exhaustruct
     - err113
-    - exhaustive
     - cyclop
     - revive
     - gosec
@@ -43,8 +40,23 @@ linters:
           list-mode: lax
           allow:
             - $all
+    # A default branch is this codebase's deliberate catch-all for the enum
+    # values a switch does not special-case.
+    exhaustive:
+      default-signifies-exhaustive: true
     exhaustruct:
       allow-empty: true
+    # Returning tea.Model is imposed by bubbletea's Elm architecture; the
+    # integration registry deliberately returns its Integration interface.
+    ireturn:
+      allow:
+        - anon
+        - error
+        - empty
+        - stdlib
+        - generic
+        - charm.land/bubbletea/v2.Model
+        - github.com/alchemmist/lazy-tmux/internal/integration.Integration
     # Timestamps are deliberately rendered in the user's local timezone (list
     # output, picker rows); this is a local CLI tool, not an i18n concern.
     gosmopolitan:

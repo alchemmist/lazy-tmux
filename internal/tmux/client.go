@@ -53,6 +53,7 @@ var (
 	ErrSessionExists   = errors.New("tmux session already exists")
 )
 
+//nolint:gochecknoglobals // test seam: tests capture pane-tty writes
 var paneTTYWriter = writePaneTTY
 
 type commandResult struct {
@@ -301,6 +302,8 @@ func (client *Client) InsideTmux() bool {
 // attachExec hands the terminal off to tmux. It is a package var so tests can
 // stub it without replacing the test process. syscall.Exec returns only on
 // failure to launch; on success the current process image is replaced by tmux.
+//
+//nolint:gochecknoglobals // test seam, see comment above
 var attachExec = syscall.Exec
 
 // hasControllingTTY reports whether stdout is a real terminal. attach-session
@@ -308,6 +311,8 @@ var attachExec = syscall.Exec
 // on the fd rather than os.ModeCharDevice, which also matches non-terminals
 // such as /dev/null and would let the attach fall through to "open terminal
 // failed".
+//
+//nolint:gochecknoglobals // test seam, see comment above
 var hasControllingTTY = func() bool {
 	return term.IsTerminal(os.Stdout.Fd())
 }

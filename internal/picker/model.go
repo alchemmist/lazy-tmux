@@ -33,10 +33,12 @@ type pickerRow struct {
 	synthetic  bool         // the "＋ new session" row injected in new mode
 }
 
-// the tea.Model interface (Init/Update/View), while internal helpers mutate the
-// model through pointer receivers before it is returned — a deliberate mix.
+// pickerModel deliberately mixes receiver kinds: bubbletea's Elm architecture
+// requires value receivers for the tea.Model interface (Init/Update/View),
+// while internal helpers mutate the model through pointer receivers before it
+// is returned.
 //
-//nolint:recvcheck // bubbletea's Elm architecture requires value receivers for
+//nolint:recvcheck // deliberate value/pointer receiver mix, see above
 type pickerModel struct {
 	sessions    []Session
 	windowSort  []WindowSortKey
@@ -654,6 +656,8 @@ func (m pickerModel) handleActionKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, b
 // immediately and drop back to browse.
 func (m pickerModel) commitAction() (tea.Model, tea.Cmd) {
 	switch m.action {
+	case actionBrowse:
+		// Enter in browse selects a row; commitAction is never reached.
 	case actionDelete:
 		m.commitDelete()
 	case actionRename:
@@ -912,6 +916,7 @@ type pickerRunner interface {
 	Run() (tea.Model, error)
 }
 
+//nolint:gochecknoglobals // test seam: picker tests inject a fake tea runner
 var newPickerRunner = func(m pickerModel) pickerRunner {
 	return tea.NewProgram(m)
 }

@@ -23,6 +23,7 @@ func (t *realDaemonTicker) Chan() <-chan time.Time { return t.C }
 
 func (t *realDaemonTicker) Stop() { t.Ticker.Stop() }
 
+//nolint:gochecknoglobals // test seam: daemon tests inject a fake ticker
 var newDaemonTicker = func(d time.Duration) daemonTicker {
 	return &realDaemonTicker{Ticker: time.NewTicker(d)}
 }

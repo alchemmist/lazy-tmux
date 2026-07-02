@@ -7,40 +7,47 @@ import (
 	"os"
 )
 
+//nolint:gochecknoglobals // test seam: CLI tests stub process exit
 var exitFunc = os.Exit
 
-var commands = map[string]func(args []string, stdout, stderr io.Writer) int{
-	"version":      runVersionCmd,
-	"save":         runSave,
-	"restore":      runRestore,
-	"picker":       runPicker,
-	"bootstrap":    runBootstrap,
-	"daemon":       runDaemon,
-	"list":         runList,
-	"setup":        runSetup,
-	"wakeup":       runWakeup,
-	"sleep":        runSleep,
-	"forget":       runForget,
-	"config":       runConfig,
-	"hook":         runHook,
-	"claude-hooks": runClaudeHooks,
+// commands maps each subcommand name to its runner.
+func commands() map[string]func(args []string, stdout, stderr io.Writer) int {
+	return map[string]func(args []string, stdout, stderr io.Writer) int{
+		"version":      runVersionCmd,
+		"save":         runSave,
+		"restore":      runRestore,
+		"picker":       runPicker,
+		"bootstrap":    runBootstrap,
+		"daemon":       runDaemon,
+		"list":         runList,
+		"setup":        runSetup,
+		"wakeup":       runWakeup,
+		"sleep":        runSleep,
+		"forget":       runForget,
+		"config":       runConfig,
+		"hook":         runHook,
+		"claude-hooks": runClaudeHooks,
+	}
 }
 
-var helpFuncs = map[string]func(io.Writer){
-	"version":      versionHelp,
-	"save":         saveHelp,
-	"restore":      restoreHelp,
-	"picker":       pickerHelp,
-	"bootstrap":    bootstrapHelp,
-	"daemon":       daemonHelp,
-	"list":         listHelp,
-	"setup":        setupHelp,
-	"wakeup":       func(w io.Writer) { printSessionHelp("wakeup", true, w) },
-	"sleep":        sleepHelp,
-	"forget":       func(w io.Writer) { printSessionHelp("forget", false, w) },
-	"config":       configHelp,
-	"hook":         hookHelp,
-	"claude-hooks": claudeHooksHelp,
+// helpFuncs maps each subcommand name to its help printer.
+func helpFuncs() map[string]func(io.Writer) {
+	return map[string]func(io.Writer){
+		"version":      versionHelp,
+		"save":         saveHelp,
+		"restore":      restoreHelp,
+		"picker":       pickerHelp,
+		"bootstrap":    bootstrapHelp,
+		"daemon":       daemonHelp,
+		"list":         listHelp,
+		"setup":        setupHelp,
+		"wakeup":       func(w io.Writer) { printSessionHelp("wakeup", true, w) },
+		"sleep":        sleepHelp,
+		"forget":       func(w io.Writer) { printSessionHelp("forget", false, w) },
+		"config":       configHelp,
+		"hook":         hookHelp,
+		"claude-hooks": claudeHooksHelp,
+	}
 }
 
 func main() {
@@ -61,7 +68,7 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 
 	if cmdName == "help" || cmdName == "-h" || cmdName == "--help" {
 		if len(args) > 1 {
-			help, ok := helpFuncs[args[1]]
+			help, ok := helpFuncs()[args[1]]
 			if !ok {
 				writeErr(stderr, fmt.Errorf("unknown command: %s", args[1]))
 
@@ -76,7 +83,7 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 
-	cmd, ok := commands[cmdName]
+	cmd, ok := commands()[cmdName]
 	if !ok {
 		writeErr(stderr, fmt.Errorf("unknown command: %s", cmdName))
 
