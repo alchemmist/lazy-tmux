@@ -14,6 +14,9 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
+// fzfSelectionTimeout bounds how long a non-interactive --filter run may take.
+const fzfSelectionTimeout = 30 * time.Second
+
 var (
 	ErrNoSessions = errors.New("no sessions available")
 	ErrNoWindows  = errors.New("no windows available")
@@ -39,7 +42,7 @@ func runFZF(input *bytes.Buffer, withNth string) (string, error) {
 		args = append(args, "--filter", "")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), fzfSelectionTimeout)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)

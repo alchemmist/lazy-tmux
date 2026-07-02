@@ -11,7 +11,7 @@ import (
 )
 
 func runList(args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("list", flag.ContinueOnError)
+	flags := flag.NewFlagSet(cmdList, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 
 	dataDir := flags.String("data-dir", "", "snapshot directory")

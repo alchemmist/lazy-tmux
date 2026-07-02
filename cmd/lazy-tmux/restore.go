@@ -12,7 +12,7 @@ import (
 )
 
 func runRestore(args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("restore", flag.ContinueOnError)
+	flags := flag.NewFlagSet(cmdRestore, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 
 	session := flags.String("session", "", "session to restore")

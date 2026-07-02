@@ -149,6 +149,15 @@ func (m pickerModel) rowSelectable(row pickerRow) bool {
 	}
 }
 
+// Calendar buckets for relative timestamps (a month is the conventional 30
+// days, a year 365).
+const (
+	day   = 24 * time.Hour
+	week  = 7 * day
+	month = 30 * day
+	year  = 365 * day
+)
+
 // relativeTime renders a capture time as a compact, scannable age such as
 // "just now", "3m ago", "2h ago", "5d ago" or "4mo ago".
 func relativeTime(then, now time.Time) string {
@@ -163,16 +172,16 @@ func relativeTime(then, now time.Time) string {
 		return "just now"
 	case delta < time.Hour:
 		return fmt.Sprintf("%dm ago", int(delta.Minutes()))
-	case delta < 24*time.Hour:
+	case delta < day:
 		return fmt.Sprintf("%dh ago", int(delta.Hours()))
-	case delta < 7*24*time.Hour:
-		return fmt.Sprintf("%dd ago", int(delta.Hours())/24)
-	case delta < 30*24*time.Hour:
-		return fmt.Sprintf("%dw ago", int(delta.Hours())/(24*7))
-	case delta < 365*24*time.Hour:
-		return fmt.Sprintf("%dmo ago", int(delta.Hours())/(24*30))
+	case delta < week:
+		return fmt.Sprintf("%dd ago", int(delta/day))
+	case delta < month:
+		return fmt.Sprintf("%dw ago", int(delta/week))
+	case delta < year:
+		return fmt.Sprintf("%dmo ago", int(delta/month))
 	default:
-		return fmt.Sprintf("%dy ago", int(delta.Hours())/(24*365))
+		return fmt.Sprintf("%dy ago", int(delta/year))
 	}
 }
 

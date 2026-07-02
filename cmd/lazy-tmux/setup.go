@@ -8,7 +8,7 @@ import (
 )
 
 func runSetup(args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("setup", flag.ContinueOnError)
+	flags := flag.NewFlagSet(cmdSetup, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 
 	err := flags.Parse(args)

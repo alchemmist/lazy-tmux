@@ -285,13 +285,13 @@ func (m *pickerModel) newWindow() {
 
 func (m pickerModel) handlePromptKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "esc", "ctrl+c":
+	case keyEsc, keyCtrlC:
 		m.promptInput.Blur()
 		m.mode = modeBrowse
 		m.exitMode() // cancel the prompt and its action mode, back to browse
 
 		return m, nil
-	case "enter":
+	case keyEnter:
 		m.commitPrompt()
 
 		m.promptInput.Blur()

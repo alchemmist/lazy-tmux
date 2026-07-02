@@ -89,8 +89,8 @@ func runSessionOp(
 
 func printSessionHelp(name string, restores bool, writer io.Writer) {
 	desc := map[string]string{
-		"wakeup": "Restore a saved session without switching clients",
-		"forget": "Remove a stored session from disk",
+		cmdWakeup: "Restore a saved session without switching clients",
+		cmdForget: "Remove a stored session from disk",
 	}
 
 	restoreTimeoutHelp := ""

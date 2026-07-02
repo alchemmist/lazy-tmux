@@ -10,43 +10,68 @@ import (
 //nolint:gochecknoglobals // test seam: CLI tests stub process exit
 var exitFunc = os.Exit
 
+// Subcommand names, shared by the dispatch tables, flag sets and help text.
+const (
+	cmdVersion     = "version"
+	cmdSave        = "save"
+	cmdRestore     = "restore"
+	cmdPicker      = "picker"
+	cmdBootstrap   = "bootstrap"
+	cmdDaemon      = "daemon"
+	cmdList        = "list"
+	cmdSetup       = "setup"
+	cmdWakeup      = "wakeup"
+	cmdSleep       = "sleep"
+	cmdForget      = "forget"
+	cmdConfig      = "config"
+	cmdHook        = "hook"
+	cmdClaudeHooks = "claude-hooks"
+)
+
+// flagHelp is the long help flag every subcommand honors.
+const flagHelp = "--help"
+
+// exitUsage is the exit code for malformed invocations (missing or unknown
+// command, bad hook usage) — distinct from 1, which is a failed operation.
+const exitUsage = 2
+
 // commands maps each subcommand name to its runner.
 func commands() map[string]func(args []string, stdout, stderr io.Writer) int {
 	return map[string]func(args []string, stdout, stderr io.Writer) int{
-		"version":      runVersionCmd,
-		"save":         runSave,
-		"restore":      runRestore,
-		"picker":       runPicker,
-		"bootstrap":    runBootstrap,
-		"daemon":       runDaemon,
-		"list":         runList,
-		"setup":        runSetup,
-		"wakeup":       runWakeup,
-		"sleep":        runSleep,
-		"forget":       runForget,
-		"config":       runConfig,
-		"hook":         runHook,
-		"claude-hooks": runClaudeHooks,
+		cmdVersion:     runVersionCmd,
+		cmdSave:        runSave,
+		cmdRestore:     runRestore,
+		cmdPicker:      runPicker,
+		cmdBootstrap:   runBootstrap,
+		cmdDaemon:      runDaemon,
+		cmdList:        runList,
+		cmdSetup:       runSetup,
+		cmdWakeup:      runWakeup,
+		cmdSleep:       runSleep,
+		cmdForget:      runForget,
+		cmdConfig:      runConfig,
+		cmdHook:        runHook,
+		cmdClaudeHooks: runClaudeHooks,
 	}
 }
 
 // helpFuncs maps each subcommand name to its help printer.
 func helpFuncs() map[string]func(io.Writer) {
 	return map[string]func(io.Writer){
-		"version":      versionHelp,
-		"save":         saveHelp,
-		"restore":      restoreHelp,
-		"picker":       pickerHelp,
-		"bootstrap":    bootstrapHelp,
-		"daemon":       daemonHelp,
-		"list":         listHelp,
-		"setup":        setupHelp,
-		"wakeup":       func(w io.Writer) { printSessionHelp("wakeup", true, w) },
-		"sleep":        sleepHelp,
-		"forget":       func(w io.Writer) { printSessionHelp("forget", false, w) },
-		"config":       configHelp,
-		"hook":         hookHelp,
-		"claude-hooks": claudeHooksHelp,
+		cmdVersion:     versionHelp,
+		cmdSave:        saveHelp,
+		cmdRestore:     restoreHelp,
+		cmdPicker:      pickerHelp,
+		cmdBootstrap:   bootstrapHelp,
+		cmdDaemon:      daemonHelp,
+		cmdList:        listHelp,
+		cmdSetup:       setupHelp,
+		cmdWakeup:      func(w io.Writer) { printSessionHelp(cmdWakeup, true, w) },
+		cmdSleep:       sleepHelp,
+		cmdForget:      func(w io.Writer) { printSessionHelp(cmdForget, false, w) },
+		cmdConfig:      configHelp,
+		cmdHook:        hookHelp,
+		cmdClaudeHooks: claudeHooksHelp,
 	}
 }
 
@@ -58,7 +83,7 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		printUsage(stdout)
 
-		return 2
+		return exitUsage
 	}
 
 	cmdName := args[0]
@@ -66,7 +91,7 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 		return runVersion(stdout)
 	}
 
-	if cmdName == "help" || cmdName == "-h" || cmdName == "--help" {
+	if cmdName == "help" || cmdName == "-h" || cmdName == flagHelp {
 		if len(args) > 1 {
 			help, ok := helpFuncs()[args[1]]
 			if !ok {

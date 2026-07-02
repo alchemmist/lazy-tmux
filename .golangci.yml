@@ -8,8 +8,6 @@ linters:
 
   disable:
     - paralleltest
-    - mnd
-    - goconst
     - funlen
     - exhaustruct
     - err113
@@ -22,13 +20,15 @@ linters:
 
   exclusions:
     rules:
-      # Test files idiomatically use short receiver-style names (t, m, a, s)
-      # and inline error checks; keep these style linters for production code
-      # only.
+      # Test files idiomatically use short receiver-style names (t, m, a, s),
+      # inline error checks and repeated literals/fixture numbers; keep these
+      # style linters for production code only.
       - path: _test\.go
         linters:
           - varnamelen
           - noinlineerr
+          - goconst
+          - mnd
 
   settings:
     # Allow all imports unless explicitly denied: the linter is enabled so real
@@ -45,6 +45,19 @@ linters:
       default-signifies-exhaustive: true
     exhaustruct:
       allow-empty: true
+    # Occurrence counting must skip test fixtures, or repeated test literals
+    # force pointless production constants.
+    goconst:
+      ignore-tests: true
+    # Struct-literal field values (column widths/priorities) are self-describing,
+    # so the `assign` check stays off; 2 is the ubiquitous halving/pair-chrome
+    # divisor; POSIX permission literals read better inline; SplitN's count
+    # argument is self-describing.
+    mnd:
+      checks: [argument, case, condition, operation, return]
+      ignored-numbers: ['2', '0o600', '0o644', '0o700', '0o750', '0o755']
+      ignored-functions:
+        - 'strings.SplitN'
     # Returning tea.Model is imposed by bubbletea's Elm architecture; the
     # integration registry deliberately returns its Integration interface.
     ireturn:

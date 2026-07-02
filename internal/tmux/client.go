@@ -401,8 +401,8 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 	windows := make([]snapshot.Window, 0)
 
 	for _, line := range splitLines(wOut) {
-		parts := splitFieldsN(line, 4)
-		if len(parts) != 4 {
+		parts := splitFieldsN(line, windowLineFields)
+		if len(parts) != windowLineFields {
 			continue
 		}
 
@@ -428,8 +428,8 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 		}
 
 		for _, pLine := range splitLines(pOut) {
-			parts := splitFieldsN(pLine, 6)
-			if len(parts) != 6 {
+			parts := splitFieldsN(pLine, paneLineFields)
+			if len(parts) != paneLineFields {
 				continue
 			}
 
@@ -917,7 +917,7 @@ func (client *Client) paneCommands(sessionName string) map[string]string {
 
 	for _, line := range splitLines(out) {
 		fields := strings.Fields(line)
-		if len(fields) < 3 {
+		if len(fields) < paneCommandFields {
 			continue
 		}
 
@@ -1168,9 +1168,18 @@ func pickForegroundCommand(lines []string, panePID int) string {
 	return ""
 }
 
+// Field counts of the fixed-format lines parsed below: tmux window and pane
+// format strings, the window.pane command listing and `ps` process lines.
+const (
+	windowLineFields  = 4 // window_index, layout, active, name
+	paneLineFields    = 6 // pane_index, active, pid, tty, command, path
+	paneCommandFields = 3 // window_index, pane_index, command
+	psLineFields      = 4 // pid, ppid, tty, command
+)
+
 func parsePSLine(line string) (int, int, string, string, bool) {
 	fields := strings.Fields(strings.TrimSpace(line))
-	if len(fields) < 4 {
+	if len(fields) < psLineFields {
 		return 0, 0, "", "", false
 	}
 

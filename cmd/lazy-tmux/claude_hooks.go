@@ -45,7 +45,7 @@ type hookGroup struct {
 }
 
 func runClaudeHooks(args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("claude-hooks", flag.ContinueOnError)
+	flags := flag.NewFlagSet(cmdClaudeHooks, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	uninstall := flags.Bool("uninstall", false, "remove the hooks instead of installing them")
 

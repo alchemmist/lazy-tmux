@@ -58,21 +58,33 @@ type ClaudeIntegrationConfig struct {
 	Home string
 }
 
+// Defaults applied when the config file leaves a knob unset.
+const (
+	defaultTmuxBin        = "tmux"
+	defaultSaveInterval   = 5 * time.Minute
+	defaultRestoreTimeout = 5 * time.Second
+	defaultClaudeHome     = "~/.claude"
+
+	// DefaultScrollbackLines is the scrollback capture depth used by the config
+	// default and by the save/sleep/daemon CLI flags.
+	DefaultScrollbackLines = 5000
+)
+
 func Default() Config {
 	return Config{
-		TmuxBin:        "tmux",
+		TmuxBin:        defaultTmuxBin,
 		DataDir:        store.DefaultDataDir(),
-		SaveInterval:   5 * time.Minute,
-		RestoreTimeout: 5 * time.Second,
+		SaveInterval:   defaultSaveInterval,
+		RestoreTimeout: defaultRestoreTimeout,
 		Scrollback: ScrollbackConfig{
 			Enabled: false,
-			Lines:   5000,
+			Lines:   DefaultScrollbackLines,
 		},
 		Integrations: IntegrationsConfig{
 			Enabled: true,
 			Claude: ClaudeIntegrationConfig{
 				Enabled: true,
-				Home:    "~/.claude",
+				Home:    defaultClaudeHome,
 			},
 		},
 	}

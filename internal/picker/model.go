@@ -76,6 +76,22 @@ const (
 
 const scrollMargin = 2
 
+// Key chords shared by the picker's key handlers.
+const (
+	keyEnter = "enter"
+	keyEsc   = "esc"
+	keyCtrlC = "ctrl+c"
+	keyCtrlJ = "ctrl+j"
+	keyCtrlK = "ctrl+k"
+)
+
+// hintMoveKeys is the footer hint label for cursor movement.
+const hintMoveKeys = "^j/^k"
+
+// chromeRowsAboveList counts the fixed rows above the row list: top border,
+// input line and column header.
+const chromeRowsAboveList = 3
+
 func newPickerModel(sessions []Session, windowSort []WindowSortKey, actions Actions) pickerModel {
 	theme := newPickerTheme(colAccent)
 
@@ -359,19 +375,20 @@ func (m pickerModel) counts() (int, int) {
 }
 
 func (m pickerModel) helpHints() string {
+	hintMove := hint{hintMoveKeys, "move"}
+	hintCancel := hint{keyEsc, "cancel"}
+
 	var pairs []hint
 
 	switch {
 	case m.palette:
-		pairs = []hint{{"↵", "run"}, {"tab", "complete"}, {"^j/^k", "move"}, {"esc", "cancel"}}
+		pairs = []hint{{"↵", "run"}, {"tab", "complete"}, hintMove, hintCancel}
 	case m.action != actionBrowse:
 		cmd, _ := commandForMode(m.action)
 		pairs = append([]hint{{cmd.label, ""}}, cmd.hints...)
-		pairs = append(pairs, hint{"^j/^k", "move"}, hint{"esc", "cancel"})
+		pairs = append(pairs, hintMove, hintCancel)
 	default:
-		pairs = []hint{
-			{"↵", "select"}, {"^j/^k", "move"}, {"/", "commands"}, {"esc", "quit"},
-		}
+		pairs = []hint{{"↵", "select"}, hintMove, {"/", "commands"}, {keyEsc, "quit"}}
 	}
 
 	parts := make([]string, 0, len(pairs))
@@ -397,7 +414,7 @@ func (m pickerModel) helpHints() string {
 // input so typing still filters the list.
 func (m pickerModel) handleBrowseKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 	switch msg.String() {
-	case "ctrl+c", "ctrl+q", "esc":
+	case keyCtrlC, "ctrl+q", keyEsc:
 		m.cancelled = true
 
 		return m, tea.Quit, true
@@ -406,19 +423,19 @@ func (m pickerModel) handleBrowseKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, b
 		m.renderViewport()
 
 		return m, nil, true
-	case "ctrl+k":
+	case keyCtrlK:
 		m.movePrevSelectable()
 		m.ensureCursorVisible()
 		m.renderViewport()
 
 		return m, nil, true
-	case "ctrl+j":
+	case keyCtrlJ:
 		m.moveNextSelectable()
 		m.ensureCursorVisible()
 		m.renderViewport()
 
 		return m, nil, true
-	case "enter":
+	case keyEnter:
 		if m.cursor >= 0 && m.cursor < len(m.visible) && m.visible[m.cursor].selectable {
 			m.selected = m.visible[m.cursor].target
 
@@ -571,17 +588,17 @@ func (m pickerModel) handlePaletteKey(msg tea.KeyPressMsg) (tea.Model, bool) {
 	matches := matchCommands(m.commandPrefix())
 
 	switch msg.String() {
-	case "esc", "ctrl+c":
+	case keyEsc, keyCtrlC:
 		m.exitMode()
 
 		return m, true
-	case "ctrl+k":
+	case keyCtrlK:
 		if m.paletteIdx > 0 {
 			m.paletteIdx--
 		}
 
 		return m, true
-	case "ctrl+j":
+	case keyCtrlJ:
 		if m.paletteIdx < len(matches)-1 {
 			m.paletteIdx++
 		}
@@ -595,7 +612,7 @@ func (m pickerModel) handlePaletteKey(msg tea.KeyPressMsg) (tea.Model, bool) {
 		}
 
 		return m, true
-	case "enter":
+	case keyEnter:
 		if len(matches) > 0 {
 			m.enterMode(matches[m.paletteIdx].mode)
 			m.renderViewport()
@@ -611,21 +628,21 @@ func (m pickerModel) handlePaletteKey(msg tea.KeyPressMsg) (tea.Model, bool) {
 // through so typing still filters the mode's list.
 func (m pickerModel) handleActionKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 	switch msg.String() {
-	case "ctrl+c", "ctrl+q":
+	case keyCtrlC, "ctrl+q":
 		m.cancelled = true
 
 		return m, tea.Quit, true
-	case "esc":
+	case keyEsc:
 		m.exitMode()
 
 		return m, nil, true
-	case "ctrl+k":
+	case keyCtrlK:
 		m.movePrevSelectable()
 		m.ensureCursorVisible()
 		m.renderViewport()
 
 		return m, nil, true
-	case "ctrl+j":
+	case keyCtrlJ:
 		m.moveNextSelectable()
 		m.ensureCursorVisible()
 		m.renderViewport()
@@ -642,7 +659,7 @@ func (m pickerModel) handleActionKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, b
 		}
 
 		return m, nil, true
-	case "enter":
+	case keyEnter:
 		next, cmd := m.commitAction()
 
 		return next, cmd, true
@@ -718,8 +735,9 @@ func (m *pickerModel) resize() {
 
 	m.viewport.SetWidth(m.contentWidth())
 
-	// Reserved chrome rows: top border, input, header, bottom border (+ status).
-	reserved := 4 + m.statusHeight()
+	// Reserved chrome rows: the rows above the list plus the bottom border
+	// (+ status).
+	reserved := chromeRowsAboveList + 1 + m.statusHeight()
 	m.viewport.SetHeight(max(1, m.height-reserved))
 }
 
@@ -861,7 +879,7 @@ func (m *pickerModel) contentWidth() int {
 		width = 80
 	}
 
-	return max(1, width-4) // 2 borders + 2 gutter spaces
+	return max(1, width-frameChromeWidth)
 }
 
 // tableContentWidth is the width available to the column table, after the 2
@@ -874,7 +892,7 @@ func (m *pickerModel) tableContentWidth() int {
 // rowAtY maps a mouse Y coordinate to a selectable row index. The list starts
 // below the top border, input and header (and the optional status line).
 func (m *pickerModel) rowAtY(mouseY int) (int, bool) {
-	rowStart := 3 + m.statusHeight() // top border + input + header [+ status]
+	rowStart := chromeRowsAboveList + m.statusHeight()
 
 	if mouseY < rowStart {
 		return 0, false

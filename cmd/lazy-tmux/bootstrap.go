@@ -11,7 +11,7 @@ import (
 )
 
 func runBootstrap(args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("bootstrap", flag.ContinueOnError)
+	flags := flag.NewFlagSet(cmdBootstrap, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 
 	session := flags.String("session", "last", "session name or 'last'")

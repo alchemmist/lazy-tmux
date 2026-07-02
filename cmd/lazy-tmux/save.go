@@ -8,16 +8,21 @@ import (
 	"strings"
 
 	"github.com/alchemmist/lazy-tmux/internal/app"
+	"github.com/alchemmist/lazy-tmux/internal/config"
 )
 
 func runSave(args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("save", flag.ContinueOnError)
+	flags := flag.NewFlagSet(cmdSave, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 
 	all := flags.Bool("all", false, "save all sessions")
 	session := flags.String("session", "", "save specific session")
 	scrollback := flags.Bool("scrollback", false, "capture shell pane scrollback")
-	scrollbackLines := flags.Int("scrollback-lines", 5000, "max shell scrollback lines per pane")
+	scrollbackLines := flags.Int(
+		"scrollback-lines",
+		config.DefaultScrollbackLines,
+		"max shell scrollback lines per pane",
+	)
 	dataDir := flags.String("data-dir", "", "snapshot directory")
 	tmuxBin := flags.String("tmux-bin", "", "tmux binary")
 

@@ -22,7 +22,7 @@ func runConfig(args []string, stdout, stderr io.Writer) int {
 		return runConfigGen(args[1:], stdout, stderr)
 	case "show":
 		return runConfigShow(args[1:], stdout, stderr)
-	case "-h", "--help", "help":
+	case "-h", flagHelp, "help":
 		configHelp(stdout)
 
 		return 0

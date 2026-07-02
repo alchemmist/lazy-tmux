@@ -11,7 +11,7 @@ import (
 )
 
 func runPicker(args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("picker", flag.ContinueOnError)
+	flags := flag.NewFlagSet(cmdPicker, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 
 	fzfEngine := flags.Bool("fzf-engine", false, "use fzf engine instead of built-in TUI")

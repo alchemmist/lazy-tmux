@@ -11,6 +11,10 @@ import (
 
 type pickerColumnID string
 
+// stateColumnID is the State column, special-cased by the row renderers so the
+// live-status dot keeps its own color.
+const stateColumnID pickerColumnID = "state"
+
 // pickerColumnGap is the blank gutter rendered between adjacent columns so they
 // stay visually separated even when each is at its minimum width.
 const pickerColumnGap = 2
@@ -77,7 +81,7 @@ var pickerColumnSpecs = []pickerColumnSpec{
 		},
 	},
 	{
-		ID:       "state",
+		ID:       stateColumnID,
 		Title:    "State",
 		MinWidth: 5,
 		Priority: 4,
@@ -268,7 +272,7 @@ func (l pickerTableLayout) styledRow(row pickerRow, theme pickerTheme) string {
 
 		// The State cell carries the live status dot for window rows; color it
 		// by status rather than dimming it like other meta columns.
-		if spec.ID == "state" && row.status != StatusNone {
+		if spec.ID == stateColumnID && row.status != StatusNone {
 			return spec.Value(row), theme.statusStyle(row.status)
 		}
 
@@ -294,7 +298,7 @@ func (l pickerTableLayout) selectedRow(row pickerRow, theme pickerTheme) string 
 		val = truncateString(val, col.width)
 
 		style := sel
-		if col.spec.ID == "state" && row.status != StatusNone {
+		if col.spec.ID == stateColumnID && row.status != StatusNone {
 			style = theme.statusStyleOn(row.status, true)
 		}
 

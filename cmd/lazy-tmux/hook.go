@@ -21,7 +21,7 @@ func runHook(args []string, _, stderr io.Writer) int {
 	if len(args) == 0 {
 		writeErr(stderr, errors.New("usage: lazy-tmux hook claude-status --state <state>"))
 
-		return 2
+		return exitUsage
 	}
 
 	switch args[0] {
@@ -30,7 +30,7 @@ func runHook(args []string, _, stderr io.Writer) int {
 	default:
 		writeErr(stderr, fmt.Errorf("unknown hook %q", args[0]))
 
-		return 2
+		return exitUsage
 	}
 }
 
@@ -46,13 +46,13 @@ func runClaudeStatusHook(args []string, stdin io.Reader, stderr io.Writer) int {
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("parse flags: %w", err))
 
-		return 2
+		return exitUsage
 	}
 
 	if !claude.ValidState(*state) {
 		writeErr(stderr, fmt.Errorf("invalid --state %q", *state))
 
-		return 2
+		return exitUsage
 	}
 
 	var payload struct {
