@@ -137,7 +137,9 @@ func LoadFrom(path string) (Config, error) {
 		return cfg, nil
 	}
 
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(
+		path,
+	) // #nosec G304 -- config path is chosen by the user via flag/env by design
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return cfg, nil

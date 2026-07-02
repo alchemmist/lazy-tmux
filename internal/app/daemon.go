@@ -63,7 +63,8 @@ func acquireLock(socketPath string) (func(), error) {
 		runtimeDir = os.TempDir()
 	}
 
-	err := os.MkdirAll(runtimeDir, 0o755)
+	// #nosec G703 -- XDG_RUNTIME_DIR is the standard location for lock files
+	err := os.MkdirAll(runtimeDir, 0o750)
 	if err != nil {
 		return nil, fmt.Errorf("create runtime dir: %w", err)
 	}
@@ -72,7 +73,8 @@ func acquireLock(socketPath string) (func(), error) {
 	_, _ = hash.Write([]byte(socketPath))
 	lockPath := filepath.Join(runtimeDir, fmt.Sprintf("lazy-tmux-%x.lock", hash.Sum64()))
 
-	file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o644)
+	// #nosec G304,G703 -- fixed name with a socket-path hash under the runtime dir
+	file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf("open lock file: %w", err)
 	}

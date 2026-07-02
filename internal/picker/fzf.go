@@ -52,7 +52,10 @@ func runFZF(input *bytes.Buffer, withNth string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), fzfSelectionTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	cmd := exec.CommandContext(
+		ctx,
+		args[0],
+		args[1:]...) // #nosec G204 -- argv[0] is the fzf binary with args built above
 	cmd.Stdin = input
 
 	out, err := cmd.Output()

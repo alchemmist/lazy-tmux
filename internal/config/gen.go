@@ -42,13 +42,13 @@ func GenerateConfig(path string, force bool) (string, error) {
 
 	dir := filepath.Dir(path)
 	if dir != "" {
-		mkErr := os.MkdirAll(dir, 0o755)
+		mkErr := os.MkdirAll(dir, 0o750)
 		if mkErr != nil {
 			return path, fmt.Errorf("create %s: %w", dir, mkErr)
 		}
 	}
 
-	writeErr := os.WriteFile(path, []byte(DefaultConfigTemplate), 0o644)
+	writeErr := os.WriteFile(path, []byte(DefaultConfigTemplate), 0o600)
 	if writeErr != nil {
 		return path, fmt.Errorf("write %s: %w", path, writeErr)
 	}

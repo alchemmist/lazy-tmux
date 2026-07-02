@@ -180,7 +180,7 @@ func (s *Store) LoadSession(name string) (snapshot.SessionSnapshot, error) {
 
 	path := s.sessionPath(name)
 
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(path) // #nosec G304 -- sessionPath sanitizes the name under the data dir
 	if err != nil {
 		return out, fmt.Errorf("read session file: %w", err)
 	}
@@ -364,7 +364,7 @@ func (s *Store) ensureLayout() error {
 func (s *Store) loadIndexUnlocked() (snapshot.Index, error) {
 	p := s.indexPath()
 
-	fileContent, err := os.ReadFile(p)
+	fileContent, err := os.ReadFile(p) // #nosec G304 -- fixed index path under the data dir
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return snapshot.Index{
@@ -570,7 +570,9 @@ func (s *Store) hydrateScrollback(sessionSnapshot *snapshot.SessionSnapshot) err
 				return err
 			}
 
-			fileContent, err := os.ReadFile(path)
+			fileContent, err := os.ReadFile(
+				path,
+			) // #nosec G304 -- ref validated against the base dir above
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
 					continue

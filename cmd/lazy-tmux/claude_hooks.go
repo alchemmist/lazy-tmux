@@ -171,18 +171,18 @@ func applyClaudeHooks(path, binary string, uninstall bool) (bool, error) {
 	}
 
 	if len(original) > 0 {
-		err := os.WriteFile(path+".lazy-tmux.bak", original, 0o644)
+		err := os.WriteFile(path+".lazy-tmux.bak", original, 0o600)
 		if err != nil {
 			return false, fmt.Errorf("back up %s: %w", path, err)
 		}
 	}
 
-	err = os.MkdirAll(filepath.Dir(path), 0o755)
+	err = os.MkdirAll(filepath.Dir(path), 0o750)
 	if err != nil {
 		return false, fmt.Errorf("create config dir: %w", err)
 	}
 
-	err = os.WriteFile(path, updated, 0o644)
+	err = os.WriteFile(path, updated, 0o600)
 	if err != nil {
 		return false, fmt.Errorf("write %s: %w", path, err)
 	}
@@ -234,7 +234,9 @@ func dropOurGroups(groups []json.RawMessage, marker string) []json.RawMessage {
 // readSettings reads path as a top-level JSON object preserving key order-free
 // fidelity (unknown keys round-trip). A missing file yields an empty object.
 func readSettings(path string) (map[string]json.RawMessage, []byte, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(
+		path,
+	) // #nosec G304 -- fixed settings.json path under the user's own Claude home
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return map[string]json.RawMessage{}, nil, nil

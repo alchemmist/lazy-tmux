@@ -168,7 +168,7 @@ func processAlive(pid int) bool {
 // project-dir encoding of cwd, so the picker can read it back. It is called by
 // the `lazy-tmux hook claude-status` command from Claude Code hooks.
 func WriteStatus(statusDir, cwd, state, sessionID string, now time.Time) error {
-	err := os.MkdirAll(statusDir, 0o755)
+	err := os.MkdirAll(statusDir, 0o750)
 	if err != nil {
 		return fmt.Errorf("create status dir: %w", err)
 	}
@@ -189,7 +189,7 @@ func WriteStatus(statusDir, cwd, state, sessionID string, now time.Time) error {
 	// read never observes partial JSON.
 	tmp := path + ".tmp"
 
-	err = os.WriteFile(tmp, data, 0o644)
+	err = os.WriteFile(tmp, data, 0o600)
 	if err != nil {
 		return fmt.Errorf("write temp status %s: %w", tmp, err)
 	}
@@ -213,7 +213,9 @@ func ValidState(s string) bool {
 }
 
 func readJSONFile(path string, into *statusFile) bool {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(
+		path,
+	) // #nosec G304 -- path is <statusDir>/<encoded cwd>.json under the data dir
 	if err != nil {
 		return false
 	}

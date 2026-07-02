@@ -78,6 +78,7 @@ type commandRunner interface {
 type execRunner struct{}
 
 func (execRunner) runCommand(args ...string) commandResult {
+	// #nosec G204 -- argv[0] is the tmux binary, user-configured on purpose (--tmux-bin)
 	cmd := exec.CommandContext(context.Background(), args[0], args[1:]...)
 
 	out, err := cmd.CombinedOutput()
@@ -229,6 +230,7 @@ func sessionWindowBaseTarget(name string) string {
 }
 
 func (client *Client) Run(args ...string) error {
+	// #nosec G204 -- client.bin is the tmux binary, user-configured on purpose (--tmux-bin)
 	cmd := exec.CommandContext(context.Background(), client.bin, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -1037,7 +1039,11 @@ func writePaneTTY(path, content string) error {
 		return fmt.Errorf("%w: %s", errTTYNotCharDevice, path)
 	}
 
-	ttyFile, err := os.OpenFile(path, os.O_WRONLY, 0)
+	ttyFile, err := os.OpenFile(
+		path,
+		os.O_WRONLY,
+		0,
+	) // #nosec G304 -- validated above: /dev/* character device
 	if err != nil {
 		return fmt.Errorf("open tty: %w", err)
 	}
@@ -1073,7 +1079,7 @@ func (client *Client) foregroundCommand(paneTTY string, panePID int) (string, er
 	var err error
 
 	for _, t := range candidates {
-		cmd := exec.CommandContext(
+		cmd := exec.CommandContext( // #nosec G204 -- fixed "ps" binary, variable args are pids/format flags
 			context.Background(),
 			"ps",
 			"-t",

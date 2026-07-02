@@ -11,13 +11,17 @@ linters:
     - funlen
     - cyclop
     - revive
-    - gosec
 
     - wsl
     - wsl_v5
 
   exclusions:
     rules:
+      # Test-only tmux/process helpers: fixture perms and exec of the probed
+      # binaries are the point.
+      - path: internal/testutil/
+        linters:
+          - gosec
       # Test files idiomatically use short receiver-style names (t, m, a, s),
       # inline error checks and repeated literals/fixture numbers; keep these
       # style linters for production code only.
@@ -28,6 +32,7 @@ linters:
           - goconst
           - mnd
           - exhaustruct
+          - gosec
 
   settings:
     # Allow all imports unless explicitly denied: the linter is enabled so real
