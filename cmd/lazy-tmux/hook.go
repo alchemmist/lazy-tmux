@@ -15,12 +15,14 @@ import (
 
 // runHook dispatches the hook writers invoked by external programs (e.g. Claude
 // Code). These run inside another tool's hook pipeline, so they must be fast and
-// must not fail the host on transient errors.
+// must not fail the host on transient errors. Errors exit 1, never 2: Claude
+// Code treats a hook's exit 2 as "block the action", which a misconfigured
+// status hook must never do.
 func runHook(args []string, _, stderr io.Writer) int {
 	if len(args) == 0 {
 		writeErr(stderr, errHookUsage)
 
-		return exitUsage
+		return 1
 	}
 
 	switch args[0] {
@@ -29,7 +31,7 @@ func runHook(args []string, _, stderr io.Writer) int {
 	default:
 		writeErr(stderr, fmt.Errorf("%w %q", errUnknownHook, args[0]))
 
-		return exitUsage
+		return 1
 	}
 }
 
@@ -45,13 +47,13 @@ func runClaudeStatusHook(args []string, stdin io.Reader, stderr io.Writer) int {
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("parse flags: %w", err))
 
-		return exitUsage
+		return 1
 	}
 
 	if !claude.ValidState(*state) {
 		writeErr(stderr, fmt.Errorf("%w %q", errInvalidHookState, *state))
 
-		return exitUsage
+		return 1
 	}
 
 	var payload struct {

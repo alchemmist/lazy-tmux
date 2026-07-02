@@ -23,7 +23,6 @@ import (
 // Sentinel errors of session CRUD; dynamic details wrap them so callers can
 // match with errors.Is while the rendered messages stay unchanged.
 var (
-	errEmptySessionName    = errors.New("empty session name")
 	errSessionNameEmpty    = errors.New("session name is empty")
 	errWindowNameEmpty     = errors.New("window name is empty")
 	errSourceSessionEmpty  = errors.New("source session is empty")
@@ -242,7 +241,7 @@ func (a *App) ListRecords() ([]snapshot.Record, error) {
 func (a *App) restoreSessionForTarget(target PickerTarget) error {
 	session := strings.TrimSpace(target.SessionName)
 	if session == "" {
-		return errEmptySessionName
+		return errSessionNameEmpty
 	}
 
 	snap, err := a.store.LoadSession(session)

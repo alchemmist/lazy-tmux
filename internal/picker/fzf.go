@@ -41,7 +41,8 @@ func runFZF(input *bytes.Buffer, withNth string) (string, error) {
 		"--with-nth", withNth,
 	}
 
-	if isTerminal(os.Stdout) {
+	interactive := isTerminal(os.Stdout)
+	if interactive {
 		args = append(args,
 			"--prompt", "lazy-tmux> ",
 			"--height", "100%",
@@ -51,8 +52,16 @@ func runFZF(input *bytes.Buffer, withNth string) (string, error) {
 		args = append(args, "--filter", "")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), fzfSelectionTimeout)
-	defer cancel()
+	// Only non-interactive --filter runs are bounded: a user browsing the
+	// interactive picker must never have fzf killed under them.
+	ctx := context.Background()
+
+	if !interactive {
+		var cancel context.CancelFunc
+
+		ctx, cancel = context.WithTimeout(context.Background(), fzfSelectionTimeout)
+		defer cancel()
+	}
 
 	cmd := exec.CommandContext(
 		ctx,

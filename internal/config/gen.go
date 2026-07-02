@@ -53,6 +53,13 @@ func GenerateConfig(path string, force bool) (string, error) {
 		return path, fmt.Errorf("write %s: %w", path, writeErr)
 	}
 
+	// os.WriteFile keeps an existing file's mode; --force overwrites must still
+	// end up private.
+	chmodErr := os.Chmod(path, 0o600)
+	if chmodErr != nil {
+		return path, fmt.Errorf("chmod %s: %w", path, chmodErr)
+	}
+
 	return path, nil
 }
 
