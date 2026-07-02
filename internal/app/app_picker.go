@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/integration"
 	"github.com/alchemmist/lazy-tmux/internal/picker"
@@ -22,9 +23,31 @@ func (a *App) pickerRecords(opts PickerSortOptions) ([]snapshot.Record, error) {
 		return nil, errNoSavedSessions
 	}
 
+	// Fold in tmux's own last-attached time so native switches (prefix+L,
+	// switch-client, attach) count toward "last used", not just lazy-tmux's own
+	// restore tracking (#196). Best-effort and live-only: dead/asleep sessions
+	// keep their stored LastAccessed.
+	mergeLastAttached(records, a.tmux.SessionsLastAttached())
+
 	picker.SortSessionRecords(records, opts.Session)
 
 	return records, nil
+}
+
+// mergeLastAttached bumps each record's LastAccessed to tmux's last-attached time
+// when the latter is fresher, so whichever recency signal is newer wins. Records
+// without a live last-attached entry are left untouched.
+func mergeLastAttached(records []snapshot.Record, attached map[string]time.Time) {
+	if len(attached) == 0 {
+		return
+	}
+
+	for i := range records {
+		when, ok := attached[records[i].SessionName]
+		if ok && when.After(records[i].LastAccessed) {
+			records[i].LastAccessed = when
+		}
+	}
 }
 
 func (a *App) pickerSessions(opts PickerSortOptions) ([]picker.Session, error) {

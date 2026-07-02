@@ -36,6 +36,7 @@ var (
 
 type tmuxSessionManager interface {
 	ListSessions() ([]string, error)
+	SessionsLastAttached() map[string]time.Time
 	CurrentSession() (string, error)
 	SessionExists(name string) bool
 	SocketPath() string
