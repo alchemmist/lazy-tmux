@@ -11,12 +11,16 @@ import (
 )
 
 func TestChooseSessionFZFEmpty(t *testing.T) {
+	t.Parallel()
+
 	if _, err := ChooseSessionFZF(nil); !errors.Is(err, ErrNoSessions) {
 		t.Fatalf("expected ErrNoSessions, got %v", err)
 	}
 }
 
 func TestWindowFZFLinesSortedAndFormatted(t *testing.T) {
+	t.Parallel()
+
 	sessions := []Session{
 		{
 			Record: snapshot.Record{
@@ -50,6 +54,8 @@ func TestWindowFZFLinesSortedAndFormatted(t *testing.T) {
 }
 
 func TestParseWindowSelection(t *testing.T) {
+	t.Parallel()
+
 	target, err := parseWindowSelection("work\t3\teditor\tnvim\t2026-01-02 03:04:05")
 	if err != nil {
 		t.Fatalf("parse: %v", err)
@@ -73,12 +79,16 @@ func TestParseWindowSelection(t *testing.T) {
 }
 
 func TestChooseWindowFZFEmpty(t *testing.T) {
+	t.Parallel()
+
 	if _, err := ChooseWindowFZF(nil, nil); !errors.Is(err, ErrNoSessions) {
 		t.Fatalf("expected ErrNoSessions, got %v", err)
 	}
 }
 
 func TestChooseWindowFZFNoWindows(t *testing.T) {
+	t.Parallel()
+
 	// Sessions exist but carry no windows: this is distinct from "no sessions".
 	sessions := []Session{
 		{Record: snapshot.Record{SessionName: "work", CapturedAt: time.Now()}},
@@ -90,6 +100,8 @@ func TestChooseWindowFZFNoWindows(t *testing.T) {
 }
 
 func TestChooseWindowFZFFilterMode(t *testing.T) {
+	t.Parallel()
+
 	testutil.RequireFZF(t)
 
 	// Non-interactive: fzf runs in --filter mode and the first (sorted) window
@@ -115,6 +127,8 @@ func TestChooseWindowFZFFilterMode(t *testing.T) {
 }
 
 func TestChooseSessionFZFFilterMode(t *testing.T) {
+	t.Parallel()
+
 	testutil.RequireFZF(t)
 
 	// In a non-interactive (no TTY) context, ChooseSessionFZF invokes fzf in

@@ -10,6 +10,8 @@ import "testing"
 // compile.
 
 func TestFuzzyMatch(t *testing.T) {
+	t.Parallel()
+
 	if !fuzzyMatch("abc", "axbxc") {
 		t.Fatal("expected subsequence match")
 	}
@@ -24,6 +26,8 @@ func TestFuzzyMatch(t *testing.T) {
 }
 
 func TestSessionStateIcon(t *testing.T) {
+	t.Parallel()
+
 	restored := sessionStateIcon(true)
 	notRestored := sessionStateIcon(false)
 
@@ -41,6 +45,8 @@ func TestSessionStateIcon(t *testing.T) {
 }
 
 func TestTruncateString(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct {
 		in   string
 		max  int

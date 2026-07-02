@@ -10,6 +10,8 @@ import (
 )
 
 func TestViewFrameWidthInvariant(t *testing.T) {
+	t.Parallel()
+
 	rec := &recordingActions{}
 	m := newTestModel(t, rec,
 		makeSession("alpha", false, "edit", "shell", "logs"),
@@ -43,6 +45,8 @@ func TestViewFrameWidthInvariant(t *testing.T) {
 }
 
 func TestViewRendersStatusDot(t *testing.T) {
+	t.Parallel()
+
 	rec := &recordingActions{}
 
 	sess := makeSession("live", true, "claude")

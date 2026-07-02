@@ -63,6 +63,8 @@ func countOurHooks(t *testing.T, path string) int {
 }
 
 func TestApplyClaudeHooksInstallPreservesExisting(t *testing.T) {
+	t.Parallel()
+
 	path := writeSettings(t, existingSettings)
 
 	changed, err := applyClaudeHooks(path, "/usr/local/bin/lazy-tmux", false)
@@ -97,6 +99,8 @@ func TestApplyClaudeHooksInstallPreservesExisting(t *testing.T) {
 }
 
 func TestApplyClaudeHooksIdempotent(t *testing.T) {
+	t.Parallel()
+
 	path := writeSettings(t, existingSettings)
 
 	if _, err := applyClaudeHooks(path, "/bin/lazy-tmux", false); err != nil {
@@ -120,6 +124,8 @@ func TestApplyClaudeHooksIdempotent(t *testing.T) {
 }
 
 func TestApplyClaudeHooksUninstallIsSurgical(t *testing.T) {
+	t.Parallel()
+
 	path := writeSettings(t, existingSettings)
 
 	if _, err := applyClaudeHooks(path, "/bin/lazy-tmux", false); err != nil {
@@ -142,6 +148,8 @@ func TestApplyClaudeHooksUninstallIsSurgical(t *testing.T) {
 }
 
 func TestApplyClaudeHooksUninstallNoFileIsNoOp(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "settings.json")
 
 	changed, err := applyClaudeHooks(path, "/bin/lazy-tmux", true)
@@ -159,6 +167,8 @@ func TestApplyClaudeHooksUninstallNoFileIsNoOp(t *testing.T) {
 }
 
 func TestApplyClaudeHooksUninstallKeepsSiblingInGroup(t *testing.T) {
+	t.Parallel()
+
 	// A user command sharing the same group as ours must survive uninstall.
 	mixed := `{
   "hooks": {
@@ -189,6 +199,8 @@ func TestApplyClaudeHooksUninstallKeepsSiblingInGroup(t *testing.T) {
 }
 
 func TestApplyClaudeHooksCreatesMissingFile(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "nested", "settings.json")
 
 	changed, err := applyClaudeHooks(path, "/bin/lazy-tmux", false)

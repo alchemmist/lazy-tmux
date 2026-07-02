@@ -24,6 +24,8 @@ func run(t *testing.T, args ...string) (int, string, string) {
 }
 
 func TestCLINoArgsPrintsUsage(t *testing.T) {
+	t.Parallel()
+
 	code, out, errOut := run(t)
 	if code != 2 {
 		t.Fatalf("expected exit 2, got %d", code)
@@ -39,6 +41,8 @@ func TestCLINoArgsPrintsUsage(t *testing.T) {
 }
 
 func TestCLIHelpVariants(t *testing.T) {
+	t.Parallel()
+
 	for _, arg := range []string{"help", "-h", "--help"} {
 		code, out, _ := run(t, arg)
 		if code != 0 {
@@ -52,6 +56,8 @@ func TestCLIHelpVariants(t *testing.T) {
 }
 
 func TestCLIPerCommandHelp(t *testing.T) {
+	t.Parallel()
+
 	for _, cmd := range []string{
 		"save", "restore", "picker", "bootstrap", "daemon",
 		"list", "setup", "wakeup", "sleep", "forget",
@@ -68,6 +74,8 @@ func TestCLIPerCommandHelp(t *testing.T) {
 }
 
 func TestCLIHelpUnknownCommand(t *testing.T) {
+	t.Parallel()
+
 	code, _, errOut := run(t, "help", "nope")
 	if code != 1 {
 		t.Fatalf("expected exit 1, got %d", code)
@@ -79,6 +87,8 @@ func TestCLIHelpUnknownCommand(t *testing.T) {
 }
 
 func TestCLIUnknownCommand(t *testing.T) {
+	t.Parallel()
+
 	code, _, errOut := run(t, "wat")
 	if code != 1 {
 		t.Fatalf("expected exit 1, got %d", code)
@@ -90,6 +100,8 @@ func TestCLIUnknownCommand(t *testing.T) {
 }
 
 func TestCLISessionCommandsRequireSession(t *testing.T) {
+	t.Parallel()
+
 	for _, cmd := range []string{"restore", "wakeup", "sleep"} {
 		code, _, errOut := run(t, cmd)
 		if code != 1 {
@@ -103,6 +115,8 @@ func TestCLISessionCommandsRequireSession(t *testing.T) {
 }
 
 func TestCLIFlagParseError(t *testing.T) {
+	t.Parallel()
+
 	code, _, errOut := run(t, "save", "--definitely-not-a-flag")
 	if code != 1 {
 		t.Fatalf("expected exit 1, got %d", code)
@@ -114,6 +128,8 @@ func TestCLIFlagParseError(t *testing.T) {
 }
 
 func TestCLISaveScrollbackLinesValidation(t *testing.T) {
+	t.Parallel()
+
 	code, _, errOut := run(
 		t,
 		"save",
@@ -133,6 +149,8 @@ func TestCLISaveScrollbackLinesValidation(t *testing.T) {
 }
 
 func TestCLITmuxBinFlagExpandsHome(t *testing.T) {
+	t.Parallel()
+
 	home, err := os.UserHomeDir()
 	if err != nil {
 		t.Skipf("no home dir: %v", err)
@@ -157,6 +175,8 @@ func TestCLITmuxBinFlagExpandsHome(t *testing.T) {
 }
 
 func TestCLISetupPrintsKeybinds(t *testing.T) {
+	t.Parallel()
+
 	code, out, _ := run(t, "setup")
 	if code != 0 {
 		t.Fatalf("expected exit 0, got %d", code)
@@ -186,6 +206,8 @@ func TestCLISetupPrintsKeybinds(t *testing.T) {
 }
 
 func TestCLIListEmptyStore(t *testing.T) {
+	t.Parallel()
+
 	code, out, _ := run(t, "list", "--data-dir", t.TempDir())
 	if code != 0 {
 		t.Fatalf("expected exit 0, got %d", code)
@@ -197,6 +219,8 @@ func TestCLIListEmptyStore(t *testing.T) {
 }
 
 func TestCLIListPrintsSavedRecords(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	s := store.New(dir)
 
@@ -313,6 +337,8 @@ func TestCLIMalformedConfigFails(t *testing.T) {
 }
 
 func TestCLIBootstrapLastOnEmptyStore(t *testing.T) {
+	t.Parallel()
+
 	code, _, errOut := run(t, "bootstrap", "--session", "last", "--data-dir", t.TempDir())
 	if code != 0 {
 		t.Fatalf("expected exit 0 on empty store, got %d (stderr=%q)", code, errOut)
@@ -320,6 +346,8 @@ func TestCLIBootstrapLastOnEmptyStore(t *testing.T) {
 }
 
 func TestCLIForgetMissingSessionSucceeds(t *testing.T) {
+	t.Parallel()
+
 	// Forget is idempotent: removing a non-existent session is not an error.
 	code, _, errOut := run(t, "forget", "--session", "ghost", "--data-dir", t.TempDir())
 	if code != 0 {

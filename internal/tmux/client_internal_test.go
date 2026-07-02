@@ -39,6 +39,8 @@ func waitTestWindows() []snapshot.Window {
 }
 
 func TestWaitForRestoredCommandsBlocksUntilStarted(t *testing.T) {
+	t.Parallel()
+
 	runner := &pollRunner{settleOn: 3, before: "zsh", after: "cat"}
 	client := NewClientWithRunner("tmux", runner)
 	client.SetRestoreTimeout(2 * time.Second)
@@ -53,6 +55,8 @@ func TestWaitForRestoredCommandsBlocksUntilStarted(t *testing.T) {
 }
 
 func TestWaitForRestoredCommandsRespectsTimeout(t *testing.T) {
+	t.Parallel()
+
 	// The command never appears: the wait must give up at the deadline, not hang.
 	runner := &pollRunner{settleOn: 1 << 30, before: "zsh", after: "cat"}
 	client := NewClientWithRunner("tmux", runner)
@@ -71,6 +75,8 @@ func TestWaitForRestoredCommandsRespectsTimeout(t *testing.T) {
 }
 
 func TestWaitForRestoredCommandsDisabled(t *testing.T) {
+	t.Parallel()
+
 	runner := &pollRunner{settleOn: 1, before: "zsh", after: "cat"}
 	client := NewClientWithRunner("tmux", runner)
 	client.SetRestoreTimeout(0)
@@ -86,6 +92,8 @@ func TestWaitForRestoredCommandsDisabled(t *testing.T) {
 // bytes in -F output (the previous 0x1f became "_" on some builds, collapsing
 // every field into one and dropping all windows — see the version-matrix bug).
 func TestFieldSepIsPrintableASCII(t *testing.T) {
+	t.Parallel()
+
 	if len(fieldSep) == 0 {
 		t.Fatal("fieldSep must not be empty")
 	}
@@ -101,6 +109,8 @@ func TestFieldSepIsPrintableASCII(t *testing.T) {
 // -F format strings, so splitFieldsN must keep a trailing field intact even when
 // it contains the separator.
 func TestSplitFieldsNKeepsTrailingFieldIntact(t *testing.T) {
+	t.Parallel()
+
 	line := "3" + fieldSep + "bb,80x24" + fieldSep + "1" + fieldSep + "weird" + fieldSep + "name"
 	got := splitFieldsN(line, 4)
 
@@ -117,6 +127,8 @@ func TestSplitFieldsNKeepsTrailingFieldIntact(t *testing.T) {
 }
 
 func TestCurrentWindowPane(t *testing.T) {
+	t.Parallel()
+
 	// Active window's index and active pane are authoritative, even when the
 	// base index is 1 (regression guard: current window must not collapse to 0).
 	windows := []snapshot.Window{
@@ -143,6 +155,8 @@ func TestCurrentWindowPane(t *testing.T) {
 }
 
 func TestExpectedPaneCommands(t *testing.T) {
+	t.Parallel()
+
 	windows := []snapshot.Window{
 		{
 			Index: 1,
@@ -175,6 +189,8 @@ func TestExpectedPaneCommands(t *testing.T) {
 }
 
 func TestRestoreAllowlist(t *testing.T) {
+	t.Parallel()
+
 	client := NewClient("tmux")
 
 	// No allowlist configured: everything is allowed.
@@ -213,6 +229,8 @@ func TestRestoreAllowlist(t *testing.T) {
 }
 
 func TestRestoreDenylist(t *testing.T) {
+	t.Parallel()
+
 	client := NewClient("tmux")
 
 	// No denylist configured: everything is allowed.
@@ -244,6 +262,8 @@ func TestRestoreDenylist(t *testing.T) {
 }
 
 func TestRestoreDenylistWinsOverAllowlist(t *testing.T) {
+	t.Parallel()
+
 	client := NewClient("tmux")
 
 	// A command in both lists is blocked: the denylist takes precedence.
@@ -265,6 +285,8 @@ func TestRestoreDenylistWinsOverAllowlist(t *testing.T) {
 }
 
 func TestExpectedPaneCommandsRespectsAllowlist(t *testing.T) {
+	t.Parallel()
+
 	windows := []snapshot.Window{
 		{
 			Index: 1,
@@ -286,6 +308,8 @@ func TestExpectedPaneCommandsRespectsAllowlist(t *testing.T) {
 }
 
 func TestSessionTargets(t *testing.T) {
+	t.Parallel()
+
 	if got := sessionTarget("foo"); got != "=foo" {
 		t.Fatalf("sessionTarget: got %q", got)
 	}
@@ -304,6 +328,8 @@ func TestSessionTargets(t *testing.T) {
 }
 
 func TestSanitizeCommand(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]string{
 		`"vim"`:    "vim",
 		`'vim'`:    "vim",
@@ -319,6 +345,8 @@ func TestSanitizeCommand(t *testing.T) {
 }
 
 func TestIsShellCommandAndExecutableName(t *testing.T) {
+	t.Parallel()
+
 	for _, sh := range []string{"bash", "/bin/zsh", "-bash", "fish"} {
 		if !isShellCommand(sh) {
 			t.Fatalf("expected %q to be a shell", sh)
@@ -335,6 +363,8 @@ func TestIsShellCommandAndExecutableName(t *testing.T) {
 }
 
 func TestNormalizedCommand(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct {
 		restore, current, want string
 	}{
@@ -352,6 +382,8 @@ func TestNormalizedCommand(t *testing.T) {
 }
 
 func TestParsePSLine(t *testing.T) {
+	t.Parallel()
+
 	pid, ppid, stat, cmd, ok := parsePSLine("200 100 S+ nvim main.go")
 	if !ok || pid != 200 || ppid != 100 || stat != "S+" || cmd != "nvim main.go" {
 		t.Fatalf("parsePSLine: %d %d %q %q ok=%v", pid, ppid, stat, cmd, ok)
@@ -363,6 +395,8 @@ func TestParsePSLine(t *testing.T) {
 }
 
 func TestPickForegroundCommand(t *testing.T) {
+	t.Parallel()
+
 	lines := []string{
 		"100 1 Ss zsh",    // the shell itself (panePID)
 		"200 100 S+ nvim", // foreground child
@@ -379,6 +413,8 @@ func TestPickForegroundCommand(t *testing.T) {
 }
 
 func TestSplitLines(t *testing.T) {
+	t.Parallel()
+
 	got := splitLines("a\n\n  b  \nc\n")
 	if len(got) != 3 || got[0] != "a" || got[1] != "b" || got[2] != "c" {
 		t.Fatalf("splitLines: %#v", got)
@@ -386,6 +422,8 @@ func TestSplitLines(t *testing.T) {
 }
 
 func TestStripOptionPair(t *testing.T) {
+	t.Parallel()
+
 	got := stripOptionPair([]string{"new-window", "-c", "/x", "-n", "name"}, "-c")
 	want := []string{"new-window", "-n", "name"}
 
@@ -401,6 +439,8 @@ func TestStripOptionPair(t *testing.T) {
 }
 
 func TestNewSessionArgs(t *testing.T) {
+	t.Parallel()
+
 	args := newSessionArgs("sess", snapshot.Window{
 		Name:  "win",
 		Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/work"}},
@@ -441,7 +481,10 @@ func TestInsideTmux(t *testing.T) {
 	}
 }
 
-func TestAttachSessionExecsTmux(t *testing.T) {
+//nolint:paralleltest // stubs the package-level attachExec/hasControllingTTY seams
+func TestAttachSessionExecsTmux(
+	t *testing.T,
+) {
 	var (
 		gotArgv0 string
 		gotArgs  []string
@@ -484,7 +527,10 @@ func TestAttachSessionExecsTmux(t *testing.T) {
 	}
 }
 
-func TestAttachSessionWithoutTTYIsNoOp(t *testing.T) {
+//nolint:paralleltest // stubs the package-level attachExec/hasControllingTTY seams
+func TestAttachSessionWithoutTTYIsNoOp(
+	t *testing.T,
+) {
 	called := false
 
 	origExec := attachExec

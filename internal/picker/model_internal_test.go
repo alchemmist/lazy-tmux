@@ -142,6 +142,8 @@ func newTestModel(t *testing.T, rec *recordingActions, sessions ...Session) pick
 }
 
 func TestModelNavigationAndSelect(t *testing.T) {
+	t.Parallel()
+
 	rec := &recordingActions{}
 	m := newTestModel(t, rec,
 		makeSession("alpha", false, "one", "two"),
@@ -177,6 +179,8 @@ func TestModelNavigationAndSelect(t *testing.T) {
 }
 
 func TestModelFilter(t *testing.T) {
+	t.Parallel()
+
 	rec := &recordingActions{}
 	m := newTestModel(t, rec,
 		makeSession("alpha", false, "one"),
@@ -197,6 +201,8 @@ func TestModelFilter(t *testing.T) {
 }
 
 func TestModelEscCancels(t *testing.T) {
+	t.Parallel()
+
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
 
@@ -207,6 +213,8 @@ func TestModelEscCancels(t *testing.T) {
 }
 
 func TestModelDeleteWindow(t *testing.T) {
+	t.Parallel()
+
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two"))
 
@@ -229,6 +237,8 @@ func TestModelDeleteWindow(t *testing.T) {
 }
 
 func TestModelDeleteWindowErrorSetsStatus(t *testing.T) {
+	t.Parallel()
+
 	rec := &recordingActions{failDelete: true}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two"))
 
@@ -241,6 +251,8 @@ func TestModelDeleteWindowErrorSetsStatus(t *testing.T) {
 }
 
 func TestModelDeleteSessionFlow(t *testing.T) {
+	t.Parallel()
+
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
 
@@ -261,6 +273,8 @@ func TestModelDeleteSessionFlow(t *testing.T) {
 }
 
 func TestModelDeleteMultiSelect(t *testing.T) {
+	t.Parallel()
+
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two", "three"))
 
@@ -307,6 +321,8 @@ func TestModelDeleteMultiSelect(t *testing.T) {
 }
 
 func TestModelRenameWindowFlow(t *testing.T) {
+	t.Parallel()
+
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
 
@@ -329,6 +345,8 @@ func TestModelRenameWindowFlow(t *testing.T) {
 }
 
 func TestModelRenameSessionFlow(t *testing.T) {
+	t.Parallel()
+
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
 
@@ -343,6 +361,8 @@ func TestModelRenameSessionFlow(t *testing.T) {
 }
 
 func TestModelNewSessionFlow(t *testing.T) {
+	t.Parallel()
+
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
 
@@ -366,6 +386,8 @@ func TestModelNewSessionFlow(t *testing.T) {
 }
 
 func TestModelNewWindowFlow(t *testing.T) {
+	t.Parallel()
+
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
 
@@ -387,6 +409,8 @@ func TestModelNewWindowFlow(t *testing.T) {
 }
 
 func TestModelNewFilteringBindsToSession(t *testing.T) {
+	t.Parallel()
+
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"), makeSession("beta", false, "two"))
 
@@ -419,6 +443,8 @@ func TestModelNewFilteringBindsToSession(t *testing.T) {
 }
 
 func TestModelWakeFiltersToSleeping(t *testing.T) {
+	t.Parallel()
+
 	rec := &recordingActions{}
 	m := newTestModel(t, rec,
 		makeSession("sleepy", false, "one"), // not live -> wakeable
@@ -444,6 +470,8 @@ func TestModelWakeFiltersToSleeping(t *testing.T) {
 }
 
 func TestModelSleepFiltersToLive(t *testing.T) {
+	t.Parallel()
+
 	rec := &recordingActions{}
 	m := newTestModel(t, rec,
 		makeSession("sleepy", false, "one"),
@@ -465,6 +493,8 @@ func TestModelSleepFiltersToLive(t *testing.T) {
 }
 
 func TestModelEscExitsActionMode(t *testing.T) {
+	t.Parallel()
+
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
 
@@ -489,6 +519,8 @@ func TestModelEscExitsActionMode(t *testing.T) {
 }
 
 func TestModelPaletteOpensOnSlash(t *testing.T) {
+	t.Parallel()
+
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
 
@@ -513,6 +545,8 @@ func TestModelPaletteOpensOnSlash(t *testing.T) {
 }
 
 func TestModelViewRendersWithoutPanic(t *testing.T) {
+	t.Parallel()
+
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
 
@@ -528,6 +562,8 @@ func TestModelViewRendersWithoutPanic(t *testing.T) {
 }
 
 func TestFilteredTreeRowsAndTable(t *testing.T) {
+	t.Parallel()
+
 	sessions := []Session{makeSession("alpha", true, "edit", "shell")}
 
 	rows := filteredTreeRows(sessions, "", DefaultSortOptions().Window)
@@ -562,7 +598,10 @@ func TestFilteredTreeRowsAndTable(t *testing.T) {
 	}
 }
 
-func TestChooseTargetSuccess(t *testing.T) {
+//nolint:paralleltest // stubs the package-level newPickerRunner seam
+func TestChooseTargetSuccess(
+	t *testing.T,
+) {
 	orig := newPickerRunner
 	defer func() { newPickerRunner = orig }()
 
@@ -587,7 +626,10 @@ func TestChooseTargetSuccess(t *testing.T) {
 	}
 }
 
-func TestChooseTargetCancelled(t *testing.T) {
+//nolint:paralleltest // stubs the package-level newPickerRunner seam
+func TestChooseTargetCancelled(
+	t *testing.T,
+) {
 	orig := newPickerRunner
 	defer func() { newPickerRunner = orig }()
 
@@ -602,7 +644,10 @@ func TestChooseTargetCancelled(t *testing.T) {
 	}
 }
 
-func TestChooseTargetNoSelection(t *testing.T) {
+//nolint:paralleltest // stubs the package-level newPickerRunner seam
+func TestChooseTargetNoSelection(
+	t *testing.T,
+) {
 	orig := newPickerRunner
 	defer func() { newPickerRunner = orig }()
 

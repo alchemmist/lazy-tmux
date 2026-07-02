@@ -8,6 +8,8 @@ import (
 )
 
 func TestDefaultSortOptions(t *testing.T) {
+	t.Parallel()
+
 	opts := DefaultSortOptions()
 
 	if len(opts.Session) == 0 || opts.Session[0].Field != SessionSortLastUsed ||
@@ -21,6 +23,8 @@ func TestDefaultSortOptions(t *testing.T) {
 }
 
 func TestParseSortOptionsValid(t *testing.T) {
+	t.Parallel()
+
 	opts, err := ParseSortOptions("name:asc,panes:desc", "cmd,index:desc")
 	if err != nil {
 		t.Fatalf("parse: %v", err)
@@ -45,6 +49,8 @@ func TestParseSortOptionsValid(t *testing.T) {
 }
 
 func TestParseSortOptionsEmptyKeepsDefaults(t *testing.T) {
+	t.Parallel()
+
 	opts, err := ParseSortOptions("", "")
 	if err != nil {
 		t.Fatalf("parse: %v", err)
@@ -57,6 +63,8 @@ func TestParseSortOptionsEmptyKeepsDefaults(t *testing.T) {
 }
 
 func TestParseSortOptionsDefaultDirections(t *testing.T) {
+	t.Parallel()
+
 	// panes (window) defaults to desc; name defaults to asc.
 	opts, err := ParseSortOptions("captured", "panes")
 	if err != nil {
@@ -73,6 +81,8 @@ func TestParseSortOptionsDefaultDirections(t *testing.T) {
 }
 
 func TestParseSortOptionsErrors(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct{ s, w string }{
 		{"bogus", ""},
 		{"name:sideways", ""},
@@ -90,6 +100,8 @@ func TestParseSortOptionsErrors(t *testing.T) {
 }
 
 func TestSortSessionRecords(t *testing.T) {
+	t.Parallel()
+
 	t1 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	t2 := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
 
@@ -120,6 +132,8 @@ func TestSortSessionRecords(t *testing.T) {
 }
 
 func TestSortWindows(t *testing.T) {
+	t.Parallel()
+
 	wins := []snapshot.Window{
 		{Index: 3, Name: "z", Panes: []snapshot.Pane{{}}},
 		{Index: 1, Name: "a", Panes: []snapshot.Pane{{}, {}, {}}},
@@ -146,6 +160,8 @@ func TestSortWindows(t *testing.T) {
 }
 
 func TestWindowPreviewCommand(t *testing.T) {
+	t.Parallel()
+
 	// Prefers RestoreCmd of the active pane; falls back to CurrentCmd.
 	win := snapshot.Window{
 		ActivePane: 1,

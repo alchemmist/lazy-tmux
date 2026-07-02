@@ -8,6 +8,8 @@ import (
 )
 
 func TestRelativeTime(t *testing.T) {
+	t.Parallel()
+
 	now := time.Date(2026, 6, 28, 12, 0, 0, 0, time.UTC)
 
 	cases := []struct {
@@ -28,6 +30,8 @@ func TestRelativeTime(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			if got := relativeTime(tc.then, now); got != tc.want {
 				t.Fatalf("relativeTime(%v) = %q, want %q", tc.then, got, tc.want)
 			}

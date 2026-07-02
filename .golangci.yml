@@ -7,7 +7,6 @@ linters:
   default: all
 
   disable:
-    - paralleltest
 
     - wsl
     - wsl_v5

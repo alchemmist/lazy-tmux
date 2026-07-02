@@ -6,6 +6,8 @@ import (
 )
 
 func TestCLIVersionVariants(t *testing.T) {
+	t.Parallel()
+
 	for _, arg := range []string{"version", "-v", "--version"} {
 		code, out, errOut := run(t, arg)
 		if code != 0 {
@@ -23,6 +25,8 @@ func TestCLIVersionVariants(t *testing.T) {
 }
 
 func TestCLIVersionHelp(t *testing.T) {
+	t.Parallel()
+
 	// `help version` and `version -h` both reach the version help, like any
 	// other command.
 	for _, args := range [][]string{{"help", "version"}, {"version", "-h"}, {"version", "--help"}} {
@@ -38,6 +42,8 @@ func TestCLIVersionHelp(t *testing.T) {
 }
 
 func TestResolveVersionPrefersLdflags(t *testing.T) {
+	t.Parallel()
+
 	orig := version
 	t.Cleanup(func() { version = orig })
 
@@ -48,6 +54,8 @@ func TestResolveVersionPrefersLdflags(t *testing.T) {
 }
 
 func TestResolveVersionFallbackNonEmpty(t *testing.T) {
+	t.Parallel()
+
 	orig := version
 	t.Cleanup(func() { version = orig })
 

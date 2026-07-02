@@ -8,6 +8,8 @@ import (
 )
 
 func TestIntegrationsDefaults(t *testing.T) {
+	t.Parallel()
+
 	cfg := Default()
 
 	if !cfg.Integrations.Enabled || !cfg.Integrations.Claude.Enabled {
@@ -20,6 +22,8 @@ func TestIntegrationsDefaults(t *testing.T) {
 }
 
 func TestIntegrationsOverrideAndExpand(t *testing.T) {
+	t.Parallel()
+
 	home, err := os.UserHomeDir()
 	if err != nil {
 		t.Skipf("no home dir: %v", err)
@@ -50,6 +54,8 @@ home = "~/custom-claude"
 }
 
 func TestIntegrationsPartialKeepsDefaults(t *testing.T) {
+	t.Parallel()
+
 	// Only the master switch is set; claude sub-keys keep their defaults.
 	path := writeConfig(t, "[integrations]\nenabled = false\n")
 
@@ -68,6 +74,8 @@ func TestIntegrationsPartialKeepsDefaults(t *testing.T) {
 }
 
 func TestRenderIncludesIntegrations(t *testing.T) {
+	t.Parallel()
+
 	out := Default().Render()
 
 	for _, want := range []string{"[integrations]", "[integrations.claude]", "home    = \"~/.claude\""} {
