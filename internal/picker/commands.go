@@ -29,11 +29,14 @@ type pickerCommand struct {
 	accent string
 	label  string // short uppercase mode label shown in title/footer
 	desc   string // palette description
+	chord  string // direct keyboard shortcut shown in the palette and help panel
 	hints  []hint // mode-specific footer hints (esc is appended by helpHints)
 }
 
 // pickerCommands is the ordered command palette. Wake/sleep share the cyan
-// accent; delete is the only multi-select mode (space marks targets).
+// accent; delete is the only multi-select mode (space marks targets). chord is
+// the window-scoped direct shortcut (the session-scoped ⌥ variants are shown in
+// the help panel).
 //
 //nolint:gochecknoglobals // static command-palette table, never mutated
 var pickerCommands = []pickerCommand{
@@ -43,6 +46,7 @@ var pickerCommands = []pickerCommand{
 		accent: colDelete,
 		label:  "DELETE",
 		desc:   "mark windows/sessions, remove them",
+		chord:  "^d",
 		hints:  []hint{{"space", "mark"}, {"↵", "remove"}},
 	},
 	{
@@ -51,6 +55,7 @@ var pickerCommands = []pickerCommand{
 		accent: colRename,
 		label:  "RENAME",
 		desc:   "rename a session or window",
+		chord:  "^r",
 		hints:  []hint{{"↵", "rename"}},
 	},
 	{
@@ -59,6 +64,7 @@ var pickerCommands = []pickerCommand{
 		accent: colNew,
 		label:  "NEW",
 		desc:   "create a session or a window",
+		chord:  "^n",
 		hints:  []hint{{"↵", "create"}},
 	},
 	{
@@ -67,6 +73,7 @@ var pickerCommands = []pickerCommand{
 		accent: colSleepWake,
 		label:  "WAKE",
 		desc:   "wake a sleeping session",
+		chord:  "⌥w",
 		hints:  []hint{{"↵", "wake"}},
 	},
 	{
@@ -75,6 +82,7 @@ var pickerCommands = []pickerCommand{
 		accent: colSleepWake,
 		label:  "SLEEP",
 		desc:   "sleep a live session",
+		chord:  "⌥s",
 		hints:  []hint{{"↵", "sleep"}},
 	},
 }

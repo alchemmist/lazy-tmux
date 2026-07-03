@@ -16,6 +16,11 @@ const KEYS: { key: ReactNode; action: ReactNode }[] = [
       </>
     ),
   },
+  {
+    key: <InlineCode>?</InlineCode>,
+    action:
+      "Toggle a full keybinding cheat sheet (only when the search box is empty; any key closes it).",
+  },
   { key: <InlineCode>{"<C-j>"}</InlineCode>, action: "Move down to the next selectable row." },
   { key: <InlineCode>{"<C-k>"}</InlineCode>, action: "Move up to the previous selectable row." },
   {
