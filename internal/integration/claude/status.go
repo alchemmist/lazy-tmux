@@ -17,7 +17,7 @@ import (
 // State names written by the `lazy-tmux hook claude-status` command and read
 // back here. They map 1:1 onto Claude Code's hook events.
 const (
-	StateWorking          = "working"           // UserPromptSubmit — Claude is generating
+	StateWorking          = "working"           // UserPromptSubmit / PreToolUse / PostToolUse
 	StateAwaitingDecision = "awaiting_decision" // Notification/permission_prompt
 	StateAwaitingInput    = "awaiting_input"    // Notification/idle_prompt
 	StateIdle             = "idle"              // Stop — turn finished
