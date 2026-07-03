@@ -35,7 +35,10 @@ if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
   exit 1
 fi
 
-latest="$(git tag --list 'v*' --sort=-v:refname | head -n1)"
+# Strict vMAJOR.MINOR.PATCH only: a stray prerelease tag (v1.2.3-rc1) would
+# both win the version sort and break the numeric split below.
+latest="$(git tag --list 'v*' --sort=-v:refname |
+  grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1 || true)"
 if [ -z "$latest" ]; then
   next="v0.1.0"
 else
