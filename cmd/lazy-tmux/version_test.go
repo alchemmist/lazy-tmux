@@ -41,9 +41,13 @@ func TestCLIVersionHelp(t *testing.T) {
 	}
 }
 
+// Mutating the package-level version variable must not overlap with the
+// parallel CLI tests that read it through resolveVersion, so these two tests
+// stay serial: Go runs all serial tests to completion before resuming the
+// paused parallel ones.
+//
+//nolint:paralleltest // writes the global version read by parallel tests
 func TestResolveVersionPrefersLdflags(t *testing.T) {
-	t.Parallel()
-
 	orig := version
 	t.Cleanup(func() { version = orig })
 
@@ -53,9 +57,8 @@ func TestResolveVersionPrefersLdflags(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // writes the global version read by parallel tests
 func TestResolveVersionFallbackNonEmpty(t *testing.T) {
-	t.Parallel()
-
 	orig := version
 	t.Cleanup(func() { version = orig })
 
