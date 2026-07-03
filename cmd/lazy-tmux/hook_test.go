@@ -42,6 +42,8 @@ func TestRunClaudeStatusHookWritesFile(t *testing.T) {
 }
 
 func TestRunClaudeStatusHookRejectsBadState(t *testing.T) {
+	t.Parallel()
+
 	code := runClaudeStatusHook([]string{"--state", "bogus"}, strings.NewReader("{}"), io.Discard)
 	if code == 0 {
 		t.Fatal("invalid --state should be rejected")

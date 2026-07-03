@@ -11,6 +11,8 @@ import (
 )
 
 func TestLoadingViewHiddenBeforeGrace(t *testing.T) {
+	t.Parallel()
+
 	m := newLoadingModel("blog", make(chan struct{}))
 	m.width, m.height = 80, 24
 
@@ -27,6 +29,8 @@ func TestLoadingViewHiddenBeforeGrace(t *testing.T) {
 }
 
 func TestLoadingViewRendersFieldAndCaption(t *testing.T) {
+	t.Parallel()
+
 	m := newLoadingModel("blog", make(chan struct{}))
 	m.width, m.height = 80, 24
 	m.started = true
@@ -68,6 +72,8 @@ func TestLoadingViewRendersFieldAndCaption(t *testing.T) {
 }
 
 func TestLoadingQuitsWhenRestoreDone(t *testing.T) {
+	t.Parallel()
+
 	m := newLoadingModel("x", make(chan struct{}))
 
 	_, cmd := m.Update(restoreDoneMsg{})
@@ -83,10 +89,18 @@ func TestLoadingQuitsWhenRestoreDone(t *testing.T) {
 }
 
 func TestLoadingGraceRevealsField(t *testing.T) {
+	t.Parallel()
+
 	m := newLoadingModel("x", make(chan struct{}))
 
 	updated, cmd := m.Update(graceMsg{})
-	if !updated.(loadingModel).started {
+
+	lm, ok := updated.(loadingModel)
+	if !ok {
+		t.Fatalf("expected loadingModel, got %T", updated)
+	}
+
+	if !lm.started {
 		t.Fatal("graceMsg must reveal the field (started=true)")
 	}
 

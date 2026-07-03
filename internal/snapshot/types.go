@@ -1,9 +1,15 @@
+// Package snapshot defines the serialized session-state model shared by the
+// capture, store and restore paths.
 package snapshot
 
 import "time"
 
+// FormatVersion is the current on-disk schema version written into every
+// SessionSnapshot and Index.
 const FormatVersion = 1
 
+// SessionSnapshot is the full serialized state of one tmux session: its
+// windows and panes plus which window/pane were active at capture time.
 type SessionSnapshot struct {
 	Version     int       `json:"version"`
 	SessionName string    `json:"session_name"`
@@ -13,6 +19,8 @@ type SessionSnapshot struct {
 	Windows     []Window  `json:"windows"`
 }
 
+// Window is the captured state of one tmux window: its identity, pane layout
+// string, panes, and whether it was the session's active window.
 type Window struct {
 	Index      int    `json:"index"`
 	Name       string `json:"name"`
@@ -22,6 +30,8 @@ type Window struct {
 	Panes      []Pane `json:"panes"`
 }
 
+// Pane is the captured state of one tmux pane: its working directory, running
+// command, the command to re-run on restore, and an optional scrollback ref.
 type Pane struct {
 	Index       int            `json:"index"`
 	CurrentPath string         `json:"current_path"`
@@ -37,6 +47,8 @@ type Pane struct {
 	Meta map[string]string `json:"meta,omitempty"`
 }
 
+// ScrollbackRef points at a pane's captured scrollback stored outside the
+// snapshot JSON; Content carries the text in memory and is never serialized.
 type ScrollbackRef struct {
 	Ref     string `json:"ref,omitempty"`
 	Lines   int    `json:"lines,omitempty"`
@@ -44,12 +56,17 @@ type ScrollbackRef struct {
 	Content string `json:"-"`
 }
 
+// Index is the on-disk catalog of all saved sessions, mapping session name to
+// its Record.
 type Index struct {
 	Version  int               `json:"version"`
 	Updated  time.Time         `json:"updated,omitzero"`
 	Sessions map[string]Record `json:"sessions"`
 }
 
+// Record is one Index entry: where a session's snapshot file lives plus summary
+// metadata (capture/access times, window and pane counts) used for listing and
+// sorting without loading the snapshot itself.
 type Record struct {
 	SessionName  string    `json:"session_name"`
 	File         string    `json:"file"`

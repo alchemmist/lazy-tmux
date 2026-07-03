@@ -8,6 +8,8 @@ import (
 )
 
 func TestGenerateConfigWritesLoadableTemplate(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "sub", "lazy-tmux.toml")
 
 	written, err := GenerateConfig(path, false)
@@ -35,6 +37,8 @@ func TestGenerateConfigWritesLoadableTemplate(t *testing.T) {
 }
 
 func TestGenerateConfigRefusesOverwriteWithoutForce(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "lazy-tmux.toml")
 
 	if _, err := GenerateConfig(path, false); err != nil {
@@ -51,6 +55,8 @@ func TestGenerateConfigRefusesOverwriteWithoutForce(t *testing.T) {
 }
 
 func TestRenderEffectiveConfig(t *testing.T) {
+	t.Parallel()
+
 	cfg := Default()
 	out := cfg.Render()
 

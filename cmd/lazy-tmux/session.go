@@ -28,21 +28,13 @@ func runSessionOp(
 	dataDir := flags.String("data-dir", "", "snapshot directory")
 	tmuxBin := flags.String("tmux-bin", "", "tmux binary")
 
-	// Only operations that actually restore a session honor --restore-timeout, so
-	// it is not registered for the likes of forget where it would be a no-op.
-	var restoreTimeout *time.Duration
-	if restores {
-		restoreTimeout = flags.Duration(
-			"restore-timeout",
-			config.Default().RestoreTimeout,
-			"max wait for restored pane commands to start (0 disables)",
-		)
-	}
+	restoreTimeout := registerRestoreTimeout(flags, restores)
 
 	err := flags.Parse(args)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			printSessionHelp(name, restores, stdout)
+
 			return 0
 		}
 
@@ -52,7 +44,8 @@ func runSessionOp(
 	}
 
 	if strings.TrimSpace(*session) == "" {
-		writeErr(stderr, fmt.Errorf("%s requires --session", name))
+		writeErr(stderr, fmt.Errorf("%s %w", name, errRequiresSession))
+
 		return 1
 	}
 
@@ -61,13 +54,7 @@ func runSessionOp(
 		return 1
 	}
 
-	if flagPassed(flags, "data-dir") {
-		cfg.DataDir = *dataDir
-	}
-
-	if flagPassed(flags, "tmux-bin") {
-		cfg.TmuxBin = *tmuxBin
-	}
+	applyDirBinOverrides(flags, &cfg, dataDir, tmuxBin)
 
 	if restoreTimeout != nil && flagPassed(flags, "restore-timeout") {
 		cfg.RestoreTimeout = *restoreTimeout
@@ -78,16 +65,32 @@ func runSessionOp(
 	err = operation(a, strings.TrimSpace(*session))
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("%s session: %w", name, err))
+
 		return 1
 	}
 
 	return 0
 }
 
+// registerRestoreTimeout registers the --restore-timeout flag on flags for
+// operations that actually restore a session; it returns nil for the likes of
+// forget where the flag would be a no-op.
+func registerRestoreTimeout(flags *flag.FlagSet, restores bool) *time.Duration {
+	if !restores {
+		return nil
+	}
+
+	return flags.Duration(
+		"restore-timeout",
+		config.Default().RestoreTimeout,
+		"max wait for restored pane commands to start (0 disables)",
+	)
+}
+
 func printSessionHelp(name string, restores bool, writer io.Writer) {
 	desc := map[string]string{
-		"wakeup": "Restore a saved session without switching clients",
-		"forget": "Remove a stored session from disk",
+		cmdWakeup: "Restore a saved session without switching clients",
+		cmdForget: "Remove a stored session from disk",
 	}
 
 	restoreTimeoutHelp := ""

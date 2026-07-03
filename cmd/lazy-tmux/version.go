@@ -17,6 +17,9 @@ var version = ""
 // resolveVersion returns the build's version, preferring the ldflags-injected
 // release version, then the module version recorded by `go install ...@vX.Y.Z`,
 // then the VCS revision for local builds, and finally "dev".
+// revisionShortLen is how many hex digits of the VCS revision dev builds show.
+const revisionShortLen = 12
+
 func resolveVersion() string {
 	if version != "" {
 		return version
@@ -45,8 +48,8 @@ func resolveVersion() string {
 		return "dev"
 	}
 
-	if len(revision) > 12 {
-		revision = revision[:12]
+	if len(revision) > revisionShortLen {
+		revision = revision[:revisionShortLen]
 	}
 
 	if modified == "true" {
@@ -61,8 +64,9 @@ func resolveVersion() string {
 // directly in runCLI.
 func runVersionCmd(args []string, stdout, _ io.Writer) int {
 	for _, arg := range args {
-		if arg == "-h" || arg == "--help" {
+		if arg == "-h" || arg == flagHelp {
 			versionHelp(stdout)
+
 			return 0
 		}
 	}

@@ -35,6 +35,8 @@ func TestCLIConfigGenAndShow(t *testing.T) {
 }
 
 func TestCLIConfigRejectsExtraArgs(t *testing.T) {
+	t.Parallel()
+
 	for _, args := range [][]string{{"config", "gen", "extra"}, {"config", "show", "extra"}} {
 		code, _, errOut := run(t, args...)
 		if code != 1 {
@@ -48,6 +50,8 @@ func TestCLIConfigRejectsExtraArgs(t *testing.T) {
 }
 
 func TestCLIConfigUnknownSubcommand(t *testing.T) {
+	t.Parallel()
+
 	code, _, errOut := run(t, "config", "bogus")
 	if code != 1 {
 		t.Fatalf("expected exit 1, got %d", code)
@@ -59,6 +63,8 @@ func TestCLIConfigUnknownSubcommand(t *testing.T) {
 }
 
 func TestCLIConfigHelp(t *testing.T) {
+	t.Parallel()
+
 	for _, args := range [][]string{{"help", "config"}, {"config", "-h"}, {"config"}} {
 		_, outOrErr := captureConfig(t, args)
 		if !strings.Contains(outOrErr, "lazy-tmux config <subcommand>") {

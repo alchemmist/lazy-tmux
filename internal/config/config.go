@@ -1,3 +1,6 @@
+// Package config loads lazy-tmux's TOML configuration: built-in defaults
+// overlaid with the config file, which CLI flags and env overrides may in turn
+// override. Unknown keys in the file are rejected so typos fail loudly.
 package config
 
 import (
@@ -13,6 +16,17 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/store"
 )
 
+// Sentinel errors; details are wrapped around them at the call sites.
+var (
+	errUnknownConfigKeys = errors.New("unknown keys")
+	errNoConfigPath      = errors.New(
+		"could not determine a config path (pass --path or set $HOME)",
+	)
+	errConfigExists = errors.New("already exists (use --force to overwrite)")
+)
+
+// Config is the effective lazy-tmux configuration after defaults, the TOML
+// file and any flag/env overrides have been merged.
 type Config struct {
 	TmuxBin        string
 	DataDir        string
@@ -37,6 +51,8 @@ type Config struct {
 	RestoreDenylist []string
 }
 
+// ScrollbackConfig controls capturing shell-pane scrollback into snapshots:
+// whether it happens at all and how many lines deep.
 type ScrollbackConfig struct {
 	Enabled bool
 	Lines   int
@@ -58,21 +74,36 @@ type ClaudeIntegrationConfig struct {
 	Home string
 }
 
+// Defaults applied when the config file leaves a knob unset.
+const (
+	defaultTmuxBin        = "tmux"
+	defaultSaveInterval   = 5 * time.Minute
+	defaultRestoreTimeout = 5 * time.Second
+	defaultClaudeHome     = "~/.claude"
+
+	// DefaultScrollbackLines is the scrollback capture depth used by the config
+	// default and by the save/sleep/daemon CLI flags.
+	DefaultScrollbackLines = 5000
+)
+
+// Default returns the built-in configuration used when no config file, flag or
+// env override sets a value. Notably scrollback capture is off by default while
+// the integrations framework (including Claude) is on.
 func Default() Config {
 	return Config{
-		TmuxBin:        "tmux",
+		TmuxBin:        defaultTmuxBin,
 		DataDir:        store.DefaultDataDir(),
-		SaveInterval:   5 * time.Minute,
-		RestoreTimeout: 5 * time.Second,
+		SaveInterval:   defaultSaveInterval,
+		RestoreTimeout: defaultRestoreTimeout,
 		Scrollback: ScrollbackConfig{
 			Enabled: false,
-			Lines:   5000,
+			Lines:   DefaultScrollbackLines,
 		},
 		Integrations: IntegrationsConfig{
 			Enabled: true,
 			Claude: ClaudeIntegrationConfig{
 				Enabled: true,
-				Home:    "~/.claude",
+				Home:    defaultClaudeHome,
 			},
 		},
 	}
@@ -116,7 +147,9 @@ func LoadFrom(path string) (Config, error) {
 		return cfg, nil
 	}
 
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(
+		path,
+	) // #nosec G304 -- config path is chosen by the user via flag/env by design
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return cfg, nil
@@ -135,7 +168,7 @@ func LoadFrom(path string) (Config, error) {
 	// Reject unknown keys so typos (e.g. "tmux_binn") fail loudly instead of
 	// being silently ignored.
 	if undecoded := meta.Undecoded(); len(undecoded) > 0 {
-		return cfg, fmt.Errorf("config %s: unknown keys: %v", path, undecoded)
+		return cfg, fmt.Errorf("config %s: %w: %v", path, errUnknownConfigKeys, undecoded)
 	}
 
 	return cfg.withFile(file), nil

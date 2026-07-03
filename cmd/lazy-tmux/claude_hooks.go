@@ -45,7 +45,7 @@ type hookGroup struct {
 }
 
 func runClaudeHooks(args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("claude-hooks", flag.ContinueOnError)
+	flags := flag.NewFlagSet(cmdClaudeHooks, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	uninstall := flags.Bool("uninstall", false, "remove the hooks instead of installing them")
 
@@ -53,6 +53,7 @@ func runClaudeHooks(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			claudeHooksHelp(stdout)
+
 			return 0
 		}
 
@@ -64,6 +65,7 @@ func runClaudeHooks(args []string, stdout, stderr io.Writer) int {
 	cfg, err := config.Load()
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("load config: %w", err))
+
 		return 1
 	}
 
@@ -77,6 +79,7 @@ func runClaudeHooks(args []string, stdout, stderr io.Writer) int {
 	changed, err := applyClaudeHooks(path, binary, *uninstall)
 	if err != nil {
 		writeErr(stderr, err)
+
 		return 1
 	}
 
@@ -92,6 +95,41 @@ func runClaudeHooks(args []string, stdout, stderr io.Writer) int {
 	_, _ = fmt.Fprintf(stdout, "Claude status hooks %s (%s)\n", action, path)
 
 	return 0
+}
+
+// mergeClaudeHookSpecs rewrites each of our hook events inside hooks in place:
+// existing lazy-tmux groups (matched by marker) are dropped, and unless
+// uninstalling a fresh group pointing at binary is appended. User-owned groups
+// under the same events are never touched.
+func mergeClaudeHookSpecs(hooks map[string][]json.RawMessage, binary string, uninstall bool) error {
+	for _, spec := range claudeHookSpecs() {
+		command := fmt.Sprintf("%s hook claude-status --state %s", binary, spec.state)
+		marker := fmt.Sprintf("%s --state %s", claudeHookCommandMarker, spec.state)
+
+		kept := dropOurGroups(hooks[spec.event], marker)
+
+		if !uninstall {
+			group := hookGroup{
+				Matcher: spec.matcher,
+				Hooks:   []hookEntry{{Type: "command", Command: command}},
+			}
+
+			raw, err := json.Marshal(group)
+			if err != nil {
+				return fmt.Errorf("marshal hook group: %w", err)
+			}
+
+			kept = append(kept, raw)
+		}
+
+		if len(kept) == 0 {
+			delete(hooks, spec.event)
+		} else {
+			hooks[spec.event] = kept
+		}
+	}
+
+	return nil
 }
 
 // applyClaudeHooks merges (or removes) lazy-tmux's status hooks in the Claude
@@ -118,31 +156,9 @@ func applyClaudeHooks(path, binary string, uninstall bool) (bool, error) {
 		}
 	}
 
-	for _, spec := range claudeHookSpecs() {
-		command := fmt.Sprintf("%s hook claude-status --state %s", binary, spec.state)
-		marker := fmt.Sprintf("%s --state %s", claudeHookCommandMarker, spec.state)
-
-		kept := dropOurGroups(hooks[spec.event], marker)
-
-		if !uninstall {
-			group := hookGroup{
-				Matcher: spec.matcher,
-				Hooks:   []hookEntry{{Type: "command", Command: command}},
-			}
-
-			raw, err := json.Marshal(group)
-			if err != nil {
-				return false, fmt.Errorf("marshal hook group: %w", err)
-			}
-
-			kept = append(kept, raw)
-		}
-
-		if len(kept) == 0 {
-			delete(hooks, spec.event)
-		} else {
-			hooks[spec.event] = kept
-		}
+	err = mergeClaudeHookSpecs(hooks, binary, uninstall)
+	if err != nil {
+		return false, err
 	}
 
 	if len(hooks) == 0 {
@@ -167,24 +183,35 @@ func applyClaudeHooks(path, binary string, uninstall bool) (bool, error) {
 		return false, nil
 	}
 
-	if len(original) > 0 {
-		err := os.WriteFile(path+".lazy-tmux.bak", original, 0o644)
-		if err != nil {
-			return false, fmt.Errorf("back up %s: %w", path, err)
-		}
-	}
-
-	err = os.MkdirAll(filepath.Dir(path), 0o755)
+	err = writeSettingsFile(path, original, updated)
 	if err != nil {
-		return false, fmt.Errorf("create config dir: %w", err)
-	}
-
-	err = os.WriteFile(path, updated, 0o644)
-	if err != nil {
-		return false, fmt.Errorf("write %s: %w", path, err)
+		return false, err
 	}
 
 	return true, nil
+}
+
+// writeSettingsFile backs the previous settings up (when any existed), makes
+// sure the config directory exists, and writes the updated settings to path.
+func writeSettingsFile(path string, original, updated []byte) error {
+	if len(original) > 0 {
+		err := os.WriteFile(path+".lazy-tmux.bak", original, 0o600)
+		if err != nil {
+			return fmt.Errorf("back up %s: %w", path, err)
+		}
+	}
+
+	err := os.MkdirAll(filepath.Dir(path), 0o750)
+	if err != nil {
+		return fmt.Errorf("create config dir: %w", err)
+	}
+
+	err = os.WriteFile(path, updated, 0o600)
+	if err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+
+	return nil
 }
 
 // dropOurGroups removes only lazy-tmux-owned hook entries (those whose command
@@ -200,6 +227,7 @@ func dropOurGroups(groups []json.RawMessage, marker string) []json.RawMessage {
 		err := json.Unmarshal(raw, &group)
 		if err != nil {
 			kept = append(kept, raw)
+
 			continue
 		}
 
@@ -230,7 +258,9 @@ func dropOurGroups(groups []json.RawMessage, marker string) []json.RawMessage {
 // readSettings reads path as a top-level JSON object preserving key order-free
 // fidelity (unknown keys round-trip). A missing file yields an empty object.
 func readSettings(path string) (map[string]json.RawMessage, []byte, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(
+		path,
+	) // #nosec G304 -- fixed settings.json path under the user's own Claude home
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return map[string]json.RawMessage{}, nil, nil

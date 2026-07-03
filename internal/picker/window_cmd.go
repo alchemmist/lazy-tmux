@@ -17,6 +17,7 @@ func windowPreviewCommand(win snapshot.Window) string {
 	for i := range win.Panes {
 		if win.Panes[i].Index == win.ActivePane {
 			active = i
+
 			break
 		}
 	}

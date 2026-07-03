@@ -11,6 +11,10 @@ import (
 
 type pickerColumnID string
 
+// stateColumnID is the State column, special-cased by the row renderers so the
+// live-status dot keeps its own color.
+const stateColumnID pickerColumnID = "state"
+
 // pickerColumnGap is the blank gutter rendered between adjacent columns so they
 // stay visually separated even when each is at its minimum width.
 const pickerColumnGap = 2
@@ -35,6 +39,7 @@ type pickerTableLayout struct {
 	columns []pickerColumnLayout
 }
 
+//nolint:gochecknoglobals // static column-layout table, never mutated
 var pickerColumnSpecs = []pickerColumnSpec{
 	{
 		ID:       "item",
@@ -76,7 +81,7 @@ var pickerColumnSpecs = []pickerColumnSpec{
 		},
 	},
 	{
-		ID:       "state",
+		ID:       stateColumnID,
 		Title:    "State",
 		MinWidth: 5,
 		Priority: 4,
@@ -87,6 +92,36 @@ var pickerColumnSpecs = []pickerColumnSpec{
 }
 
 func buildPickerTableLayout(totalWidth int) pickerTableLayout {
+	active, activeSet := activeColumnSpecs(totalWidth)
+
+	columns := make([]pickerColumnLayout, 0, len(active))
+
+	for _, spec := range pickerColumnSpecs {
+		if _, ok := activeSet[spec.ID]; !ok {
+			continue
+		}
+
+		columns = append(columns, pickerColumnLayout{spec: spec, width: spec.MinWidth})
+	}
+
+	extra := totalWidth - minTableWidth(active)
+	if extra < 0 {
+		shrinkColumnsToFit(columns, totalWidth)
+
+		return pickerTableLayout{columns: columns}
+	}
+
+	if extra > 0 {
+		growColumns(columns, extra)
+	}
+
+	return pickerTableLayout{columns: columns}
+}
+
+// activeColumnSpecs picks which columns fit into totalWidth: all required
+// columns, then optional ones by ascending priority (ID as tie-break) until the
+// next one would overflow.
+func activeColumnSpecs(totalWidth int) ([]pickerColumnSpec, map[pickerColumnID]struct{}) {
 	required := make([]pickerColumnSpec, 0, len(pickerColumnSpecs))
 	optional := make([]pickerColumnSpec, 0, len(pickerColumnSpecs))
 
@@ -113,37 +148,20 @@ func buildPickerTableLayout(totalWidth int) pickerTableLayout {
 		activeSet[spec.ID] = struct{}{}
 	}
 
-	for i := range optional {
-		candidate := append(active, optional[i])
-		if minTableWidth(candidate) <= totalWidth {
-			active = candidate
-			activeSet[optional[i].ID] = struct{}{}
-		} else {
+	for _, spec := range optional {
+		candidate := make([]pickerColumnSpec, 0, len(active)+1)
+		candidate = append(candidate, active...)
+		candidate = append(candidate, spec)
+
+		if minTableWidth(candidate) > totalWidth {
 			break
 		}
+
+		active = candidate
+		activeSet[spec.ID] = struct{}{}
 	}
 
-	columns := make([]pickerColumnLayout, 0, len(active))
-
-	for _, spec := range pickerColumnSpecs {
-		if _, ok := activeSet[spec.ID]; !ok {
-			continue
-		}
-
-		columns = append(columns, pickerColumnLayout{spec: spec, width: spec.MinWidth})
-	}
-
-	extra := totalWidth - minTableWidth(active)
-	if extra < 0 {
-		shrinkColumnsToFit(columns, totalWidth)
-		return pickerTableLayout{columns: columns}
-	}
-
-	if extra > 0 {
-		growColumns(columns, extra)
-	}
-
-	return pickerTableLayout{columns: columns}
+	return active, activeSet
 }
 
 // growColumns hands the leftover width to the growable columns only (the name
@@ -169,7 +187,7 @@ func growColumns(columns []pickerColumnLayout, extra int) {
 		columns[i].width += share
 	}
 
-	for k := 0; k < extra%len(growers); k++ {
+	for k := range extra % len(growers) {
 		columns[growers[k]].width++
 	}
 }
@@ -263,7 +281,7 @@ func (l pickerTableLayout) styledRow(row pickerRow, theme pickerTheme) string {
 
 		// The State cell carries the live status dot for window rows; color it
 		// by status rather than dimming it like other meta columns.
-		if spec.ID == "state" && row.status != StatusNone {
+		if spec.ID == stateColumnID && row.status != StatusNone {
 			return spec.Value(row), theme.statusStyle(row.status)
 		}
 
@@ -289,7 +307,7 @@ func (l pickerTableLayout) selectedRow(row pickerRow, theme pickerTheme) string 
 		val = truncateString(val, col.width)
 
 		style := sel
-		if col.spec.ID == "state" && row.status != StatusNone {
+		if col.spec.ID == stateColumnID && row.status != StatusNone {
 			style = theme.statusStyleOn(row.status, true)
 		}
 
@@ -349,6 +367,7 @@ func (l pickerTableLayout) render(valueFor func(spec pickerColumnSpec) string) s
 		val = truncateString(val, col.width)
 		if idx == len(l.columns)-1 {
 			out.WriteString(val)
+
 			continue
 		}
 

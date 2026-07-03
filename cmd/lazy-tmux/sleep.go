@@ -8,15 +8,20 @@ import (
 	"strings"
 
 	"github.com/alchemmist/lazy-tmux/internal/app"
+	"github.com/alchemmist/lazy-tmux/internal/config"
 )
 
 func runSleep(args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("sleep", flag.ContinueOnError)
+	flags := flag.NewFlagSet(cmdSleep, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 
 	session := flags.String("session", "", "session to sleep")
 	scrollback := flags.Bool("scrollback", false, "capture shell pane scrollback")
-	scrollbackLines := flags.Int("scrollback-lines", 5000, "max shell scrollback lines per pane")
+	scrollbackLines := flags.Int(
+		"scrollback-lines",
+		config.DefaultScrollbackLines,
+		"max shell scrollback lines per pane",
+	)
 	dataDir := flags.String("data-dir", "", "snapshot directory")
 	tmuxBin := flags.String("tmux-bin", "", "tmux binary")
 
@@ -24,6 +29,7 @@ func runSleep(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			sleepHelp(stdout)
+
 			return 0
 		}
 
@@ -33,7 +39,8 @@ func runSleep(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if strings.TrimSpace(*session) == "" {
-		writeErr(stderr, fmt.Errorf("sleep requires --session"))
+		writeErr(stderr, fmt.Errorf("sleep %w", errRequiresSession))
+
 		return 1
 	}
 
@@ -42,24 +49,12 @@ func runSleep(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	if flagPassed(flags, "data-dir") {
-		cfg.DataDir = *dataDir
-	}
+	applyDirBinOverrides(flags, &cfg, dataDir, tmuxBin)
 
-	if flagPassed(flags, "tmux-bin") {
-		cfg.TmuxBin = *tmuxBin
-	}
+	err = applyScrollbackOverrides(flags, &cfg, scrollback, scrollbackLines)
+	if err != nil {
+		writeErr(stderr, err)
 
-	if flagPassed(flags, "scrollback") {
-		cfg.Scrollback.Enabled = *scrollback
-	}
-
-	if flagPassed(flags, "scrollback-lines") {
-		cfg.Scrollback.Lines = *scrollbackLines
-	}
-
-	if cfg.Scrollback.Enabled && cfg.Scrollback.Lines <= 0 {
-		writeErr(stderr, fmt.Errorf("scrollback requires scrollback lines > 0"))
 		return 1
 	}
 
@@ -68,6 +63,7 @@ func runSleep(args []string, stdout, stderr io.Writer) int {
 	err = a.Sleep(strings.TrimSpace(*session))
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("sleep session: %w", err))
+
 		return 1
 	}
 

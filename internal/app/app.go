@@ -1,3 +1,7 @@
+// Package app is the orchestration layer of lazy-tmux: it wires the tmux
+// client, snapshot store, config and picker together into the user-level
+// operations behind the CLI commands (save, restore, bootstrap, daemon,
+// session/window CRUD and the interactive pickers).
 package app
 
 import (
@@ -14,6 +18,20 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 	"github.com/alchemmist/lazy-tmux/internal/store"
 	"github.com/alchemmist/lazy-tmux/internal/tmux"
+)
+
+// Sentinel errors of session CRUD; dynamic details wrap them so callers can
+// match with errors.Is while the rendered messages stay unchanged.
+var (
+	errSessionNameEmpty    = errors.New("session name is empty")
+	errWindowNameEmpty     = errors.New("window name is empty")
+	errSourceSessionEmpty  = errors.New("source session is empty")
+	errWindowNotInSnapshot = errors.New("window not found in snapshot")
+	errAlreadyExists       = errors.New("already exists")
+	errAlreadyInStorage    = errors.New("already exists in storage")
+	errAlreadyAwake        = errors.New("is already awake")
+	errNotRunning          = errors.New("is not running")
+	errDaemonRunning       = errors.New("daemon already running")
 )
 
 type tmuxSessionManager interface {
@@ -51,6 +69,8 @@ type tmuxClient interface {
 	tmuxSessionMutator
 }
 
+// App bundles the tmux client, snapshot store, config and program-integration
+// registry, and exposes lazy-tmux's user-level operations on top of them.
 type App struct {
 	cfg          config.Config
 	store        *store.Store
@@ -59,6 +79,10 @@ type App struct {
 	saveAllFn    func() error
 }
 
+// New builds an App from cfg: a tmux client (with ~ in TmuxBin expanded and the
+// restore timeout/allowlist/denylist applied), a snapshot store rooted at
+// cfg.DataDir, and the enabled program integrations wired in as the restore
+// command resolver.
 func New(cfg config.Config) *App {
 	// Expand a leading ~ so both tmux_bin (TOML) and --tmux-bin (flag) accept
 	// "~/bin/tmux.appimage"; exec does not do shell tilde expansion.
@@ -119,6 +143,9 @@ func (a *App) SaveAll() (int, error) {
 	return len(sessions), nil
 }
 
+// SaveSession captures the named tmux session and persists its snapshot,
+// including shell-pane scrollback (when enabled) and program-integration
+// metadata such as the Claude session id.
 func (a *App) SaveSession(session string) error {
 	snap, err := a.tmux.CaptureSession(session)
 	if err != nil {
@@ -141,6 +168,8 @@ func (a *App) SaveSession(session string) error {
 	return nil
 }
 
+// SaveCurrent saves the tmux session the caller is currently attached to; it
+// fails when invoked outside tmux.
 func (a *App) SaveCurrent() error {
 	name, err := a.tmux.CurrentSession()
 	if err != nil {
@@ -150,10 +179,16 @@ func (a *App) SaveCurrent() error {
 	return a.SaveSession(name)
 }
 
+// Restore restores the named session from its snapshot; see RestoreTarget for
+// the switchClient semantics.
 func (a *App) Restore(session string, switchClient bool) error {
 	return a.RestoreTarget(PickerTarget{SessionName: session}, switchClient)
 }
 
+// RestoreTarget restores the target's session from its snapshot (a session that
+// already exists is not an error) and marks it accessed. With switchClient set
+// it also switches the current tmux client to the target; outside tmux it never
+// attaches, keeping CLI restore/bootstrap scriptable.
 func (a *App) RestoreTarget(target PickerTarget, switchClient bool) error {
 	err := a.restoreSessionForTarget(target)
 	if err != nil {
@@ -169,6 +204,9 @@ func (a *App) RestoreTarget(target PickerTarget, switchClient bool) error {
 	return nil
 }
 
+// Bootstrap restores one session at tmux startup: the named one, or with ""
+// or "last" the most recently used snapshot. Having no snapshots at all is not
+// an error — it is a normal first run and Bootstrap silently does nothing.
 func (a *App) Bootstrap(session string) error {
 	target := strings.TrimSpace(session)
 	if target == "" || target == "last" {
@@ -187,6 +225,7 @@ func (a *App) Bootstrap(session string) error {
 	return a.Restore(target, true)
 }
 
+// ListRecords returns the metadata records of all stored session snapshots.
 func (a *App) ListRecords() ([]snapshot.Record, error) {
 	records, err := a.store.ListRecords()
 	if err != nil {
@@ -202,7 +241,7 @@ func (a *App) ListRecords() ([]snapshot.Record, error) {
 func (a *App) restoreSessionForTarget(target PickerTarget) error {
 	session := strings.TrimSpace(target.SessionName)
 	if session == "" {
-		return fmt.Errorf("empty session name")
+		return errSessionNameEmpty
 	}
 
 	snap, err := a.store.LoadSession(session)
@@ -211,7 +250,7 @@ func (a *App) restoreSessionForTarget(target PickerTarget) error {
 	}
 
 	err = a.tmux.RestoreSession(snap)
-	if err != nil && err != tmux.ErrSessionExists {
+	if err != nil && !errors.Is(err, tmux.ErrSessionExists) {
 		return fmt.Errorf("restore session: %w", err)
 	}
 
@@ -297,6 +336,9 @@ func (a *App) captureShellScrollback(snap *snapshot.SessionSnapshot) {
 
 			pane.Scrollback = &snapshot.ScrollbackRef{
 				Content: out + "\n",
+				Ref:     "",
+				Lines:   0,
+				Bytes:   0,
 			}
 		}
 	}

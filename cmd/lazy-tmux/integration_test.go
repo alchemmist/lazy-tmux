@@ -30,6 +30,7 @@ func readSnapshot(t *testing.T, dir, name string) snapshot.SessionSnapshot {
 
 func sessionAlive(name string) bool {
 	_, err := testutil.TmuxTry("has-session", "-t", "="+name)
+
 	return err == nil
 }
 
@@ -52,7 +53,11 @@ func windowCount(t *testing.T, name string) int {
 // TestSaveRestoreLifecycle drives the full save -> kill -> restore round trip
 // against a real tmux server and asserts on real server state and the on-disk
 // snapshot.
-func TestSaveRestoreLifecycle(t *testing.T) {
+//
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
+func TestSaveRestoreLifecycle(
+	t *testing.T,
+) {
 	testutil.IsolatedTmux(t)
 
 	dir := t.TempDir()
@@ -116,7 +121,10 @@ func TestSaveRestoreLifecycle(t *testing.T) {
 	}
 }
 
-func TestWakeupAndSleep(t *testing.T) {
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
+func TestWakeupAndSleep(
+	t *testing.T,
+) {
 	testutil.IsolatedTmux(t)
 
 	dir := t.TempDir()
@@ -153,7 +161,10 @@ func TestWakeupAndSleep(t *testing.T) {
 	}
 }
 
-func TestSaveAllAndForget(t *testing.T) {
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
+func TestSaveAllAndForget(
+	t *testing.T,
+) {
 	testutil.IsolatedTmux(t)
 
 	dir := t.TempDir()
@@ -195,7 +206,11 @@ func TestSaveAllAndForget(t *testing.T) {
 // TestSaveAllNoSessionsReports covers issue #125: `save --all` must not be a
 // silent no-op when there are no sessions (which is what happens when lazy-tmux
 // is talking to a different/empty tmux than the user). It should say so.
-func TestSaveAllNoSessionsReports(t *testing.T) {
+//
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
+func TestSaveAllNoSessionsReports(
+	t *testing.T,
+) {
 	testutil.IsolatedTmux(t) // server is running but has no sessions
 
 	dir := t.TempDir()
@@ -210,7 +225,10 @@ func TestSaveAllNoSessionsReports(t *testing.T) {
 	}
 }
 
-func TestBootstrapRestoresLatest(t *testing.T) {
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
+func TestBootstrapRestoresLatest(
+	t *testing.T,
+) {
 	testutil.IsolatedTmux(t)
 
 	dir := t.TempDir()
@@ -234,7 +252,10 @@ func TestBootstrapRestoresLatest(t *testing.T) {
 	}
 }
 
-func TestSaveWithScrollback(t *testing.T) {
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
+func TestSaveWithScrollback(
+	t *testing.T,
+) {
 	testutil.IsolatedTmux(t)
 
 	dir := t.TempDir()
@@ -264,7 +285,10 @@ func TestSaveWithScrollback(t *testing.T) {
 	}
 }
 
-func TestPickerFZFEngineRestores(t *testing.T) {
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
+func TestPickerFZFEngineRestores(
+	t *testing.T,
+) {
 	testutil.IsolatedTmux(t)
 	testutil.RequireFZF(t)
 

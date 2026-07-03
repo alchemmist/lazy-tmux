@@ -3,6 +3,7 @@
 package picker
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -10,6 +11,14 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
+)
+
+// Sentinel errors of the TUI picker runner.
+var (
+	errTUIDisabled       = errors.New("TUI picker disabled in fzf-only build")
+	errUnexpectedModel   = errors.New("unexpected picker model type")
+	errSelectionCanceled = errors.New("selection canceled")
+	errNoSessionSelected = errors.New("no session selected")
 )
 
 // statusRefreshInterval is how often the picker re-reads live window statuses
@@ -32,6 +41,12 @@ type pickerRow struct {
 	synthetic  bool         // the "＋ new session" row injected in new mode
 }
 
+// pickerModel deliberately mixes receiver kinds: bubbletea's Elm architecture
+// requires value receivers for the tea.Model interface (Init/Update/View),
+// while internal helpers mutate the model through pointer receivers before it
+// is returned.
+//
+//nolint:recvcheck // deliberate value/pointer receiver mix, see above
 type pickerModel struct {
 	sessions    []Session
 	windowSort  []WindowSortKey
@@ -68,6 +83,22 @@ const (
 )
 
 const scrollMargin = 2
+
+// Key chords shared by the picker's key handlers.
+const (
+	keyEnter = "enter"
+	keyEsc   = "esc"
+	keyCtrlC = "ctrl+c"
+	keyCtrlJ = "ctrl+j"
+	keyCtrlK = "ctrl+k"
+)
+
+// hintMoveKeys is the footer hint label for cursor movement.
+const hintMoveKeys = "^j/^k"
+
+// chromeRowsAboveList counts the fixed rows above the row list: top border,
+// input line and column header.
+const chromeRowsAboveList = 3
 
 func newPickerModel(sessions []Session, windowSort []WindowSortKey, actions Actions) pickerModel {
 	theme := newPickerTheme(colAccent)
@@ -128,46 +159,15 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, scheduleStatusRefresh()
 	case tea.MouseWheelMsg:
-		if m.mode != modeBrowse || m.palette {
-			return m, nil
-		}
-
-		switch msg.Button {
-		case tea.MouseWheelUp:
-			m.movePrevSelectable()
-		case tea.MouseWheelDown:
-			m.moveNextSelectable()
-		}
-
-		m.ensureCursorVisible()
-		m.renderViewport()
-
-		return m, nil
+		return m.handleWheel(msg)
 	case tea.MouseClickMsg:
-		if m.mode != modeBrowse || m.palette || msg.Button != tea.MouseLeft {
-			return m, nil
-		}
-
-		idx, ok := m.rowAtY(msg.Y)
-		if !ok {
-			return m, nil
-		}
-
-		return m.handleRowClick(idx)
+		return m.handleClick(msg)
 	case tea.KeyPressMsg:
 		if m.mode != modeBrowse {
 			return m.handlePromptKey(msg)
 		}
 
-		if m.palette {
-			if next, cmd, handled := m.handlePaletteKey(msg); handled {
-				return next, cmd
-			}
-		} else if m.action != actionBrowse {
-			if next, cmd, handled := m.handleActionKey(msg); handled {
-				return next, cmd
-			}
-		} else if next, cmd, handled := m.handleBrowseKey(msg); handled {
+		if next, cmd, handled := m.dispatchBrowseKey(msg); handled {
 			return next, cmd
 		}
 	}
@@ -224,6 +224,57 @@ func (m pickerModel) View() tea.View {
 	view.MouseMode = tea.MouseModeCellMotion
 
 	return view
+}
+
+// handleWheel scrolls the cursor while browsing; wheel input is ignored inside
+// prompts and the palette.
+func (m pickerModel) handleWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
+	if m.mode != modeBrowse || m.palette {
+		return m, nil
+	}
+
+	switch msg.Button {
+	case tea.MouseWheelUp:
+		m.movePrevSelectable()
+	case tea.MouseWheelDown:
+		m.moveNextSelectable()
+	}
+
+	m.ensureCursorVisible()
+	m.renderViewport()
+
+	return m, nil
+}
+
+// handleClick selects the row under a left click while browsing.
+func (m pickerModel) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
+	if m.mode != modeBrowse || m.palette || msg.Button != tea.MouseLeft {
+		return m, nil
+	}
+
+	idx, ok := m.rowAtY(msg.Y)
+	if !ok {
+		return m, nil
+	}
+
+	return m.handleRowClick(idx)
+}
+
+// dispatchBrowseKey routes a browse-mode key press to the palette, the active
+// action mode or the plain browse handler; handled=false lets the key fall
+// through to the query input.
+func (m pickerModel) dispatchBrowseKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
+	if m.palette {
+		next, handled := m.handlePaletteKey(msg)
+
+		return next, nil, handled
+	}
+
+	if m.action != actionBrowse {
+		return m.handleActionKey(msg)
+	}
+
+	return m.handleBrowseKey(msg)
 }
 
 // titleText is "lazy-tmux" while browsing, or "lazy-tmux · DELETE" in a mode.
@@ -296,6 +347,7 @@ func (m pickerModel) handleRowClick(idx int) (tea.Model, tea.Cmd) {
 	if m.action == actionBrowse {
 		if idx == m.cursor {
 			m.selected = m.visible[idx].target
+
 			return m, tea.Quit
 		}
 
@@ -326,6 +378,7 @@ func (m *pickerModel) syncPalette() {
 	m.palette = m.action == actionBrowse && strings.HasPrefix(m.queryInput.Value(), "/")
 	if !m.palette {
 		m.paletteIdx = 0
+
 		return
 	}
 
@@ -339,7 +392,9 @@ func (m pickerModel) commandPrefix() string {
 	return strings.TrimPrefix(m.queryInput.Value(), "/")
 }
 
-func (m pickerModel) counts() (sessions, windows int) {
+// counts returns the number of sessions and the total number of windows.
+func (m pickerModel) counts() (int, int) {
+	windows := 0
 	for i := range m.sessions {
 		windows += len(m.sessions[i].Windows)
 	}
@@ -348,19 +403,20 @@ func (m pickerModel) counts() (sessions, windows int) {
 }
 
 func (m pickerModel) helpHints() string {
+	hintMove := hint{hintMoveKeys, "move"}
+	hintCancel := hint{keyEsc, "cancel"}
+
 	var pairs []hint
 
 	switch {
 	case m.palette:
-		pairs = []hint{{"↵", "run"}, {"tab", "complete"}, {"^j/^k", "move"}, {"esc", "cancel"}}
+		pairs = []hint{{"↵", "run"}, {"tab", "complete"}, hintMove, hintCancel}
 	case m.action != actionBrowse:
 		cmd, _ := commandForMode(m.action)
 		pairs = append([]hint{{cmd.label, ""}}, cmd.hints...)
-		pairs = append(pairs, hint{"^j/^k", "move"}, hint{"esc", "cancel"})
+		pairs = append(pairs, hintMove, hintCancel)
 	default:
-		pairs = []hint{
-			{"↵", "select"}, {"^j/^k", "move"}, {"/", "commands"}, {"esc", "quit"},
-		}
+		pairs = []hint{{"↵", "select"}, hintMove, {"/", "commands"}, {keyEsc, "quit"}}
 	}
 
 	parts := make([]string, 0, len(pairs))
@@ -368,6 +424,7 @@ func (m pickerModel) helpHints() string {
 	for _, pair := range pairs {
 		if pair.label == "" {
 			parts = append(parts, m.theme.helpKey.Render(pair.key))
+
 			continue
 		}
 
@@ -385,29 +442,31 @@ func (m pickerModel) helpHints() string {
 // input so typing still filters the list.
 func (m pickerModel) handleBrowseKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 	switch msg.String() {
-	case "ctrl+c", "ctrl+q", "esc":
+	case keyCtrlC, "ctrl+q", keyEsc:
 		m.cancelled = true
+
 		return m, tea.Quit, true
 	case "ctrl+d", "alt+d", "ctrl+r", "alt+r", "ctrl+n", "alt+n", "alt+w", "alt+s":
 		m.enterModeShortcut(msg.String())
 		m.renderViewport()
 
 		return m, nil, true
-	case "ctrl+k":
+	case keyCtrlK:
 		m.movePrevSelectable()
 		m.ensureCursorVisible()
 		m.renderViewport()
 
 		return m, nil, true
-	case "ctrl+j":
+	case keyCtrlJ:
 		m.moveNextSelectable()
 		m.ensureCursorVisible()
 		m.renderViewport()
 
 		return m, nil, true
-	case "enter":
+	case keyEnter:
 		if m.cursor >= 0 && m.cursor < len(m.visible) && m.visible[m.cursor].selectable {
 			m.selected = m.visible[m.cursor].target
+
 			return m, tea.Quit, true
 		}
 	}
@@ -553,25 +612,26 @@ func (m *pickerModel) exitMode() {
 
 // handlePaletteKey drives the slash-command dropdown. Printable keys fall
 // through (handled=false) so the typed command name keeps editing the query.
-func (m pickerModel) handlePaletteKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
+func (m pickerModel) handlePaletteKey(msg tea.KeyPressMsg) (tea.Model, bool) {
 	matches := matchCommands(m.commandPrefix())
 
 	switch msg.String() {
-	case "esc", "ctrl+c":
+	case keyEsc, keyCtrlC:
 		m.exitMode()
-		return m, nil, true
-	case "ctrl+k":
+
+		return m, true
+	case keyCtrlK:
 		if m.paletteIdx > 0 {
 			m.paletteIdx--
 		}
 
-		return m, nil, true
-	case "ctrl+j":
+		return m, true
+	case keyCtrlJ:
 		if m.paletteIdx < len(matches)-1 {
 			m.paletteIdx++
 		}
 
-		return m, nil, true
+		return m, true
 	case "tab":
 		if len(matches) > 0 {
 			m.queryInput.SetValue("/" + matches[m.paletteIdx].name)
@@ -579,36 +639,38 @@ func (m pickerModel) handlePaletteKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, 
 			m.syncPalette()
 		}
 
-		return m, nil, true
-	case "enter":
+		return m, true
+	case keyEnter:
 		if len(matches) > 0 {
 			m.enterMode(matches[m.paletteIdx].mode)
 			m.renderViewport()
 		}
 
-		return m, nil, true
+		return m, true
 	}
 
-	return m, nil, false
+	return m, false
 }
 
 // handleActionKey drives an active action mode. Unhandled printable keys fall
 // through so typing still filters the mode's list.
 func (m pickerModel) handleActionKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 	switch msg.String() {
-	case "ctrl+c", "ctrl+q":
+	case keyCtrlC, "ctrl+q":
 		m.cancelled = true
+
 		return m, tea.Quit, true
-	case "esc":
+	case keyEsc:
 		m.exitMode()
+
 		return m, nil, true
-	case "ctrl+k":
+	case keyCtrlK:
 		m.movePrevSelectable()
 		m.ensureCursorVisible()
 		m.renderViewport()
 
 		return m, nil, true
-	case "ctrl+j":
+	case keyCtrlJ:
 		m.moveNextSelectable()
 		m.ensureCursorVisible()
 		m.renderViewport()
@@ -625,8 +687,9 @@ func (m pickerModel) handleActionKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, b
 		}
 
 		return m, nil, true
-	case "enter":
+	case keyEnter:
 		next, cmd := m.commitAction()
+
 		return next, cmd, true
 	}
 
@@ -638,6 +701,8 @@ func (m pickerModel) handleActionKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, b
 // immediately and drop back to browse.
 func (m pickerModel) commitAction() (tea.Model, tea.Cmd) {
 	switch m.action {
+	case actionBrowse:
+		// Enter in browse selects a row; commitAction is never reached.
 	case actionDelete:
 		m.commitDelete()
 	case actionRename:
@@ -663,6 +728,7 @@ func (m *pickerModel) beginRename() {
 	row, ok := m.currentRow()
 	if !ok {
 		m.exitMode()
+
 		return
 	}
 
@@ -679,6 +745,7 @@ func (m *pickerModel) beginNew() {
 	row, ok := m.currentRow()
 	if !ok {
 		m.exitMode()
+
 		return
 	}
 
@@ -696,8 +763,9 @@ func (m *pickerModel) resize() {
 
 	m.viewport.SetWidth(m.contentWidth())
 
-	// Reserved chrome rows: top border, input, header, bottom border (+ status).
-	reserved := 4 + m.statusHeight()
+	// Reserved chrome rows: the rows above the list plus the bottom border
+	// (+ status).
+	reserved := chromeRowsAboveList + 1 + m.statusHeight()
 	m.viewport.SetHeight(max(1, m.height-reserved))
 }
 
@@ -748,6 +816,7 @@ func (m pickerModel) nearestSelectable(from int) int {
 func (m *pickerModel) renderViewport() {
 	if len(m.visible) == 0 {
 		m.viewport.SetContent("")
+
 		return
 	}
 
@@ -838,7 +907,7 @@ func (m *pickerModel) contentWidth() int {
 		width = 80
 	}
 
-	return max(1, width-4) // 2 borders + 2 gutter spaces
+	return max(1, width-frameChromeWidth)
 }
 
 // tableContentWidth is the width available to the column table, after the 2
@@ -851,7 +920,7 @@ func (m *pickerModel) tableContentWidth() int {
 // rowAtY maps a mouse Y coordinate to a selectable row index. The list starts
 // below the top border, input and header (and the optional status line).
 func (m *pickerModel) rowAtY(mouseY int) (int, bool) {
-	rowStart := 3 + m.statusHeight() // top border + input + header [+ status]
+	rowStart := chromeRowsAboveList + m.statusHeight()
 
 	if mouseY < rowStart {
 		return 0, false
@@ -893,13 +962,17 @@ type pickerRunner interface {
 	Run() (tea.Model, error)
 }
 
+//nolint:gochecknoglobals // test seam: picker tests inject a fake tea runner
 var newPickerRunner = func(m pickerModel) pickerRunner {
 	return tea.NewProgram(m)
 }
 
+// ChooseTarget runs the interactive bubbletea picker over the given sessions
+// and returns the user's selection. It fails when the TUI is disabled, the
+// picker errors, the user cancels, or nothing ends up selected.
 func ChooseTarget(sessions []Session, windowSort []WindowSortKey, actions Actions) (Target, error) {
 	if tuiDisabled() {
-		return Target{}, fmt.Errorf("TUI picker disabled in fzf-only build")
+		return Target{}, errTUIDisabled
 	}
 
 	m := newPickerModel(sessions, windowSort, actions)
@@ -912,15 +985,15 @@ func ChooseTarget(sessions []Session, windowSort []WindowSortKey, actions Action
 
 	result, ok := finalModel.(pickerModel)
 	if !ok {
-		return Target{}, fmt.Errorf("unexpected picker model type")
+		return Target{}, errUnexpectedModel
 	}
 
 	if result.cancelled {
-		return Target{}, fmt.Errorf("selection canceled")
+		return Target{}, errSelectionCanceled
 	}
 
 	if strings.TrimSpace(result.selected.SessionName) == "" {
-		return Target{}, fmt.Errorf("no session selected")
+		return Target{}, errNoSessionSelected
 	}
 
 	return result.selected, nil

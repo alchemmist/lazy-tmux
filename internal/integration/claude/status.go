@@ -88,8 +88,8 @@ func (i *Integration) statusFromHook(cwd string) (integration.Status, bool) {
 type claudeSession struct {
 	PID       int    `json:"pid"`
 	CWD       string `json:"cwd"`
-	Status    string `json:"status"` // busy | waiting | idle
-	UpdatedAt int64  `json:"updatedAt"`
+	Status    string `json:"status"`    // busy | waiting | idle
+	UpdatedAt int64  `json:"updatedAt"` //nolint:tagliatelle // external format owned by Claude Code
 }
 
 // statusFromSessionFile reads Claude Code's own session files as a zero-setup
@@ -106,6 +106,31 @@ func (i *Integration) statusFromSessionFile(cwd string) (integration.Status, boo
 		return integration.StatusUnknown, false
 	}
 
+	best, found := freshestLiveSession(filepath.Join(i.home, "sessions"), entries, cwd)
+	if !found {
+		return integration.StatusUnknown, false
+	}
+
+	switch best.Status {
+	case "busy":
+		return integration.StatusWorking, true
+	case "waiting":
+		return integration.StatusAwaitingDecision, true
+	case "idle":
+		return integration.StatusIdle, true
+	default:
+		return integration.StatusUnknown, false
+	}
+}
+
+// freshestLiveSession scans dir's *.json session files and returns the one with
+// the newest UpdatedAt whose cwd matches and whose process is still alive.
+// Unreadable or malformed files are skipped.
+func freshestLiveSession(
+	dir string,
+	entries []os.DirEntry,
+	cwd string,
+) (claudeSession, bool) {
 	var (
 		best      claudeSession
 		bestFound bool
@@ -116,7 +141,9 @@ func (i *Integration) statusFromSessionFile(cwd string) (integration.Status, boo
 			continue
 		}
 
-		data, err := os.ReadFile(filepath.Join(i.home, "sessions", entry.Name()))
+		data, err := os.ReadFile(
+			filepath.Join(dir, entry.Name()),
+		) // #nosec G304 -- session files under the user's Claude home
 		if err != nil {
 			continue
 		}
@@ -136,20 +163,7 @@ func (i *Integration) statusFromSessionFile(cwd string) (integration.Status, boo
 		}
 	}
 
-	if !bestFound {
-		return integration.StatusUnknown, false
-	}
-
-	switch best.Status {
-	case "busy":
-		return integration.StatusWorking, true
-	case "waiting":
-		return integration.StatusAwaitingDecision, true
-	case "idle":
-		return integration.StatusIdle, true
-	default:
-		return integration.StatusUnknown, false
-	}
+	return best, bestFound
 }
 
 // processAlive reports whether a pid refers to a running process (signal 0
@@ -168,7 +182,7 @@ func processAlive(pid int) bool {
 // project-dir encoding of cwd, so the picker can read it back. It is called by
 // the `lazy-tmux hook claude-status` command from Claude Code hooks.
 func WriteStatus(statusDir, cwd, state, sessionID string, now time.Time) error {
-	err := os.MkdirAll(statusDir, 0o755)
+	err := os.MkdirAll(statusDir, 0o750)
 	if err != nil {
 		return fmt.Errorf("create status dir: %w", err)
 	}
@@ -189,7 +203,7 @@ func WriteStatus(statusDir, cwd, state, sessionID string, now time.Time) error {
 	// read never observes partial JSON.
 	tmp := path + ".tmp"
 
-	err = os.WriteFile(tmp, data, 0o644)
+	err = os.WriteFile(tmp, data, 0o600)
 	if err != nil {
 		return fmt.Errorf("write temp status %s: %w", tmp, err)
 	}
@@ -213,7 +227,9 @@ func ValidState(s string) bool {
 }
 
 func readJSONFile(path string, into *statusFile) bool {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(
+		path,
+	) // #nosec G304 -- path is <statusDir>/<encoded cwd>.json under the data dir
 	if err != nil {
 		return false
 	}

@@ -12,7 +12,7 @@ import (
 )
 
 func runRestore(args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("restore", flag.ContinueOnError)
+	flags := flag.NewFlagSet(cmdRestore, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 
 	session := flags.String("session", "", "session to restore")
@@ -29,6 +29,7 @@ func runRestore(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			restoreHelp(stdout)
+
 			return 0
 		}
 
@@ -38,7 +39,8 @@ func runRestore(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if strings.TrimSpace(*session) == "" {
-		writeErr(stderr, fmt.Errorf("restore requires --session"))
+		writeErr(stderr, fmt.Errorf("restore %w", errRequiresSession))
+
 		return 1
 	}
 
@@ -64,6 +66,7 @@ func runRestore(args []string, stdout, stderr io.Writer) int {
 	err = tmuxApp.Restore(strings.TrimSpace(*session), *switchClient)
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("restore session: %w", err))
+
 		return 1
 	}
 

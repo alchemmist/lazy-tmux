@@ -71,6 +71,7 @@ func (m loadingModel) Init() tea.Cmd {
 func waitForRestore(done <-chan struct{}) tea.Cmd {
 	return func() tea.Msg {
 		<-done
+
 		return restoreDoneMsg{}
 	}
 }
@@ -98,7 +99,7 @@ func (m loadingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case tea.KeyPressMsg:
 		// Let the user bail out; the restore still finishes in the background.
-		if s := msg.String(); s == "ctrl+c" || s == "esc" || s == "q" {
+		if s := msg.String(); s == keyCtrlC || s == keyEsc || s == "q" {
 			return m, tea.Quit
 		}
 	}
@@ -134,7 +135,7 @@ func (m loadingModel) View() tea.View {
 func (m loadingModel) field(width, height int) string {
 	// The frame owns the outer edge: 2 border rows (top/bottom) and, per inner
 	// row, 2 side borders + 2 gutter spaces (see theme.frameLine).
-	innerW := max(1, width-4)
+	innerW := max(1, width-frameChromeWidth)
 	innerH := max(1, height-2)
 
 	phase := float64(m.frame) / animFPS
@@ -207,22 +208,29 @@ func (m loadingModel) fieldRow(row, width int, cols, rows, phase float64) string
 	return buf.String()
 }
 
+// Color tiers of the loading animation, from background glow to peak.
+const (
+	tierDim = iota
+	tierMid
+	tierHot
+)
+
 func (m loadingModel) styleFor(tier int) lipgloss.Style {
 	switch tier {
-	case 2:
+	case tierHot:
 		return m.hot
-	case 1:
+	case tierMid:
 		return m.mid
 	default:
 		return m.dim
 	}
 }
 
-// fieldGlyph computes the ramp glyph and color tier (0 dim, 1 mid, 2 hot) for the
-// cell at (col,row), mirroring the landing page's sine-interference math. Short
-// names (x/y/v) match that formula.
+// fieldGlyph computes the ramp glyph and color tier for the cell at (col,row),
+// mirroring the landing page's sine-interference math. Short names (x/y/v) and
+// the inline coefficients match that formula.
 //
-//nolint:varnamelen // math formula reads best with x/y/v
+//nolint:varnamelen,mnd // math formula reads best with x/y/v and raw coefficients
 func fieldGlyph(col, row, cols, rows, phase float64) (rune, int) {
 	x := col * 0.18
 	y := row * 0.28
@@ -239,13 +247,13 @@ func fieldGlyph(col, row, cols, rows, phase float64) (rune, int) {
 
 	switch {
 	case glyph == ' ':
-		return ' ', 0
+		return ' ', tierDim
 	case v > 0.86:
-		return glyph, 2
+		return glyph, tierHot
 	case v > 0.5:
-		return glyph, 1
+		return glyph, tierMid
 	default:
-		return glyph, 0
+		return glyph, tierDim
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 func runConfig(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		configHelp(stderr)
+
 		return 1
 	}
 
@@ -21,11 +22,12 @@ func runConfig(args []string, stdout, stderr io.Writer) int {
 		return runConfigGen(args[1:], stdout, stderr)
 	case "show":
 		return runConfigShow(args[1:], stdout, stderr)
-	case "-h", "--help", "help":
+	case "-h", flagHelp, "help":
 		configHelp(stdout)
+
 		return 0
 	default:
-		writeErr(stderr, fmt.Errorf("unknown config subcommand: %s", args[0]))
+		writeErr(stderr, fmt.Errorf("%w: %s", errUnknownConfigSubcommand, args[0]))
 		configHelp(stderr)
 
 		return 1
@@ -43,6 +45,7 @@ func runConfigGen(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			configHelp(stdout)
+
 			return 0
 		}
 
@@ -52,13 +55,15 @@ func runConfigGen(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if flags.NArg() != 0 {
-		writeErr(stderr, fmt.Errorf("unexpected arguments: %v", flags.Args()))
+		writeErr(stderr, fmt.Errorf("%w: %v", errUnexpectedArguments, flags.Args()))
+
 		return 1
 	}
 
 	written, err := config.GenerateConfig(*path, *force)
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("config gen: %w", err))
+
 		return 1
 	}
 
@@ -75,6 +80,7 @@ func runConfigShow(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			configHelp(stdout)
+
 			return 0
 		}
 
@@ -84,7 +90,8 @@ func runConfigShow(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if flags.NArg() != 0 {
-		writeErr(stderr, fmt.Errorf("unexpected arguments: %v", flags.Args()))
+		writeErr(stderr, fmt.Errorf("%w: %v", errUnexpectedArguments, flags.Args()))
+
 		return 1
 	}
 

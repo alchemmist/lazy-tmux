@@ -1,3 +1,6 @@
+// The lazy-tmux command saves and restores tmux sessions: snapshots of windows,
+// panes, paths and running commands that survive server restarts, with a
+// background save daemon and interactive TUI/fzf pickers.
 package main
 
 import (
@@ -11,7 +14,7 @@ import (
 )
 
 func runBootstrap(args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("bootstrap", flag.ContinueOnError)
+	flags := flag.NewFlagSet(cmdBootstrap, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 
 	session := flags.String("session", "last", "session name or 'last'")
@@ -27,6 +30,7 @@ func runBootstrap(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			bootstrapHelp(stdout)
+
 			return 0
 		}
 
@@ -57,6 +61,7 @@ func runBootstrap(args []string, stdout, stderr io.Writer) int {
 	err = a.Bootstrap(*session)
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("bootstrap session: %w", err))
+
 		return 1
 	}
 

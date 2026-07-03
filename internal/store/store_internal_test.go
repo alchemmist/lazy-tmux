@@ -37,6 +37,8 @@ func sampleSnapshot(name string, captured time.Time) snapshot.SessionSnapshot {
 }
 
 func TestSaveLoadRoundTrip(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	s := New(dir)
 
@@ -75,6 +77,8 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 }
 
 func TestSaveSessionEmptyNameRejected(t *testing.T) {
+	t.Parallel()
+
 	s := New(t.TempDir())
 
 	err := s.SaveSession(snapshot.SessionSnapshot{})
@@ -84,6 +88,8 @@ func TestSaveSessionEmptyNameRejected(t *testing.T) {
 }
 
 func TestSaveSessionDefaultsCapturedAt(t *testing.T) {
+	t.Parallel()
+
 	s := New(t.TempDir())
 
 	err := s.SaveSession(snapshot.SessionSnapshot{
@@ -105,6 +111,8 @@ func TestSaveSessionDefaultsCapturedAt(t *testing.T) {
 }
 
 func TestListRecordsOrderingAndCounts(t *testing.T) {
+	t.Parallel()
+
 	s := New(t.TempDir())
 
 	older := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -138,6 +146,8 @@ func TestListRecordsOrderingAndCounts(t *testing.T) {
 }
 
 func TestListRecordsEmptyStore(t *testing.T) {
+	t.Parallel()
+
 	s := New(t.TempDir())
 
 	recs, err := s.ListRecords()
@@ -151,6 +161,8 @@ func TestListRecordsEmptyStore(t *testing.T) {
 }
 
 func TestLatestRecord(t *testing.T) {
+	t.Parallel()
+
 	s := New(t.TempDir())
 
 	if _, err := s.LatestRecord(); !os.IsNotExist(err) {
@@ -171,6 +183,8 @@ func TestLatestRecord(t *testing.T) {
 }
 
 func TestDeleteSession(t *testing.T) {
+	t.Parallel()
+
 	s := New(t.TempDir())
 
 	_ = s.SaveSession(sampleSnapshot("gone", time.Now().UTC()))
@@ -204,6 +218,8 @@ func TestDeleteSession(t *testing.T) {
 }
 
 func TestDeleteMissingSessionIsNoError(t *testing.T) {
+	t.Parallel()
+
 	s := New(t.TempDir())
 
 	err := s.DeleteSession("nope")
@@ -213,6 +229,8 @@ func TestDeleteMissingSessionIsNoError(t *testing.T) {
 }
 
 func TestMarkSessionAccessed(t *testing.T) {
+	t.Parallel()
+
 	s := New(t.TempDir())
 
 	_ = s.SaveSession(sampleSnapshot("acc", time.Now().UTC()))
@@ -233,6 +251,8 @@ func TestMarkSessionAccessed(t *testing.T) {
 }
 
 func TestSessionNameSanitized(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	s := New(dir)
 
@@ -254,6 +274,8 @@ func TestSessionNameSanitized(t *testing.T) {
 }
 
 func TestScrollbackPersistAndHydrate(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	s := New(dir)
 
@@ -287,6 +309,8 @@ func TestScrollbackPersistAndHydrate(t *testing.T) {
 }
 
 func TestSessionPath(t *testing.T) {
+	t.Parallel()
+
 	s := New("/base")
 
 	p, err := s.SessionPath("name")

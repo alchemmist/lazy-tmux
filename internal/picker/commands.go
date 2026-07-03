@@ -34,6 +34,8 @@ type pickerCommand struct {
 
 // pickerCommands is the ordered command palette. Wake/sleep share the cyan
 // accent; delete is the only multi-select mode (space marks targets).
+//
+//nolint:gochecknoglobals // static command-palette table, never mutated
 var pickerCommands = []pickerCommand{
 	{
 		name:   "delete",

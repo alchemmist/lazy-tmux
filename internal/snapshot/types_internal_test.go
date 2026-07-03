@@ -7,6 +7,8 @@ import (
 )
 
 func TestSessionSnapshotJSONRoundTrip(t *testing.T) {
+	t.Parallel()
+
 	in := SessionSnapshot{
 		Version:     FormatVersion,
 		SessionName: "dev",
@@ -53,6 +55,8 @@ func TestSessionSnapshotJSONRoundTrip(t *testing.T) {
 }
 
 func TestIndexJSONRoundTrip(t *testing.T) {
+	t.Parallel()
+
 	idx := Index{
 		Version:  FormatVersion,
 		Updated:  time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),

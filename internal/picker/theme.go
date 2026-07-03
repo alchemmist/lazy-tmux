@@ -187,6 +187,19 @@ func (t pickerTheme) frameBottom(hints string, width int) string {
 	return t.frameBar('╰', '╯', hints, "", width)
 }
 
+// Frame chrome widths: what the rounded border eats from the terminal width.
+const (
+	// frameChromeWidth is a content line's overhead: 2 side borders + 2 gutter
+	// spaces ("│ … │").
+	frameChromeWidth = 4
+	// barChromeTwoLabels is a bar's overhead around two labels: head "╭─ "
+	// (3) + 2 inner spaces + tail " ─╮" (3).
+	barChromeTwoLabels = 8
+	// barChromeOneLabel is the overhead around a single label: head "╭─ "
+	// (3) + 1 inner space + tail "─╮" (2).
+	barChromeOneLabel = 6
+)
+
 // frameBar builds one horizontal border line with pre-styled left/right labels
 // and a dashed fill sized so the whole line is exactly width cells wide.
 //
@@ -197,7 +210,7 @@ func (t pickerTheme) frameBar(left, right rune, leftLabel, rightLabel string, wi
 	// terminal (only the dashed fill would otherwise absorb the overflow, and a
 	// fill of zero still leaves an over-wide line that breaks the frame math).
 	if rightLabel != "" {
-		budget := max(0, width-8) // head 3 + 2 inner spaces + tail 3
+		budget := max(0, width-barChromeTwoLabels)
 		rightLabel = clampWidth(rightLabel, budget)
 		leftLabel = clampWidth(leftLabel, budget-displayWidth(rightLabel))
 
@@ -213,7 +226,7 @@ func (t pickerTheme) frameBar(left, right rune, leftLabel, rightLabel string, wi
 		return buf.String()
 	}
 
-	budget := max(0, width-6) // head 3 + 1 inner space + tail 2
+	budget := max(0, width-barChromeOneLabel)
 	leftLabel = clampWidth(leftLabel, budget)
 
 	var buf strings.Builder
@@ -229,7 +242,7 @@ func (t pickerTheme) frameBar(left, right rune, leftLabel, rightLabel string, wi
 // frameLine wraps one inner content line with the side borders and a single
 // space gutter on each side, padding the content to the available width.
 func (t pickerTheme) frameLine(content string, width int) string {
-	inner := max(0, width-4) // 2 borders + 2 gutter spaces
+	inner := max(0, width-frameChromeWidth)
 	content = clampWidth(content, inner)
 	pad := max(0, inner-displayWidth(content))
 

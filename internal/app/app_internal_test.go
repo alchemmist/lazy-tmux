@@ -29,6 +29,7 @@ func (r *recordingTmux) SwitchClient(
 	target string,
 ) error {
 	r.switched = target
+
 	return nil
 }
 
@@ -36,10 +37,13 @@ func (r *recordingTmux) AttachSession(
 	target string,
 ) error {
 	r.attached = target
+
 	return nil
 }
 
 func TestRestoreTargetHandsOff(t *testing.T) {
+	t.Parallel()
+
 	idx := 2
 
 	cases := []struct {
@@ -74,6 +78,8 @@ func TestRestoreTargetHandsOff(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			a, _ := newTestApp(t)
 
 			if err := a.store.SaveSession(snapshot.SessionSnapshot{SessionName: "s1"}); err != nil {
@@ -118,9 +124,11 @@ func newTestApp(t *testing.T) (*App, string) {
 
 func snapshotExists(dir, name string) bool {
 	_, err := os.Stat(filepath.Join(dir, "sessions", name+".json"))
+
 	return err == nil
 }
 
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestNewSessionCreatesAndSaves(t *testing.T) {
 	testutil.IsolatedTmux(t)
 
@@ -144,6 +152,7 @@ func TestNewSessionCreatesAndSaves(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestNewWindowLiveAndOffline(t *testing.T) {
 	testutil.IsolatedTmux(t)
 
@@ -186,6 +195,7 @@ func TestNewWindowLiveAndOffline(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestRenameWindowLive(t *testing.T) {
 	testutil.IsolatedTmux(t)
 
@@ -209,6 +219,7 @@ func TestRenameWindowLive(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestRenameSession(t *testing.T) {
 	testutil.IsolatedTmux(t)
 
@@ -235,6 +246,7 @@ func TestRenameSession(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestDeleteWindowAndSession(t *testing.T) {
 	testutil.IsolatedTmux(t)
 
@@ -271,6 +283,7 @@ func TestDeleteWindowAndSession(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestSaveAllRestoreSleepWakeup(t *testing.T) {
 	testutil.IsolatedTmux(t)
 
@@ -323,6 +336,7 @@ func TestSaveAllRestoreSleepWakeup(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestBootstrapEmptyStoreNoError(t *testing.T) {
 	testutil.IsolatedTmux(t)
 
@@ -343,7 +357,10 @@ type fakeTicker struct {
 func (f *fakeTicker) Chan() <-chan time.Time { return f.ch }
 func (f *fakeTicker) Stop()                  {}
 
-func TestRunDaemonSavesAll(t *testing.T) {
+//nolint:paralleltest // stubs the package-level newDaemonTicker seam
+func TestRunDaemonSavesAll(
+	t *testing.T,
+) {
 	testutil.IsolatedTmux(t)
 
 	a, dir := newTestApp(t)
@@ -382,6 +399,7 @@ func TestRunDaemonSavesAll(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestSelectWithFZFSorted(t *testing.T) {
 	testutil.IsolatedTmux(t)
 	testutil.RequireFZF(t)
@@ -402,6 +420,7 @@ func TestSelectWithFZFSorted(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestPickerSessionsMarksRestored(t *testing.T) {
 	testutil.IsolatedTmux(t)
 
@@ -440,6 +459,8 @@ func TestPickerSessionsMarksRestored(t *testing.T) {
 }
 
 func TestParsePickerSortOptions(t *testing.T) {
+	t.Parallel()
+
 	if _, err := ParsePickerSortOptions("name", "index"); err != nil {
 		t.Fatalf("valid sort options: %v", err)
 	}

@@ -125,6 +125,7 @@ func Tmux(t *testing.T, args ...string) string {
 // without failing the test. Use it when an error is an expected outcome.
 func TmuxTry(args ...string) (string, error) {
 	out, err := exec.CommandContext(context.Background(), "tmux", args...).CombinedOutput()
+
 	return string(out), err
 }
 

@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -16,19 +15,23 @@ import (
 
 // runHook dispatches the hook writers invoked by external programs (e.g. Claude
 // Code). These run inside another tool's hook pipeline, so they must be fast and
-// must not fail the host on transient errors.
-func runHook(args []string, stdout, stderr io.Writer) int {
+// must not fail the host on transient errors. Errors exit 1, never 2: Claude
+// Code treats a hook's exit 2 as "block the action", which a misconfigured
+// status hook must never do.
+func runHook(args []string, _, stderr io.Writer) int {
 	if len(args) == 0 {
-		writeErr(stderr, errors.New("usage: lazy-tmux hook claude-status --state <state>"))
-		return 2
+		writeErr(stderr, errHookUsage)
+
+		return 1
 	}
 
 	switch args[0] {
 	case "claude-status":
 		return runClaudeStatusHook(args[1:], os.Stdin, stderr)
 	default:
-		writeErr(stderr, fmt.Errorf("unknown hook %q", args[0]))
-		return 2
+		writeErr(stderr, fmt.Errorf("%w %q", errUnknownHook, args[0]))
+
+		return 1
 	}
 }
 
@@ -43,12 +46,14 @@ func runClaudeStatusHook(args []string, stdin io.Reader, stderr io.Writer) int {
 	err := flags.Parse(args)
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("parse flags: %w", err))
-		return 2
+
+		return 1
 	}
 
 	if !claude.ValidState(*state) {
-		writeErr(stderr, fmt.Errorf("invalid --state %q", *state))
-		return 2
+		writeErr(stderr, fmt.Errorf("%w %q", errInvalidHookState, *state))
+
+		return 1
 	}
 
 	var payload struct {

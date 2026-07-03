@@ -1,6 +1,7 @@
 package picker
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -9,25 +10,47 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
+// Sentinel errors of sort-expression parsing; the offending field/term is
+// wrapped around them at the call sites.
+var (
+	errDuplicateSessionSortField = errors.New("duplicate session sort field")
+	errEmptySessionSortExpr      = errors.New("empty session sort expression")
+	errDuplicateWindowSortField  = errors.New("duplicate window sort field")
+	errEmptyWindowSortExpr       = errors.New("empty window sort expression")
+	errEmptySortTerm             = errors.New("empty sort term in expression")
+	errUnknownSessionSortField   = errors.New("unknown session sort field")
+	errUnknownWindowSortField    = errors.New("unknown window sort field")
+	errInvalidSortDirection      = errors.New("invalid direction")
+)
+
+// SortOptions bundles the ordered sort keys applied to the session list and to
+// the windows within each session.
 type SortOptions struct {
 	Session []SessionSortKey
 	Window  []WindowSortKey
 }
 
+// SessionSortKey is one session sort criterion: the field to compare and
+// whether to order descending.
 type SessionSortKey struct {
 	Field SessionSortField
 	Desc  bool
 }
 
+// WindowSortKey is one window sort criterion: the field to compare and whether
+// to order descending.
 type WindowSortKey struct {
 	Field WindowSortField
 	Desc  bool
 }
 
+// SessionSortField names a sortable attribute of a session record.
 type SessionSortField string
 
+// WindowSortField names a sortable attribute of a window.
 type WindowSortField string
 
+// Session sort fields accepted in sort expressions.
 const (
 	SessionSortLastUsed SessionSortField = "last-used"
 	SessionSortCaptured SessionSortField = "captured"
@@ -36,6 +59,7 @@ const (
 	SessionSortPanes    SessionSortField = "panes"
 )
 
+// Window sort fields accepted in sort expressions.
 const (
 	WindowSortIndex WindowSortField = "index"
 	WindowSortName  WindowSortField = "name"
@@ -43,6 +67,8 @@ const (
 	WindowSortCmd   WindowSortField = "cmd"
 )
 
+// DefaultSortOptions returns the built-in ordering: sessions by last-used then
+// captured time (newest first) then name, windows by index then name.
 func DefaultSortOptions() SortOptions {
 	return SortOptions{
 		Session: []SessionSortKey{
@@ -57,6 +83,9 @@ func DefaultSortOptions() SortOptions {
 	}
 }
 
+// ParseSortOptions parses comma-separated "field[:asc|desc]" expressions for
+// sessions and windows. A blank expression keeps the corresponding default from
+// DefaultSortOptions; a malformed one returns an error.
 func ParseSortOptions(sessionExpr, windowExpr string) (SortOptions, error) {
 	opts := DefaultSortOptions()
 
@@ -98,7 +127,7 @@ func parseSessionSortKeys(expr string) ([]SessionSortKey, error) {
 		}
 
 		if _, ok := seen[field]; ok {
-			return nil, fmt.Errorf("duplicate session sort field: %s", field)
+			return nil, fmt.Errorf("%w: %s", errDuplicateSessionSortField, field)
 		}
 
 		seen[field] = struct{}{}
@@ -107,7 +136,7 @@ func parseSessionSortKeys(expr string) ([]SessionSortKey, error) {
 	}
 
 	if len(keys) == 0 {
-		return nil, fmt.Errorf("empty session sort expression")
+		return nil, errEmptySessionSortExpr
 	}
 
 	return keys, nil
@@ -130,7 +159,7 @@ func parseWindowSortKeys(expr string) ([]WindowSortKey, error) {
 		}
 
 		if _, ok := seen[field]; ok {
-			return nil, fmt.Errorf("duplicate window sort field: %s", field)
+			return nil, fmt.Errorf("%w: %s", errDuplicateWindowSortField, field)
 		}
 
 		seen[field] = struct{}{}
@@ -139,7 +168,7 @@ func parseWindowSortKeys(expr string) ([]WindowSortKey, error) {
 	}
 
 	if len(keys) == 0 {
-		return nil, fmt.Errorf("empty window sort expression")
+		return nil, errEmptyWindowSortExpr
 	}
 
 	return keys, nil
@@ -152,7 +181,7 @@ func splitSortExpr(expr string) ([]string, error) {
 	for _, ch := range chunks {
 		v := strings.TrimSpace(ch)
 		if v == "" {
-			return nil, fmt.Errorf("empty sort term in expression")
+			return nil, errEmptySortTerm
 		}
 
 		out = append(out, v)
@@ -166,7 +195,7 @@ func parseSessionSortPart(part string) (SessionSortField, bool, error) {
 	field, ok := parseSessionField(name)
 
 	if !ok {
-		return "", false, fmt.Errorf("unknown session sort field: %s", name)
+		return "", false, fmt.Errorf("%w: %s", errUnknownSessionSortField, name)
 	}
 
 	desc := defaultSessionDirection(field)
@@ -188,7 +217,7 @@ func parseWindowSortPart(part string) (WindowSortField, bool, error) {
 	field, ok := parseWindowField(name)
 
 	if !ok {
-		return "", false, fmt.Errorf("unknown window sort field: %s", name)
+		return "", false, fmt.Errorf("%w: %s", errUnknownWindowSortField, name)
 	}
 
 	desc := defaultWindowDirection(field)
@@ -205,7 +234,9 @@ func parseWindowSortPart(part string) (WindowSortField, bool, error) {
 	return field, desc, nil
 }
 
-func splitSortPart(part string) (name, dir string, hasDir bool) {
+// splitSortPart splits one "field:direction" sort term into the field name,
+// the direction, and whether a direction was given at all.
+func splitSortPart(part string) (string, string, bool) {
 	left, right, ok := strings.Cut(strings.TrimSpace(part), ":")
 	if !ok {
 		return strings.TrimSpace(part), "", false
@@ -221,7 +252,7 @@ func parseDirection(directionStr string) (bool, error) {
 	case "desc":
 		return true, nil
 	default:
-		return false, fmt.Errorf("invalid direction %q (expected asc|desc)", directionStr)
+		return false, fmt.Errorf("%w %q (expected asc|desc)", errInvalidSortDirection, directionStr)
 	}
 }
 
@@ -295,6 +326,8 @@ func sortSessionRecords(records []snapshot.Record, keys []SessionSortKey) {
 	})
 }
 
+// SortSessionRecords sorts records in place by the given keys, falling back to
+// session name for a stable, deterministic order when all keys compare equal.
 func SortSessionRecords(records []snapshot.Record, keys []SessionSortKey) {
 	sortSessionRecords(records, keys)
 }
@@ -359,6 +392,8 @@ func sortWindows(windows []snapshot.Window, keys []WindowSortKey) {
 	})
 }
 
+// SortWindows sorts windows in place by the given keys, falling back to window
+// index for a stable, deterministic order when all keys compare equal.
 func SortWindows(windows []snapshot.Window, keys []WindowSortKey) {
 	sortWindows(windows, keys)
 }

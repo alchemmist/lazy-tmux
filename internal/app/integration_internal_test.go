@@ -14,7 +14,11 @@ func claudePane() snapshot.Pane {
 	}
 }
 
-func TestBuildRegistryEnabledResolvesClaude(t *testing.T) {
+func TestBuildRegistryEnabledResolvesClaude(
+	t *testing.T,
+) {
+	t.Parallel()
+
 	reg := buildRegistry(config.IntegrationsConfig{
 		Enabled: true,
 		Claude:  config.ClaudeIntegrationConfig{Enabled: true, Home: "~/.claude"},
@@ -25,7 +29,11 @@ func TestBuildRegistryEnabledResolvesClaude(t *testing.T) {
 	}
 }
 
-func TestBuildRegistryMasterSwitchOff(t *testing.T) {
+func TestBuildRegistryMasterSwitchOff(
+	t *testing.T,
+) {
+	t.Parallel()
+
 	reg := buildRegistry(config.IntegrationsConfig{
 		Enabled: false,
 		Claude:  config.ClaudeIntegrationConfig{Enabled: true, Home: "~/.claude"},
@@ -36,7 +44,11 @@ func TestBuildRegistryMasterSwitchOff(t *testing.T) {
 	}
 }
 
-func TestBuildRegistryClaudeDisabled(t *testing.T) {
+func TestBuildRegistryClaudeDisabled(
+	t *testing.T,
+) {
+	t.Parallel()
+
 	reg := buildRegistry(config.IntegrationsConfig{
 		Enabled: true,
 		Claude:  config.ClaudeIntegrationConfig{Enabled: false},

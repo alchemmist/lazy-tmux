@@ -4,6 +4,10 @@ package picker
 
 import "github.com/charmbracelet/x/ansi"
 
+// truncationEllipsis marks clamped cell text; it is dropped entirely when the
+// cell is narrower than the ellipsis itself.
+const truncationEllipsis = "..."
+
 // displayWidth returns the rendered cell width of s, counting full-width glyphs
 // (CJK, emoji) as 2 and ignoring ANSI escape sequences. This is the single
 // width helper the picker's layout and padding math relies on so selected and
@@ -37,9 +41,9 @@ func truncateString(input string, maxWidth int) string {
 		return input
 	}
 
-	if maxWidth <= 3 {
+	if maxWidth <= len(truncationEllipsis) {
 		return ansi.Truncate(input, maxWidth, "")
 	}
 
-	return ansi.Truncate(input, maxWidth, "...")
+	return ansi.Truncate(input, maxWidth, truncationEllipsis)
 }

@@ -14,6 +14,18 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
+// Sentinel errors of the fzf-driven choosers.
+var (
+	errFzfTimedOut      = errors.New("fzf selection timed out")
+	errNoSelection      = errors.New("no selection made")
+	errInvalidFzfOutput = errors.New("invalid fzf output")
+)
+
+// fzfSelectionTimeout bounds how long a non-interactive --filter run may take.
+const fzfSelectionTimeout = 30 * time.Second
+
+// ErrNoSessions and ErrNoWindows are returned by the choosers when there is
+// nothing to pick from: no saved sessions at all, or sessions without windows.
 var (
 	ErrNoSessions = errors.New("no sessions available")
 	ErrNoWindows  = errors.New("no windows available")
@@ -29,7 +41,8 @@ func runFZF(input *bytes.Buffer, withNth string) (string, error) {
 		"--with-nth", withNth,
 	}
 
-	if isTerminal(os.Stdout) {
+	interactive := isTerminal(os.Stdout)
+	if interactive {
 		args = append(args,
 			"--prompt", "lazy-tmux> ",
 			"--height", "100%",
@@ -39,16 +52,27 @@ func runFZF(input *bytes.Buffer, withNth string) (string, error) {
 		args = append(args, "--filter", "")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	// Only non-interactive --filter runs are bounded: a user browsing the
+	// interactive picker must never have fzf killed under them.
+	ctx := context.Background()
 
-	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	if !interactive {
+		var cancel context.CancelFunc
+
+		ctx, cancel = context.WithTimeout(context.Background(), fzfSelectionTimeout)
+		defer cancel()
+	}
+
+	cmd := exec.CommandContext(
+		ctx,
+		args[0],
+		args[1:]...) // #nosec G204 -- argv[0] is the fzf binary with args built above
 	cmd.Stdin = input
 
 	out, err := cmd.Output()
 	if err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			return "", fmt.Errorf("fzf selection timed out")
+			return "", errFzfTimedOut
 		}
 
 		return "", fmt.Errorf("fzf selection canceled or failed: %w", err)
@@ -59,12 +83,15 @@ func runFZF(input *bytes.Buffer, withNth string) (string, error) {
 	selected = strings.SplitN(selected, "\n", 2)[0]
 
 	if strings.TrimSpace(selected) == "" {
-		return "", fmt.Errorf("no selection made")
+		return "", errNoSelection
 	}
 
 	return selected, nil
 }
 
+// ChooseSessionFZF presents a session-level fzf list (name, captured time,
+// window count) and returns the name of the selected session. It returns
+// ErrNoSessions when records is empty.
 func ChooseSessionFZF(records []snapshot.Record) (string, error) {
 	if len(records) == 0 {
 		return "", ErrNoSessions
@@ -89,7 +116,7 @@ func ChooseSessionFZF(records []snapshot.Record) (string, error) {
 
 	parts := strings.Split(selected, "\t")
 	if strings.TrimSpace(parts[0]) == "" {
-		return "", fmt.Errorf("invalid fzf output")
+		return "", errInvalidFzfOutput
 	}
 
 	return parts[0], nil
@@ -140,7 +167,7 @@ func windowFZFLines(sessions []Session, windowSort []WindowSortKey) []string {
 func parseWindowSelection(line string) (Target, error) {
 	parts := strings.Split(line, "\t")
 	if len(parts) < 2 || strings.TrimSpace(parts[0]) == "" {
-		return Target{}, fmt.Errorf("invalid fzf output")
+		return Target{}, errInvalidFzfOutput
 	}
 
 	index, err := strconv.Atoi(strings.TrimSpace(parts[1]))

@@ -7,6 +7,8 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
+var errBoom = errors.New("boom")
+
 // fakeIntegration matches panes by CurrentCmd and echoes its metadata back so
 // tests can verify namespacing and de-namespacing.
 type fakeIntegration struct {
@@ -35,6 +37,8 @@ func paneSnap(panes ...snapshot.Pane) *snapshot.SessionSnapshot {
 }
 
 func TestRegistryEnrichNamespacesMeta(t *testing.T) {
+	t.Parallel()
+
 	reg := NewRegistry(fakeIntegration{
 		name:     "fake",
 		matchCmd: "myprog",
@@ -57,10 +61,12 @@ func TestRegistryEnrichNamespacesMeta(t *testing.T) {
 }
 
 func TestRegistryEnrichSwallowsCaptureFailures(t *testing.T) {
+	t.Parallel()
+
 	reg := NewRegistry(fakeIntegration{
 		name:       "fake",
 		matchCmd:   "myprog",
-		captureErr: errors.New("boom"),
+		captureErr: errBoom,
 	})
 
 	snap := paneSnap(snapshot.Pane{CurrentCmd: "myprog"})
@@ -72,6 +78,8 @@ func TestRegistryEnrichSwallowsCaptureFailures(t *testing.T) {
 }
 
 func TestRegistryResolveDeNamespaces(t *testing.T) {
+	t.Parallel()
+
 	reg := NewRegistry(fakeIntegration{name: "fake", matchCmd: "myprog"})
 
 	pane := snapshot.Pane{
@@ -85,6 +93,8 @@ func TestRegistryResolveDeNamespaces(t *testing.T) {
 }
 
 func TestRegistryResolveNoMatch(t *testing.T) {
+	t.Parallel()
+
 	reg := NewRegistry(fakeIntegration{name: "fake", matchCmd: "myprog"})
 
 	if got := reg.Resolve(snapshot.Pane{CurrentCmd: "vim"}); got != "" {
@@ -104,6 +114,8 @@ func (f fakeStatusIntegration) Status(snapshot.Pane) (Status, bool) {
 }
 
 func TestRegistryStatus(t *testing.T) {
+	t.Parallel()
+
 	reg := NewRegistry(fakeStatusIntegration{
 		fakeIntegration: fakeIntegration{name: "fake", matchCmd: "myprog"},
 		status:          StatusAwaitingDecision,
@@ -120,6 +132,8 @@ func TestRegistryStatus(t *testing.T) {
 }
 
 func TestRegistryStatusNonReporter(t *testing.T) {
+	t.Parallel()
+
 	// An integration that matches but does not implement StatusReporter.
 	reg := NewRegistry(fakeIntegration{name: "fake", matchCmd: "myprog"})
 
@@ -129,6 +143,8 @@ func TestRegistryStatusNonReporter(t *testing.T) {
 }
 
 func TestRegistryNilSafe(t *testing.T) {
+	t.Parallel()
+
 	var reg *Registry
 
 	reg.Enrich(paneSnap(snapshot.Pane{CurrentCmd: "x"})) // must not panic

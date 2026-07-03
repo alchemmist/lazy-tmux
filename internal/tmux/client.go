@@ -1,3 +1,6 @@
+// Package tmux is a thin client over the tmux binary: it shells out to tmux to
+// capture live sessions into snapshots and to restore snapshots back into
+// running sessions.
 package tmux
 
 import (
@@ -18,6 +21,16 @@ import (
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 	"github.com/charmbracelet/x/term"
+)
+
+// Sentinel errors of the tmux client; details wrap them at the call sites.
+var (
+	errEmptySessionName     = errors.New("empty session name")
+	errSnapshotHasNoWindows = errors.New("session snapshot has no windows")
+	errEmptyTTYPath         = errors.New("empty tty path")
+	errUnsupportedTTYPath   = errors.New("unsupported tty path")
+	errTTYNotCharDevice     = errors.New("tty path is not a character device")
+	errNoWindowsAfterCreate = errors.New("no windows found after session creation")
 )
 
 const fieldSep = "|"
@@ -48,11 +61,16 @@ func splitFieldsN(line string, n int) []string {
 	return strings.SplitN(line, fieldSep, n)
 }
 
+// ErrSessionNotFound is returned by CaptureSession when the named session does
+// not exist on the server; ErrSessionExists is returned by RestoreSession when
+// a live session already holds the snapshot's name. Callers match them with
+// errors.Is to distinguish these expected states from real tmux failures.
 var (
 	ErrSessionNotFound = errors.New("tmux session not found")
 	ErrSessionExists   = errors.New("tmux session already exists")
 )
 
+//nolint:gochecknoglobals // test seam: tests capture pane-tty writes
 var paneTTYWriter = writePaneTTY
 
 type commandResult struct {
@@ -67,6 +85,7 @@ type commandRunner interface {
 type execRunner struct{}
 
 func (execRunner) runCommand(args ...string) commandResult {
+	// #nosec G204 -- argv[0] is the tmux binary, user-configured on purpose (--tmux-bin)
 	cmd := exec.CommandContext(context.Background(), args[0], args[1:]...)
 
 	out, err := cmd.CombinedOutput()
@@ -82,6 +101,9 @@ func (execRunner) runCommand(args ...string) commandResult {
 	return commandResult{string(out), nil}
 }
 
+// Client drives a tmux server by invoking the tmux binary. It is stateless
+// apart from restore policy (settle timeout, allow/denylist, resolver), so a
+// single Client can serve any number of capture/restore calls.
 type Client struct {
 	bin           string
 	runner        commandRunner
@@ -110,6 +132,9 @@ type RestoreCommandResolver interface {
 	Resolve(pane snapshot.Pane) string
 }
 
+// NewClient returns a Client that executes the given tmux binary with the
+// default restore settle timeout. An empty or blank bin falls back to "tmux"
+// resolved via PATH.
 func NewClient(bin string) *Client {
 	if strings.TrimSpace(bin) == "" {
 		bin = "tmux"
@@ -118,6 +143,9 @@ func NewClient(bin string) *Client {
 	return &Client{bin: bin, runner: execRunner{}, settleTimeout: defaultRestoreSettleTimeout}
 }
 
+// NewClientWithRunner is NewClient with an injectable command runner, so tests
+// can fake tmux output without a real server. A nil runner falls back to the
+// default exec-based one.
 func NewClientWithRunner(bin string, cmdRunner commandRunner) *Client {
 	if strings.TrimSpace(bin) == "" {
 		bin = "tmux"
@@ -209,6 +237,9 @@ func sessionPaneTarget(name string, windowIndex, paneIndex int) string {
 	return fmt.Sprintf("%s:%d.%d", sessionTarget(name), windowIndex, paneIndex)
 }
 
+// PaneTarget formats a tmux pane target ("=session:window.pane") for the given
+// session, window and pane indexes. The "=" prefix forces an exact session-name
+// match so tmux does not prefix-match a different session.
 func PaneTarget(name string, windowIndex, paneIndex int) string {
 	return sessionPaneTarget(name, windowIndex, paneIndex)
 }
@@ -217,7 +248,11 @@ func sessionWindowBaseTarget(name string) string {
 	return sessionTarget(name) + ":"
 }
 
+// Run executes tmux with the given arguments, wiring its stdout/stderr to the
+// current process so interactive commands (e.g. attach) render directly. Use
+// Output instead when the command's output must be parsed.
 func (client *Client) Run(args ...string) error {
+	// #nosec G204 -- client.bin is the tmux binary, user-configured on purpose (--tmux-bin)
 	cmd := exec.CommandContext(context.Background(), client.bin, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -230,6 +265,9 @@ func (client *Client) Run(args ...string) error {
 	return nil
 }
 
+// Output executes tmux with the given arguments and returns its combined
+// stdout/stderr. On failure the error message embeds the tmux command line and
+// its trimmed output.
 func (client *Client) Output(args ...string) (string, error) {
 	allArgs := append([]string{client.bin}, args...)
 	res := client.runner.runCommand(allArgs...)
@@ -237,11 +275,17 @@ func (client *Client) Output(args ...string) (string, error) {
 	return res.stdout, res.err
 }
 
+// SessionExists reports whether a session with exactly the given name is live
+// on the server. Any has-session failure — including "no server running" —
+// counts as not existing.
 func (client *Client) SessionExists(name string) bool {
 	_, err := client.Output("has-session", "-t", sessionTarget(name))
+
 	return err == nil
 }
 
+// ListSessions returns the names of all live sessions, sorted alphabetically.
+// A tmux server that is not running yields (nil, nil) rather than an error.
 func (client *Client) ListSessions() ([]string, error) {
 	out, err := client.Output("list-sessions", "-F", "#{session_name}")
 	if err != nil {
@@ -258,6 +302,9 @@ func (client *Client) ListSessions() ([]string, error) {
 	return lines, nil
 }
 
+// CurrentSession returns the name of the session the calling client is
+// attached to, as reported by "display-message -p #S". It errors when run
+// outside tmux with no server to answer.
 func (client *Client) CurrentSession() (string, error) {
 	out, err := client.Output("display-message", "-p", "#S")
 	if err != nil {
@@ -267,6 +314,9 @@ func (client *Client) CurrentSession() (string, error) {
 	return strings.TrimSpace(out), nil
 }
 
+// SocketPath returns the server's socket path, used to disambiguate sessions
+// across servers. It never fails: when tmux cannot answer (or answers empty)
+// it returns the literal "default".
 func (client *Client) SocketPath() string {
 	out, err := client.Output("display-message", "-p", "#{socket_path}")
 	if err != nil {
@@ -281,6 +331,9 @@ func (client *Client) SocketPath() string {
 	return v
 }
 
+// SwitchClient switches the attached tmux client to the given session. Outside
+// tmux (no TMUX env var) it is a silent no-op, since there is no client to
+// switch; callers use AttachSession for that case.
 func (client *Client) SwitchClient(session string) error {
 	if os.Getenv("TMUX") == "" {
 		return nil
@@ -300,6 +353,8 @@ func (client *Client) InsideTmux() bool {
 // attachExec hands the terminal off to tmux. It is a package var so tests can
 // stub it without replacing the test process. syscall.Exec returns only on
 // failure to launch; on success the current process image is replaced by tmux.
+//
+//nolint:gochecknoglobals // test seam, see comment above
 var attachExec = syscall.Exec
 
 // hasControllingTTY reports whether stdout is a real terminal. attach-session
@@ -307,6 +362,8 @@ var attachExec = syscall.Exec
 // on the fd rather than os.ModeCharDevice, which also matches non-terminals
 // such as /dev/null and would let the attach fall through to "open terminal
 // failed".
+//
+//nolint:gochecknoglobals // test seam, see comment above
 var hasControllingTTY = func() bool {
 	return term.IsTerminal(os.Stdout.Fd())
 }
@@ -334,31 +391,49 @@ func (client *Client) AttachSession(target string) error {
 	return attachExec(bin, args, os.Environ())
 }
 
+// KillWindow kills the window at the given index in the session. Killing the
+// last window kills the session as a whole (tmux semantics).
 func (client *Client) KillWindow(session string, windowIndex int) error {
 	_, err := client.Output("kill-window", "-t", sessionWindowTarget(session, windowIndex))
+
 	return err
 }
 
+// KillSession kills the live session with exactly the given name, detaching
+// any clients attached to it. It errors when the session does not exist.
 func (client *Client) KillSession(session string) error {
 	_, err := client.Output("kill-session", "-t", sessionTarget(session))
+
 	return err
 }
 
+// RenameWindow renames the window at the given index in the session. The
+// rename also disables tmux's automatic-rename for that window.
 func (client *Client) RenameWindow(session string, windowIndex int, name string) error {
 	_, err := client.Output("rename-window", "-t", sessionWindowTarget(session, windowIndex), name)
+
 	return err
 }
 
+// RenameSession renames a live session. It errors when the source session does
+// not exist or the new name is already taken.
 func (client *Client) RenameSession(session, name string) error {
 	_, err := client.Output("rename-session", "-t", sessionTarget(session), name)
+
 	return err
 }
 
+// NewSession creates a detached session with the given name and a single
+// default window. It errors when a session with that name already exists.
 func (client *Client) NewSession(name string) error {
 	_, err := client.Output("new-session", "-d", "-s", name)
+
 	return err
 }
 
+// NewWindow appends a new detached window to the session, letting tmux pick
+// the next free index. A blank name is omitted so tmux applies its default
+// window naming instead of creating a window literally named "".
 func (client *Client) NewWindow(session, name string) error {
 	args := []string{"new-window", "-d", "-t", sessionWindowBaseTarget(session)}
 	if strings.TrimSpace(name) != "" {
@@ -370,6 +445,10 @@ func (client *Client) NewWindow(session, name string) error {
 	return err
 }
 
+// CaptureSession snapshots a live session: every window (index, name, layout,
+// active flag) and every pane (index, path, current and restorable foreground
+// command). It returns ErrSessionNotFound when the session does not exist.
+// Scrollback and integration metadata are attached by later passes, not here.
 func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, error) {
 	if !client.SessionExists(name) {
 		return snapshot.SessionSnapshot{}, ErrSessionNotFound
@@ -390,60 +469,25 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 	windows := make([]snapshot.Window, 0)
 
 	for _, line := range splitLines(wOut) {
-		parts := splitFieldsN(line, 4)
-		if len(parts) != 4 {
+		parts := splitFieldsN(line, windowLineFields)
+		if len(parts) != windowLineFields {
 			continue
 		}
 
 		idx, _ := strconv.Atoi(parts[0])
 		window := snapshot.Window{
-			Index:    idx,
-			Layout:   parts[1],
-			IsActive: parts[2] == "1",
-			Name:     parts[3],
+			Index:      idx,
+			Layout:     parts[1],
+			IsActive:   parts[2] == "1",
+			Name:       parts[3],
+			ActivePane: 0,   // set below from the active pane
+			Panes:      nil, // appended below
 		}
 
-		// pane_current_path is free-form, so it goes LAST.
-		pOut, err := client.Output("list-panes", "-t", sessionWindowTarget(name, idx), "-F",
-			"#{pane_index}"+fieldSep+
-				"#{pane_active}"+fieldSep+
-				"#{pane_pid}"+fieldSep+
-				"#{pane_tty}"+fieldSep+
-				"#{pane_current_command}"+fieldSep+
-				"#{pane_current_path}",
-		)
+		err = client.capturePanes(name, &window)
 		if err != nil {
 			return snapshot.SessionSnapshot{}, err
 		}
-
-		for _, pLine := range splitLines(pOut) {
-			parts := splitFieldsN(pLine, 6)
-			if len(parts) != 6 {
-				continue
-			}
-
-			pIdx, _ := strconv.Atoi(parts[0])
-			panePID, _ := strconv.Atoi(strings.TrimSpace(parts[2]))
-			restoreCmd, _ := client.foregroundCommand(parts[3], panePID)
-
-			pane := snapshot.Pane{
-				Index:       pIdx,
-				IsActive:    parts[1] == "1",
-				CurrentCmd:  parts[4],
-				CurrentPath: parts[5],
-				RestoreCmd:  strings.TrimSpace(restoreCmd),
-			}
-			if pane.IsActive {
-				window.ActivePane = pane.Index
-			}
-
-			window.Panes = append(window.Panes, pane)
-		}
-
-		sort.Slice(
-			window.Panes,
-			func(i, j int) bool { return window.Panes[i].Index < window.Panes[j].Index },
-		)
 
 		windows = append(windows, window)
 	}
@@ -546,9 +590,15 @@ func resolveRestoreFocus(
 	return win, pane
 }
 
+// RestoreSession recreates a session from a snapshot: windows and panes with
+// their layouts and working directories, saved scrollback, and the pane
+// commands the allow/denylist permits, then waits (up to the settle timeout)
+// for those commands to actually start. It returns ErrSessionExists when a
+// live session already has the snapshot's name, and never attaches — callers
+// decide between SwitchClient and AttachSession.
 func (client *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) error {
 	if sessionSnapshot.SessionName == "" {
-		return errors.New("empty session name")
+		return errEmptySessionName
 	}
 
 	if client.SessionExists(sessionSnapshot.SessionName) {
@@ -556,42 +606,14 @@ func (client *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) e
 	}
 
 	if len(sessionSnapshot.Windows) == 0 {
-		return errors.New("session snapshot has no windows")
+		return errSnapshotHasNoWindows
 	}
 
 	windows := make([]snapshot.Window, len(sessionSnapshot.Windows))
 	copy(windows, sessionSnapshot.Windows)
 	sort.Slice(windows, func(i, j int) bool { return windows[i].Index < windows[j].Index })
 
-	first := windows[0]
-
-	_, err := client.runWithShellFallback(
-		newSessionArgs(sessionSnapshot.SessionName, first),
-		"",
-	)
-	if err != nil {
-		return err
-	}
-
-	createdIdx, err := client.createdFirstWindowIndex(
-		sessionSnapshot.SessionName,
-	)
-	if err != nil {
-		return err
-	}
-
-	if createdIdx != first.Index {
-		_, err = client.Output(
-			"move-window",
-			"-s", sessionWindowTarget(sessionSnapshot.SessionName, createdIdx),
-			"-t", sessionWindowTarget(sessionSnapshot.SessionName, first.Index),
-		)
-		if err != nil {
-			return err
-		}
-	}
-
-	err = client.populateWindow(sessionSnapshot.SessionName, first, first.Index)
+	err := client.restoreFirstWindow(sessionSnapshot.SessionName, windows[0])
 	if err != nil {
 		return err
 	}
@@ -605,30 +627,7 @@ func (client *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) e
 		}
 	}
 
-	// Focus a window/pane that actually exists in the restored session. The
-	// recorded indices come from the snapshot and may not match what the
-	// restoring server created — when base-index / pane-base-index differ
-	// between save and restore, the recorded window 0 / pane 0 need not exist —
-	// so resolve against the live layout. Focus is cosmetic: a select failure
-	// must never abort an otherwise-successful restore, which is how `bootstrap`
-	// used to die with "can't find window: 0".
-	win, pane, ok := client.resolveLiveFocus(
-		sessionSnapshot.SessionName,
-		sessionSnapshot,
-		windows,
-	)
-	if ok {
-		_, _ = client.Output(
-			"select-window",
-			"-t",
-			sessionWindowTarget(sessionSnapshot.SessionName, win),
-		)
-		_, _ = client.Output(
-			"select-pane",
-			"-t",
-			sessionPaneTarget(sessionSnapshot.SessionName, win, pane),
-		)
-	}
+	client.selectRestoredFocus(sessionSnapshot, windows)
 
 	client.waitForRestoredCommands(sessionSnapshot.SessionName, windows)
 
@@ -660,6 +659,9 @@ func newWindowArgs(sessionName string, win snapshot.Window) []string {
 	return args
 }
 
+// CapturePaneScrollback returns the last `lines` lines of a pane's history,
+// with ANSI escape sequences preserved (-e) so colors survive a restore. A
+// non-positive lines value defaults to 5000.
 func (client *Client) CapturePaneScrollback(target string, lines int) (string, error) {
 	if lines <= 0 {
 		lines = 5000
@@ -669,12 +671,127 @@ func (client *Client) CapturePaneScrollback(target string, lines int) (string, e
 }
 
 func (client *Client) createAndPopulateWindow(sessionName string, win snapshot.Window) error {
-	_, err := client.runWithShellFallback(newWindowArgs(sessionName, win), "")
+	err := client.runWithShellFallback(newWindowArgs(sessionName, win), "")
 	if err != nil {
 		return err
 	}
 
 	return client.populateWindow(sessionName, win, win.Index)
+}
+
+// selectRestoredFocus focuses a window/pane that actually exists in the
+// restored session. The recorded indices come from the snapshot and may not
+// match what the restoring server created — when base-index / pane-base-index
+// differ between save and restore, the recorded window 0 / pane 0 need not
+// exist — so it resolves against the live layout. Focus is cosmetic: a select
+// failure must never abort an otherwise-successful restore, which is how
+// `bootstrap` used to die with "can't find window: 0".
+func (client *Client) selectRestoredFocus(
+	sessionSnapshot snapshot.SessionSnapshot,
+	windows []snapshot.Window,
+) {
+	win, pane, ok := client.resolveLiveFocus(
+		sessionSnapshot.SessionName,
+		sessionSnapshot,
+		windows,
+	)
+	if !ok {
+		return
+	}
+
+	_, _ = client.Output(
+		"select-window",
+		"-t",
+		sessionWindowTarget(sessionSnapshot.SessionName, win),
+	)
+	_, _ = client.Output(
+		"select-pane",
+		"-t",
+		sessionPaneTarget(sessionSnapshot.SessionName, win, pane),
+	)
+}
+
+// restoreFirstWindow creates the detached restored session with the snapshot's
+// first window, moves that window to its recorded index when the server picked
+// a different one, and populates its panes.
+func (client *Client) restoreFirstWindow(sessionName string, first snapshot.Window) error {
+	err := client.runWithShellFallback(
+		newSessionArgs(sessionName, first),
+		"",
+	)
+	if err != nil {
+		return err
+	}
+
+	createdIdx, err := client.createdFirstWindowIndex(sessionName)
+	if err != nil {
+		return err
+	}
+
+	if createdIdx != first.Index {
+		_, err = client.Output(
+			"move-window",
+			"-s", sessionWindowTarget(sessionName, createdIdx),
+			"-t", sessionWindowTarget(sessionName, first.Index),
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return client.populateWindow(sessionName, first, first.Index)
+}
+
+// capturePanes lists and parses the panes of the given window in the named
+// session, appending them to the window sorted by pane index and recording the
+// active pane's index in window.ActivePane. Scrollback and integration
+// metadata are attached by later passes, not here.
+func (client *Client) capturePanes(name string, window *snapshot.Window) error {
+	// pane_current_path is free-form, so it goes LAST.
+	pOut, err := client.Output("list-panes", "-t", sessionWindowTarget(name, window.Index), "-F",
+		"#{pane_index}"+fieldSep+
+			"#{pane_active}"+fieldSep+
+			"#{pane_pid}"+fieldSep+
+			"#{pane_tty}"+fieldSep+
+			"#{pane_current_command}"+fieldSep+
+			"#{pane_current_path}",
+	)
+	if err != nil {
+		return err
+	}
+
+	for _, pLine := range splitLines(pOut) {
+		parts := splitFieldsN(pLine, paneLineFields)
+		if len(parts) != paneLineFields {
+			continue
+		}
+
+		pIdx, _ := strconv.Atoi(parts[0])
+		panePID, _ := strconv.Atoi(strings.TrimSpace(parts[2]))
+		restoreCmd, _ := client.foregroundCommand(parts[3], panePID)
+
+		pane := snapshot.Pane{
+			Index:       pIdx,
+			IsActive:    parts[1] == "1",
+			CurrentCmd:  parts[4],
+			CurrentPath: parts[5],
+			RestoreCmd:  strings.TrimSpace(restoreCmd),
+			Scrollback:  nil, // attached by the scrollback capture pass
+			Meta:        nil, // attached by integrations
+		}
+		if pane.IsActive {
+			window.ActivePane = pane.Index
+		}
+
+		window.Panes = append(window.Panes, pane)
+	}
+
+	sort.Slice(
+		window.Panes,
+		func(i, j int) bool { return window.Panes[i].Index < window.Panes[j].Index },
+	)
+
+	return nil
 }
 
 func (client *Client) populateWindow(
@@ -723,7 +840,7 @@ func (client *Client) ensurePaneCount(
 			args = append(args, "-c", pane.CurrentPath)
 		}
 
-		_, err := client.runWithShellFallback(args, "")
+		err := client.runWithShellFallback(args, "")
 		if err != nil {
 			return err
 		}
@@ -906,7 +1023,7 @@ func (client *Client) paneCommands(sessionName string) map[string]string {
 
 	for _, line := range splitLines(out) {
 		fields := strings.Fields(line)
-		if len(fields) < 3 {
+		if len(fields) < paneCommandFields {
 			continue
 		}
 
@@ -996,11 +1113,11 @@ func (client *Client) restoreWindowScrollback(
 func writePaneTTY(path, content string) error {
 	path = strings.TrimSpace(path)
 	if path == "" {
-		return errors.New("empty tty path")
+		return errEmptyTTYPath
 	}
 
 	if !strings.HasPrefix(path, "/dev/pts/") && !strings.HasPrefix(path, "/dev/tty") {
-		return fmt.Errorf("unsupported tty path: %s", path)
+		return fmt.Errorf("%w: %s", errUnsupportedTTYPath, path)
 	}
 
 	fi, err := os.Stat(path)
@@ -1009,10 +1126,14 @@ func writePaneTTY(path, content string) error {
 	}
 
 	if fi.Mode()&os.ModeCharDevice == 0 {
-		return fmt.Errorf("tty path is not a character device: %s", path)
+		return fmt.Errorf("%w: %s", errTTYNotCharDevice, path)
 	}
 
-	ttyFile, err := os.OpenFile(path, os.O_WRONLY, 0)
+	ttyFile, err := os.OpenFile(
+		path,
+		os.O_WRONLY,
+		0,
+	) // #nosec G304 -- validated above: /dev/* character device
 	if err != nil {
 		return fmt.Errorf("open tty: %w", err)
 	}
@@ -1048,7 +1169,7 @@ func (client *Client) foregroundCommand(paneTTY string, panePID int) (string, er
 	var err error
 
 	for _, t := range candidates {
-		cmd := exec.CommandContext(
+		cmd := exec.CommandContext( // #nosec G204 -- fixed "ps" binary, variable args are pids/format flags
 			context.Background(),
 			"ps",
 			"-t",
@@ -1083,8 +1204,10 @@ type psProcess struct {
 	cmd  string
 }
 
-func pickForegroundCommand(lines []string, panePID int) string {
-	// First pass: collect all non-shell processes
+// collectCandidateProcesses parses ps output lines into candidate foreground
+// processes, skipping unparsable lines, the pane's shell process itself and
+// shell commands.
+func collectCandidateProcesses(lines []string, panePID int) []psProcess {
 	allProcesses := make([]psProcess, 0, len(lines))
 
 	for _, line := range lines {
@@ -1110,6 +1233,17 @@ func pickForegroundCommand(lines []string, panePID int) string {
 			cmd:  cmd,
 		})
 	}
+
+	return allProcesses
+}
+
+// pickForegroundCommand chooses the command to restore for a pane from ps
+// output: among non-shell processes it prefers a foreground ("+") root process
+// (one whose parent is outside the candidate set), then any root process, then
+// any foreground process, then the first candidate.
+func pickForegroundCommand(lines []string, panePID int) string {
+	// First pass: collect all non-shell processes
+	allProcesses := collectCandidateProcesses(lines, panePID)
 
 	if len(allProcesses) == 0 {
 		return ""
@@ -1157,9 +1291,18 @@ func pickForegroundCommand(lines []string, panePID int) string {
 	return ""
 }
 
+// Field counts of the fixed-format lines parsed below: tmux window and pane
+// format strings, the window.pane command listing and `ps` process lines.
+const (
+	windowLineFields  = 4 // window_index, layout, active, name
+	paneLineFields    = 6 // pane_index, active, pid, tty, command, path
+	paneCommandFields = 3 // window_index, pane_index, command
+	psLineFields      = 4 // pid, ppid, tty, command
+)
+
 func parsePSLine(line string) (int, int, string, string, bool) {
 	fields := strings.Fields(strings.TrimSpace(line))
-	if len(fields) < 4 {
+	if len(fields) < psLineFields {
 		return 0, 0, "", "", false
 	}
 
@@ -1199,10 +1342,10 @@ func splitLines(in string) []string {
 	return out
 }
 
-func (client *Client) runWithShellFallback(args []string, cmd string) (string, error) {
-	out, err := client.Output(args...)
+func (client *Client) runWithShellFallback(args []string, cmd string) error {
+	_, err := client.Output(args...)
 	if err == nil {
-		return out, nil
+		return nil
 	}
 
 	// 1) Command failed to start; retry without explicit command to keep window/pane.
@@ -1210,22 +1353,22 @@ func (client *Client) runWithShellFallback(args []string, cmd string) (string, e
 	if strings.TrimSpace(cmd) != "" && len(args) > 0 {
 		withoutCmd = args[:len(args)-1]
 
-		out2, err2 := client.Output(withoutCmd...)
+		_, err2 := client.Output(withoutCmd...)
 		if err2 == nil {
-			return out2, nil
+			return nil
 		}
 	}
 
 	// 2) If directory is broken, retry without "-c <path>" too.
 	minimal := stripOptionPair(withoutCmd, "-c")
 	if len(minimal) > 0 {
-		out3, err3 := client.Output(minimal...)
+		_, err3 := client.Output(minimal...)
 		if err3 == nil {
-			return out3, nil
+			return nil
 		}
 	}
 
-	return out, err
+	return err
 }
 
 func stripOptionPair(args []string, opt string) []string {
@@ -1234,6 +1377,7 @@ func stripOptionPair(args []string, opt string) []string {
 	for idx := 0; idx < len(args); idx++ {
 		if args[idx] == opt {
 			idx++ // skip option value
+
 			continue
 		}
 
@@ -1308,7 +1452,7 @@ func (client *Client) createdFirstWindowIndex(session string) (int, error) {
 
 	lines := splitLines(out)
 	if len(lines) == 0 {
-		return 0, errors.New("no windows found after session creation")
+		return 0, errNoWindowsAfterCreate
 	}
 
 	idx, err := strconv.Atoi(lines[0])

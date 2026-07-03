@@ -5,6 +5,8 @@ package picker
 import "testing"
 
 func TestMatchCommands(t *testing.T) {
+	t.Parallel()
+
 	if got := matchCommands(""); len(got) != len(pickerCommands) {
 		t.Fatalf("empty prefix should match every command, got %d", len(got))
 	}
@@ -26,6 +28,8 @@ func TestMatchCommands(t *testing.T) {
 }
 
 func TestCommandForMode(t *testing.T) {
+	t.Parallel()
+
 	cmd, ok := commandForMode(actionRename)
 	if !ok || cmd.name != "rename" || cmd.accent != colRename {
 		t.Fatalf("rename mode should resolve to the rename command, got %+v ok=%v", cmd, ok)
@@ -37,6 +41,8 @@ func TestCommandForMode(t *testing.T) {
 }
 
 func TestAccentForMode(t *testing.T) {
+	t.Parallel()
+
 	if accentForMode(actionBrowse) != colAccent {
 		t.Fatal("browse should use the amber accent")
 	}

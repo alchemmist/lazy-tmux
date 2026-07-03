@@ -7,15 +7,20 @@ import (
 	"io"
 
 	"github.com/alchemmist/lazy-tmux/internal/app"
+	"github.com/alchemmist/lazy-tmux/internal/config"
 )
 
 func runDaemon(args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("daemon", flag.ContinueOnError)
+	flags := flag.NewFlagSet(cmdDaemon, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 
 	interval := flags.Duration("interval", 0, "autosave interval")
 	scrollback := flags.Bool("scrollback", false, "capture shell pane scrollback")
-	scrollbackLines := flags.Int("scrollback-lines", 5000, "max shell scrollback lines per pane")
+	scrollbackLines := flags.Int(
+		"scrollback-lines",
+		config.DefaultScrollbackLines,
+		"max shell scrollback lines per pane",
+	)
 	dataDir := flags.String("data-dir", "", "snapshot directory")
 	tmuxBin := flags.String("tmux-bin", "", "tmux binary")
 
@@ -23,6 +28,7 @@ func runDaemon(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			daemonHelp(stdout)
+
 			return 0
 		}
 
@@ -36,28 +42,16 @@ func runDaemon(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	if flagPassed(flags, "data-dir") {
-		cfg.DataDir = *dataDir
-	}
-
-	if flagPassed(flags, "tmux-bin") {
-		cfg.TmuxBin = *tmuxBin
-	}
+	applyDirBinOverrides(flags, &cfg, dataDir, tmuxBin)
 
 	if flagPassed(flags, "interval") {
 		cfg.SaveInterval = *interval
 	}
 
-	if flagPassed(flags, "scrollback") {
-		cfg.Scrollback.Enabled = *scrollback
-	}
+	err = applyScrollbackOverrides(flags, &cfg, scrollback, scrollbackLines)
+	if err != nil {
+		writeErr(stderr, err)
 
-	if flagPassed(flags, "scrollback-lines") {
-		cfg.Scrollback.Lines = *scrollbackLines
-	}
-
-	if cfg.Scrollback.Enabled && cfg.Scrollback.Lines <= 0 {
-		writeErr(stderr, fmt.Errorf("scrollback requires scrollback lines > 0"))
 		return 1
 	}
 
@@ -66,6 +60,7 @@ func runDaemon(args []string, stdout, stderr io.Writer) int {
 	err = a.RunDaemon(cfg.SaveInterval)
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("run daemon: %w", err))
+
 		return 1
 	}
 

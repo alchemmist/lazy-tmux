@@ -14,6 +14,7 @@ type recordingRunner struct {
 
 func (r *recordingRunner) runCommand(args ...string) commandResult {
 	r.calls = append(r.calls, append([]string(nil), args...))
+
 	return commandResult{}
 }
 
@@ -45,6 +46,8 @@ func sentKeys(calls [][]string) []string {
 }
 
 func TestRestoreResolverOverridesCommand(t *testing.T) {
+	t.Parallel()
+
 	runner := &recordingRunner{}
 	client := NewClientWithRunner("tmux", runner)
 	client.SetRestoreResolver(fakeResolver{matchCmd: "claude", override: "claude --resume sess-1"})
@@ -76,6 +79,8 @@ func TestRestoreResolverOverridesCommand(t *testing.T) {
 }
 
 func TestEffectiveRestoreCommandFallsBack(t *testing.T) {
+	t.Parallel()
+
 	client := NewClientWithRunner("tmux", &recordingRunner{})
 
 	// No resolver: default normalized command.
@@ -92,6 +97,8 @@ func TestEffectiveRestoreCommandFallsBack(t *testing.T) {
 }
 
 func TestRestoreResolverRespectsAllowlist(t *testing.T) {
+	t.Parallel()
+
 	runner := &recordingRunner{}
 	client := NewClientWithRunner("tmux", runner)
 	client.SetRestoreResolver(fakeResolver{matchCmd: "claude", override: "claude --resume s"})

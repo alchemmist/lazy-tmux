@@ -7,51 +7,101 @@ linters:
   default: all
 
   disable:
-    - testpackage
-    - unparam
-    - tagliatelle
-    - recvcheck
-    - paralleltest
-    - nlreturn
-    - nonamedreturns
-    - perfsprint
-    - nestif
-    - mnd
-    - goconst
-    - ireturn
-    - gocritic
-    - gochecknoglobals
-    - intrange
-    - forcetypeassert
-    - funlen
-    - gosmopolitan
-    - exhaustruct
-    - err113
-    - exhaustive
-    - depguard
-    - dupword
-    - cyclop
-    - errorlint
-    - revive
-    - gosec
-    - gocognit
-
+    # Kept off after the #69 rollout: wsl's whitespace choreography fought the
+    # formatter stack (gofumpt + golines) more than it helped.
     - wsl
     - wsl_v5
 
   exclusions:
     rules:
-      # Test files idiomatically use short receiver-style names (t, m, a, s)
-      # and inline error checks; keep these style linters for production code
-      # only.
+      # Test-only tmux/process helpers: fixture perms and exec of the probed
+      # binaries are the point.
+      - path: internal/testutil/
+        linters:
+          - gosec
+      # Test files idiomatically use short receiver-style names (t, m, a, s),
+      # inline error checks and repeated literals/fixture numbers; keep these
+      # style linters for production code only.
       - path: _test\.go
         linters:
           - varnamelen
           - noinlineerr
+          - goconst
+          - mnd
+          - exhaustruct
+          - gosec
+          - funlen
+          - cyclop
 
   settings:
+    # Allow all imports unless explicitly denied: the linter is enabled so real
+    # deny rules can be added later without ceremony.
+    depguard:
+      rules:
+        main:
+          list-mode: lax
+          allow:
+            - $all
+    # The default of 10 is too strict for flag-parsing CLI entrypoints and the
+    # bubbletea Update dispatcher; 15 still forces genuinely tangled functions
+    # apart without mangling linear switch dispatch.
+    cyclop:
+      max-complexity: 15
+    # A default branch is this codebase's deliberate catch-all for the enum
+    # values a switch does not special-case.
+    exhaustive:
+      default-signifies-exhaustive: true
+    # Comment lines should not count against a function's length budget.
+    funlen:
+      ignore-comments: true
+    # snapshot.* literals must stay exhaustive (forgetting a field there loses
+    # data); the excluded types rely on Go zero values by design — bubbletea
+    # models start empty, spec tables default optional flags, clients/stores
+    # fill private state (mutex, caches) lazily, and nil allow/denylists and a
+    # nil Target.WindowIndex are semantic.
     exhaustruct:
       allow-empty: true
+      exclude:
+        - 'github\.com/alchemmist/lazy-tmux/internal/picker\.(pickerModel|loadingModel|pickerRow|pickerColumnSpec|Target|Session)'
+        - 'github\.com/alchemmist/lazy-tmux/internal/tmux\.Client'
+        - 'github\.com/alchemmist/lazy-tmux/internal/store\.Store'
+        - 'github\.com/alchemmist/lazy-tmux/internal/app\.App'
+        - 'github\.com/alchemmist/lazy-tmux/internal/config\.Config'
+    # Occurrence counting must skip test fixtures, or repeated test literals
+    # force pointless production constants.
+    goconst:
+      ignore-tests: true
+    # Struct-literal field values (column widths/priorities) are self-describing,
+    # so the `assign` check stays off; 2 is the ubiquitous halving/pair-chrome
+    # divisor; POSIX permission literals read better inline; SplitN's count
+    # argument is self-describing.
+    mnd:
+      checks: [argument, case, condition, operation, return]
+      ignored-numbers: ['2', '0o600', '0o644', '0o700', '0o750', '0o755']
+      ignored-functions:
+        - 'strings.SplitN'
+    # Returning tea.Model is imposed by bubbletea's Elm architecture; the
+    # integration registry deliberately returns its Integration interface.
+    ireturn:
+      allow:
+        - anon
+        - error
+        - empty
+        - stdlib
+        - generic
+        - charm.land/bubbletea/v2.Model
+        - github.com/alchemmist/lazy-tmux/internal/integration.Integration
+    # Timestamps are deliberately rendered in the user's local timezone (list
+    # output, picker rows); this is a local CLI tool, not an i18n concern.
+    gosmopolitan:
+      allow-time-local: true
+    # Snapshot and config files use snake_case keys by design; renaming struct
+    # tags would break every snapshot already on disk.
+    tagliatelle:
+      case:
+        rules:
+          json: snake
+          toml: snake
     varnamelen:
       ignore-names:
         - ok

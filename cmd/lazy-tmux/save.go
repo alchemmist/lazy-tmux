@@ -8,16 +8,21 @@ import (
 	"strings"
 
 	"github.com/alchemmist/lazy-tmux/internal/app"
+	"github.com/alchemmist/lazy-tmux/internal/config"
 )
 
 func runSave(args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("save", flag.ContinueOnError)
+	flags := flag.NewFlagSet(cmdSave, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 
 	all := flags.Bool("all", false, "save all sessions")
 	session := flags.String("session", "", "save specific session")
 	scrollback := flags.Bool("scrollback", false, "capture shell pane scrollback")
-	scrollbackLines := flags.Int("scrollback-lines", 5000, "max shell scrollback lines per pane")
+	scrollbackLines := flags.Int(
+		"scrollback-lines",
+		config.DefaultScrollbackLines,
+		"max shell scrollback lines per pane",
+	)
 	dataDir := flags.String("data-dir", "", "snapshot directory")
 	tmuxBin := flags.String("tmux-bin", "", "tmux binary")
 
@@ -25,6 +30,7 @@ func runSave(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			saveHelp(stdout)
+
 			return 0
 		}
 
@@ -38,24 +44,12 @@ func runSave(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	if flagPassed(flags, "data-dir") {
-		cfg.DataDir = *dataDir
-	}
+	applyDirBinOverrides(flags, &cfg, dataDir, tmuxBin)
 
-	if flagPassed(flags, "tmux-bin") {
-		cfg.TmuxBin = *tmuxBin
-	}
+	err = applyScrollbackOverrides(flags, &cfg, scrollback, scrollbackLines)
+	if err != nil {
+		writeErr(stderr, err)
 
-	if flagPassed(flags, "scrollback") {
-		cfg.Scrollback.Enabled = *scrollback
-	}
-
-	if flagPassed(flags, "scrollback-lines") {
-		cfg.Scrollback.Lines = *scrollbackLines
-	}
-
-	if cfg.Scrollback.Enabled && cfg.Scrollback.Lines <= 0 {
-		writeErr(stderr, fmt.Errorf("scrollback requires scrollback lines > 0"))
 		return 1
 	}
 
@@ -63,20 +57,7 @@ func runSave(args []string, stdout, stderr io.Writer) int {
 
 	switch {
 	case *all:
-		var saved int
-		saved, err = tmuxApp.SaveAll()
-		if err == nil {
-			if saved == 0 {
-				// Don't leave the user staring at silence (issue #125): a likely
-				// cause is lazy-tmux talking to a different tmux than theirs
-				// (e.g. tmux is a shell alias) — point them at tmux_bin.
-				_, _ = fmt.Fprintln(stdout,
-					"no running tmux sessions found "+
-						"(if you do have sessions, set tmux_bin / --tmux-bin to your tmux binary)")
-			} else {
-				_, _ = fmt.Fprintf(stdout, "saved %d session(s)\n", saved)
-			}
-		}
+		err = saveAllSessions(tmuxApp, stdout)
 	case strings.TrimSpace(*session) != "":
 		err = tmuxApp.SaveSession(strings.TrimSpace(*session))
 	default:
@@ -85,10 +66,33 @@ func runSave(args []string, stdout, stderr io.Writer) int {
 
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("save session: %w", err))
+
 		return 1
 	}
 
 	return 0
+}
+
+// saveAllSessions saves every running session and reports the count — or a
+// hint when nothing was found.
+func saveAllSessions(tmuxApp *app.App, stdout io.Writer) error {
+	saved, err := tmuxApp.SaveAll()
+	if err != nil {
+		return err //nolint:wrapcheck // the caller wraps all save paths uniformly
+	}
+
+	if saved == 0 {
+		// Don't leave the user staring at silence (issue #125): a likely
+		// cause is lazy-tmux talking to a different tmux than theirs
+		// (e.g. tmux is a shell alias) — point them at tmux_bin.
+		_, _ = fmt.Fprintln(stdout,
+			"no running tmux sessions found "+
+				"(if you do have sessions, set tmux_bin / --tmux-bin to your tmux binary)")
+	} else {
+		_, _ = fmt.Fprintf(stdout, "saved %d session(s)\n", saved)
+	}
+
+	return nil
 }
 
 func saveHelp(w io.Writer) {

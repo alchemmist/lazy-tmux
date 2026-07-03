@@ -69,6 +69,8 @@ func TestLoadFromMissingFileUsesDefaults(t *testing.T) {
 }
 
 func TestLoadFromFullFile(t *testing.T) {
+	t.Parallel()
+
 	path := writeConfig(t, `
 tmux_bin = "/usr/local/bin/tmux"
 data_dir = "/snapshots"
@@ -131,6 +133,8 @@ func TestLoadFromPartialFileKeepsDefaults(t *testing.T) {
 }
 
 func TestLoadFromExpandsHomeInDataDir(t *testing.T) {
+	t.Parallel()
+
 	home, err := os.UserHomeDir()
 	if err != nil {
 		t.Skipf("no home dir: %v", err)
@@ -149,6 +153,8 @@ func TestLoadFromExpandsHomeInDataDir(t *testing.T) {
 }
 
 func TestLoadFromExpandsHomeInTmuxBin(t *testing.T) {
+	t.Parallel()
+
 	home, err := os.UserHomeDir()
 	if err != nil {
 		t.Skipf("no home dir: %v", err)
@@ -167,6 +173,8 @@ func TestLoadFromExpandsHomeInTmuxBin(t *testing.T) {
 }
 
 func TestLoadFromMalformedFileErrors(t *testing.T) {
+	t.Parallel()
+
 	path := writeConfig(t, "this is not = valid = toml\n")
 
 	if _, err := LoadFrom(path); err == nil {
@@ -175,6 +183,8 @@ func TestLoadFromMalformedFileErrors(t *testing.T) {
 }
 
 func TestLoadFromInvalidDurationErrors(t *testing.T) {
+	t.Parallel()
+
 	path := writeConfig(t, "save_interval = \"not-a-duration\"\n")
 
 	if _, err := LoadFrom(path); err == nil {
@@ -183,6 +193,8 @@ func TestLoadFromInvalidDurationErrors(t *testing.T) {
 }
 
 func TestLoadFromRestoreAllowlist(t *testing.T) {
+	t.Parallel()
+
 	// Absent key -> nil (allowlist disabled, restore everything).
 	cfg, err := LoadFrom(writeConfig(t, "tmux_bin = \"tmux\"\n"))
 	if err != nil {
@@ -217,6 +229,8 @@ func TestLoadFromRestoreAllowlist(t *testing.T) {
 }
 
 func TestLoadFromRestoreDenylist(t *testing.T) {
+	t.Parallel()
+
 	// Absent key -> nil (nothing blocked).
 	cfg, err := LoadFrom(writeConfig(t, "tmux_bin = \"tmux\"\n"))
 	if err != nil {
@@ -241,6 +255,8 @@ func TestLoadFromRestoreDenylist(t *testing.T) {
 }
 
 func TestLoadFromUnknownKeyErrors(t *testing.T) {
+	t.Parallel()
+
 	// A typo'd key must fail loudly rather than be silently ignored.
 	path := writeConfig(t, "tmux_binn = \"tmux\"\n")
 

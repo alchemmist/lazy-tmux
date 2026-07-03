@@ -39,7 +39,11 @@ func activeWindowIndex(t *testing.T, name string) string {
 // current window is stored as 0. Restoring it used to fail hard with
 // "can't find window: 0" because the focus selection trusted the recorded index
 // blindly. The restore must now succeed and focus the only real window instead.
-func TestRestoreToleratesBaseIndexMismatch(t *testing.T) {
+//
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
+func TestRestoreToleratesBaseIndexMismatch(
+	t *testing.T,
+) {
 	testutil.IsolatedTmux(t)
 
 	client := tmux.NewClient("tmux")
@@ -81,7 +85,11 @@ func TestRestoreToleratesBaseIndexMismatch(t *testing.T) {
 // recorded window 0 / pane 0 need not exist after restore, so focusing them used
 // to fail hard ("can't find window: 0" / "can't find pane: 0") and abort the
 // whole restore. The restore must now succeed and leave the session alive.
-func TestRestoreToleratesPaneBaseIndexMismatch(t *testing.T) {
+//
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
+func TestRestoreToleratesPaneBaseIndexMismatch(
+	t *testing.T,
+) {
 	testutil.IsolatedTmux(t)
 
 	// Reconfigure the isolated server to index windows and panes from 1, so the
@@ -125,7 +133,11 @@ func TestRestoreToleratesPaneBaseIndexMismatch(t *testing.T) {
 // (The fine-grained "did it really block?" guarantee is covered deterministically
 // by TestWaitForRestoredCommands* with a fake runner; here we confirm the whole
 // real-tmux path settles correctly.)
-func TestRestoreWaitsForCommandsToStart(t *testing.T) {
+//
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
+func TestRestoreWaitsForCommandsToStart(
+	t *testing.T,
+) {
 	testutil.IsolatedTmux(t)
 
 	client := tmux.NewClient("tmux")
@@ -164,7 +176,11 @@ func TestRestoreWaitsForCommandsToStart(t *testing.T) {
 // TestRestoreAllowlistFiltersCommands covers issue #74 end-to-end: with an
 // allowlist configured, only permitted commands are replayed; a disallowed
 // command leaves its pane at the shell.
-func TestRestoreAllowlistFiltersCommands(t *testing.T) {
+//
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
+func TestRestoreAllowlistFiltersCommands(
+	t *testing.T,
+) {
 	assertGuardedRestore(t, "guarded", func(client *tmux.Client) {
 		client.SetRestoreAllowlist([]string{"cat"}) // allow cat, block everything else
 	})
@@ -173,7 +189,11 @@ func TestRestoreAllowlistFiltersCommands(t *testing.T) {
 // TestRestoreDenylistBlocksCommands covers issue #203 end-to-end: a command in
 // the denylist is not replayed even with no allowlist configured; other panes
 // still restore normally.
-func TestRestoreDenylistBlocksCommands(t *testing.T) {
+//
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
+func TestRestoreDenylistBlocksCommands(
+	t *testing.T,
+) {
 	assertGuardedRestore(t, "denied", func(client *tmux.Client) {
 		client.SetRestoreDenylist([]string{"tail"}) // block tail, restore everything else
 	})
@@ -238,7 +258,11 @@ func assertGuardedRestore(t *testing.T, name string, configure func(*tmux.Client
 // TestRestoreHonorsRecordedFocus guards the happy path: when the recorded
 // current window exists, restore focuses exactly that window rather than
 // falling back.
-func TestRestoreHonorsRecordedFocus(t *testing.T) {
+//
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
+func TestRestoreHonorsRecordedFocus(
+	t *testing.T,
+) {
 	testutil.IsolatedTmux(t)
 
 	client := tmux.NewClient("tmux")

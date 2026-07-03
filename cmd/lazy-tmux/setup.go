@@ -8,13 +8,14 @@ import (
 )
 
 func runSetup(args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("setup", flag.ContinueOnError)
+	flags := flag.NewFlagSet(cmdSetup, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 
 	err := flags.Parse(args)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			setupHelp(stdout)
+
 			return 0
 		}
 

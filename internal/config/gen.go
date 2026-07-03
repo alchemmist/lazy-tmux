@@ -26,7 +26,7 @@ func GenerateConfig(path string, force bool) (string, error) {
 	}
 
 	if strings.TrimSpace(path) == "" {
-		return "", errors.New("could not determine a config path (pass --path or set $HOME)")
+		return "", errNoConfigPath
 	}
 
 	if !force {
@@ -34,7 +34,7 @@ func GenerateConfig(path string, force bool) (string, error) {
 
 		switch {
 		case statErr == nil:
-			return path, fmt.Errorf("%s already exists (use --force to overwrite)", path)
+			return path, fmt.Errorf("%s %w", path, errConfigExists)
 		case !errors.Is(statErr, fs.ErrNotExist):
 			return path, fmt.Errorf("stat %s: %w", path, statErr)
 		}
@@ -42,15 +42,22 @@ func GenerateConfig(path string, force bool) (string, error) {
 
 	dir := filepath.Dir(path)
 	if dir != "" {
-		mkErr := os.MkdirAll(dir, 0o755)
+		mkErr := os.MkdirAll(dir, 0o750)
 		if mkErr != nil {
 			return path, fmt.Errorf("create %s: %w", dir, mkErr)
 		}
 	}
 
-	writeErr := os.WriteFile(path, []byte(DefaultConfigTemplate), 0o644)
+	writeErr := os.WriteFile(path, []byte(DefaultConfigTemplate), 0o600)
 	if writeErr != nil {
 		return path, fmt.Errorf("write %s: %w", path, writeErr)
+	}
+
+	// os.WriteFile keeps an existing file's mode; --force overwrites must still
+	// end up private.
+	chmodErr := os.Chmod(path, 0o600)
+	if chmodErr != nil {
+		return path, fmt.Errorf("chmod %s: %w", path, chmodErr)
 	}
 
 	return path, nil

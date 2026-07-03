@@ -32,6 +32,8 @@ func New(home, statusDir string) *Integration {
 	return &Integration{home: home, statusDir: statusDir}
 }
 
+// Name returns "claude", the identifier that namespaces this integration's
+// snapshot metadata keys.
 func (i *Integration) Name() string { return "claude" }
 
 // Matches reports whether the pane is running Claude Code. Claude is a Node app,
@@ -123,6 +125,7 @@ func (i *Integration) latestSessionID(cwd string) (string, bool) {
 // "/Users/me/code/lazy-tmux" -> "-Users-me-code-lazy-tmux".
 func EncodeProjectDir(cwd string) string {
 	replacer := strings.NewReplacer("/", "-", ".", "-")
+
 	return replacer.Replace(cwd)
 }
 

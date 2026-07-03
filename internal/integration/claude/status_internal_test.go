@@ -12,6 +12,8 @@ import (
 )
 
 func TestStatusFromHookFile(t *testing.T) {
+	t.Parallel()
+
 	statusDir := t.TempDir()
 	cwd := "/Users/me/code/proj"
 
@@ -34,6 +36,8 @@ func TestStatusFromHookFile(t *testing.T) {
 }
 
 func TestStatusHookStatesMap(t *testing.T) {
+	t.Parallel()
+
 	cases := map[string]integration.Status{
 		StateWorking:          integration.StatusWorking,
 		StateAwaitingDecision: integration.StatusAwaitingDecision,
@@ -57,6 +61,8 @@ func TestStatusHookStatesMap(t *testing.T) {
 }
 
 func TestStatusHookIgnoresCWDMismatch(t *testing.T) {
+	t.Parallel()
+
 	statusDir := t.TempDir()
 	pane := "/Users/me/code/proj"
 
@@ -75,6 +81,8 @@ func TestStatusHookIgnoresCWDMismatch(t *testing.T) {
 }
 
 func TestStatusFallsBackToSessionFile(t *testing.T) {
+	t.Parallel()
+
 	home := t.TempDir()
 	cwd := "/Users/me/proj"
 
@@ -89,6 +97,8 @@ func TestStatusFallsBackToSessionFile(t *testing.T) {
 }
 
 func TestStatusSessionFileWaiting(t *testing.T) {
+	t.Parallel()
+
 	home := t.TempDir()
 	cwd := "/Users/me/proj"
 
@@ -101,6 +111,8 @@ func TestStatusSessionFileWaiting(t *testing.T) {
 }
 
 func TestStatusSessionFileSkipsDeadProcess(t *testing.T) {
+	t.Parallel()
+
 	home := t.TempDir()
 	cwd := "/Users/me/proj"
 
@@ -113,6 +125,8 @@ func TestStatusSessionFileSkipsDeadProcess(t *testing.T) {
 }
 
 func TestStatusNoneWhenUnknown(t *testing.T) {
+	t.Parallel()
+
 	got, ok := New(t.TempDir(), t.TempDir()).Status(snapshot.Pane{CurrentPath: "/nowhere"})
 	if ok || got != integration.StatusUnknown {
 		t.Fatalf("expected no status, got %v ok=%v", got, ok)
