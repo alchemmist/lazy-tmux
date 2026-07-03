@@ -60,6 +60,65 @@ func TestListSessionsPropagatesRealErrors(t *testing.T) {
 	}
 }
 
+// stdoutRunner is a fake tmux runner that returns a fixed stdout (and optional
+// error) for every command, for exercising output parsing without a real server.
+type stdoutRunner struct {
+	out string
+	err error
+}
+
+func (r stdoutRunner) runCommand(_ ...string) commandResult {
+	return commandResult{stdout: r.out, err: r.err}
+}
+
+// errFakeNoServer mimics tmux's no-server failure for best-effort paths.
+var errFakeNoServer = errors.New("no server running")
+
+func TestSessionsLastAttached(t *testing.T) {
+	t.Parallel()
+
+	// Lines are "<epoch>|<name>"; a name may itself contain the separator, and it
+	// is the trailing field so it stays intact. Epoch 0 = never attached.
+	out := "1751385600" + fieldSep + "work\n" +
+		"0" + fieldSep + "never\n" +
+		"1751472000" + fieldSep + "a" + fieldSep + "b\n"
+
+	got := NewClientWithRunner("tmux", stdoutRunner{out: out}).SessionsLastAttached()
+
+	if len(got) != 2 {
+		t.Fatalf("expected 2 attached sessions (never-attached dropped), got %#v", got)
+	}
+
+	if want := time.Unix(1751385600, 0).UTC(); !got["work"].Equal(want) {
+		t.Fatalf("work: got %v want %v", got["work"], want)
+	}
+
+	// The separator-bearing name must survive as a whole key.
+	if _, ok := got["a"+fieldSep+"b"]; !ok {
+		t.Fatalf("expected name with separator preserved, got %#v", got)
+	}
+
+	if _, ok := got["never"]; ok {
+		t.Fatal("a never-attached session (epoch 0) must be omitted")
+	}
+}
+
+func TestSessionsLastAttachedBestEffortOnError(t *testing.T) {
+	t.Parallel()
+
+	// No server / unsupported format: return nil, never an error, so the picker
+	// falls back to stored LastAccessed.
+	got := NewClientWithRunner(
+		"tmux",
+		stdoutRunner{err: errFakeNoServer},
+	).
+		SessionsLastAttached()
+
+	if got != nil {
+		t.Fatalf("expected nil on error, got %#v", got)
+	}
+}
+
 // pollRunner is a fake tmux runner that reports a pane running the shell until
 // the configured poll, then reports the restored command. It lets us drive
 // waitForRestoredCommands deterministically without a real tmux server.

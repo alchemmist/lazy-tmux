@@ -326,6 +326,51 @@ func isNoServerError(err error) bool {
 	}
 }
 
+// SessionsLastAttached returns, per live session, the moment tmux last attached a
+// client to it (#{session_last_attached}, epoch seconds). Sessions never attached
+// (value 0/empty) are omitted. It lets the picker's last-used sort account for
+// native tmux switches — prefix+L, switch-client, attach — which lazy-tmux's own
+// access tracking never sees (#196).
+//
+// Best-effort: any failure (no server running, or a tmux too old to expose the
+// format) yields an empty map, so callers simply fall back to the stored
+// LastAccessed instead of breaking the picker. The epoch comes first so the
+// session name (which may contain the field separator) stays intact as the
+// trailing field.
+func (client *Client) SessionsLastAttached() map[string]time.Time {
+	out, err := client.Output(
+		"list-sessions",
+		"-F",
+		"#{session_last_attached}"+fieldSep+"#{session_name}",
+	)
+	if err != nil {
+		return nil
+	}
+
+	result := make(map[string]time.Time)
+
+	for _, line := range splitLines(out) {
+		fields := splitFieldsN(line, 2)
+		if len(fields) != 2 {
+			continue
+		}
+
+		name := fields[1]
+		if strings.TrimSpace(name) == "" {
+			continue
+		}
+
+		secs, parseErr := strconv.ParseInt(strings.TrimSpace(fields[0]), 10, 64)
+		if parseErr != nil || secs <= 0 {
+			continue // never attached, or unparsable
+		}
+
+		result[name] = time.Unix(secs, 0).UTC()
+	}
+
+	return result
+}
+
 // CurrentSession returns the name of the session the calling client is
 // attached to, as reported by "display-message -p #S". It errors when run
 // outside tmux with no server to answer.

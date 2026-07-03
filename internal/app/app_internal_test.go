@@ -469,3 +469,38 @@ func TestParsePickerSortOptions(t *testing.T) {
 		t.Fatal("expected error for bogus sort field")
 	}
 }
+
+func TestMergeLastAttached(t *testing.T) {
+	t.Parallel()
+
+	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	records := []snapshot.Record{
+		{SessionName: "fresher-attach", LastAccessed: base},
+		{SessionName: "fresher-stored", LastAccessed: base.Add(2 * time.Hour)},
+		{SessionName: "not-live", LastAccessed: base},
+	}
+
+	attached := map[string]time.Time{
+		"fresher-attach": base.Add(time.Hour), // native switch newer -> wins
+		"fresher-stored": base.Add(time.Hour), // older than stored -> keep stored
+		// "not-live" absent: dead/asleep session keeps its stored time.
+	}
+
+	mergeLastAttached(records, attached)
+
+	if got := records[0].LastAccessed; !got.Equal(base.Add(time.Hour)) {
+		t.Fatalf("fresher-attach should take the newer attach time, got %v", got)
+	}
+
+	if got := records[1].LastAccessed; !got.Equal(base.Add(2 * time.Hour)) {
+		t.Fatalf("fresher-stored should keep the newer stored time, got %v", got)
+	}
+
+	if got := records[2].LastAccessed; !got.Equal(base) {
+		t.Fatalf("not-live should be unchanged, got %v", got)
+	}
+
+	// A nil/empty map is a no-op and must not panic.
+	mergeLastAttached(records, nil)
+}
