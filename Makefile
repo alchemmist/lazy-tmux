@@ -7,7 +7,7 @@ MAKEFLAGS += --no-builtin-variables
 
 BINARY := lazy-tmux
 
-.PHONY: check build build-fzf build-all test test-cov integration-test fmt install clean dist dist-tui dist-fzf tag sandbox test-sup-versions docker-hub vet setup-env golangci-lint docs-install docs-dev docs-build docs-preview
+.PHONY: check build build-fzf build-all test test-cov integration-test fmt install clean dist dist-tui dist-fzf release-patch release-minor release-major sandbox test-sup-versions docker-hub vet setup-env golangci-lint docs-install docs-dev docs-build docs-preview
 
 check: build vet golangci-lint test integration-test
 
@@ -57,31 +57,17 @@ dist-tui:
 dist-fzf:
 	goreleaser release --snapshot --clean --id lazy-tmux-fzf
 
-tag:
-	@if ! git diff --quiet || ! git diff --cached --quiet; then \
-		echo "working tree is dirty; commit or stash changes first"; \
-		exit 1; \
-	fi
-	@latest="$$(git tag --list 'v*' --sort=-v:refname | head -n1)"; \
-	if [ -z "$$latest" ]; then \
-		next="v0.1.0"; \
-	else \
-		ver="$${latest#v}"; \
-		IFS=. read -r major minor patch <<< "$$ver"; \
-		case "$${TYPE:-patch}" in \
-			patch) patch=$$((patch+1));; \
-			minor) minor=$$((minor+1)); patch=0;; \
-			major) major=$$((major+1)); minor=0; patch=0;; \
-			*) echo "TYPE must be patch, minor, or major"; exit 1;; \
-		esac; \
-		next="v$${major}.$${minor}.$${patch}"; \
-	fi; \
-	if git rev-parse -q --verify "refs/tags/$$next" >/dev/null; then \
-		echo "tag $$next already exists"; \
-		exit 1; \
-	fi; \
-	echo "tagging $$next"; \
-	git tag -a "$$next" -m "release $$next"
+# Cut a release: guards (main, clean, synced), `make check`, semver tag, push —
+# the release workflow (GoReleaser, Homebrew tap, AUR) picks the tag up from
+# there. Shows the commits being released and asks for confirmation.
+release-patch:
+	./scripts/release.sh patch
+
+release-minor:
+	./scripts/release.sh minor
+
+release-major:
+	./scripts/release.sh major
 
 setup-env:
 	go install gotest.tools/gotestsum@v1.13.0
