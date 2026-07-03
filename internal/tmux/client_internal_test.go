@@ -1,11 +1,64 @@
 package tmux
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
+
+// errFakeRunner is the static base of every errRunner failure; the per-case
+// wording is wrapped around it (err113).
+var errFakeRunner = errors.New("fake runner failure")
+
+// errRunner is a fake tmux runner that fails every command with a fixed error,
+// used to check how error messages are classified (e.g. "no server running").
+type errRunner struct{ msg string }
+
+func (r errRunner) runCommand(_ ...string) commandResult {
+	return commandResult{err: fmt.Errorf("%s: %w", r.msg, errFakeRunner)}
+}
+
+func TestListSessionsTreatsNoServerAsEmpty(t *testing.T) {
+	t.Parallel()
+	// Both wordings mean "no tmux server is running" and must yield zero live
+	// sessions without an error, so the picker still opens (#198).
+	cases := map[string]string{
+		"linux no server running": "tmux list-sessions: exit status 1 (no server running on /tmp/tmux-1000/default)",
+		"macos socket missing": "tmux list-sessions -F #{session_name}: exit status 1 " +
+			"(error connecting to /private/tmp/tmux-501/default (No such file or directory))",
+	}
+
+	for name, msg := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			client := NewClientWithRunner("tmux", errRunner{msg: msg})
+
+			got, err := client.ListSessions()
+			if err != nil {
+				t.Fatalf("no-server error must be swallowed, got %v", err)
+			}
+
+			if got != nil {
+				t.Fatalf("expected nil sessions, got %#v", got)
+			}
+		})
+	}
+}
+
+func TestListSessionsPropagatesRealErrors(t *testing.T) {
+	t.Parallel()
+
+	// A genuine failure (not a missing server) must still surface.
+	client := NewClientWithRunner("tmux", errRunner{msg: "tmux: command not found"})
+
+	if _, err := client.ListSessions(); err == nil {
+		t.Fatal("a real error must propagate, not be swallowed as no-server")
+	}
+}
 
 // pollRunner is a fake tmux runner that reports a pane running the shell until
 // the configured poll, then reports the restored command. It lets us drive

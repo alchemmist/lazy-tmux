@@ -289,7 +289,7 @@ func (client *Client) SessionExists(name string) bool {
 func (client *Client) ListSessions() ([]string, error) {
 	out, err := client.Output("list-sessions", "-F", "#{session_name}")
 	if err != nil {
-		if strings.Contains(err.Error(), "no server running") {
+		if isNoServerError(err) {
 			return nil, nil
 		}
 
@@ -300,6 +300,30 @@ func (client *Client) ListSessions() ([]string, error) {
 	sort.Strings(lines)
 
 	return lines, nil
+}
+
+// isNoServerError reports whether err means "no tmux server is running", which
+// callers treat as zero live sessions rather than a failure. tmux's wording
+// varies by platform and version: Linux typically prints "no server running on
+// <socket>", while macOS fails to connect to the socket and prints "error
+// connecting to <socket> (No such file or directory)". Match both, case-
+// insensitively, since the exact text is not stable (#198).
+func isNoServerError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	msg := strings.ToLower(err.Error())
+
+	switch {
+	case strings.Contains(msg, "no server running"):
+		return true
+	case strings.Contains(msg, "error connecting to") &&
+		strings.Contains(msg, "no such file or directory"):
+		return true
+	default:
+		return false
+	}
 }
 
 // CurrentSession returns the name of the session the calling client is
