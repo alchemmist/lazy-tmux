@@ -76,7 +76,8 @@ func TestApplyClaudeHooksInstallPreservesExisting(t *testing.T) {
 
 	// All hooked events present.
 	for _, event := range []string{
-		"Notification", "UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop",
+		"Notification", "UserPromptSubmit", "PreToolUse", "PostToolUse",
+		"PermissionDenied", "Stop",
 	} {
 		if len(hooks[event]) == 0 {
 			t.Fatalf("event %q missing after install", event)

@@ -32,12 +32,16 @@ func claudeHookSpecs() []claudeHookSpec {
 	// tool finishes. Together they clear a stale awaiting_decision once the
 	// permission is resolved — nothing else fires at the approval moment, so
 	// without them the picker keeps showing "?" while Claude is busy working.
+	// PermissionDenied covers auto-classifier blocks; a MANUAL denial fires no
+	// hook at all, but Claude keeps processing the turn afterwards, so the next
+	// PreToolUse or Stop bounds that stale window to seconds.
 	return []claudeHookSpec{
 		{event: "Notification", matcher: "permission_prompt", state: claude.StateAwaitingDecision},
 		{event: "Notification", matcher: "idle_prompt", state: claude.StateAwaitingInput},
 		{event: "UserPromptSubmit", matcher: "", state: claude.StateWorking},
 		{event: "PreToolUse", matcher: "", state: claude.StateWorking},
 		{event: "PostToolUse", matcher: "", state: claude.StateWorking},
+		{event: "PermissionDenied", matcher: "", state: claude.StateWorking},
 		{event: "Stop", matcher: "", state: claude.StateIdle},
 	}
 }
