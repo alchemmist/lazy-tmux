@@ -142,8 +142,20 @@ func writeErr(w io.Writer, err error) {
 	}
 }
 
+// asciiMoon is the crescent-moon-and-star banner shown at the top of the help
+// text, echoing the pixel-art "night" logo (#38).
+const asciiMoon = `      ▄████▄
+    ▄██▀▀        ·
+   ▐██▘       ✦
+   ▐██▌
+   ▐██▖          ·
+    ▀██▄▄
+      ▀████▀`
+
 func printUsage(w io.Writer) {
-	_, _ = fmt.Fprintf(w, `lazy-tmux - tmux session snapshots with lazy restore
+	_, _ = fmt.Fprintf(w, `%s
+
+lazy-tmux - tmux session snapshots with lazy restore
 
 Usage:
   lazy-tmux <command> [flags]
@@ -165,5 +177,5 @@ Commands:
   version    Print the version
 
 Run 'lazy-tmux <command> -h' for more details.
-`)
+`, asciiMoon)
 }
