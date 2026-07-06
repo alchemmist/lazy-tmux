@@ -274,13 +274,14 @@ func TestExpectedPaneCommands(t *testing.T) {
 			Index: 1,
 			Panes: []snapshot.Pane{
 				{Index: 0, RestoreCmd: "nvim main.go"}, // real command -> nvim
-				{Index: 1, RestoreCmd: "zsh"},          // shell only -> skipped
+				{Index: 1, RestoreCmd: "fish"},         // launched shell -> replayed (issue #66)
 			},
 		},
 		{
 			Index: 2,
 			Panes: []snapshot.Pane{
 				{Index: 0, CurrentCmd: "htop -d 5"}, // falls back to current command
+				{Index: 1, CurrentCmd: "zsh"},       // default shell -> skipped
 			},
 		},
 	}
@@ -288,7 +289,7 @@ func TestExpectedPaneCommands(t *testing.T) {
 	// No allowlist configured -> every real command is expected.
 	got := NewClient("tmux").expectedPaneCommands(windows)
 
-	want := map[string]string{"1.0": "nvim", "2.0": "htop"}
+	want := map[string]string{"1.0": "nvim", "1.1": "fish", "2.0": "htop"}
 	if len(got) != len(want) {
 		t.Fatalf("expectedPaneCommands size: got %#v want %#v", got, want)
 	}
@@ -481,8 +482,9 @@ func TestNormalizedCommand(t *testing.T) {
 		restore, current, want string
 	}{
 		{"nvim", "zsh", "nvim"}, // restore wins when it is a real command
-		{"zsh", "nvim", "nvim"}, // restore is a shell -> use current
-		{"zsh", "bash", ""},     // both shells -> nothing to restore
+		{"zsh", "nvim", "nvim"}, // restore is a shell -> prefer a real current
+		{"fish", "zsh", "fish"}, // explicitly launched shell is replayed (issue #66)
+		{"", "zsh", ""},         // default shell only -> nothing to restore
 		{`"htop"`, "", "htop"},  // quotes stripped
 	}
 
@@ -518,9 +520,37 @@ func TestPickForegroundCommand(t *testing.T) {
 		t.Fatalf("expected foreground nvim, got %q", got)
 	}
 
-	// Only a shell present -> nothing to restore.
+	// Only the pane's own shell present -> nothing to restore.
 	if got := pickForegroundCommand([]string{"100 1 Ss zsh"}, 100); got != "" {
 		t.Fatalf("expected empty for shell-only, got %q", got)
+	}
+
+	// A foreground shell launched inside the pane is kept (issue #66).
+	launched := []string{
+		"100 1 Ss zsh",    // the pane's own shell
+		"300 100 S+ fish", // user ran fish from zsh
+	}
+	if got := pickForegroundCommand(launched, 100); got != "fish" {
+		t.Fatalf("expected launched fish, got %q", got)
+	}
+
+	// A background shell is a prompt/completion helper, not user intent.
+	helper := []string{
+		"100 1 Ss zsh",
+		"301 100 S zsh -c helper",
+	}
+	if got := pickForegroundCommand(helper, 100); got != "" {
+		t.Fatalf("expected empty for background shell helper, got %q", got)
+	}
+
+	// A real command wins over a launched shell (nvim started from fish).
+	nested := []string{
+		"100 1 Ss zsh",
+		"300 100 S fish",
+		"400 300 S+ nvim",
+	}
+	if got := pickForegroundCommand(nested, 100); got != "nvim" {
+		t.Fatalf("expected nvim over launched shell, got %q", got)
 	}
 }
 
