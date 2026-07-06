@@ -3,6 +3,7 @@ package tmux
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -521,6 +522,38 @@ func TestPickForegroundCommand(t *testing.T) {
 	// Only a shell present -> nothing to restore.
 	if got := pickForegroundCommand([]string{"100 1 Ss zsh"}, 100); got != "" {
 		t.Fatalf("expected empty for shell-only, got %q", got)
+	}
+}
+
+// argsRunner is a fake tmux runner that records the argv of every command, for
+// asserting how tmux is invoked.
+type argsRunner struct{ calls [][]string }
+
+func (r *argsRunner) runCommand(args ...string) commandResult {
+	r.calls = append(r.calls, args)
+
+	return commandResult{}
+}
+
+func TestCapturePaneScrollbackArgs(t *testing.T) {
+	t.Parallel()
+
+	runner := &argsRunner{}
+	client := NewClientWithRunner("tmux", runner)
+
+	if _, err := client.CapturePaneScrollback("sess:1.0", 0); err != nil {
+		t.Fatalf("CapturePaneScrollback: %v", err)
+	}
+
+	if len(runner.calls) != 1 {
+		t.Fatalf("expected 1 tmux call, got %d", len(runner.calls))
+	}
+
+	// -e keeps colors, -J joins wrapped lines (#37), and a non-positive lines
+	// value falls back to the 5000-line default.
+	want := []string{"tmux", "capture-pane", "-p", "-e", "-J", "-S", "-5000", "-t", "sess:1.0"}
+	if got := runner.calls[0]; !slices.Equal(got, want) {
+		t.Fatalf("capture-pane args:\n got %q\nwant %q", got, want)
 	}
 }
 
