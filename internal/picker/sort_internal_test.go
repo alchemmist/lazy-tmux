@@ -42,7 +42,6 @@ func TestParseSortOptionsValid(t *testing.T) {
 		t.Fatalf("unexpected window keys: %+v", opts.Window)
 	}
 
-	// Window cmd default direction is ascending; index:desc explicit.
 	if opts.Window[1].Field != WindowSortIndex || !opts.Window[1].Desc {
 		t.Fatalf("unexpected window key[1]: %+v", opts.Window[1])
 	}
@@ -65,7 +64,6 @@ func TestParseSortOptionsEmptyKeepsDefaults(t *testing.T) {
 func TestParseSortOptionsDefaultDirections(t *testing.T) {
 	t.Parallel()
 
-	// panes (window) defaults to desc; name defaults to asc.
 	opts, err := ParseSortOptions("captured", "panes")
 	if err != nil {
 		t.Fatalf("parse: %v", err)
@@ -123,7 +121,6 @@ func TestSortSessionRecords(t *testing.T) {
 		t.Fatalf("windows desc failed: %+v", recs)
 	}
 
-	// captured desc, tie-break by name asc.
 	SortSessionRecords(recs, []SessionSortKey{{Field: SessionSortCaptured, Desc: true}})
 
 	if recs[0].SessionName != "a" || recs[1].SessionName != "c" || recs[2].SessionName != "b" {
@@ -162,7 +159,6 @@ func TestSortWindows(t *testing.T) {
 func TestWindowPreviewCommand(t *testing.T) {
 	t.Parallel()
 
-	// Prefers RestoreCmd of the active pane; falls back to CurrentCmd.
 	win := snapshot.Window{
 		ActivePane: 1,
 		Panes: []snapshot.Pane{

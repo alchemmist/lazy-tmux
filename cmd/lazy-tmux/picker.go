@@ -39,8 +39,6 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	// Validate flag combinations before any config loading, so invalid usage is
-	// rejected deterministically rather than masked by an unrelated config error.
 	if *windows && !*fzfEngine {
 		writeErr(stderr, errWindowsRequiresFzf)
 
@@ -74,8 +72,6 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 	return runTUIPicker(tmuxApp, sortOpts, stderr)
 }
 
-// runTUIPicker opens the built-in TUI, then restores the pick behind the
-// loading animation.
 func runTUIPicker(tmuxApp *app.App, sortOpts app.PickerSortOptions, stderr io.Writer) int {
 	target, err := tmuxApp.SelectTargetWithTUISorted(sortOpts)
 	if err != nil {
@@ -94,9 +90,6 @@ func runTUIPicker(tmuxApp *app.App, sortOpts app.PickerSortOptions, stderr io.Wr
 	return 0
 }
 
-// runFZFPicker picks a session (or a window when windows is true) via the fzf
-// engine and attaches into the pick even from a plain shell — fzf has no TUI to
-// draw an animation into.
 func runFZFPicker(
 	tmuxApp *app.App,
 	windows bool,

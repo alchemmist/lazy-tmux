@@ -9,8 +9,6 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
-// writeTranscript creates <home>/projects/<encoded cwd>/<id>.jsonl with the
-// given modification time so tests can control which one is "newest".
 func writeTranscript(t *testing.T, home, cwd, id string, mod time.Time) {
 	t.Helper()
 

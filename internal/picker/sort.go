@@ -10,8 +10,6 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
-// Sentinel errors of sort-expression parsing; the offending field/term is
-// wrapped around them at the call sites.
 var (
 	errDuplicateSessionSortField = errors.New("duplicate session sort field")
 	errEmptySessionSortExpr      = errors.New("empty session sort expression")
@@ -23,34 +21,25 @@ var (
 	errInvalidSortDirection      = errors.New("invalid direction")
 )
 
-// SortOptions bundles the ordered sort keys applied to the session list and to
-// the windows within each session.
 type SortOptions struct {
 	Session []SessionSortKey
 	Window  []WindowSortKey
 }
 
-// SessionSortKey is one session sort criterion: the field to compare and
-// whether to order descending.
 type SessionSortKey struct {
 	Field SessionSortField
 	Desc  bool
 }
 
-// WindowSortKey is one window sort criterion: the field to compare and whether
-// to order descending.
 type WindowSortKey struct {
 	Field WindowSortField
 	Desc  bool
 }
 
-// SessionSortField names a sortable attribute of a session record.
 type SessionSortField string
 
-// WindowSortField names a sortable attribute of a window.
 type WindowSortField string
 
-// Session sort fields accepted in sort expressions.
 const (
 	SessionSortLastUsed SessionSortField = "last-used"
 	SessionSortCaptured SessionSortField = "captured"
@@ -59,7 +48,6 @@ const (
 	SessionSortPanes    SessionSortField = "panes"
 )
 
-// Window sort fields accepted in sort expressions.
 const (
 	WindowSortIndex WindowSortField = "index"
 	WindowSortName  WindowSortField = "name"
@@ -67,8 +55,6 @@ const (
 	WindowSortCmd   WindowSortField = "cmd"
 )
 
-// DefaultSortOptions returns the built-in ordering: sessions by last-used then
-// captured time (newest first) then name, windows by index then name.
 func DefaultSortOptions() SortOptions {
 	return SortOptions{
 		Session: []SessionSortKey{
@@ -83,9 +69,6 @@ func DefaultSortOptions() SortOptions {
 	}
 }
 
-// ParseSortOptions parses comma-separated "field[:asc|desc]" expressions for
-// sessions and windows. A blank expression keeps the corresponding default from
-// DefaultSortOptions; a malformed one returns an error.
 func ParseSortOptions(sessionExpr, windowExpr string) (SortOptions, error) {
 	opts := DefaultSortOptions()
 
@@ -234,8 +217,6 @@ func parseWindowSortPart(part string) (WindowSortField, bool, error) {
 	return field, desc, nil
 }
 
-// splitSortPart splits one "field:direction" sort term into the field name,
-// the direction, and whether a direction was given at all.
 func splitSortPart(part string) (string, string, bool) {
 	left, right, ok := strings.Cut(strings.TrimSpace(part), ":")
 	if !ok {
@@ -326,8 +307,6 @@ func sortSessionRecords(records []snapshot.Record, keys []SessionSortKey) {
 	})
 }
 
-// SortSessionRecords sorts records in place by the given keys, falling back to
-// session name for a stable, deterministic order when all keys compare equal.
 func SortSessionRecords(records []snapshot.Record, keys []SessionSortKey) {
 	sortSessionRecords(records, keys)
 }
@@ -392,8 +371,6 @@ func sortWindows(windows []snapshot.Window, keys []WindowSortKey) {
 	})
 }
 
-// SortWindows sorts windows in place by the given keys, falling back to window
-// index for a stable, deterministic order when all keys compare equal.
 func SortWindows(windows []snapshot.Window, keys []WindowSortKey) {
 	sortWindows(windows, keys)
 }

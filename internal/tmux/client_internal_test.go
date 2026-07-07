@@ -10,12 +10,8 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
-// errFakeRunner is the static base of every errRunner failure; the per-case
-// wording is wrapped around it (err113).
 var errFakeRunner = errors.New("fake runner failure")
 
-// errRunner is a fake tmux runner that fails every command with a fixed error,
-// used to check how error messages are classified (e.g. "no server running").
 type errRunner struct{ msg string }
 
 func (r errRunner) runCommand(_ ...string) commandResult {
@@ -24,8 +20,6 @@ func (r errRunner) runCommand(_ ...string) commandResult {
 
 func TestListSessionsTreatsNoServerAsEmpty(t *testing.T) {
 	t.Parallel()
-	// Both wordings mean "no tmux server is running" and must yield zero live
-	// sessions without an error, so the picker still opens (#198).
 	cases := map[string]string{
 		"linux no server running": "tmux list-sessions: exit status 1 (no server running on /tmp/tmux-1000/default)",
 		"macos socket missing": "tmux list-sessions -F #{session_name}: exit status 1 " +
@@ -53,7 +47,6 @@ func TestListSessionsTreatsNoServerAsEmpty(t *testing.T) {
 func TestListSessionsPropagatesRealErrors(t *testing.T) {
 	t.Parallel()
 
-	// A genuine failure (not a missing server) must still surface.
 	client := NewClientWithRunner("tmux", errRunner{msg: "tmux: command not found"})
 
 	if _, err := client.ListSessions(); err == nil {
@@ -61,8 +54,6 @@ func TestListSessionsPropagatesRealErrors(t *testing.T) {
 	}
 }
 
-// stdoutRunner is a fake tmux runner that returns a fixed stdout (and optional
-// error) for every command, for exercising output parsing without a real server.
 type stdoutRunner struct {
 	out string
 	err error
@@ -72,14 +63,11 @@ func (r stdoutRunner) runCommand(_ ...string) commandResult {
 	return commandResult{stdout: r.out, err: r.err}
 }
 
-// errFakeNoServer mimics tmux's no-server failure for best-effort paths.
 var errFakeNoServer = errors.New("no server running")
 
 func TestSessionsLastAttached(t *testing.T) {
 	t.Parallel()
 
-	// Lines are "<epoch>|<name>"; a name may itself contain the separator, and it
-	// is the trailing field so it stays intact. Epoch 0 = never attached.
 	out := "1751385600" + fieldSep + "work\n" +
 		"0" + fieldSep + "never\n" +
 		"1751472000" + fieldSep + "a" + fieldSep + "b\n"
@@ -94,7 +82,6 @@ func TestSessionsLastAttached(t *testing.T) {
 		t.Fatalf("work: got %v want %v", got["work"], want)
 	}
 
-	// The separator-bearing name must survive as a whole key.
 	if _, ok := got["a"+fieldSep+"b"]; !ok {
 		t.Fatalf("expected name with separator preserved, got %#v", got)
 	}
@@ -107,8 +94,6 @@ func TestSessionsLastAttached(t *testing.T) {
 func TestSessionsLastAttachedBestEffortOnError(t *testing.T) {
 	t.Parallel()
 
-	// No server / unsupported format: return nil, never an error, so the picker
-	// falls back to stored LastAccessed.
 	got := NewClientWithRunner(
 		"tmux",
 		stdoutRunner{err: errFakeNoServer},
@@ -120,14 +105,11 @@ func TestSessionsLastAttachedBestEffortOnError(t *testing.T) {
 	}
 }
 
-// pollRunner is a fake tmux runner that reports a pane running the shell until
-// the configured poll, then reports the restored command. It lets us drive
-// waitForRestoredCommands deterministically without a real tmux server.
 type pollRunner struct {
 	calls    int
-	settleOn int    // 1-based poll at which the command finally appears
-	before   string // pane_current_command before it settles
-	after    string // pane_current_command once it settles
+	settleOn int
+	before   string
+	after    string
 }
 
 func (r *pollRunner) runCommand(args ...string) commandResult {
@@ -160,8 +142,6 @@ func TestWaitForRestoredCommandsBlocksUntilStarted(t *testing.T) {
 
 	client.waitForRestoredCommands("sess", waitTestWindows())
 
-	// It must keep polling while the pane still shows the shell, only returning
-	// once the restored command actually appears.
 	if runner.calls < 3 {
 		t.Fatalf("expected to poll until command started, polled %d times", runner.calls)
 	}
@@ -170,7 +150,6 @@ func TestWaitForRestoredCommandsBlocksUntilStarted(t *testing.T) {
 func TestWaitForRestoredCommandsRespectsTimeout(t *testing.T) {
 	t.Parallel()
 
-	// The command never appears: the wait must give up at the deadline, not hang.
 	runner := &pollRunner{settleOn: 1 << 30, before: "zsh", after: "cat"}
 	client := NewClientWithRunner("tmux", runner)
 	client.SetRestoreTimeout(150 * time.Millisecond)
@@ -201,9 +180,6 @@ func TestWaitForRestoredCommandsDisabled(t *testing.T) {
 	}
 }
 
-// The field separator must be printable ASCII: tmux sanitizes non-printable
-// bytes in -F output (the previous 0x1f became "_" on some builds, collapsing
-// every field into one and dropping all windows — see the version-matrix bug).
 func TestFieldSepIsPrintableASCII(t *testing.T) {
 	t.Parallel()
 
@@ -218,9 +194,6 @@ func TestFieldSepIsPrintableASCII(t *testing.T) {
 	}
 }
 
-// The free-form fields (window name, pane current path) are placed last in the
-// -F format strings, so splitFieldsN must keep a trailing field intact even when
-// it contains the separator.
 func TestSplitFieldsNKeepsTrailingFieldIntact(t *testing.T) {
 	t.Parallel()
 
@@ -242,8 +215,6 @@ func TestSplitFieldsNKeepsTrailingFieldIntact(t *testing.T) {
 func TestCurrentWindowPane(t *testing.T) {
 	t.Parallel()
 
-	// Active window's index and active pane are authoritative, even when the
-	// base index is 1 (regression guard: current window must not collapse to 0).
 	windows := []snapshot.Window{
 		{Index: 1, IsActive: false, ActivePane: 0},
 		{Index: 2, IsActive: true, ActivePane: 3},
@@ -254,13 +225,11 @@ func TestCurrentWindowPane(t *testing.T) {
 		t.Fatalf("expected active window 2 pane 3, got %d/%d", win, pane)
 	}
 
-	// No active flag -> fall back to the first window.
 	win, pane = currentWindowPane([]snapshot.Window{{Index: 5, ActivePane: 1}})
 	if win != 5 || pane != 1 {
 		t.Fatalf("expected fallback to first window 5/1, got %d/%d", win, pane)
 	}
 
-	// Empty -> zero values.
 	win, pane = currentWindowPane(nil)
 	if win != 0 || pane != 0 {
 		t.Fatalf("expected 0/0 for no windows, got %d/%d", win, pane)
@@ -274,20 +243,19 @@ func TestExpectedPaneCommands(t *testing.T) {
 		{
 			Index: 1,
 			Panes: []snapshot.Pane{
-				{Index: 0, RestoreCmd: "nvim main.go"}, // real command -> nvim
-				{Index: 1, RestoreCmd: "fish"},         // launched shell -> replayed (issue #66)
+				{Index: 0, RestoreCmd: "nvim main.go"},
+				{Index: 1, RestoreCmd: "fish"},
 			},
 		},
 		{
 			Index: 2,
 			Panes: []snapshot.Pane{
-				{Index: 0, CurrentCmd: "htop -d 5"}, // falls back to current command
-				{Index: 1, CurrentCmd: "zsh"},       // default shell -> skipped
+				{Index: 0, CurrentCmd: "htop -d 5"},
+				{Index: 1, CurrentCmd: "zsh"},
 			},
 		},
 	}
 
-	// No allowlist configured -> every real command is expected.
 	got := NewClient("tmux").expectedPaneCommands(windows)
 
 	want := map[string]string{"1.0": "nvim", "1.1": "fish", "2.0": "htop"}
@@ -307,12 +275,10 @@ func TestRestoreAllowlist(t *testing.T) {
 
 	client := NewClient("tmux")
 
-	// No allowlist configured: everything is allowed.
 	if !client.commandAllowed("nvim") || !client.commandAllowed("rm") {
 		t.Fatal("with no allowlist, all commands must be allowed")
 	}
 
-	// Configured allowlist: only listed executables (path entries normalized).
 	client.SetRestoreAllowlist([]string{"nvim", "/usr/bin/htop", "  tmux  "})
 
 	for _, allowed := range []string{"nvim", "htop", "tmux"} {
@@ -327,14 +293,12 @@ func TestRestoreAllowlist(t *testing.T) {
 		}
 	}
 
-	// Empty (but configured) allowlist blocks everything.
 	client.SetRestoreAllowlist([]string{})
 
 	if client.commandAllowed("nvim") {
 		t.Fatal("an empty allowlist must block all commands")
 	}
 
-	// Clearing with nil restores allow-all behavior.
 	client.SetRestoreAllowlist(nil)
 
 	if !client.commandAllowed("nvim") {
@@ -347,12 +311,10 @@ func TestRestoreDenylist(t *testing.T) {
 
 	client := NewClient("tmux")
 
-	// No denylist configured: everything is allowed.
 	if !client.commandAllowed("node") {
 		t.Fatal("with no denylist, all commands must be allowed")
 	}
 
-	// Configured denylist: listed executables are blocked (path entries normalized).
 	client.SetRestoreDenylist([]string{"node", "/usr/bin/htop", "  npm  "})
 
 	for _, blocked := range []string{"node", "htop", "npm"} {
@@ -367,7 +329,6 @@ func TestRestoreDenylist(t *testing.T) {
 		}
 	}
 
-	// Clearing with nil (or empty) restores allow-all behavior.
 	client.SetRestoreDenylist(nil)
 
 	if !client.commandAllowed("node") {
@@ -380,7 +341,6 @@ func TestRestoreDenylistWinsOverAllowlist(t *testing.T) {
 
 	client := NewClient("tmux")
 
-	// A command in both lists is blocked: the denylist takes precedence.
 	client.SetRestoreAllowlist([]string{"nvim", "node"})
 	client.SetRestoreDenylist([]string{"node"})
 
@@ -392,7 +352,6 @@ func TestRestoreDenylistWinsOverAllowlist(t *testing.T) {
 		t.Fatal("node is denied -> must be blocked even though the allowlist permits it")
 	}
 
-	// A command that is neither allowed nor denied stays blocked by the allowlist.
 	if client.commandAllowed("htop") {
 		t.Fatal("htop is not in the allowlist -> should stay blocked")
 	}
@@ -482,11 +441,11 @@ func TestNormalizedCommand(t *testing.T) {
 	cases := []struct {
 		restore, current, want string
 	}{
-		{"nvim", "zsh", "nvim"}, // restore wins when it is a real command
-		{"zsh", "nvim", "nvim"}, // restore is a shell -> prefer a real current
-		{"fish", "zsh", "fish"}, // explicitly launched shell is replayed (issue #66)
-		{"", "zsh", ""},         // default shell only -> nothing to restore
-		{`"htop"`, "", "htop"},  // quotes stripped
+		{"nvim", "zsh", "nvim"},
+		{"zsh", "nvim", "nvim"},
+		{"fish", "zsh", "fish"},
+		{"", "zsh", ""},
+		{`"htop"`, "", "htop"},
 	}
 
 	for _, c := range cases {
@@ -513,29 +472,26 @@ func TestPickForegroundCommand(t *testing.T) {
 	t.Parallel()
 
 	lines := []string{
-		"100 1 Ss zsh",    // the shell itself (panePID)
-		"200 100 S+ nvim", // foreground child
+		"100 1 Ss zsh",
+		"200 100 S+ nvim",
 	}
 
 	if got := pickForegroundCommand(lines, 100); got != "nvim" {
 		t.Fatalf("expected foreground nvim, got %q", got)
 	}
 
-	// Only the pane's own shell present -> nothing to restore.
 	if got := pickForegroundCommand([]string{"100 1 Ss zsh"}, 100); got != "" {
 		t.Fatalf("expected empty for shell-only, got %q", got)
 	}
 
-	// A foreground shell launched inside the pane is kept (issue #66).
 	launched := []string{
-		"100 1 Ss zsh",    // the pane's own shell
-		"300 100 S+ fish", // user ran fish from zsh
+		"100 1 Ss zsh",
+		"300 100 S+ fish",
 	}
 	if got := pickForegroundCommand(launched, 100); got != "fish" {
 		t.Fatalf("expected launched fish, got %q", got)
 	}
 
-	// A background shell is a prompt/completion helper, not user intent.
 	helper := []string{
 		"100 1 Ss zsh",
 		"301 100 S zsh -c helper",
@@ -544,7 +500,6 @@ func TestPickForegroundCommand(t *testing.T) {
 		t.Fatalf("expected empty for background shell helper, got %q", got)
 	}
 
-	// A real command wins over a launched shell (nvim started from fish).
 	nested := []string{
 		"100 1 Ss zsh",
 		"300 100 S fish",
@@ -555,8 +510,6 @@ func TestPickForegroundCommand(t *testing.T) {
 	}
 }
 
-// argsRunner is a fake tmux runner that records the argv of every command, for
-// asserting how tmux is invoked.
 type argsRunner struct{ calls [][]string }
 
 func (r *argsRunner) runCommand(args ...string) commandResult {
@@ -579,8 +532,6 @@ func TestCapturePaneScrollbackArgs(t *testing.T) {
 		t.Fatalf("expected 1 tmux call, got %d", len(runner.calls))
 	}
 
-	// -e keeps colors, -J joins wrapped lines (#37), and a non-positive lines
-	// value falls back to the 5000-line default.
 	want := []string{"tmux", "capture-pane", "-p", "-e", "-J", "-S", "-5000", "-t", "sess:1.0"}
 	if got := runner.calls[0]; !slices.Equal(got, want) {
 		t.Fatalf("capture-pane args:\n got %q\nwant %q", got, want)
@@ -621,7 +572,6 @@ func TestNewSessionArgs(t *testing.T) {
 		Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/work"}},
 	})
 
-	// Expect: new-session -d -s sess -n win -c /work
 	joined := args
 	if joined[0] != "new-session" || joined[2] != "-s" || joined[3] != "sess" ||
 		joined[5] != "win" {
@@ -681,7 +631,6 @@ func TestAttachSessionExecsTmux(
 		hasControllingTTY = origTTY
 	})
 
-	// "sh" resolves on every supported platform, so LookPath succeeds.
 	if err := NewClient("sh").AttachSession("proj:2"); err != nil {
 		t.Fatalf("attach session: %v", err)
 	}
@@ -723,8 +672,6 @@ func TestAttachSessionWithoutTTYIsNoOp(
 		hasControllingTTY = origTTY
 	})
 
-	// Without a controlling terminal, attach must be skipped (tmux would fail
-	// with "open terminal failed"), leaving the session restored-but-detached.
 	if err := NewClient("sh").AttachSession("proj"); err != nil {
 		t.Fatalf("attach session: %v", err)
 	}

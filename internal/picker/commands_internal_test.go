@@ -20,8 +20,6 @@ func TestMatchCommands(t *testing.T) {
 		t.Fatalf("unknown prefix should match nothing, got %+v", got)
 	}
 
-	// Leading slash is stripped by the caller, but a stray space must not break
-	// matching.
 	if got := matchCommands(" wake "); len(got) != 1 || got[0].mode != actionWake {
 		t.Fatalf("padded 'wake' should match wake, got %+v", got)
 	}

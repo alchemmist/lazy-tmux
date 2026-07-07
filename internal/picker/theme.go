@@ -8,28 +8,21 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// The picker palette is aligned with the "moss-dark" terminal theme: a muted,
-// desaturated set of pastels on near-black. Amber is the browse-mode accent
-// (title, cursor, selected stripe, key hints); each action mode (#163) swaps in
-// its own accent so the whole frame visibly recolors. Red is reserved for
-// errors (and reused as the delete-mode accent). This keeps the picker feeling
-// native in the terminal and in tune with the monochrome lazy-tmux brand.
 const (
-	colAccent  = "#d7875f" // amber/orange (moss-dark "yellow") — browse-mode accent
-	colText    = "#d0d0d0" // primary text (session / window names)
-	colMeta    = "#9e9e9e" // dimmed meta columns (cmd, captured, …)
-	colFaint   = "#585858" // tree branches, header labels, separators
-	colBorder  = "#444444" // frame
-	colSelBg   = "#303030" // selected-row background bar
-	colSelText = "#f0f0f0" // selected-row text
-	colError   = "#d75f5f" // error status
-	colCount   = "#9e9e9e" // header counts
+	colAccent  = "#d7875f"
+	colText    = "#d0d0d0"
+	colMeta    = "#9e9e9e"
+	colFaint   = "#585858"
+	colBorder  = "#444444"
+	colSelBg   = "#303030"
+	colSelText = "#f0f0f0"
+	colError   = "#d75f5f"
+	colCount   = "#9e9e9e"
 
-	// Per-mode accents (#163), drawn from the moss-dark palette.
-	colDelete    = "#d75f5f" // red — delete mode
-	colRename    = "#5f87af" // blue — rename mode
-	colNew       = "#87af87" // green — new mode
-	colSleepWake = "#8787af" // cyan — wake / sleep modes
+	colDelete    = "#d75f5f"
+	colRename    = "#5f87af"
+	colNew       = "#87af87"
+	colSleepWake = "#8787af"
 )
 
 type pickerTheme struct {
@@ -49,8 +42,6 @@ type pickerTheme struct {
 	helpKey    lipgloss.Style
 	helpText   lipgloss.Style
 
-	// Per-status dot styles, fixed regardless of the active mode accent so a
-	// "working" dot is always green, "needs you" always amber, etc.
 	statusWorking          lipgloss.Style
 	statusAwaitingDecision lipgloss.Style
 	statusAwaitingInput    lipgloss.Style
@@ -58,10 +49,6 @@ type pickerTheme struct {
 	statusError            lipgloss.Style
 }
 
-// Per-status glyphs shown in the State column. Each status uses a distinct
-// shape (not just color) so the meaning survives monochrome terminals and
-// color-impaired vision: a solid dot is working, "?" asks for a decision, a
-// dotted ring waits for input, a hollow ring is idle, "✕" is an error.
 const (
 	glyphWorking          = "●"
 	glyphAwaitingDecision = "?"
@@ -70,8 +57,6 @@ const (
 	glyphError            = "✕"
 )
 
-// statusGlyph returns the State-column glyph for a window status (empty for
-// StatusNone, which is never rendered).
 func statusGlyph(status WindowStatus) string {
 	switch status {
 	case StatusWorking:
@@ -89,8 +74,6 @@ func statusGlyph(status WindowStatus) string {
 	}
 }
 
-// statusStyle returns the fixed color for a window status (StatusNone yields a
-// plain style — it is never rendered as a dot).
 func (t pickerTheme) statusStyle(status WindowStatus) lipgloss.Style {
 	switch status {
 	case StatusWorking:
@@ -108,8 +91,6 @@ func (t pickerTheme) statusStyle(status WindowStatus) lipgloss.Style {
 	}
 }
 
-// statusStyleOn returns the status color, optionally over the selected-row
-// background so the dot keeps its meaning even under the cursor.
 func (t pickerTheme) statusStyleOn(status WindowStatus, selected bool) lipgloss.Style {
 	style := t.statusStyle(status)
 	if selected {
@@ -119,8 +100,6 @@ func (t pickerTheme) statusStyleOn(status WindowStatus, selected bool) lipgloss.
 	return style
 }
 
-// markStyle returns the multi-select mark color, optionally over the
-// selected-row background.
 func (t pickerTheme) markStyle(selected bool) lipgloss.Style {
 	if selected {
 		return t.mark.Background(lipgloss.Color(colSelBg))
@@ -129,8 +108,6 @@ func (t pickerTheme) markStyle(selected bool) lipgloss.Style {
 	return t.mark
 }
 
-// accentForMode maps an action mode to its frame accent: amber while browsing,
-// the command's color once a mode is active.
 func accentForMode(mode actionMode) string {
 	if cmd, ok := commandForMode(mode); ok {
 		return cmd.accent
@@ -139,10 +116,6 @@ func accentForMode(mode actionMode) string {
 	return colAccent
 }
 
-// newPickerTheme builds the palette around accent. Browse passes the amber
-// colAccent; each action mode passes its own color so the border, title,
-// prompt, selection stripe, mark and key hints all recolor together. The frame
-// border stays neutral grey while browsing and takes the accent in a mode.
 func newPickerTheme(accent string) pickerTheme {
 	border := colBorder
 	if accent != colAccent {
@@ -176,39 +149,21 @@ func newPickerTheme(accent string) pickerTheme {
 	}
 }
 
-// frameTop draws the top border with an embedded title on the left and an
-// optional count on the right, e.g. "╭─ title ─── right ─╮".
 func (t pickerTheme) frameTop(title, right string, width int) string {
 	return t.frameBar('╭', '╮', t.title.Render(title), right, width)
 }
 
-// frameBottom draws the bottom border with embedded key hints on the left.
 func (t pickerTheme) frameBottom(hints string, width int) string {
 	return t.frameBar('╰', '╯', hints, "", width)
 }
 
-// Frame chrome widths: what the rounded border eats from the terminal width.
 const (
-	// frameChromeWidth is a content line's overhead: 2 side borders + 2 gutter
-	// spaces ("│ … │").
-	frameChromeWidth = 4
-	// barChromeTwoLabels is a bar's overhead around two labels: head "╭─ "
-	// (3) + 2 inner spaces + tail " ─╮" (3).
+	frameChromeWidth   = 4
 	barChromeTwoLabels = 8
-	// barChromeOneLabel is the overhead around a single label: head "╭─ "
-	// (3) + 1 inner space + tail "─╮" (2).
-	barChromeOneLabel = 6
+	barChromeOneLabel  = 6
 )
 
-// frameBar builds one horizontal border line with pre-styled left/right labels
-// and a dashed fill sized so the whole line is exactly width cells wide.
-//
-//	with right:  ╭─ left ──────── right ─╮   (head 3 + Lₗ + 1 + fill + 1 + Lᵣ + 3)
-//	without:     ╰─ left ───────────────╯   (head 3 + Lₗ + 1 + fill + 2)
 func (t pickerTheme) frameBar(left, right rune, leftLabel, rightLabel string, width int) string {
-	// Clamp the labels so they can never push the line past width on a narrow
-	// terminal (only the dashed fill would otherwise absorb the overflow, and a
-	// fill of zero still leaves an over-wide line that breaks the frame math).
 	if rightLabel != "" {
 		budget := max(0, width-barChromeTwoLabels)
 		rightLabel = clampWidth(rightLabel, budget)
@@ -239,8 +194,6 @@ func (t pickerTheme) frameBar(left, right rune, leftLabel, rightLabel string, wi
 	return buf.String()
 }
 
-// frameLine wraps one inner content line with the side borders and a single
-// space gutter on each side, padding the content to the available width.
 func (t pickerTheme) frameLine(content string, width int) string {
 	inner := max(0, width-frameChromeWidth)
 	content = clampWidth(content, inner)

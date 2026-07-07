@@ -13,7 +13,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// Sentinel errors surfaced in the picker's status line.
 var (
 	errDeleteWindowUnavailable  = errors.New("delete window not available")
 	errDeleteSessionUnavailable = errors.New("delete session not available")
@@ -29,8 +28,6 @@ var (
 	errSleepUnavailable         = errors.New("sleep not available")
 )
 
-// markState describes how much of a row is marked for deletion: a window is
-// either marked or not; a session is empty, partial or fully marked.
 type markState int
 
 const (
@@ -39,13 +36,10 @@ const (
 	markFull
 )
 
-// targetKey identifies a window in the mark set; the NUL byte cannot appear in a
-// session name, so it is an unambiguous separator.
 func targetKey(session string, windowIndex int) string {
 	return session + "\x00" + strconv.Itoa(windowIndex)
 }
 
-// parseTargetKey splits a mark-set key back into session name and window index.
 func parseTargetKey(key string) (string, int, bool) {
 	session, rest, found := strings.Cut(key, "\x00")
 	if !found {
@@ -77,7 +71,6 @@ func (m *pickerModel) sessionWindowIndices(session string) []int {
 	return nil
 }
 
-// markWindow marks a single window for deletion.
 func (m *pickerModel) markWindow(target Target) {
 	if target.WindowIndex == nil {
 		return
@@ -86,8 +79,6 @@ func (m *pickerModel) markWindow(target Target) {
 	m.marked[targetKey(target.SessionName, *target.WindowIndex)] = struct{}{}
 }
 
-// markSession toggles every window of a session: if all are already marked it
-// clears them, otherwise it marks them all (so a fully-marked session deletes).
 func (m *pickerModel) markSession(session string) {
 	idxs := m.sessionWindowIndices(session)
 	if len(idxs) == 0 {
@@ -114,8 +105,6 @@ func (m *pickerModel) markSession(session string) {
 	}
 }
 
-// toggleMark flips the mark for the row under the cursor (window: itself;
-// session header: all of its windows).
 func (m *pickerModel) toggleMark(row pickerRow) {
 	if row.synthetic {
 		return
@@ -167,9 +156,6 @@ func (m pickerModel) markState(row pickerRow) markState {
 	}
 }
 
-// commitDelete removes every marked window, collapsing a fully-marked session
-// into a single DeleteSession. Windows are removed high-index-first so earlier
-// indices stay valid, and sessions are processed in a stable order.
 func (m *pickerModel) commitDelete() {
 	if len(m.marked) == 0 {
 		m.exitMode()
@@ -304,7 +290,7 @@ func (m pickerModel) handlePromptKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case keyEsc, keyCtrlC:
 		m.promptInput.Blur()
 		m.mode = modeBrowse
-		m.exitMode() // cancel the prompt and its action mode, back to browse
+		m.exitMode()
 
 		return m, nil
 	case keyEnter:
@@ -312,7 +298,7 @@ func (m pickerModel) handlePromptKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 		m.promptInput.Blur()
 		m.mode = modeBrowse
-		m.exitMode() // action completed, return to browse (orange)
+		m.exitMode()
 
 		return m, nil
 	}
@@ -324,10 +310,6 @@ func (m pickerModel) handlePromptKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-// commitPrompt runs the action of the active text-prompt mode with the typed
-// name, then refreshes the table. Prompts that require a name are a no-op while
-// the input is empty (only the new-window prompt allows an empty name: tmux
-// then picks the default window name).
 func (m *pickerModel) commitPrompt() {
 	name := strings.TrimSpace(m.promptInput.Value())
 

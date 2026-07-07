@@ -10,11 +10,6 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
-// DeleteWindow removes a window from both the live session and its snapshot.
-// When the session is live it kills the tmux window and re-saves (deleting the
-// snapshot if that was the last window); when the window is not live — tmux
-// rejects the kill or the session isn't running — it falls back to editing the
-// stored snapshot instead.
 func (a *App) DeleteWindow(session string, windowIndex int) error {
 	if a.tmux.SessionExists(session) {
 		handled, err := a.deleteLiveWindow(session, windowIndex)
@@ -26,9 +21,6 @@ func (a *App) DeleteWindow(session string, windowIndex int) error {
 	return a.deleteSnapshotWindow(session, windowIndex)
 }
 
-// deleteLiveWindow removes a window from the running session. handled=false
-// means tmux rejected the kill with an exit error (e.g. the window exists only
-// in the snapshot) and the caller should edit the snapshot instead.
 func (a *App) deleteLiveWindow(session string, windowIndex int) (bool, error) {
 	err := a.tmux.KillWindow(session, windowIndex)
 	if err != nil {
@@ -52,8 +44,6 @@ func (a *App) deleteLiveWindow(session string, windowIndex int) (bool, error) {
 	return true, a.SaveSession(session)
 }
 
-// deleteSnapshotWindow removes a window from the stored snapshot, deleting the
-// whole snapshot when the last window goes away.
 func (a *App) deleteSnapshotWindow(session string, windowIndex int) error {
 	snap, err := a.store.LoadSession(session)
 	if err != nil {
@@ -100,8 +90,6 @@ func (a *App) deleteSnapshotWindow(session string, windowIndex int) error {
 	return nil
 }
 
-// Forget deletes the session's stored snapshot but leaves any live tmux session
-// running. It is idempotent: forgetting an unknown session is not an error.
 func (a *App) Forget(session string) error {
 	if strings.TrimSpace(session) == "" {
 		return errSessionNameEmpty
@@ -115,8 +103,6 @@ func (a *App) Forget(session string) error {
 	return nil
 }
 
-// DeleteSession kills the live tmux session (if running) and deletes its stored
-// snapshot, removing the session entirely.
 func (a *App) DeleteSession(session string) error {
 	if a.tmux.SessionExists(session) {
 		err := a.tmux.KillSession(session)
@@ -133,9 +119,6 @@ func (a *App) DeleteSession(session string) error {
 	return nil
 }
 
-// RenameWindow renames a window in both the live tmux session (when running)
-// and the stored snapshot. It fails with errWindowNotInSnapshot when the index
-// is not present in the snapshot, even if the live rename succeeded.
 func (a *App) RenameWindow(session string, windowIndex int, name string) error {
 	if strings.TrimSpace(name) == "" {
 		return errWindowNameEmpty
@@ -176,11 +159,6 @@ func (a *App) RenameWindow(session string, windowIndex int, name string) error {
 	return nil
 }
 
-// RenameSession renames a session in storage and, when it is live, in tmux.
-// Renaming to the same name (or to a name that maps to the same snapshot path)
-// is a no-op; it fails if a snapshot with the new name already exists. The new
-// snapshot is written before the old one is deleted, so a failure never loses
-// the session.
 func (a *App) RenameSession(session, name string) error {
 	if strings.TrimSpace(name) == "" {
 		return errSessionNameEmpty
@@ -244,9 +222,6 @@ func (a *App) RenameSession(session, name string) error {
 	return nil
 }
 
-// NewSession creates a new tmux session and immediately snapshots it. It fails
-// if a snapshot with that name already exists; if capturing or saving fails,
-// the just-created tmux session is killed so no half-created state remains.
 func (a *App) NewSession(name string) error {
 	if strings.TrimSpace(name) == "" {
 		return errSessionNameEmpty
@@ -281,10 +256,6 @@ func (a *App) NewSession(name string) error {
 	return nil
 }
 
-// NewWindow adds a window to the session. When the session is live it creates
-// the window in tmux and re-captures the snapshot; otherwise it appends an
-// empty window (next free index, one blank pane) directly to the stored
-// snapshot. An empty name defaults to "window-<index>" in the snapshot path.
 func (a *App) NewWindow(session, name string) error {
 	if strings.TrimSpace(session) == "" {
 		return errSessionNameEmpty
@@ -357,37 +328,28 @@ func nextWindowIndex(windows []snapshot.Window) int {
 	return maxIdx + 1
 }
 
-// Wakeup restores a sleeping session from its snapshot without switching or
-// attaching. It fails when the session is already running in tmux.
 func (a *App) Wakeup(session string) error {
 	if strings.TrimSpace(session) == "" {
 		return errSessionNameEmpty
 	}
-	// Check if session already exists
 	if a.tmux.SessionExists(session) {
 		return fmt.Errorf("session %q %w", session, errAlreadyAwake)
 	}
-	// Restore the session
+
 	return a.Restore(session, false)
 }
 
-// Sleep saves the running session's snapshot and then kills the tmux session.
-// The save happens BEFORE the kill, so a failed save leaves the session running
-// and no state is lost. It fails when the session is not running.
 func (a *App) Sleep(session string) error {
 	if strings.TrimSpace(session) == "" {
 		return errSessionNameEmpty
 	}
-	// Check if session exists
 	if !a.tmux.SessionExists(session) {
 		return fmt.Errorf("session %q %w", session, errNotRunning)
 	}
-	// Save the session first
 	err := a.SaveSession(session)
 	if err != nil {
 		return err
 	}
-	// Then kill it
 	err = a.tmux.KillSession(session)
 	if err != nil {
 		return fmt.Errorf("kill session: %w", err)

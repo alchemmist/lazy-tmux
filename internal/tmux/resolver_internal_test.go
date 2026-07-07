@@ -7,7 +7,6 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
-// recordingRunner captures every tmux invocation and returns success.
 type recordingRunner struct {
 	calls [][]string
 }
@@ -18,7 +17,6 @@ func (r *recordingRunner) runCommand(args ...string) commandResult {
 	return commandResult{}
 }
 
-// fakeResolver overrides the restore command for a chosen current command.
 type fakeResolver struct {
 	matchCmd string
 	override string
@@ -37,7 +35,6 @@ func sentKeys(calls [][]string) []string {
 
 	for _, call := range calls {
 		if len(call) > 1 && call[1] == "send-keys" {
-			// send-keys -t <target> <cmd> C-m
 			out = append(out, call[len(call)-2])
 		}
 	}
@@ -83,13 +80,11 @@ func TestEffectiveRestoreCommandFallsBack(t *testing.T) {
 
 	client := NewClientWithRunner("tmux", &recordingRunner{})
 
-	// No resolver: default normalized command.
 	pane := snapshot.Pane{CurrentCmd: "vim", RestoreCmd: "vim main.go"}
 	if got := client.effectiveRestoreCommand(pane); got != "vim main.go" {
 		t.Fatalf("default path changed, got %q", got)
 	}
 
-	// Resolver returning "" must defer to the default.
 	client.SetRestoreResolver(fakeResolver{matchCmd: "claude", override: "x"})
 	if got := client.effectiveRestoreCommand(pane); got != "vim main.go" {
 		t.Fatalf("empty override should fall back, got %q", got)
@@ -102,7 +97,7 @@ func TestRestoreResolverRespectsAllowlist(t *testing.T) {
 	runner := &recordingRunner{}
 	client := NewClientWithRunner("tmux", runner)
 	client.SetRestoreResolver(fakeResolver{matchCmd: "claude", override: "claude --resume s"})
-	client.SetRestoreAllowlist([]string{"vim"}) // claude not allowed
+	client.SetRestoreAllowlist([]string{"vim"})
 
 	window := snapshot.Window{
 		Index: 1,

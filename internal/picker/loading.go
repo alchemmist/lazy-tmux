@@ -13,20 +13,12 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// The loading view ports the landing page's generative ASCII field
-// (docs/src/components/AsciiField.tsx) into the terminal: several drifting sine
-// waves interfere into a breathing field of glyphs, sparse-to-dense along the
-// ramp, with the brand amber lighting up the peaks. It fills the whole popup
-// while a picked session restores, so a slow restore shows motion instead of a
-// black screen (#199).
 const (
 	animFPS   = 30
 	animRamp  = " .·:-=+*#%@"
-	animGrace = 120 * time.Millisecond // don't flash the field on a fast restore
+	animGrace = 120 * time.Millisecond
 )
 
-// frameMsg advances the animation; graceMsg reveals it after the grace period;
-// restoreDoneMsg quits once the background restore has finished.
 type (
 	frameMsg       struct{}
 	graceMsg       struct{}
@@ -39,7 +31,7 @@ type loadingModel struct {
 	width   int
 	height  int
 	frame   int
-	started bool // grace elapsed → render the field (else stay invisible)
+	started bool
 
 	theme pickerTheme
 	dim   lipgloss.Style
@@ -67,7 +59,6 @@ func (m loadingModel) Init() tea.Cmd {
 	)
 }
 
-// waitForRestore blocks in tea's goroutine until the restore signals completion.
 func waitForRestore(done <-chan struct{}) tea.Cmd {
 	return func() tea.Msg {
 		<-done
@@ -98,7 +89,6 @@ func (m loadingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case restoreDoneMsg:
 		return m, tea.Quit
 	case tea.KeyPressMsg:
-		// Let the user bail out; the restore still finishes in the background.
 		if s := msg.String(); s == keyCtrlC || s == keyEsc || s == "q" {
 			return m, tea.Quit
 		}
@@ -108,8 +98,6 @@ func (m loadingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m loadingModel) View() tea.View {
-	// Before the grace period elapses we render nothing (and stay off the alt
-	// screen) so a restore that finishes quickly never flashes the animation.
 	if !m.started {
 		return tea.NewView("")
 	}
@@ -129,12 +117,7 @@ func (m loadingModel) View() tea.View {
 	return view
 }
 
-// field renders one animation frame inside the picker's rounded frame (same
-// border, corners and title as the browser), with the ASCII field filling the
-// inner area and a centered "restoring <name>…" caption.
 func (m loadingModel) field(width, height int) string {
-	// The frame owns the outer edge: 2 border rows (top/bottom) and, per inner
-	// row, 2 side borders + 2 gutter spaces (see theme.frameLine).
 	innerW := max(1, width-frameChromeWidth)
 	innerH := max(1, height-2)
 
@@ -147,8 +130,6 @@ func (m loadingModel) field(width, height int) string {
 		caption = "restoring " + m.name + "…"
 	}
 
-	// Center by display width; frameLine pads the rest of the row to innerW, so
-	// no stale field glyphs remain to the right of the caption.
 	captionRow := innerH / 2
 	capStart := max(0, (innerW-displayWidth(caption))/2)
 
@@ -160,7 +141,6 @@ func (m loadingModel) field(width, height int) string {
 	for row := range innerH {
 		var line string
 
-		// The caption owns its row: a clean band keeps it readable over the field.
 		if row == captionRow {
 			line = strings.Repeat(" ", capStart) + m.label.Render(caption)
 		} else {
@@ -177,8 +157,6 @@ func (m loadingModel) field(width, height int) string {
 	return buf.String()
 }
 
-// fieldRow renders one inner field row, grouping runs of same-styled glyphs so
-// each frame emits few ANSI escapes.
 func (m loadingModel) fieldRow(row, width int, cols, rows, phase float64) string {
 	var (
 		buf   strings.Builder
@@ -208,7 +186,6 @@ func (m loadingModel) fieldRow(row, width int, cols, rows, phase float64) string
 	return buf.String()
 }
 
-// Color tiers of the loading animation, from background glow to peak.
 const (
 	tierDim = iota
 	tierMid
@@ -226,10 +203,6 @@ func (m loadingModel) styleFor(tier int) lipgloss.Style {
 	}
 }
 
-// fieldGlyph computes the ramp glyph and color tier for the cell at (col,row),
-// mirroring the landing page's sine-interference math. Short names (x/y/v) and
-// the inline coefficients match that formula.
-//
 //nolint:varnamelen,mnd // math formula reads best with x/y/v and raw coefficients
 func fieldGlyph(col, row, cols, rows, phase float64) (rune, int) {
 	x := col * 0.18
@@ -257,9 +230,6 @@ func fieldGlyph(col, row, cols, rows, phase float64) (rune, int) {
 	}
 }
 
-// RunRestoreAnimation shows the loading field until done is closed. Without a
-// controlling terminal (tests, piped output) it is a no-op and the caller waits
-// on done itself.
 func RunRestoreAnimation(sessionName string, done <-chan struct{}) error {
 	if !isTerminal(os.Stdout) {
 		return nil

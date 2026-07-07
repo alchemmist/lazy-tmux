@@ -13,11 +13,6 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/integration/claude"
 )
 
-// runHook dispatches the hook writers invoked by external programs (e.g. Claude
-// Code). These run inside another tool's hook pipeline, so they must be fast and
-// must not fail the host on transient errors. Errors exit 1, never 2: Claude
-// Code treats a hook's exit 2 as "block the action", which a misconfigured
-// status hook must never do.
 func runHook(args []string, _, stderr io.Writer) int {
 	if len(args) == 0 {
 		writeErr(stderr, errHookUsage)
@@ -35,9 +30,6 @@ func runHook(args []string, _, stderr io.Writer) int {
 	}
 }
 
-// runClaudeStatusHook records the Claude pane's live state. Claude passes the
-// hook payload (session_id, cwd) as JSON on stdin; cwd falls back to the
-// process working directory (the hook runs in the pane's cwd).
 func runClaudeStatusHook(args []string, stdin io.Reader, stderr io.Writer) int {
 	flags := flag.NewFlagSet("claude-status", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
@@ -62,7 +54,7 @@ func runClaudeStatusHook(args []string, stdin io.Reader, stderr io.Writer) int {
 	}
 
 	if stdin != nil {
-		_ = json.NewDecoder(stdin).Decode(&payload) // best-effort; empty is fine
+		_ = json.NewDecoder(stdin).Decode(&payload)
 	}
 
 	cwd := payload.CWD
@@ -72,7 +64,7 @@ func runClaudeStatusHook(args []string, stdin io.Reader, stderr io.Writer) int {
 
 	cfg, err := config.Load()
 	if err != nil {
-		return 0 // never break the host hook pipeline
+		return 0
 	}
 
 	_ = claude.WriteStatus(

@@ -15,26 +15,15 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/integration/claude"
 )
 
-// claudeHookCommandMarker identifies the hook commands this tool installs, so
-// install is idempotent and uninstall is surgical.
 const claudeHookCommandMarker = "hook claude-status"
 
-// claudeHookSpec is one hook lazy-tmux installs into Claude Code's settings.
 type claudeHookSpec struct {
 	event   string
-	matcher string // "" for events without a matcher
+	matcher string
 	state   string
 }
 
 func claudeHookSpecs() []claudeHookSpec {
-	// PreToolUse fires before the permission prompt (so a subsequent
-	// permission_prompt notification still wins) and PostToolUse fires after a
-	// tool finishes. Together they clear a stale awaiting_decision once the
-	// permission is resolved — nothing else fires at the approval moment, so
-	// without them the picker keeps showing "?" while Claude is busy working.
-	// PermissionDenied covers auto-classifier blocks; a MANUAL denial fires no
-	// hook at all, but Claude keeps processing the turn afterwards, so the next
-	// PreToolUse or Stop bounds that stale window to seconds.
 	return []claudeHookSpec{
 		{event: "Notification", matcher: "permission_prompt", state: claude.StateAwaitingDecision},
 		{event: "Notification", matcher: "idle_prompt", state: claude.StateAwaitingInput},
@@ -109,10 +98,6 @@ func runClaudeHooks(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-// mergeClaudeHookSpecs rewrites each of our hook events inside hooks in place:
-// existing lazy-tmux groups (matched by marker) are dropped, and unless
-// uninstalling a fresh group pointing at binary is appended. User-owned groups
-// under the same events are never touched.
 func mergeClaudeHookSpecs(hooks map[string][]json.RawMessage, binary string, uninstall bool) error {
 	for _, spec := range claudeHookSpecs() {
 		command := fmt.Sprintf("%s hook claude-status --state %s", binary, spec.state)
@@ -144,17 +129,12 @@ func mergeClaudeHookSpecs(hooks map[string][]json.RawMessage, binary string, uni
 	return nil
 }
 
-// applyClaudeHooks merges (or removes) lazy-tmux's status hooks in the Claude
-// settings.json at path, preserving every other key and the user's own hooks. It
-// backs the file up before writing and is idempotent. Returns whether the file
-// changed.
 func applyClaudeHooks(path, binary string, uninstall bool) (bool, error) {
 	root, original, err := readSettings(path)
 	if err != nil {
 		return false, err
 	}
 
-	// Nothing to remove from a Claude install that has no settings file yet.
 	if uninstall && len(original) == 0 {
 		return false, nil
 	}
@@ -203,8 +183,6 @@ func applyClaudeHooks(path, binary string, uninstall bool) (bool, error) {
 	return true, nil
 }
 
-// writeSettingsFile backs the previous settings up (when any existed), makes
-// sure the config directory exists, and writes the updated settings to path.
 func writeSettingsFile(path string, original, updated []byte) error {
 	if len(original) > 0 {
 		err := os.WriteFile(path+".lazy-tmux.bak", original, 0o600)
@@ -226,10 +204,6 @@ func writeSettingsFile(path string, original, updated []byte) error {
 	return nil
 }
 
-// dropOurGroups removes only lazy-tmux-owned hook entries (those whose command
-// contains marker), preserving any other commands a user added to the same
-// matcher group. A group left empty afterwards is dropped. Groups that don't
-// parse round-trip untouched.
 func dropOurGroups(groups []json.RawMessage, marker string) []json.RawMessage {
 	kept := make([]json.RawMessage, 0, len(groups))
 
@@ -267,8 +241,6 @@ func dropOurGroups(groups []json.RawMessage, marker string) []json.RawMessage {
 	return kept
 }
 
-// readSettings reads path as a top-level JSON object preserving key order-free
-// fidelity (unknown keys round-trip). A missing file yields an empty object.
 func readSettings(path string) (map[string]json.RawMessage, []byte, error) {
 	data, err := os.ReadFile(
 		path,

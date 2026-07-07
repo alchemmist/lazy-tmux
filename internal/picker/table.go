@@ -11,12 +11,8 @@ import (
 
 type pickerColumnID string
 
-// stateColumnID is the State column, special-cased by the row renderers so the
-// live-status dot keeps its own color.
 const stateColumnID pickerColumnID = "state"
 
-// pickerColumnGap is the blank gutter rendered between adjacent columns so they
-// stay visually separated even when each is at its minimum width.
 const pickerColumnGap = 2
 
 type pickerColumnSpec struct {
@@ -25,7 +21,7 @@ type pickerColumnSpec struct {
 	MinWidth   int
 	Priority   int
 	Required   bool
-	Grow       bool // absorbs leftover width; non-growing columns stay at MinWidth
+	Grow       bool
 	Value      func(pickerRow) string
 	TrimPrefix string
 }
@@ -118,9 +114,6 @@ func buildPickerTableLayout(totalWidth int) pickerTableLayout {
 	return pickerTableLayout{columns: columns}
 }
 
-// activeColumnSpecs picks which columns fit into totalWidth: all required
-// columns, then optional ones by ascending priority (ID as tie-break) until the
-// next one would overflow.
 func activeColumnSpecs(totalWidth int) ([]pickerColumnSpec, map[pickerColumnID]struct{}) {
 	required := make([]pickerColumnSpec, 0, len(pickerColumnSpecs))
 	optional := make([]pickerColumnSpec, 0, len(pickerColumnSpecs))
@@ -164,9 +157,6 @@ func activeColumnSpecs(totalWidth int) ([]pickerColumnSpec, map[pickerColumnID]s
 	return active, activeSet
 }
 
-// growColumns hands the leftover width to the growable columns only (the name
-// and command), keeping the narrow meta columns at their minimum width. If no
-// column is growable it falls back to spreading the width across all of them.
 func growColumns(columns []pickerColumnLayout, extra int) {
 	growers := make([]int, 0, len(columns))
 
@@ -216,7 +206,6 @@ func tableWidth(columns []pickerColumnLayout) int {
 	return width + gapWidth(len(columns))
 }
 
-// gapWidth is the total width taken by the gutters between n columns.
 func gapWidth(columns int) int {
 	if columns <= 1 {
 		return 0
@@ -260,15 +249,12 @@ func (l pickerTableLayout) row(row pickerRow) string {
 	return l.render(func(spec pickerColumnSpec) string { return spec.Value(row) })
 }
 
-// styledHeader renders the column titles in the faint header style.
 func (l pickerTableLayout) styledHeader(theme pickerTheme) string {
 	return l.renderWith(func(spec pickerColumnSpec) (string, lipgloss.Style) {
 		return spec.Title, theme.headerCell
 	})
 }
 
-// styledRow renders a row with the name column bright (bold for session
-// headers) and the meta columns dimmed.
 func (l pickerTableLayout) styledRow(row pickerRow, theme pickerTheme) string {
 	return l.renderWith(func(spec pickerColumnSpec) (string, lipgloss.Style) {
 		if spec.ID == "item" {
@@ -279,8 +265,6 @@ func (l pickerTableLayout) styledRow(row pickerRow, theme pickerTheme) string {
 			return spec.Value(row), theme.session
 		}
 
-		// The State cell carries the live status dot for window rows; color it
-		// by status rather than dimming it like other meta columns.
 		if spec.ID == stateColumnID && row.status != StatusNone {
 			return spec.Value(row), theme.statusStyle(row.status)
 		}
@@ -289,10 +273,6 @@ func (l pickerTableLayout) styledRow(row pickerRow, theme pickerTheme) string {
 	})
 }
 
-// selectedRow renders the cursor row: every cell sits on the selection
-// background, but the State status dot keeps its own color (instead of being
-// flattened to the selection foreground) so its meaning stays readable under
-// the cursor.
 func (l pickerTableLayout) selectedRow(row pickerRow, theme pickerTheme) string {
 	sel := theme.selBar
 

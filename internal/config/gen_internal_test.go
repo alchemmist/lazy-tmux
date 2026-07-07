@@ -30,7 +30,6 @@ func TestGenerateConfigWritesLoadableTemplate(t *testing.T) {
 		t.Fatal("generated content != embedded template")
 	}
 
-	// The shipped template must itself parse cleanly.
 	if _, err := LoadFrom(path); err != nil {
 		t.Fatalf("generated config does not load: %v", err)
 	}

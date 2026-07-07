@@ -16,8 +16,6 @@ func TestLoadingViewHiddenBeforeGrace(t *testing.T) {
 	m := newLoadingModel("blog", make(chan struct{}))
 	m.width, m.height = 80, 24
 
-	// Before the grace period (started=false) nothing renders, and we stay off
-	// the alt screen so a fast restore never flashes.
 	view := m.View()
 	if strings.TrimSpace(view.Content) != "" {
 		t.Fatalf("expected empty pre-grace view, got %q", view.Content)
@@ -50,19 +48,16 @@ func TestLoadingViewRendersFieldAndCaption(t *testing.T) {
 		t.Fatal("expected the centered restoring caption")
 	}
 
-	// The field should contain at least one non-space ramp glyph somewhere.
 	if !strings.ContainsAny(view.Content, ".·:-=+*#%@") {
 		t.Fatal("expected the ascii field to render ramp glyphs")
 	}
 
-	// The animation lives inside the picker's rounded frame.
 	for _, corner := range []string{"╭", "╮", "╰", "╯", "│"} {
 		if !strings.Contains(view.Content, corner) {
 			t.Fatalf("expected the rounded frame char %q around the animation", corner)
 		}
 	}
 
-	// Every framed line must be the same display width, or the border misaligns.
 	want := ansi.StringWidth(lines[0])
 	for i, ln := range lines {
 		if got := ansi.StringWidth(ln); got != want {

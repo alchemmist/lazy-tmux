@@ -1,6 +1,3 @@
-// The lazy-tmux command saves and restores tmux sessions: snapshots of windows,
-// panes, paths and running commands that survive server restarts, with a
-// background save daemon and interactive TUI/fzf pickers.
 package main
 
 import (

@@ -1,6 +1,3 @@
-// Package config loads lazy-tmux's TOML configuration: built-in defaults
-// overlaid with the config file, which CLI flags and env overrides may in turn
-// override. Unknown keys in the file are rejected so typos fail loudly.
 package config
 
 import (
@@ -16,7 +13,6 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/store"
 )
 
-// Sentinel errors; details are wrapped around them at the call sites.
 var (
 	errUnknownConfigKeys = errors.New("unknown keys")
 	errNoConfigPath      = errors.New(
@@ -25,8 +21,6 @@ var (
 	errConfigExists = errors.New("already exists (use --force to overwrite)")
 )
 
-// Config is the effective lazy-tmux configuration after defaults, the TOML
-// file and any flag/env overrides have been merged.
 type Config struct {
 	TmuxBin        string
 	DataDir        string
@@ -35,60 +29,35 @@ type Config struct {
 	Scrollback     ScrollbackConfig
 	Integrations   IntegrationsConfig
 
-	// RestoreAllowlist limits which commands are replayed on restore, matched by
-	// executable name. A nil slice means no allowlist is configured and every
-	// command is restored (the default). A non-nil slice — including an empty
-	// one — activates the allowlist: only the listed commands are restored, and
-	// an empty list restores none.
 	RestoreAllowlist []string
 
-	// RestoreDenylist blocks specific commands from being replayed on restore,
-	// matched by executable name. It is the inverse of RestoreAllowlist: instead
-	// of enumerating everything you trust, you list only the few programs to
-	// exclude. The denylist wins over the allowlist — a command is replayed only
-	// when it is not denied and (no allowlist is set or it is allowed). A nil or
-	// empty slice blocks nothing (the default).
 	RestoreDenylist []string
 }
 
-// ScrollbackConfig controls capturing shell-pane scrollback into snapshots:
-// whether it happens at all and how many lines deep.
 type ScrollbackConfig struct {
 	Enabled bool
 	Lines   int
 }
 
-// IntegrationsConfig controls the program-integration framework: a master switch
-// plus per-integration settings.
 type IntegrationsConfig struct {
 	Enabled bool
 	Claude  ClaudeIntegrationConfig
 }
 
-// ClaudeIntegrationConfig configures the Claude Code integration (restore a
-// `claude` pane as `claude --resume <session-id>`).
 type ClaudeIntegrationConfig struct {
 	Enabled bool
-	// Home is the Claude Code data directory; transcripts live under
-	// <Home>/projects/<cwd>/<session-id>.jsonl.
-	Home string
+	Home    string
 }
 
-// Defaults applied when the config file leaves a knob unset.
 const (
 	defaultTmuxBin        = "tmux"
 	defaultSaveInterval   = 5 * time.Minute
 	defaultRestoreTimeout = 5 * time.Second
 	defaultClaudeHome     = "~/.claude"
 
-	// DefaultScrollbackLines is the scrollback capture depth used by the config
-	// default and by the save/sleep/daemon CLI flags.
 	DefaultScrollbackLines = 5000
 )
 
-// Default returns the built-in configuration used when no config file, flag or
-// env override sets a value. Notably scrollback capture is off by default while
-// the integrations framework (including Claude) is on.
 func Default() Config {
 	return Config{
 		TmuxBin:        defaultTmuxBin,
@@ -109,12 +78,6 @@ func Default() Config {
 	}
 }
 
-// DefaultConfigPath returns the path lazy-tmux reads its TOML config from.
-//
-// Resolution order: the LAZY_TMUX_CONFIG override, then
-// $XDG_CONFIG_HOME/lazy-tmux/lazy-tmux.toml, then
-// ~/.config/lazy-tmux/lazy-tmux.toml. It returns "" only when the home
-// directory cannot be determined and no override is set.
 func DefaultConfigPath() string {
 	if v := strings.TrimSpace(os.Getenv("LAZY_TMUX_CONFIG")); v != "" {
 		return v
@@ -132,14 +95,10 @@ func DefaultConfigPath() string {
 	return filepath.Join(home, ".config", "lazy-tmux", "lazy-tmux.toml")
 }
 
-// Load builds the effective configuration: built-in defaults overlaid with the
-// values found in the TOML config file at DefaultConfigPath (if it exists).
-// A missing file is not an error; an unreadable or malformed file is.
 func Load() (Config, error) {
 	return LoadFrom(DefaultConfigPath())
 }
 
-// LoadFrom is Load with an explicit config file path, primarily for testing.
 func LoadFrom(path string) (Config, error) {
 	cfg := Default()
 
@@ -165,8 +124,6 @@ func LoadFrom(path string) (Config, error) {
 		return cfg, fmt.Errorf("parse config %s: %w", path, err)
 	}
 
-	// Reject unknown keys so typos (e.g. "tmux_binn") fail loudly instead of
-	// being silently ignored.
 	if undecoded := meta.Undecoded(); len(undecoded) > 0 {
 		return cfg, fmt.Errorf("config %s: %w: %v", path, errUnknownConfigKeys, undecoded)
 	}
@@ -174,9 +131,6 @@ func LoadFrom(path string) (Config, error) {
 	return cfg.withFile(file), nil
 }
 
-// fileConfig mirrors the TOML schema. Every field is a pointer so an absent key
-// leaves the corresponding default untouched, rather than overwriting it with a
-// zero value.
 type fileConfig struct {
 	TmuxBin          *string               `toml:"tmux_bin"`
 	DataDir          *string               `toml:"data_dir"`
@@ -203,11 +157,8 @@ type fileClaudeIntegration struct {
 	Home    *string `toml:"home"`
 }
 
-// withFile returns a copy of cfg with every value set in file applied on top.
 func (cfg Config) withFile(file fileConfig) Config {
 	if file.TmuxBin != nil {
-		// Expand a leading ~ so e.g. tmux_bin = "~/bin/tmux.appimage" works
-		// (matches data_dir handling).
 		cfg.TmuxBin = ExpandHome(*file.TmuxBin)
 	}
 
@@ -224,8 +175,6 @@ func (cfg Config) withFile(file fileConfig) Config {
 	}
 
 	if file.RestoreAllowlist != nil {
-		// Keep the slice non-nil even when empty so a configured-but-empty
-		// allowlist stays distinguishable from "no allowlist configured".
 		allowlist := *file.RestoreAllowlist
 		if allowlist == nil {
 			allowlist = []string{}
@@ -235,8 +184,6 @@ func (cfg Config) withFile(file fileConfig) Config {
 	}
 
 	if file.RestoreDenylist != nil {
-		// Unlike the allowlist, the denylist has no "configured-but-empty"
-		// meaning: an empty list simply blocks nothing, so a plain copy is fine.
 		cfg.RestoreDenylist = *file.RestoreDenylist
 	}
 
@@ -275,7 +222,6 @@ func (ic IntegrationsConfig) withFile(file fileIntegrationsConf) IntegrationsCon
 	return ic
 }
 
-// duration lets the TOML decoder accept Go duration strings like "5m" or "10s".
 type duration struct {
 	time.Duration
 }
@@ -291,9 +237,6 @@ func (d *duration) UnmarshalText(text []byte) error {
 	return nil
 }
 
-// ExpandHome resolves a leading ~ in a path to the user's home directory, so
-// e.g. "~/snapshots" (data_dir) or "~/bin/tmux.appimage" (tmux_bin, including
-// the --tmux-bin flag) works as expected.
 func ExpandHome(path string) string {
 	if path == "~" || strings.HasPrefix(path, "~/") {
 		home, err := os.UserHomeDir()

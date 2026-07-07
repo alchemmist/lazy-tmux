@@ -118,7 +118,6 @@ func TestLoadFromPartialFileKeepsDefaults(t *testing.T) {
 		t.Fatalf("load: %v", err)
 	}
 
-	// Only restore_timeout is overridden; everything else keeps its default.
 	if cfg.RestoreTimeout != 2*time.Second {
 		t.Fatalf("restore_timeout: got %s", cfg.RestoreTimeout)
 	}
@@ -195,7 +194,6 @@ func TestLoadFromInvalidDurationErrors(t *testing.T) {
 func TestLoadFromRestoreAllowlist(t *testing.T) {
 	t.Parallel()
 
-	// Absent key -> nil (allowlist disabled, restore everything).
 	cfg, err := LoadFrom(writeConfig(t, "tmux_bin = \"tmux\"\n"))
 	if err != nil {
 		t.Fatalf("load: %v", err)
@@ -205,7 +203,6 @@ func TestLoadFromRestoreAllowlist(t *testing.T) {
 		t.Fatalf("absent allowlist should be nil, got %#v", cfg.RestoreAllowlist)
 	}
 
-	// Populated list.
 	cfg, err = LoadFrom(writeConfig(t, "restore_allowlist = [\"nvim\", \"htop\"]\n"))
 	if err != nil {
 		t.Fatalf("load: %v", err)
@@ -217,7 +214,6 @@ func TestLoadFromRestoreAllowlist(t *testing.T) {
 		t.Fatalf("allowlist: got %#v", cfg.RestoreAllowlist)
 	}
 
-	// Explicitly empty list -> non-nil empty (allowlist active, restore nothing).
 	cfg, err = LoadFrom(writeConfig(t, "restore_allowlist = []\n"))
 	if err != nil {
 		t.Fatalf("load: %v", err)
@@ -231,7 +227,6 @@ func TestLoadFromRestoreAllowlist(t *testing.T) {
 func TestLoadFromRestoreDenylist(t *testing.T) {
 	t.Parallel()
 
-	// Absent key -> nil (nothing blocked).
 	cfg, err := LoadFrom(writeConfig(t, "tmux_bin = \"tmux\"\n"))
 	if err != nil {
 		t.Fatalf("load: %v", err)
@@ -241,7 +236,6 @@ func TestLoadFromRestoreDenylist(t *testing.T) {
 		t.Fatalf("absent denylist should be nil, got %#v", cfg.RestoreDenylist)
 	}
 
-	// Populated list.
 	cfg, err = LoadFrom(writeConfig(t, "restore_denylist = [\"npm\", \"node\"]\n"))
 	if err != nil {
 		t.Fatalf("load: %v", err)
@@ -257,7 +251,6 @@ func TestLoadFromRestoreDenylist(t *testing.T) {
 func TestLoadFromUnknownKeyErrors(t *testing.T) {
 	t.Parallel()
 
-	// A typo'd key must fail loudly rather than be silently ignored.
 	path := writeConfig(t, "tmux_binn = \"tmux\"\n")
 
 	_, err := LoadFrom(path)
@@ -270,7 +263,6 @@ func TestLoadFromUnknownKeyErrors(t *testing.T) {
 	}
 }
 
-// writeConfig writes body to a temp .toml file and returns its path.
 func writeConfig(t *testing.T, body string) string {
 	t.Helper()
 

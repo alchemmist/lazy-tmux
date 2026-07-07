@@ -9,8 +9,6 @@ import (
 
 var errBoom = errors.New("boom")
 
-// fakeIntegration matches panes by CurrentCmd and echoes its metadata back so
-// tests can verify namespacing and de-namespacing.
 type fakeIntegration struct {
 	name       string
 	matchCmd   string
@@ -70,7 +68,7 @@ func TestRegistryEnrichSwallowsCaptureFailures(t *testing.T) {
 	})
 
 	snap := paneSnap(snapshot.Pane{CurrentCmd: "myprog"})
-	reg.Enrich(snap) // must not panic
+	reg.Enrich(snap)
 
 	if snap.Windows[0].Panes[0].Meta != nil {
 		t.Fatal("a failing Capture must record nothing")
@@ -102,7 +100,6 @@ func TestRegistryResolveNoMatch(t *testing.T) {
 	}
 }
 
-// fakeStatusIntegration matches by CurrentCmd and reports a fixed status.
 type fakeStatusIntegration struct {
 	fakeIntegration
 
@@ -134,7 +131,6 @@ func TestRegistryStatus(t *testing.T) {
 func TestRegistryStatusNonReporter(t *testing.T) {
 	t.Parallel()
 
-	// An integration that matches but does not implement StatusReporter.
 	reg := NewRegistry(fakeIntegration{name: "fake", matchCmd: "myprog"})
 
 	if _, ok := reg.Status(snapshot.Pane{CurrentCmd: "myprog"}); ok {
@@ -147,7 +143,7 @@ func TestRegistryNilSafe(t *testing.T) {
 
 	var reg *Registry
 
-	reg.Enrich(paneSnap(snapshot.Pane{CurrentCmd: "x"})) // must not panic
+	reg.Enrich(paneSnap(snapshot.Pane{CurrentCmd: "x"}))
 
 	if got := reg.Resolve(snapshot.Pane{CurrentCmd: "x"}); got != "" {
 		t.Fatalf("nil registry resolve should be empty, got %q", got)

@@ -8,7 +8,6 @@ import (
 	"testing"
 )
 
-// existing settings with a user's own Notification hook that must be preserved.
 const existingSettings = `{
   "theme": "dark",
   "hooks": {
@@ -74,7 +73,6 @@ func TestApplyClaudeHooksInstallPreservesExisting(t *testing.T) {
 
 	hooks := parseSettings(t, path)
 
-	// All hooked events present.
 	for _, event := range []string{
 		"Notification", "UserPromptSubmit", "PreToolUse", "PostToolUse",
 		"PermissionDenied", "Stop",
@@ -84,18 +82,15 @@ func TestApplyClaudeHooksInstallPreservesExisting(t *testing.T) {
 		}
 	}
 
-	// The user's own notify hook survived (Notification now has their group + ours).
 	if !strings.Contains(string(mustJSON(t, hooks["Notification"])), "my-notify.sh") {
 		t.Fatal("existing notify hook was lost")
 	}
 
-	// Top-level keys preserved.
 	data, _ := os.ReadFile(path)
 	if !strings.Contains(string(data), `"theme": "dark"`) {
 		t.Fatal("unrelated top-level key was lost")
 	}
 
-	// Backup written.
 	if _, err := os.Stat(path + ".lazy-tmux.bak"); err != nil {
 		t.Fatalf("expected backup file: %v", err)
 	}
@@ -143,7 +138,6 @@ func TestApplyClaudeHooksUninstallIsSurgical(t *testing.T) {
 		t.Fatalf("uninstall left %d of our hooks", n)
 	}
 
-	// The user's hook must remain.
 	data, _ := os.ReadFile(path)
 	if !strings.Contains(string(data), "my-notify.sh") {
 		t.Fatal("uninstall removed the user's own hook")
@@ -172,7 +166,6 @@ func TestApplyClaudeHooksUninstallNoFileIsNoOp(t *testing.T) {
 func TestApplyClaudeHooksUninstallKeepsSiblingInGroup(t *testing.T) {
 	t.Parallel()
 
-	// A user command sharing the same group as ours must survive uninstall.
 	mixed := `{
   "hooks": {
     "UserPromptSubmit": [

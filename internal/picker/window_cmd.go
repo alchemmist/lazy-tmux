@@ -11,7 +11,6 @@ func windowPreviewCommand(win snapshot.Window) string {
 		return ""
 	}
 
-	// Snapshot may have sparse pane indices; fall back to first pane if active is missing.
 	active := 0
 
 	for i := range win.Panes {

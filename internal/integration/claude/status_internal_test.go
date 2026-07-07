@@ -66,8 +66,6 @@ func TestStatusHookIgnoresCWDMismatch(t *testing.T) {
 	statusDir := t.TempDir()
 	pane := "/Users/me/code/proj"
 
-	// A hook file sitting at this pane's encoded path but recording a different
-	// cwd (an encoding collision) must not leak another project's status.
 	body := `{"state":"working","cwd":"/some/other/project"}`
 	path := filepath.Join(statusDir, EncodeProjectDir(pane)+".json")
 
@@ -86,9 +84,8 @@ func TestStatusFallsBackToSessionFile(t *testing.T) {
 	home := t.TempDir()
 	cwd := "/Users/me/proj"
 
-	// Both alive (use this process's pid); the freshest wins.
 	writeSessionFile(t, home, "busy", cwd, "busy", 200)
-	writeSessionFile(t, home, "idle", cwd, "idle", 100) // older, ignored
+	writeSessionFile(t, home, "idle", cwd, "idle", 100)
 
 	got, ok := New(home, t.TempDir()).Status(snapshot.Pane{CurrentPath: cwd})
 	if !ok || got != integration.StatusWorking {
@@ -116,7 +113,6 @@ func TestStatusSessionFileSkipsDeadProcess(t *testing.T) {
 	home := t.TempDir()
 	cwd := "/Users/me/proj"
 
-	// A dead pid must be ignored so a stale file never shows a dot.
 	writeSessionFilePID(t, home, "dead", 2147483600, cwd, "busy", 999)
 
 	if _, ok := New(home, t.TempDir()).Status(snapshot.Pane{CurrentPath: cwd}); ok {
@@ -137,8 +133,6 @@ func TestStatusNoneWhenUnknown(t *testing.T) {
 	}
 }
 
-// writeSessionFile writes a Claude session file with this (alive) test process's
-// pid, so the liveness check passes.
 func writeSessionFile(t *testing.T, home, name, cwd, status string, updatedAt int64) {
 	t.Helper()
 	writeSessionFilePID(t, home, name, os.Getpid(), cwd, status, updatedAt)

@@ -100,7 +100,6 @@ func runConfigShow(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	// Report which file (if any) the effective config came from.
 	source := "built-in defaults (no config file path)"
 
 	path := config.DefaultConfigPath()

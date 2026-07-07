@@ -6,21 +6,14 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
-// Registry holds the enabled integrations and applies them at save and restore
-// time. The zero value (and a nil *Registry) is safe and inert.
 type Registry struct {
 	items []Integration
 }
 
-// NewRegistry builds a registry from the given integrations, consulted in order
-// (the first match wins per pane).
 func NewRegistry(items ...Integration) *Registry {
 	return &Registry{items: items}
 }
 
-// Enrich runs the first matching integration's Capture on every pane and stores
-// the result on the pane, namespaced as "<name>.<key>". Capture failures are
-// swallowed so saving can never break on integration state.
 func (r *Registry) Enrich(snap *snapshot.SessionSnapshot) {
 	if r == nil || snap == nil || len(r.items) == 0 {
 		return
@@ -33,9 +26,6 @@ func (r *Registry) Enrich(snap *snapshot.SessionSnapshot) {
 	}
 }
 
-// Resolve returns the restore command from the first matching integration, or ""
-// to fall back to the default restore. It satisfies tmux's
-// RestoreCommandResolver and is pure (reads only the pane's stored metadata).
 func (r *Registry) Resolve(pane snapshot.Pane) string {
 	if r == nil {
 		return ""
@@ -49,9 +39,6 @@ func (r *Registry) Resolve(pane snapshot.Pane) string {
 	return integ.RestoreCommand(pane, subMeta(pane.Meta, integ.Name()))
 }
 
-// Status reports the live status of a pane from the first matching integration
-// that implements StatusReporter. ok=false means no status is available (the
-// picker shows no dot).
 func (r *Registry) Status(pane snapshot.Pane) (Status, bool) {
 	if r == nil {
 		return StatusUnknown, false
@@ -103,8 +90,6 @@ func (r *Registry) match(pane snapshot.Pane) Integration {
 	return nil
 }
 
-// subMeta extracts the keys belonging to one integration, stripping the
-// "<name>." namespace prefix.
 func subMeta(meta map[string]string, name string) map[string]string {
 	prefix := name + "."
 	out := make(map[string]string)

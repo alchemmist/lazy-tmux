@@ -27,8 +27,6 @@ func TestCLIVersionVariants(t *testing.T) {
 func TestCLIVersionHelp(t *testing.T) {
 	t.Parallel()
 
-	// `help version` and `version -h` both reach the version help, like any
-	// other command.
 	for _, args := range [][]string{{"help", "version"}, {"version", "-h"}, {"version", "--help"}} {
 		code, out, _ := run(t, args...)
 		if code != 0 {
@@ -41,11 +39,6 @@ func TestCLIVersionHelp(t *testing.T) {
 	}
 }
 
-// Mutating the package-level version variable must not overlap with the
-// parallel CLI tests that read it through resolveVersion, so these two tests
-// stay serial: Go runs all serial tests to completion before resuming the
-// paused parallel ones.
-//
 //nolint:paralleltest // writes the global version read by parallel tests
 func TestResolveVersionPrefersLdflags(t *testing.T) {
 	orig := version
@@ -62,8 +55,6 @@ func TestResolveVersionFallbackNonEmpty(t *testing.T) {
 	orig := version
 	t.Cleanup(func() { version = orig })
 
-	// With no injected version, resolveVersion must still return something
-	// usable (module version, VCS revision, or "dev") rather than empty.
 	version = ""
 	if got := resolveVersion(); got == "" {
 		t.Fatal("resolveVersion returned empty without an injected version")

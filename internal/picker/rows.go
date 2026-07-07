@@ -70,9 +70,6 @@ func filteredTreeRows(sessions []Session, query string, windowSort []WindowSortK
 	return rows
 }
 
-// modeSessions narrows the session list to those valid for the active mode:
-// wake shows only sleeping (not live) sessions, sleep only live ones; the other
-// modes see every session.
 func (m pickerModel) modeSessions() []Session {
 	switch m.action {
 	case actionWake:
@@ -96,17 +93,11 @@ func filterSessions(sessions []Session, keep func(Session) bool) []Session {
 	return out
 }
 
-// decorateRows adapts the base session/window tree to the active mode: new,
-// wake and sleep act on whole sessions, so window rows are dropped; new also
-// prepends a synthetic "＋ new session" row. Delete, rename and browse keep the
-// full tree.
 func (m pickerModel) decorateRows(rows []pickerRow) []pickerRow {
 	switch m.action {
 	case actionNew:
 		sessionRows := sessionRowsOnly(rows)
 
-		// While the user is filtering, drop the synthetic row so Enter binds to
-		// the matched session (new window) rather than "new session".
 		if strings.TrimSpace(m.queryInput.Value()) != "" {
 			return sessionRows
 		}
@@ -134,14 +125,10 @@ func sessionRowsOnly(rows []pickerRow) []pickerRow {
 	return out
 }
 
-// rowSelectable reports whether a row can be acted on in the active mode. Browse
-// keeps the inherent window-only selectability; delete and rename also let you
-// target session headers; new/wake/sleep target sessions (and the synthetic
-// new-session row).
 func (m pickerModel) rowSelectable(row pickerRow) bool {
 	switch m.action {
 	case actionDelete, actionRename:
-		return true // sessions and windows are both valid targets
+		return true
 	case actionNew, actionWake, actionSleep:
 		return row.synthetic || row.target.WindowIndex == nil
 	default:
@@ -149,8 +136,6 @@ func (m pickerModel) rowSelectable(row pickerRow) bool {
 	}
 }
 
-// Calendar buckets for relative timestamps (a month is the conventional 30
-// days, a year 365).
 const (
 	day   = 24 * time.Hour
 	week  = 7 * day
@@ -158,8 +143,6 @@ const (
 	year  = 365 * day
 )
 
-// relativeTime renders a capture time as a compact, scannable age such as
-// "just now", "3m ago", "2h ago", "5d ago" or "4mo ago".
 func relativeTime(then, now time.Time) string {
 	if then.IsZero() {
 		return ""

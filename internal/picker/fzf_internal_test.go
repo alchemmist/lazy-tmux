@@ -35,15 +35,12 @@ func TestWindowFZFLinesSortedAndFormatted(t *testing.T) {
 		},
 	}
 
-	// Sort windows by index ascending.
 	lines := windowFZFLines(sessions, []WindowSortKey{{Field: WindowSortIndex, Desc: false}})
 
 	if len(lines) != 2 {
 		t.Fatalf("expected 2 window lines, got %d: %#v", len(lines), lines)
 	}
 
-	// First line must be window index 1 (editor/nvim) after sorting; parse the
-	// hidden fields, and confirm the display column carries the visible values.
 	first, err := parseWindowSelection(lines[0])
 	if err != nil {
 		t.Fatalf("parse first line: %v", err)
@@ -67,8 +64,6 @@ func TestWindowFZFLinesSortedAndFormatted(t *testing.T) {
 		t.Fatalf("unexpected second target: %+v", second)
 	}
 
-	// The visible column (everything before the first tab) must be the same
-	// rendered width on every row, or fzf would show ragged columns (#200).
 	assertEqualDisplayWidths(t, lines)
 }
 
@@ -98,8 +93,6 @@ func TestSessionFZFLinesAligned(t *testing.T) {
 		t.Fatalf("expected 3 lines, got %d", len(lines))
 	}
 
-	// Different name lengths must not shift the date column: identical display
-	// widths, and the timestamp starts at the same offset on every row.
 	assertEqualDisplayWidths(t, lines)
 
 	off := -1
@@ -107,7 +100,7 @@ func TestSessionFZFLinesAligned(t *testing.T) {
 	for _, line := range lines {
 		display := strings.SplitN(line, "\t", 2)[0]
 
-		at := strings.Index(display, "202") // start of the year in the timestamp
+		at := strings.Index(display, "202")
 		if off == -1 {
 			off = at
 		} else if at != off {
@@ -115,14 +108,11 @@ func TestSessionFZFLinesAligned(t *testing.T) {
 		}
 	}
 
-	// The hidden trailing field must carry the real session name for parsing.
 	if got := strings.Split(lines[0], "\t"); got[len(got)-1] != "tmp" {
 		t.Fatalf("hidden name field wrong: %#v", got)
 	}
 }
 
-// assertEqualDisplayWidths checks that the visible column (before the first tab)
-// has the same rendered width on every line.
 func assertEqualDisplayWidths(t *testing.T, lines []string) {
 	t.Helper()
 
@@ -176,7 +166,6 @@ func TestChooseWindowFZFEmpty(t *testing.T) {
 func TestChooseWindowFZFNoWindows(t *testing.T) {
 	t.Parallel()
 
-	// Sessions exist but carry no windows: this is distinct from "no sessions".
 	sessions := []Session{
 		{Record: snapshot.Record{SessionName: "work", CapturedAt: time.Now()}},
 	}
@@ -191,8 +180,6 @@ func TestChooseWindowFZFFilterMode(t *testing.T) {
 
 	testutil.RequireFZF(t)
 
-	// Non-interactive: fzf runs in --filter mode and the first (sorted) window
-	// line is selected, exercising the real fzf binary end-to-end.
 	sessions := []Session{
 		{
 			Record: snapshot.Record{SessionName: "work", CapturedAt: time.Now()},
@@ -218,10 +205,6 @@ func TestChooseSessionFZFFilterMode(t *testing.T) {
 
 	testutil.RequireFZF(t)
 
-	// In a non-interactive (no TTY) context, ChooseSessionFZF invokes fzf in
-	// --filter mode, which prints all matching lines without any user input.
-	// This exercises the real fzf binary end-to-end and returns the first
-	// session name.
 	records := []snapshot.Record{
 		{SessionName: "alpha", CapturedAt: time.Now(), Windows: 2},
 		{SessionName: "beta", CapturedAt: time.Now(), Windows: 1},

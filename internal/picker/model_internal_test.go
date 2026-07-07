@@ -14,7 +14,6 @@ import (
 
 var errBoom = errors.New("boom")
 
-// keyRune builds a printable key press (routed into the query/prompt input).
 func keyRune(r rune) tea.KeyPressMsg {
 	return tea.KeyPressMsg{Code: r, Text: string(r)}
 }
@@ -58,10 +57,6 @@ func makeSession(name string, restored bool, windowNames ...string) Session {
 	}
 }
 
-// recordingActions captures which callbacks the model invoked. The Actions
-// struct is the picker's real dependency boundary; production wires these to
-// the app (which talks to real tmux). Driving them here exercises the model's
-// dispatch logic without a terminal.
 type deletedWindowCall struct {
 	session string
 	index   int
@@ -151,23 +146,21 @@ func TestModelNavigationAndSelect(t *testing.T) {
 		makeSession("beta", true, "three"),
 	)
 
-	// Rows: [alpha hdr, alpha:1, alpha:2, beta hdr, beta:1]
-	// Cursor starts on first selectable (alpha:1).
 	if m.cursor != 1 || !m.visible[m.cursor].selectable {
 		t.Fatalf("cursor should start on first selectable, got %d", m.cursor)
 	}
 
-	m = feed(t, m, keyCtrl('j')) // -> alpha:2
+	m = feed(t, m, keyCtrl('j'))
 	if m.cursor != 2 {
 		t.Fatalf("ctrl+j should move to next selectable, got %d", m.cursor)
 	}
 
-	m = feed(t, m, keyCtrl('j')) // -> beta:1
+	m = feed(t, m, keyCtrl('j'))
 	if m.cursor != 4 {
 		t.Fatalf("ctrl+j should skip header to beta window, got %d", m.cursor)
 	}
 
-	m = feed(t, m, keyCtrl('k')) // back to alpha:2
+	m = feed(t, m, keyCtrl('k'))
 	if m.cursor != 2 {
 		t.Fatalf("ctrl+k should move to prev selectable, got %d", m.cursor)
 	}
@@ -188,7 +181,7 @@ func TestModelFilter(t *testing.T) {
 		makeSession("beta", false, "two"),
 	)
 
-	m = feed(t, m, keyRune('b')) // query "b" -> only beta matches
+	m = feed(t, m, keyRune('b'))
 
 	if len(m.visible) == 0 {
 		t.Fatal("expected some visible rows after filtering")
@@ -219,8 +212,6 @@ func TestModelDeleteWindow(t *testing.T) {
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two"))
 
-	// ^d enters delete mode and pre-marks the current window (one of two, so a
-	// window — not the whole session — is removed); ↵ commits.
 	m = feed(t, m, keyCtrl('d'))
 	if m.action != actionDelete {
 		t.Fatalf("ctrl+d should enter delete mode, got %d", m.action)
@@ -257,7 +248,7 @@ func TestModelDeleteSessionFlow(t *testing.T) {
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
 
-	m = feed(t, m, keyAlt('d')) // delete mode, whole session pre-marked
+	m = feed(t, m, keyAlt('d'))
 	if m.action != actionDelete {
 		t.Fatalf("alt+d should enter delete mode, got %d", m.action)
 	}
@@ -279,18 +270,16 @@ func TestModelDeleteMultiSelect(t *testing.T) {
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two", "three"))
 
-	// /delete via the palette starts with nothing marked.
 	m = feed(t, m, keyRune('/'))
 	for _, r := range "delete" {
 		m = feed(t, m, keyRune(r))
 	}
 
-	m = feed(t, m, keyCode(tea.KeyEnter)) // enter delete mode
+	m = feed(t, m, keyCode(tea.KeyEnter))
 	if m.action != actionDelete {
 		t.Fatalf("/delete should enter delete mode, got %d", m.action)
 	}
 
-	// Mark the first two window rows (rows: [hdr, w1, w2, w3]).
 	m.cursor = 1
 	m = feed(t, m, keyRune(' '))
 	m.cursor = 2
@@ -298,13 +287,10 @@ func TestModelDeleteMultiSelect(t *testing.T) {
 
 	feed(t, m, keyCode(tea.KeyEnter))
 
-	// Two of three windows marked -> per-window deletes, not a session delete.
 	if rec.deletedSession != "" {
 		t.Fatalf("partial selection must not delete the session, got %q", rec.deletedSession)
 	}
 
-	// Both marked windows must be deleted high-index-first so earlier indices
-	// stay valid (commitDelete deletes in descending order).
 	want := []deletedWindowCall{
 		{session: "alpha", index: 2},
 		{session: "alpha", index: 1},
@@ -327,12 +313,12 @@ func TestModelRenameWindowFlow(t *testing.T) {
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
 
-	m = feed(t, m, keyCtrl('r')) // rename mode, cursor on the window
+	m = feed(t, m, keyCtrl('r'))
 	if m.action != actionRename {
 		t.Fatalf("ctrl+r should enter rename mode, got %d", m.action)
 	}
 
-	m = feed(t, m, keyCode(tea.KeyEnter)) // open the prompt (preset to "one")
+	m = feed(t, m, keyCode(tea.KeyEnter))
 	if m.mode != modeRenameWindow {
 		t.Fatalf("↵ should open the rename-window prompt, got %d", m.mode)
 	}
@@ -351,7 +337,7 @@ func TestModelRenameSessionFlow(t *testing.T) {
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
 
-	m = feed(t, m, keyAlt('r')) // rename mode, cursor on the session header
+	m = feed(t, m, keyAlt('r'))
 	m = feed(t, m, keyCode(tea.KeyEnter))
 	m = feed(t, m, keyRune('Z'))
 	feed(t, m, keyCode(tea.KeyEnter))
@@ -367,12 +353,12 @@ func TestModelNewSessionFlow(t *testing.T) {
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
 
-	m = feed(t, m, keyAlt('n')) // new mode, cursor on synthetic "+ new session"
+	m = feed(t, m, keyAlt('n'))
 	if m.action != actionNew {
 		t.Fatalf("alt+n should enter new mode, got %d", m.action)
 	}
 
-	m = feed(t, m, keyCode(tea.KeyEnter)) // open new-session prompt
+	m = feed(t, m, keyCode(tea.KeyEnter))
 	if m.mode != modeNewSession {
 		t.Fatalf("↵ on the synthetic row should open new-session, got %d", m.mode)
 	}
@@ -392,17 +378,17 @@ func TestModelNewWindowFlow(t *testing.T) {
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
 
-	m = feed(t, m, keyCtrl('n')) // new mode, cursor on the alpha session header
+	m = feed(t, m, keyCtrl('n'))
 	if m.action != actionNew {
 		t.Fatalf("ctrl+n should enter new mode, got %d", m.action)
 	}
 
-	m = feed(t, m, keyCode(tea.KeyEnter)) // open new-window prompt
+	m = feed(t, m, keyCode(tea.KeyEnter))
 	if m.mode != modeNewWindow {
 		t.Fatalf("↵ on a session row should open new-window, got %d", m.mode)
 	}
 
-	feed(t, m, keyCode(tea.KeyEnter)) // empty name allowed (auto-named)
+	feed(t, m, keyCode(tea.KeyEnter))
 
 	if rec.newWindow[0] != "alpha" {
 		t.Fatalf("expected new window in alpha, got %q", rec.newWindow[0])
@@ -415,10 +401,8 @@ func TestModelNewFilteringBindsToSession(t *testing.T) {
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"), makeSession("beta", false, "two"))
 
-	m = feed(t, m, keyAlt('n')) // new mode, cursor on synthetic row
+	m = feed(t, m, keyAlt('n'))
 
-	// Filter to "beta": the synthetic "+ new session" row must drop out so the
-	// only target is the matched session, and Enter creates a window in it.
 	m = feed(t, m, keyRune('b'))
 
 	for _, row := range m.visible {
@@ -427,7 +411,7 @@ func TestModelNewFilteringBindsToSession(t *testing.T) {
 		}
 	}
 
-	m = feed(t, m, keyCode(tea.KeyEnter)) // open new-window prompt
+	m = feed(t, m, keyCode(tea.KeyEnter))
 	if m.mode != modeNewWindow {
 		t.Fatalf("filtered ↵ should bind to new-window, got %d", m.mode)
 	}
@@ -448,11 +432,11 @@ func TestModelWakeFiltersToSleeping(t *testing.T) {
 
 	rec := &recordingActions{}
 	m := newTestModel(t, rec,
-		makeSession("sleepy", false, "one"), // not live -> wakeable
-		makeSession("live", true, "two"),    // live -> not wakeable
+		makeSession("sleepy", false, "one"),
+		makeSession("live", true, "two"),
 	)
 
-	m = feed(t, m, keyAlt('w')) // wake mode
+	m = feed(t, m, keyAlt('w'))
 
 	for _, row := range m.visible {
 		if row.target.SessionName == "live" {
@@ -479,7 +463,7 @@ func TestModelSleepFiltersToLive(t *testing.T) {
 		makeSession("live", true, "two"),
 	)
 
-	m = feed(t, m, keyAlt('s')) // sleep mode
+	m = feed(t, m, keyAlt('s'))
 
 	for _, row := range m.visible {
 		if row.target.SessionName == "sleepy" {
@@ -499,7 +483,7 @@ func TestModelEscExitsActionMode(t *testing.T) {
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
 
-	m = feed(t, m, keyAlt('d')) // delete mode
+	m = feed(t, m, keyAlt('d'))
 	if m.action != actionDelete {
 		t.Fatalf("alt+d should enter delete mode, got %d", m.action)
 	}
@@ -530,7 +514,6 @@ func TestModelPaletteOpensOnSlash(t *testing.T) {
 		t.Fatal("typing / should open the command palette")
 	}
 
-	// Refine to "/del" and confirm: only delete matches, so ↵ enters delete.
 	for _, r := range "del" {
 		m = feed(t, m, keyRune(r))
 	}
@@ -555,7 +538,6 @@ func TestModelViewRendersWithoutPanic(t *testing.T) {
 		t.Fatal("expected alt screen view")
 	}
 
-	// Filter to nothing and ensure the empty view still renders.
 	m = feed(t, m, keyRune('z'))
 	m = feed(t, m, keyRune('z'))
 	m = feed(t, m, keyRune('z'))
@@ -592,7 +574,6 @@ func TestFilteredTreeRowsAndTable(t *testing.T) {
 		t.Fatal("expected a non-empty rendered row")
 	}
 
-	// Narrow layout should still render (columns shrink to fit).
 	narrow := buildPickerTableLayout(12)
 	if narrow.row(rows[1]) == "" {
 		t.Fatal("expected narrow row to render")
@@ -653,7 +634,7 @@ func TestChooseTargetNoSelection(
 	defer func() { newPickerRunner = orig }()
 
 	newPickerRunner = func(m pickerModel) pickerRunner {
-		return staticRunner{model: m} // nothing selected
+		return staticRunner{model: m}
 	}
 
 	if _, err := ChooseTarget([]Session{makeSession("a", false, "w")}, nil, Actions{}); err == nil {
@@ -673,7 +654,6 @@ func TestModelHelpToggle(t *testing.T) {
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two"))
 
-	// "?" on an empty query opens the help panel.
 	m = feed(t, m, keyRune('?'))
 	if !m.helpOpen {
 		t.Fatal("'?' should open the help panel")
@@ -684,7 +664,6 @@ func TestModelHelpToggle(t *testing.T) {
 		t.Fatalf("help panel should list keybindings, got:\n%s", view)
 	}
 
-	// Any key closes it and is consumed (no accidental selection/mode change).
 	m = feed(t, m, keyCode(tea.KeyEnter))
 	if m.helpOpen {
 		t.Fatal("any key should close the help panel")
@@ -701,7 +680,6 @@ func TestModelHelpNotTriggeredWhileTyping(t *testing.T) {
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
 
-	// With a non-empty query, "?" is a normal filter character, not a help toggle.
 	m = feed(t, m, keyRune('a'))
 	m = feed(t, m, keyRune('?'))
 

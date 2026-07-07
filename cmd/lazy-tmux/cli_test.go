@@ -53,7 +53,6 @@ func TestCLIHelpVariants(t *testing.T) {
 			t.Fatalf("%s: expected help text, got %q", arg, out)
 		}
 
-		// The help banner leads with the ascii crescent-moon logo (#38).
 		if !strings.Contains(out, asciiMoon) {
 			t.Fatalf("%s: expected the ascii moon banner in help", arg)
 		}
@@ -161,8 +160,6 @@ func TestCLITmuxBinFlagExpandsHome(t *testing.T) {
 		t.Skipf("no home dir: %v", err)
 	}
 
-	// A bogus ~-prefixed tmux binary: exec must fail with the EXPANDED path,
-	// proving --tmux-bin gets ~ expansion (exec doesn't do shell expansion).
 	code, _, errOut := run(
 		t, "save", "--all", "--tmux-bin", "~/no-such-tmux-xyz", "--data-dir", t.TempDir(),
 	)
@@ -193,14 +190,10 @@ func TestCLISetupPrintsKeybinds(t *testing.T) {
 		}
 	}
 
-	// The popup keybind must use single percent signs (printed verbatim, not via
-	// Fprintf) — regression guard for the doubled "75%%"/"85%%" bug.
 	if !strings.Contains(out, "-w 75% -h 85%") {
 		t.Fatalf("expected single-percent popup geometry, got %q", out)
 	}
 
-	// The popup must be borderless (-B): the picker draws its own frame, so the
-	// tmux popup border would be a redundant double border.
 	if !strings.Contains(out, "display-popup -B ") {
 		t.Fatalf("expected borderless popup (-B), got %q", out)
 	}
@@ -274,7 +267,6 @@ func TestCLIReadsDataDirFromConfigFile(t *testing.T) {
 
 	t.Setenv("LAZY_TMUX_CONFIG", cfgPath)
 
-	// No --data-dir flag: the directory must come from the config file.
 	code, out, _ := run(t, "list")
 	if code != 0 {
 		t.Fatalf("expected exit 0, got %d", code)
@@ -286,7 +278,6 @@ func TestCLIReadsDataDirFromConfigFile(t *testing.T) {
 }
 
 func TestCLIFlagOverridesConfigFile(t *testing.T) {
-	// data_dir in the config points at a store holding a session...
 	configured := t.TempDir()
 	s := store.New(configured)
 
@@ -311,8 +302,6 @@ func TestCLIFlagOverridesConfigFile(t *testing.T) {
 
 	t.Setenv("LAZY_TMUX_CONFIG", cfgPath)
 
-	// ...but an explicit --data-dir flag must win, pointing at a different
-	// (empty) store, so the configured session is not listed.
 	code, out, _ := run(t, "list", "--data-dir", t.TempDir())
 	if code != 0 {
 		t.Fatalf("expected exit 0, got %d", code)
@@ -353,7 +342,6 @@ func TestCLIBootstrapLastOnEmptyStore(t *testing.T) {
 func TestCLIForgetMissingSessionSucceeds(t *testing.T) {
 	t.Parallel()
 
-	// Forget is idempotent: removing a non-existent session is not an error.
 	code, _, errOut := run(t, "forget", "--session", "ghost", "--data-dir", t.TempDir())
 	if code != 0 {
 		t.Fatalf("expected exit 0, got %d (stderr=%q)", code, errOut)

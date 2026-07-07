@@ -11,9 +11,6 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
 
-// recordingTmux is a tmuxClient that records how RestoreTarget hands off to the
-// session. Methods RestoreTarget doesn't touch are inherited from the embedded
-// (nil) interface and panic if called, surfacing any unexpected dependency.
 type recordingTmux struct {
 	tmuxClient
 
@@ -48,18 +45,15 @@ func TestRestoreTargetHandsOff(t *testing.T) {
 
 	cases := []struct {
 		name         string
-		interactive  bool // RestoreTargetInteractive vs. the plain CLI RestoreTarget
+		interactive  bool
 		inside       bool
 		windowIndex  *int
 		wantSwitched string
 		wantAttached string
 	}{
-		// Inside tmux both paths switch the client.
 		{name: "cli inside tmux switches", inside: true, wantSwitched: "s1"},
 		{name: "picker inside tmux switches", interactive: true, inside: true, wantSwitched: "s1"},
 
-		// Outside tmux only the interactive picker attaches; the plain CLI restore
-		// stays scriptable and does neither.
 		{name: "cli outside tmux does not attach", inside: false},
 		{
 			name:         "picker outside tmux attaches",
@@ -146,7 +140,6 @@ func TestNewSessionCreatesAndSaves(t *testing.T) {
 		t.Fatal("expected snapshot to be saved")
 	}
 
-	// Creating it again must fail (already in storage).
 	if err := a.NewSession("fresh"); err == nil {
 		t.Fatal("expected error creating duplicate session")
 	}
@@ -162,7 +155,6 @@ func TestNewWindowLiveAndOffline(t *testing.T) {
 		t.Fatalf("new session: %v", err)
 	}
 
-	// Live: adds a window and re-captures.
 	if err := a.NewWindow("multi", "second"); err != nil {
 		t.Fatalf("new window (live): %v", err)
 	}
@@ -176,7 +168,6 @@ func TestNewWindowLiveAndOffline(t *testing.T) {
 		t.Fatalf("expected 2 windows after live new-window, got %d", len(snap.Windows))
 	}
 
-	// Offline: kill the session, then add a window to the stored snapshot only.
 	if err := a.tmux.KillSession("multi"); err != nil {
 		t.Fatalf("kill: %v", err)
 	}
@@ -260,7 +251,6 @@ func TestDeleteWindowAndSession(t *testing.T) {
 		t.Fatalf("new window: %v", err)
 	}
 
-	// Delete one window; session stays alive.
 	if err := a.DeleteWindow("del", 1); err != nil {
 		t.Fatalf("delete window: %v", err)
 	}
@@ -269,7 +259,6 @@ func TestDeleteWindowAndSession(t *testing.T) {
 		t.Fatal("session should still exist after deleting one of two windows")
 	}
 
-	// Delete the whole session.
 	if err := a.DeleteSession("del"); err != nil {
 		t.Fatalf("delete session: %v", err)
 	}
@@ -302,7 +291,6 @@ func TestSaveAllRestoreSleepWakeup(t *testing.T) {
 		t.Fatal("save all should snapshot both sessions")
 	}
 
-	// Sleep s1: saved and killed.
 	if err := a.Sleep("s1"); err != nil {
 		t.Fatalf("sleep: %v", err)
 	}
@@ -311,12 +299,10 @@ func TestSaveAllRestoreSleepWakeup(t *testing.T) {
 		t.Fatal("s1 should be asleep")
 	}
 
-	// Sleeping a non-running session errors.
 	if err := a.Sleep("s1"); err == nil {
 		t.Fatal("sleeping an already-asleep session should error")
 	}
 
-	// Wakeup s1 again.
 	if err := a.Wakeup("s1"); err != nil {
 		t.Fatalf("wakeup: %v", err)
 	}
@@ -325,12 +311,10 @@ func TestSaveAllRestoreSleepWakeup(t *testing.T) {
 		t.Fatal("s1 should be awake after wakeup")
 	}
 
-	// Wakeup when already awake errors.
 	if err := a.Wakeup("s1"); err == nil {
 		t.Fatal("waking an awake session should error")
 	}
 
-	// Restore is tolerant when the session already exists.
 	if err := a.Restore("s2", false); err != nil {
 		t.Fatalf("restore existing should be tolerant: %v", err)
 	}
@@ -347,9 +331,6 @@ func TestBootstrapEmptyStoreNoError(t *testing.T) {
 	}
 }
 
-// fakeTicker drives RunDaemon deterministically: it yields a single tick and
-// then closes, so the daemon performs its initial save plus one interval save
-// and returns instead of blocking forever.
 type fakeTicker struct {
 	ch chan time.Time
 }
@@ -389,7 +370,6 @@ func TestRunDaemonSavesAll(
 		t.Fatalf("run daemon: %v", err)
 	}
 
-	// One initial save + one tick save.
 	if saves != 2 {
 		t.Fatalf("expected 2 daemon saves, got %d", saves)
 	}
@@ -426,7 +406,6 @@ func TestPickerSessionsMarksRestored(t *testing.T) {
 
 	a, _ := newTestApp(t)
 
-	// "live" is running; "dead" is only on disk.
 	if err := a.NewSession("live"); err != nil {
 		t.Fatalf("new session live: %v", err)
 	}
@@ -482,9 +461,8 @@ func TestMergeLastAttached(t *testing.T) {
 	}
 
 	attached := map[string]time.Time{
-		"fresher-attach": base.Add(time.Hour), // native switch newer -> wins
-		"fresher-stored": base.Add(time.Hour), // older than stored -> keep stored
-		// "not-live" absent: dead/asleep session keeps its stored time.
+		"fresher-attach": base.Add(time.Hour),
+		"fresher-stored": base.Add(time.Hour),
 	}
 
 	mergeLastAttached(records, attached)
@@ -501,6 +479,5 @@ func TestMergeLastAttached(t *testing.T) {
 		t.Fatalf("not-live should be unchanged, got %v", got)
 	}
 
-	// A nil/empty map is a no-op and must not panic.
 	mergeLastAttached(records, nil)
 }

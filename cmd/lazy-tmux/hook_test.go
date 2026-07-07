@@ -26,7 +26,6 @@ func TestRunClaudeStatusHookWritesFile(t *testing.T) {
 		t.Fatalf("hook exit code = %d", code)
 	}
 
-	// File is keyed by the project-dir encoding (/ and . -> -).
 	statusFile := filepath.Join(dataDir, "claude-status", "-Users-me-code-proj.json")
 
 	data, err := os.ReadFile(statusFile)

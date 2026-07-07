@@ -11,6 +11,9 @@ linters:
     # formatter stack (gofumpt + golines) more than it helped.
     - wsl
     - wsl_v5
+    # The codebase is deliberately comment-free; revive's exported and
+    # package-comments rules only demand doc comments that will not be written.
+    - revive
 
   exclusions:
     rules:

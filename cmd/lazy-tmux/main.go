@@ -7,8 +7,6 @@ import (
 	"os"
 )
 
-// Sentinel errors of the CLI layer; dynamic details are wrapped around them so
-// callers (and tests) can match with errors.Is while messages stay unchanged.
 var (
 	errUnknownCommand          = errors.New("unknown command")
 	errUnknownConfigSubcommand = errors.New("unknown config subcommand")
@@ -26,7 +24,6 @@ var (
 //nolint:gochecknoglobals // test seam: CLI tests stub process exit
 var exitFunc = os.Exit
 
-// Subcommand names, shared by the dispatch tables, flag sets and help text.
 const (
 	cmdVersion     = "version"
 	cmdSave        = "save"
@@ -44,14 +41,10 @@ const (
 	cmdClaudeHooks = "claude-hooks"
 )
 
-// flagHelp is the long help flag every subcommand honors.
 const flagHelp = "--help"
 
-// exitUsage is the exit code for malformed invocations (missing or unknown
-// command, bad hook usage) — distinct from 1, which is a failed operation.
 const exitUsage = 2
 
-// commands maps each subcommand name to its runner.
 func commands() map[string]func(args []string, stdout, stderr io.Writer) int {
 	return map[string]func(args []string, stdout, stderr io.Writer) int{
 		cmdVersion:     runVersionCmd,
@@ -71,7 +64,6 @@ func commands() map[string]func(args []string, stdout, stderr io.Writer) int {
 	}
 }
 
-// helpFuncs maps each subcommand name to its help printer.
 func helpFuncs() map[string]func(io.Writer) {
 	return map[string]func(io.Writer){
 		cmdVersion:     versionHelp,
@@ -142,8 +134,6 @@ func writeErr(w io.Writer, err error) {
 	}
 }
 
-// asciiMoon is the crescent-moon-and-star banner shown at the top of the help
-// text, echoing the pixel-art "night" logo (#38).
 const asciiMoon = `      ▄████▄
     ▄██▀▀        ·
    ▐██▘       ✦

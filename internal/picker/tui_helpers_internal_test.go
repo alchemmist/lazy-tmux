@@ -4,11 +4,6 @@ package picker
 
 import "testing"
 
-// These helpers (fuzzyMatch, sessionStateIcon, truncateString) only exist in the
-// built-in TUI build, so their tests must carry the same !lazy_fzf constraint —
-// otherwise `go test -tags lazy_fzf ./...` (run by the release pipeline) fails to
-// compile.
-
 func TestFuzzyMatch(t *testing.T) {
 	t.Parallel()
 

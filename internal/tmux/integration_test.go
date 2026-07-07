@@ -9,8 +9,6 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/tmux"
 )
 
-// activeWindowIndex returns the index of the active window in a live session,
-// reading it straight from the isolated tmux server.
 func activeWindowIndex(t *testing.T, name string) string {
 	t.Helper()
 
@@ -34,12 +32,6 @@ func activeWindowIndex(t *testing.T, name string) string {
 	return ""
 }
 
-// TestRestoreToleratesBaseIndexMismatch reproduces issues #103/#105: a snapshot
-// captured under `set -g base-index 1` records windows indexed from 1 while the
-// current window is stored as 0. Restoring it used to fail hard with
-// "can't find window: 0" because the focus selection trusted the recorded index
-// blindly. The restore must now succeed and focus the only real window instead.
-//
 //nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestRestoreToleratesBaseIndexMismatch(
 	t *testing.T,
@@ -53,7 +45,7 @@ func TestRestoreToleratesBaseIndexMismatch(
 	snap := snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: name,
-		CurrentWin:  0, // stale: no window has index 0
+		CurrentWin:  0,
 		CurrentPane: 0,
 		Windows: []snapshot.Window{
 			{
@@ -79,21 +71,12 @@ func TestRestoreToleratesBaseIndexMismatch(
 	}
 }
 
-// TestRestoreToleratesPaneBaseIndexMismatch covers the `bootstrap` crash where a
-// snapshot captured under base-index/pane-base-index 0 is restored on a server
-// configured with base-index 1 and pane-base-index 1 (a common user config). The
-// recorded window 0 / pane 0 need not exist after restore, so focusing them used
-// to fail hard ("can't find window: 0" / "can't find pane: 0") and abort the
-// whole restore. The restore must now succeed and leave the session alive.
-//
 //nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestRestoreToleratesPaneBaseIndexMismatch(
 	t *testing.T,
 ) {
 	testutil.IsolatedTmux(t)
 
-	// Reconfigure the isolated server to index windows and panes from 1, so the
-	// snapshot's 0-based indices won't all map onto restored objects.
 	testutil.Tmux(t, "set-option", "-g", "base-index", "1")
 	testutil.Tmux(t, "set-option", "-g", "pane-base-index", "1")
 
@@ -127,13 +110,6 @@ func TestRestoreToleratesPaneBaseIndexMismatch(
 	}
 }
 
-// TestRestoreWaitsForCommandsToStart is the end-to-end counterpart to issue
-// #106: against a real tmux server, once RestoreSession returns the pane must
-// actually be running its restored command rather than sitting at the shell.
-// (The fine-grained "did it really block?" guarantee is covered deterministically
-// by TestWaitForRestoredCommands* with a fake runner; here we confirm the whole
-// real-tmux path settles correctly.)
-//
 //nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestRestoreWaitsForCommandsToStart(
 	t *testing.T,
@@ -144,8 +120,6 @@ func TestRestoreWaitsForCommandsToStart(
 
 	const name = "settle"
 
-	// `cat` with no args blocks reading stdin, so it stays in the foreground
-	// long enough to observe as pane_current_command.
 	snap := snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: name,
@@ -165,44 +139,30 @@ func TestRestoreWaitsForCommandsToStart(
 		t.Fatalf("restore failed: %v", err)
 	}
 
-	// No sleep here on purpose: if the restore returned before the command
-	// started, the pane would still be running the shell.
 	out := testutil.Tmux(t, "list-panes", "-t", "="+name, "-F", "#{pane_current_command}")
 	if !strings.Contains(out, "cat") {
 		t.Fatalf("expected pane already running cat right after restore, got %q", out)
 	}
 }
 
-// TestRestoreAllowlistFiltersCommands covers issue #74 end-to-end: with an
-// allowlist configured, only permitted commands are replayed; a disallowed
-// command leaves its pane at the shell.
-//
 //nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestRestoreAllowlistFiltersCommands(
 	t *testing.T,
 ) {
 	assertGuardedRestore(t, "guarded", func(client *tmux.Client) {
-		client.SetRestoreAllowlist([]string{"cat"}) // allow cat, block everything else
+		client.SetRestoreAllowlist([]string{"cat"})
 	})
 }
 
-// TestRestoreDenylistBlocksCommands covers issue #203 end-to-end: a command in
-// the denylist is not replayed even with no allowlist configured; other panes
-// still restore normally.
-//
 //nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestRestoreDenylistBlocksCommands(
 	t *testing.T,
 ) {
 	assertGuardedRestore(t, "denied", func(client *tmux.Client) {
-		client.SetRestoreDenylist([]string{"tail"}) // block tail, restore everything else
+		client.SetRestoreDenylist([]string{"tail"})
 	})
 }
 
-// assertGuardedRestore restores a two-pane session (pane 0 = cat, pane 1 = tail)
-// through a client configured by configure, then asserts the allowed pane runs
-// cat while the blocked pane does not run tail. Both commands block on stdin, so
-// a restored command shows up as the pane's foreground command.
 func assertGuardedRestore(t *testing.T, name string, configure func(*tmux.Client)) {
 	t.Helper()
 	testutil.IsolatedTmux(t)
@@ -255,10 +215,6 @@ func assertGuardedRestore(t *testing.T, name string, configure func(*tmux.Client
 	}
 }
 
-// TestRestoreHonorsRecordedFocus guards the happy path: when the recorded
-// current window exists, restore focuses exactly that window rather than
-// falling back.
-//
 //nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestRestoreHonorsRecordedFocus(
 	t *testing.T,

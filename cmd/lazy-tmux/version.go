@@ -7,17 +7,8 @@ import (
 	"runtime/debug"
 )
 
-// version is injected at release time via -ldflags "-X main.version=<tag>"
-// (goreleaser passes the git tag). It is intentionally empty for plain
-// `go build` / `go install`, where resolveVersion derives the version from the
-// embedded build info instead — so the version is never hand-maintained in
-// source and the git tag is the single source of truth.
 var version = ""
 
-// resolveVersion returns the build's version, preferring the ldflags-injected
-// release version, then the module version recorded by `go install ...@vX.Y.Z`,
-// then the VCS revision for local builds, and finally "dev".
-// revisionShortLen is how many hex digits of the VCS revision dev builds show.
 const revisionShortLen = 12
 
 func resolveVersion() string {
@@ -59,9 +50,6 @@ func resolveVersion() string {
 	return "dev+" + revision
 }
 
-// runVersionCmd is the `version` subcommand entry (it also honors -h/--help so
-// it behaves like the other commands). The bare -v/--version flags are handled
-// directly in runCLI.
 func runVersionCmd(args []string, stdout, _ io.Writer) int {
 	for _, arg := range args {
 		if arg == "-h" || arg == flagHelp {

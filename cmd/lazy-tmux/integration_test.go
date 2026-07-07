@@ -11,7 +11,6 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
 
-// readSnapshot loads the on-disk JSON snapshot a command produced.
 func readSnapshot(t *testing.T, dir, name string) snapshot.SessionSnapshot {
 	t.Helper()
 
@@ -50,10 +49,6 @@ func windowCount(t *testing.T, name string) int {
 	return count
 }
 
-// TestSaveRestoreLifecycle drives the full save -> kill -> restore round trip
-// against a real tmux server and asserts on real server state and the on-disk
-// snapshot.
-//
 //nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestSaveRestoreLifecycle(
 	t *testing.T,
@@ -64,7 +59,6 @@ func TestSaveRestoreLifecycle(
 
 	const name = "work"
 
-	// Build a real session: 2 windows, the first split into 2 panes.
 	testutil.Tmux(t, "new-session", "-d", "-s", name, "-n", "editor")
 	testutil.Tmux(t, "split-window", "-d", "-t", "="+name+":0")
 	testutil.Tmux(t, "new-window", "-d", "-t", "="+name+":", "-n", "shell")
@@ -73,7 +67,6 @@ func TestSaveRestoreLifecycle(
 		t.Fatalf("setup: expected 2 windows, got %d", got)
 	}
 
-	// Save.
 	if code, _, errOut := run(t, "save", "--session", name, "--data-dir", dir); code != 0 {
 		t.Fatalf("save: exit %d stderr=%q", code, errOut)
 	}
@@ -83,17 +76,14 @@ func TestSaveRestoreLifecycle(
 		t.Fatalf("snapshot wrong: %+v", snap)
 	}
 
-	// First window should have captured 2 panes.
 	if len(snap.Windows[0].Panes) != 2 {
 		t.Fatalf("expected 2 panes in first window, got %d", len(snap.Windows[0].Panes))
 	}
 
-	// list shows it.
 	if _, out, _ := run(t, "list", "--data-dir", dir); !strings.Contains(out, name) {
 		t.Fatalf("list missing session: %q", out)
 	}
 
-	// Kill the live session, then restore from disk.
 	testutil.Tmux(t, "kill-session", "-t", "="+name)
 
 	if sessionAlive(name) {
@@ -133,12 +123,10 @@ func TestWakeupAndSleep(
 
 	testutil.Tmux(t, "new-session", "-d", "-s", name)
 
-	// wakeup on a live session must fail (already awake).
 	if code, _, errOut := run(t, "wakeup", "--session", name, "--data-dir", dir); code == 0 {
 		t.Fatalf("wakeup on live session should fail, got exit 0 stderr=%q", errOut)
 	}
 
-	// sleep: save then kill.
 	if code, _, errOut := run(t, "sleep", "--session", name, "--data-dir", dir); code != 0 {
 		t.Fatalf("sleep: exit %d stderr=%q", code, errOut)
 	}
@@ -151,7 +139,6 @@ func TestWakeupAndSleep(
 		t.Fatalf("sleep should have saved a snapshot: %v", err)
 	}
 
-	// wakeup on a saved-but-dead session restores it.
 	if code, _, errOut := run(t, "wakeup", "--session", name, "--data-dir", dir); code != 0 {
 		t.Fatalf("wakeup: exit %d stderr=%q", code, errOut)
 	}
@@ -184,7 +171,6 @@ func TestSaveAllAndForget(
 		}
 	}
 
-	// forget removes one.
 	if code, _, errOut := run(t, "forget", "--session", "one", "--data-dir", dir); code != 0 {
 		t.Fatalf("forget: exit %d stderr=%q", code, errOut)
 	}
@@ -203,15 +189,11 @@ func TestSaveAllAndForget(
 	}
 }
 
-// TestSaveAllNoSessionsReports covers issue #125: `save --all` must not be a
-// silent no-op when there are no sessions (which is what happens when lazy-tmux
-// is talking to a different/empty tmux than the user). It should say so.
-//
 //nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestSaveAllNoSessionsReports(
 	t *testing.T,
 ) {
-	testutil.IsolatedTmux(t) // server is running but has no sessions
+	testutil.IsolatedTmux(t)
 
 	dir := t.TempDir()
 
@@ -263,7 +245,6 @@ func TestSaveWithScrollback(
 	const name = "logs"
 
 	testutil.Tmux(t, "new-session", "-d", "-s", name)
-	// Produce some shell output to capture as scrollback.
 	testutil.Tmux(t, "send-keys", "-t", name+":0.0", "echo lazytmuxscrollback", "C-m")
 
 	if code, _, errOut := run(
@@ -278,7 +259,6 @@ func TestSaveWithScrollback(
 		t.Fatalf("save --scrollback: exit %d stderr=%q", code, errOut)
 	}
 
-	// The snapshot must still be valid; scrollback capture is best-effort.
 	snap := readSnapshot(t, dir, name)
 	if snap.SessionName != name {
 		t.Fatalf("unexpected snapshot: %+v", snap)
@@ -304,8 +284,6 @@ func TestPickerFZFEngineRestores(
 
 	testutil.Tmux(t, "kill-session", "-t", "="+name)
 
-	// With no TTY, the fzf engine runs in --filter mode and selects the first
-	// (here only) session, then restores it through real tmux.
 	if code, _, errOut := run(t, "picker", "--fzf-engine", "--data-dir", dir); code != 0 {
 		t.Fatalf("picker --fzf-engine: exit %d stderr=%q", code, errOut)
 	}

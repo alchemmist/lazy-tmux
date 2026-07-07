@@ -56,7 +56,6 @@ home = "~/custom-claude"
 func TestIntegrationsPartialKeepsDefaults(t *testing.T) {
 	t.Parallel()
 
-	// Only the master switch is set; claude sub-keys keep their defaults.
 	path := writeConfig(t, "[integrations]\nenabled = false\n")
 
 	cfg, err := LoadFrom(path)

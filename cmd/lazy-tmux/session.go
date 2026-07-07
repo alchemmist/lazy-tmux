@@ -72,9 +72,6 @@ func runSessionOp(
 	return 0
 }
 
-// registerRestoreTimeout registers the --restore-timeout flag on flags for
-// operations that actually restore a session; it returns nil for the likes of
-// forget where the flag would be a no-op.
 func registerRestoreTimeout(flags *flag.FlagSet, restores bool) *time.Duration {
 	if !restores {
 		return nil

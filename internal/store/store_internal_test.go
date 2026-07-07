@@ -49,7 +49,6 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 		t.Fatalf("save: %v", err)
 	}
 
-	// On-disk layout: <dir>/sessions/alpha.json and <dir>/index.json.
 	if _, err := os.Stat(filepath.Join(dir, "sessions", "alpha.json")); err != nil {
 		t.Fatalf("session file not written: %v", err)
 	}
@@ -135,7 +134,6 @@ func TestListRecordsOrderingAndCounts(t *testing.T) {
 		t.Fatalf("expected 2 records, got %d", len(recs))
 	}
 
-	// Most recent capture first.
 	if recs[0].SessionName != "alpha" {
 		t.Fatalf("expected alpha first (newer), got %s", recs[0].SessionName)
 	}
@@ -261,13 +259,11 @@ func TestSessionNameSanitized(t *testing.T) {
 		t.Fatalf("save: %v", err)
 	}
 
-	// Slashes/spaces/colons collapse to underscores in the file name.
 	want := filepath.Join(dir, "sessions", "my_weird_name_1.json")
 	if _, err := os.Stat(want); err != nil {
 		t.Fatalf("expected sanitized file %s: %v", want, err)
 	}
 
-	// But the logical name still loads.
 	if _, err := s.LoadSession("my/weird name:1"); err != nil {
 		t.Fatalf("load sanitized: %v", err)
 	}
@@ -286,7 +282,6 @@ func TestScrollbackPersistAndHydrate(t *testing.T) {
 		t.Fatalf("save: %v", err)
 	}
 
-	// Scrollback content is offloaded to a sidecar file under scrollback/.
 	logPath := filepath.Join(dir, "scrollback", "logs", "w1_p0.log")
 	if _, err := os.Stat(logPath); err != nil {
 		t.Fatalf("scrollback file not written: %v", err)
@@ -302,7 +297,6 @@ func TestScrollbackPersistAndHydrate(t *testing.T) {
 		t.Fatalf("scrollback not hydrated: %+v", sb)
 	}
 
-	// countLines counts newlines + 1, so a trailing newline yields 3 here.
 	if sb.Lines != 3 {
 		t.Fatalf("expected 3 scrollback lines, got %d", sb.Lines)
 	}

@@ -11,15 +11,9 @@ import (
 	"strings"
 )
 
-// DefaultConfigTemplate is the commented base config written by `config gen`.
-// It is the single source of truth for the documented config schema.
-//
 //go:embed default.toml
 var DefaultConfigTemplate string
 
-// GenerateConfig writes the default config template to path (or DefaultConfigPath
-// when path is empty), creating parent directories. Unless force is set it
-// refuses to overwrite an existing file. It returns the path written.
 func GenerateConfig(path string, force bool) (string, error) {
 	if strings.TrimSpace(path) == "" {
 		path = DefaultConfigPath()
@@ -53,8 +47,6 @@ func GenerateConfig(path string, force bool) (string, error) {
 		return path, fmt.Errorf("write %s: %w", path, writeErr)
 	}
 
-	// os.WriteFile keeps an existing file's mode; --force overwrites must still
-	// end up private.
 	chmodErr := os.Chmod(path, 0o600)
 	if chmodErr != nil {
 		return path, fmt.Errorf("chmod %s: %w", path, chmodErr)
@@ -63,9 +55,6 @@ func GenerateConfig(path string, force bool) (string, error) {
 	return path, nil
 }
 
-// Render returns the effective configuration as TOML, mirroring the file format
-// (durations as strings, scrollback table), so it shows exactly what lazy-tmux
-// resolved.
 func (c Config) Render() string {
 	var buf strings.Builder
 
