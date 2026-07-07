@@ -35,7 +35,7 @@ Just for bulding from source you need to have installed go and cloned this proje
 make build
 ```
 
-Binary will compiled in `bin/lazy-tmux`. For more development options run `make help`.
+Binary will compiled in `bin/lazy-tmux`. For more development options checkout `Makefile` tasks.
 
 > [!WARNING]
 > **tmux version requirement:** lazy-tmux requires **tmux 3.6** or **tmux 3.6a**.
