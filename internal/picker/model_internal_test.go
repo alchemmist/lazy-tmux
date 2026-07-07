@@ -137,6 +137,87 @@ func newTestModel(t *testing.T, rec *recordingActions, sessions ...Session) pick
 	return m
 }
 
+func workingSession(name string) Session {
+	sess := makeSession(name, true, "one")
+	sess.Statuses = map[int]WindowStatus{1: StatusWorking}
+
+	return sess
+}
+
+func TestHasWorkingWindow(t *testing.T) {
+	t.Parallel()
+
+	rec := &recordingActions{}
+
+	if !newTestModel(t, rec, workingSession("w")).hasWorkingWindow() {
+		t.Fatal("a working window must be detected")
+	}
+
+	idle := makeSession("i", true, "one")
+	idle.Statuses = map[int]WindowStatus{1: StatusIdle}
+
+	if newTestModel(t, rec, idle).hasWorkingWindow() {
+		t.Fatal("no working window must be reported")
+	}
+}
+
+func TestSpinnerTickAdvancesFrameWhileWorking(t *testing.T) {
+	t.Parallel()
+
+	m := newTestModel(t, &recordingActions{}, workingSession("w"))
+	before := m.spinnerFrame
+
+	next, cmd := m.handleSpinnerTick()
+	updated, _ := next.(pickerModel)
+
+	if updated.spinnerFrame != before+1 {
+		t.Fatalf("frame should advance, got %d want %d", updated.spinnerFrame, before+1)
+	}
+
+	if cmd == nil {
+		t.Fatal("a working spinner tick must reschedule itself")
+	}
+}
+
+func TestSpinnerTickStopsWhenIdle(t *testing.T) {
+	t.Parallel()
+
+	idle := makeSession("i", true, "one")
+	idle.Statuses = map[int]WindowStatus{1: StatusIdle}
+
+	m := newTestModel(t, &recordingActions{}, idle)
+	m.spinnerOn = true
+
+	next, cmd := m.handleSpinnerTick()
+	updated, _ := next.(pickerModel)
+
+	if updated.spinnerOn {
+		t.Fatal("spinner must switch off when no window is working")
+	}
+
+	if cmd != nil {
+		t.Fatal("a stopped spinner must not reschedule")
+	}
+}
+
+func TestStatusTickResumesSpinnerOnWork(t *testing.T) {
+	t.Parallel()
+
+	m := newTestModel(t, &recordingActions{}, workingSession("w"))
+	m.spinnerOn = false
+
+	next, cmd := m.handleStatusTick()
+	updated, _ := next.(pickerModel)
+
+	if !updated.spinnerOn {
+		t.Fatal("a status tick must resume the spinner when a working window exists")
+	}
+
+	if cmd == nil {
+		t.Fatal("status tick must schedule follow-up commands")
+	}
+}
+
 func TestModelNavigationAndSelect(t *testing.T) {
 	t.Parallel()
 
