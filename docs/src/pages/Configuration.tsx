@@ -1,3 +1,4 @@
+import { Alert } from "@gravity-ui/uikit";
 import { Seo } from "../components/Seo";
 import { CodeBlock } from "../components/CodeBlock";
 import { InlineCode } from "../components/InlineCode";
@@ -45,22 +46,40 @@ data_dir        = "~/.local/share/lazy-tmux"   # where snapshots are stored (~ i
 save_interval   = "5m"                         # daemon autosave interval (Go duration)
 restore_timeout = "5s"                         # max wait for restored pane commands to start (0 disables)
 
-# Allowlist of commands lazy-tmux may replay on restore, matched by program name.
+# Allowlist of commands lazy-tmux may replay on restore. Each entry is a regular
+# expression matched against the full command, anchored to the whole line.
 # Omit this key to restore every command (default). Provide a list to restore
-# only those programs; use an empty list [] to restore no commands at all.
-restore_allowlist = ["nvim", "vim", "htop", "less", "tail", "ssh"]
+# only matching commands; use an empty list [] to restore no commands at all.
+restore_allowlist = ["nvim( .*)?", "vim( .*)?", "htop", "less .*", "tail .*", "ssh .*"]
 
-# Denylist of commands lazy-tmux must never replay, matched by program name.
-# Use this instead of an allowlist when you trust most commands and only want to
-# exclude a few. The denylist wins over the allowlist. Omit or leave empty to
-# block nothing (default).
-restore_denylist = ["npm", "node"]
+# Denylist of commands lazy-tmux must never replay. Each entry is a regular
+# expression matched against the full command (anchored). Use this when you trust
+# most commands and only want to exclude a few. The denylist wins over the
+# allowlist. Omit or leave empty to block nothing (default).
+restore_denylist = ["npm .*", "node .*"]
 
 [scrollback]
 enabled = false   # capture shell pane scrollback
 lines   = 5000    # max scrollback lines per pane`}</CodeBlock>
 
         <h3 className="cli-subtitle">Restore command allowlist</h3>
+        <Alert
+          theme="warning"
+          className="version-alert"
+          title="Breaking change"
+          message={
+            <>
+              Allow/denylist entries are now <strong>regular expressions</strong>{" "}
+              matched against the full command, not program names. A bare{" "}
+              <InlineCode>nvim</InlineCode> used to match{" "}
+              <InlineCode>nvim main.go</InlineCode>; it now matches only the exact
+              command <InlineCode>nvim</InlineCode>. Rewrite name-based lists as
+              patterns (e.g. <InlineCode>nvim</InlineCode> →{" "}
+              <InlineCode>nvim( .*)?</InlineCode>). An invalid regex fails at config
+              load.
+            </>
+          }
+        />
         <p className="muted">
           Like tmux-resurrect, you can restrict which commands are replayed on
           restore, so lazy-tmux never re-runs an arbitrary program that happened
@@ -71,8 +90,8 @@ lines   = 5000    # max scrollback lines per pane`}</CodeBlock>
             <strong>key omitted</strong> → every command is restored (default).
           </li>
           <li>
-            <strong>list given</strong> → only those programs are replayed; any
-            other pane is left at the shell.
+            <strong>list given</strong> → only commands matching a pattern are
+            replayed; any other pane is left at the shell.
           </li>
           <li>
             <strong>
@@ -82,8 +101,12 @@ lines   = 5000    # max scrollback lines per pane`}</CodeBlock>
           </li>
         </ul>
         <p className="muted">
-          Matching is by program name, so <InlineCode>nvim</InlineCode> also
-          matches <InlineCode>/usr/bin/nvim main.go</InlineCode>.
+          Each entry is a regular expression matched against the full command,
+          anchored end to end. So <InlineCode>nvim( .*)?</InlineCode> matches{" "}
+          <InlineCode>nvim</InlineCode> with or without arguments, while a bare{" "}
+          <InlineCode>nvim</InlineCode> matches only the exact command{" "}
+          <InlineCode>nvim</InlineCode>. Write a literal command to block exactly
+          it, or wildcard the arguments with <InlineCode>.*</InlineCode>.
         </p>
 
         <h3 className="cli-subtitle">Restore command denylist</h3>
@@ -94,8 +117,9 @@ lines   = 5000    # max scrollback lines per pane`}</CodeBlock>
           everything and just want to stop a long-running server or a program
           that re-prompts from being replayed. It composes with the allowlist and{" "}
           <strong>wins over it</strong> — a command is replayed only when it is
-          not denied and (no allowlist is set or it is allowed). Matching is by
-          program name, and an omitted or empty list blocks nothing.
+          not denied and (no allowlist is set or it is allowed). Each entry is a
+          regular expression matched against the full command, and an omitted or
+          empty list blocks nothing.
         </p>
 
         <h3 className="cli-subtitle">Restore settle timeout</h3>

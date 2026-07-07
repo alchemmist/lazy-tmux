@@ -96,6 +96,15 @@ export function Home() {
           TUI picker shows whether each session is restored, while still letting
           you attach as if it were already loaded.
         </p>
+        <img
+          src="/assets/demo.gif"
+          alt="lazy-tmux: save sessions, kill the tmux server, then restore from the TUI picker"
+          style={{ width: "100%", height: "auto", borderRadius: 8 }}
+        />
+        <p>
+          Snapshot three sessions, run <InlineCode>tmux kill-server</InlineCode> to
+          wipe everything, then bring it all back by picking a session in the TUI.
+        </p>
       </section>
     </>
   );

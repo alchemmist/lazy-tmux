@@ -15,14 +15,15 @@ export function Installation() {
         <h1>Installation</h1>
 
         <Alert
-          theme="warning"
+          theme="info"
           align="center"
           className="version-alert"
-          title="tmux version requirement"
+          title="tmux versions"
           message={
             <>
-              lazy-tmux requires <strong>tmux 3.6</strong> or{" "}
-              <strong>tmux 3.6a</strong>. Older versions may not work correctly.
+              lazy-tmux supports every tmux release from <strong>2.9</strong>{" "}
+              through <strong>3.7b</strong>, verified on each one by the CI version
+              matrix. Newer releases are added as they ship.
             </>
           }
         />
