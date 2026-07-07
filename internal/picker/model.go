@@ -22,7 +22,11 @@ var (
 
 const statusRefreshInterval = 2 * time.Second
 
+const spinnerInterval = 160 * time.Millisecond
+
 type statusTickMsg struct{}
+
+type spinnerTickMsg struct{}
 
 type pickerRow struct {
 	target     Target
@@ -39,27 +43,29 @@ type pickerRow struct {
 
 //nolint:recvcheck // deliberate value/pointer receiver mix, see above
 type pickerModel struct {
-	sessions    []Session
-	windowSort  []WindowSortKey
-	visible     []pickerRow
-	queryInput  textinput.Model
-	viewport    viewport.Model
-	theme       pickerTheme
-	selected    Target
-	cancelled   bool
-	cursor      int
-	width       int
-	height      int
-	actions     Actions
-	statusMsg   string
-	mode        pickerMode
-	action      actionMode
-	marked      map[string]struct{}
-	palette     bool
-	paletteIdx  int
-	promptInput textinput.Model
-	pending     Target
-	helpOpen    bool
+	sessions     []Session
+	windowSort   []WindowSortKey
+	visible      []pickerRow
+	queryInput   textinput.Model
+	viewport     viewport.Model
+	theme        pickerTheme
+	selected     Target
+	cancelled    bool
+	cursor       int
+	width        int
+	height       int
+	actions      Actions
+	statusMsg    string
+	mode         pickerMode
+	action       actionMode
+	marked       map[string]struct{}
+	palette      bool
+	paletteIdx   int
+	promptInput  textinput.Model
+	pending      Target
+	helpOpen     bool
+	spinnerFrame int
+	spinnerOn    bool
 }
 
 type pickerMode int
@@ -112,6 +118,7 @@ func newPickerModel(sessions []Session, windowSort []WindowSortKey, actions Acti
 		mode:       modeBrowse,
 		action:     actionBrowse,
 		marked:     make(map[string]struct{}),
+		spinnerOn:  true,
 	}
 	model.applyFilter()
 
@@ -119,11 +126,15 @@ func newPickerModel(sessions []Session, windowSort []WindowSortKey, actions Acti
 }
 
 func (m pickerModel) Init() tea.Cmd {
-	return tea.Batch(textinput.Blink, scheduleStatusRefresh())
+	return tea.Batch(textinput.Blink, scheduleStatusRefresh(), scheduleSpinner())
 }
 
 func scheduleStatusRefresh() tea.Cmd {
 	return tea.Tick(statusRefreshInterval, func(time.Time) tea.Msg { return statusTickMsg{} })
+}
+
+func scheduleSpinner() tea.Cmd {
+	return tea.Tick(spinnerInterval, func(time.Time) tea.Msg { return spinnerTickMsg{} })
 }
 
 func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -136,12 +147,9 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case statusTickMsg:
-		if m.mode == modeBrowse && !m.palette {
-			m.reload()
-			m.renderViewport()
-		}
-
-		return m, scheduleStatusRefresh()
+		return m.handleStatusTick()
+	case spinnerTickMsg:
+		return m.handleSpinnerTick()
 	case tea.MouseWheelMsg:
 		return m.handleWheel(msg)
 	case tea.MouseClickMsg:
@@ -215,6 +223,50 @@ func (m pickerModel) View() tea.View {
 	view.MouseMode = tea.MouseModeCellMotion
 
 	return view
+}
+
+func (m pickerModel) handleStatusTick() (tea.Model, tea.Cmd) {
+	if m.mode == modeBrowse && !m.palette {
+		m.reload()
+		m.renderViewport()
+	}
+
+	cmds := []tea.Cmd{scheduleStatusRefresh()}
+	if m.hasWorkingWindow() && !m.spinnerOn {
+		m.spinnerOn = true
+		cmds = append(cmds, scheduleSpinner())
+	}
+
+	return m, tea.Batch(cmds...)
+}
+
+func (m pickerModel) handleSpinnerTick() (tea.Model, tea.Cmd) {
+	if !m.hasWorkingWindow() {
+		m.spinnerOn = false
+
+		return m, nil
+	}
+
+	m.spinnerFrame++
+
+	if m.mode == modeBrowse && !m.palette {
+		m.applyFilter()
+		m.renderViewport()
+	}
+
+	return m, scheduleSpinner()
+}
+
+func (m pickerModel) hasWorkingWindow() bool {
+	for _, sess := range m.sessions {
+		for _, status := range sess.Statuses {
+			if status == StatusWorking {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func (m pickerModel) handleWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
@@ -791,7 +843,7 @@ func (m *pickerModel) applyFilter() {
 		query = strings.TrimSpace(strings.ToLower(m.queryInput.Value()))
 	}
 
-	rows := filteredTreeRows(m.modeSessions(), query, m.windowSort)
+	rows := filteredTreeRows(m.modeSessions(), query, m.windowSort, m.spinnerFrame)
 	m.visible = m.decorateRows(rows)
 
 	if len(m.visible) == 0 {
