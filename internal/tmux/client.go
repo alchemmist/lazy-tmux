@@ -961,7 +961,11 @@ func normalizedCommand(restore, current string) string {
 		return current
 	}
 
-	return ""
+	// A shell in RestoreCmd is deliberate: capture only records a shell when
+	// the user explicitly launched one inside the pane (issue #66), so replay
+	// it. CurrentCmd stays dropped — for an idle pane it is just the default
+	// shell.
+	return restore
 }
 
 func isShellCommand(cmd string) bool {
@@ -1274,10 +1278,16 @@ type psProcess struct {
 }
 
 // collectCandidateProcesses parses ps output lines into candidate foreground
-// processes, skipping unparsable lines, the pane's shell process itself and
-// shell commands.
-func collectCandidateProcesses(lines []string, panePID int) []psProcess {
-	allProcesses := make([]psProcess, 0, len(lines))
+// processes, skipping unparsable lines and the pane's shell process itself.
+// Non-shell processes are the preferred candidates; shells are returned
+// separately as a fallback — a shell that is not the pane's own process was
+// launched explicitly (e.g. fish started from zsh) and must survive a restore
+// (issue #66). Only foreground ("+") shells qualify: background shells are
+// prompt/completion helpers, not user intent.
+func collectCandidateProcesses(lines []string, panePID int) ([]psProcess, []psProcess) {
+	nonShell := make([]psProcess, 0, len(lines))
+
+	var shells []psProcess
 
 	for _, line := range lines {
 		pid, ppid, stat, cmd, ok := parsePSLine(line)
@@ -1285,35 +1295,50 @@ func collectCandidateProcesses(lines []string, panePID int) []psProcess {
 			continue
 		}
 
-		// Skip the shell process itself
+		// Skip the pane's own shell process
 		if pid == panePID {
 			continue
 		}
 
-		// Skip shell commands
-		if isShellCommand(cmd) {
-			continue
-		}
-
-		allProcesses = append(allProcesses, psProcess{
+		process := psProcess{
 			pid:  pid,
 			ppid: ppid,
 			stat: stat,
 			cmd:  cmd,
-		})
+		}
+
+		if isShellCommand(cmd) {
+			if strings.Contains(stat, "+") {
+				shells = append(shells, process)
+			}
+
+			continue
+		}
+
+		nonShell = append(nonShell, process)
 	}
 
-	return allProcesses
+	return nonShell, shells
 }
 
 // pickForegroundCommand chooses the command to restore for a pane from ps
 // output: among non-shell processes it prefers a foreground ("+") root process
 // (one whose parent is outside the candidate set), then any root process, then
-// any foreground process, then the first candidate.
+// any foreground process, then the first candidate. With no non-shell
+// candidates it falls back to an explicitly launched shell (issue #66).
 func pickForegroundCommand(lines []string, panePID int) string {
-	// First pass: collect all non-shell processes
-	allProcesses := collectCandidateProcesses(lines, panePID)
+	nonShell, shells := collectCandidateProcesses(lines, panePID)
 
+	if cmd := pickFromCandidates(nonShell); cmd != "" {
+		return cmd
+	}
+
+	return pickFromCandidates(shells)
+}
+
+// pickFromCandidates applies the root/foreground preference order to one
+// candidate set.
+func pickFromCandidates(allProcesses []psProcess) string {
 	if len(allProcesses) == 0 {
 		return ""
 	}
