@@ -275,19 +275,19 @@ func TestRestoreAllowlist(t *testing.T) {
 
 	client := NewClient("tmux")
 
-	if !client.commandAllowed("nvim") || !client.commandAllowed("rm") {
+	if !client.commandAllowed("nvim main.go") || !client.commandAllowed("rm -rf x") {
 		t.Fatal("with no allowlist, all commands must be allowed")
 	}
 
-	client.SetRestoreAllowlist([]string{"nvim", "/usr/bin/htop", "  tmux  "})
+	client.SetRestoreAllowlist([]string{"nvim( .*)?", "ssh .*", "htop"})
 
-	for _, allowed := range []string{"nvim", "htop", "tmux"} {
+	for _, allowed := range []string{"nvim", "nvim main.go", "ssh host", "htop"} {
 		if !client.commandAllowed(allowed) {
 			t.Fatalf("%q should be allowed", allowed)
 		}
 	}
 
-	for _, blocked := range []string{"rm", "bash", "node"} {
+	for _, blocked := range []string{"nvimble", "htop -d 5", "ssh", "node app.js"} {
 		if client.commandAllowed(blocked) {
 			t.Fatalf("%q should be blocked", blocked)
 		}
@@ -311,19 +311,25 @@ func TestRestoreDenylist(t *testing.T) {
 
 	client := NewClient("tmux")
 
-	if !client.commandAllowed("node") {
+	if !client.commandAllowed("node app.js") {
 		t.Fatal("with no denylist, all commands must be allowed")
 	}
 
-	client.SetRestoreDenylist([]string{"node", "/usr/bin/htop", "  npm  "})
+	client.SetRestoreDenylist(
+		[]string{`node ./scripts/heavy-watch\.js --poll`, "htop( .*)?", "npm .*"},
+	)
 
-	for _, blocked := range []string{"node", "htop", "npm"} {
+	for _, blocked := range []string{
+		"node ./scripts/heavy-watch.js --poll", "htop", "htop -d 5", "npm install",
+	} {
 		if client.commandAllowed(blocked) {
 			t.Fatalf("%q should be blocked", blocked)
 		}
 	}
 
-	for _, allowed := range []string{"nvim", "vim", "less"} {
+	for _, allowed := range []string{
+		"node ./scripts/heavy-watch.js", "node app.js", "nvim", "npm",
+	} {
 		if !client.commandAllowed(allowed) {
 			t.Fatalf("%q should be allowed", allowed)
 		}
@@ -331,7 +337,7 @@ func TestRestoreDenylist(t *testing.T) {
 
 	client.SetRestoreDenylist(nil)
 
-	if !client.commandAllowed("node") {
+	if !client.commandAllowed("node app.js") {
 		t.Fatal("a nil denylist must allow all commands again")
 	}
 }
@@ -341,14 +347,14 @@ func TestRestoreDenylistWinsOverAllowlist(t *testing.T) {
 
 	client := NewClient("tmux")
 
-	client.SetRestoreAllowlist([]string{"nvim", "node"})
-	client.SetRestoreDenylist([]string{"node"})
+	client.SetRestoreAllowlist([]string{"nvim( .*)?", "node .*"})
+	client.SetRestoreDenylist([]string{"node .*"})
 
-	if !client.commandAllowed("nvim") {
+	if !client.commandAllowed("nvim main.go") {
 		t.Fatal("nvim is allowed and not denied -> should be restored")
 	}
 
-	if client.commandAllowed("node") {
+	if client.commandAllowed("node app.js") {
 		t.Fatal("node is denied -> must be blocked even though the allowlist permits it")
 	}
 
@@ -364,19 +370,34 @@ func TestExpectedPaneCommandsRespectsAllowlist(t *testing.T) {
 		{
 			Index: 1,
 			Panes: []snapshot.Pane{
-				{Index: 0, RestoreCmd: "nvim"},
+				{Index: 0, RestoreCmd: "nvim main.go"},
 				{Index: 1, RestoreCmd: "htop"},
 			},
 		},
 	}
 
 	client := NewClient("tmux")
-	client.SetRestoreAllowlist([]string{"nvim"})
+	client.SetRestoreAllowlist([]string{"nvim .*"})
 
 	got := client.expectedPaneCommands(windows)
 
 	if len(got) != 1 || got["1.0"] != "nvim" {
 		t.Fatalf("allowlist should keep only nvim, got %#v", got)
+	}
+}
+
+func TestCompileCommandPatternsSkipsInvalid(t *testing.T) {
+	t.Parallel()
+
+	client := NewClient("tmux")
+	client.SetRestoreDenylist([]string{"node .*", "(", "  "})
+
+	if client.commandAllowed("node app.js") {
+		t.Fatal("valid pattern in the list must still block")
+	}
+
+	if !client.commandAllowed("nvim") {
+		t.Fatal("an invalid/empty pattern must be skipped, not match everything")
 	}
 }
 

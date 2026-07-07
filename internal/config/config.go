@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -18,7 +19,8 @@ var (
 	errNoConfigPath      = errors.New(
 		"could not determine a config path (pass --path or set $HOME)",
 	)
-	errConfigExists = errors.New("already exists (use --force to overwrite)")
+	errConfigExists   = errors.New("already exists (use --force to overwrite)")
+	errInvalidPattern = errors.New("invalid regular expression")
 )
 
 type Config struct {
@@ -128,7 +130,37 @@ func LoadFrom(path string) (Config, error) {
 		return cfg, fmt.Errorf("config %s: %w: %v", path, errUnknownConfigKeys, undecoded)
 	}
 
-	return cfg.withFile(file), nil
+	final := cfg.withFile(file)
+
+	err = validateCommandPatterns(final)
+	if err != nil {
+		return cfg, fmt.Errorf("config %s: %w", path, err)
+	}
+
+	return final, nil
+}
+
+func validateCommandPatterns(cfg Config) error {
+	lists := map[string][]string{
+		"restore_allowlist": cfg.RestoreAllowlist,
+		"restore_denylist":  cfg.RestoreDenylist,
+	}
+
+	for key, list := range lists {
+		for _, entry := range list {
+			trimmed := strings.TrimSpace(entry)
+			if trimmed == "" {
+				continue
+			}
+
+			_, err := regexp.Compile(trimmed)
+			if err != nil {
+				return fmt.Errorf("%s %q: %w: %w", key, entry, errInvalidPattern, err)
+			}
+		}
+	}
+
+	return nil
 }
 
 type fileConfig struct {

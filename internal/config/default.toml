@@ -23,18 +23,22 @@ save_interval = "5m"
 # before returning. "0s" disables waiting (old fire-and-forget behavior).
 restore_timeout = "5s"
 
-# Allowlist of commands lazy-tmux may replay on restore, matched by program
-# name (e.g. "nvim" matches "/usr/bin/nvim main.go"). Omit this key entirely to
-# restore every command (the default). Provide a list to restore only those
-# programs; use an empty list [] to restore no commands at all.
-# restore_allowlist = ["nvim", "vim", "htop", "less", "tail", "ssh"]
+# Allowlist of commands lazy-tmux may replay on restore. Each entry is a regular
+# expression matched against the full command, anchored so it must match the
+# whole line (e.g. "nvim( .*)?" allows nvim with or without arguments, "ssh .*"
+# allows any ssh command). Omit this key entirely to restore every command (the
+# default). Provide a list to restore only matching commands; use an empty list
+# [] to restore no commands at all.
+# restore_allowlist = ["nvim( .*)?", "vim( .*)?", "htop", "less .*", "tail .*", "ssh .*"]
 
-# Denylist of commands lazy-tmux must never replay on restore, matched by program
-# name. Use this instead of an allowlist when you trust most commands and only
-# want to exclude a few (e.g. long-running servers). The denylist wins over the
-# allowlist: a denied command is skipped even if the allowlist would permit it.
-# Omit or leave empty to block nothing (the default).
-# restore_denylist = ["htop", "npm", "node"]
+# Denylist of commands lazy-tmux must never replay on restore. Each entry is a
+# regular expression matched against the full command (anchored). Use this
+# instead of an allowlist when you trust most commands and only want to exclude
+# a few. Write a literal command to block exactly it (e.g.
+# "node ./scripts/heavy-watch\.js --poll"), or wildcard the arguments (e.g.
+# "node .*"). The denylist wins over the allowlist: a denied command is skipped
+# even if the allowlist would permit it. Omit or leave empty to block nothing.
+# restore_denylist = ["htop", "npm .*", "node .*"]
 
 [scrollback]
 # Capture and replay shell pane scrollback on save/restore.
@@ -45,8 +49,8 @@ lines = 5000
 # Program integrations adapt interactive programs to lazy-tmux's save/restore.
 # When a pane runs a supported program, lazy-tmux records program-specific state
 # on save and replays a smarter command on restore. Integrations compose with
-# restore_allowlist: if an allowlist is set, the program must be in it (e.g.
-# "claude") for its command to be replayed.
+# restore_allowlist: if an allowlist is set, the replayed command must match it
+# (e.g. "claude .*" to permit the `claude --resume <id>` restore command).
 [integrations]
 # Master switch for all program integrations.
 enabled = true

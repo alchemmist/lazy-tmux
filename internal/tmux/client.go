@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -81,10 +82,10 @@ type Client struct {
 	runner        commandRunner
 	settleTimeout time.Duration
 
-	allowlist    map[string]struct{}
+	allowlist    []*regexp.Regexp
 	allowlistSet bool
 
-	denylist map[string]struct{}
+	denylist []*regexp.Regexp
 
 	resolver RestoreCommandResolver
 }
@@ -129,14 +130,7 @@ func (client *Client) SetRestoreAllowlist(list []string) {
 	}
 
 	client.allowlistSet = true
-	client.allowlist = make(map[string]struct{}, len(list))
-
-	for _, item := range list {
-		name := executableName(strings.TrimSpace(item))
-		if name != "" {
-			client.allowlist[name] = struct{}{}
-		}
-	}
+	client.allowlist = compileCommandPatterns(list)
 }
 
 func (client *Client) SetRestoreDenylist(list []string) {
@@ -146,14 +140,27 @@ func (client *Client) SetRestoreDenylist(list []string) {
 		return
 	}
 
-	client.denylist = make(map[string]struct{}, len(list))
+	client.denylist = compileCommandPatterns(list)
+}
+
+func compileCommandPatterns(list []string) []*regexp.Regexp {
+	patterns := make([]*regexp.Regexp, 0, len(list))
 
 	for _, item := range list {
-		name := executableName(strings.TrimSpace(item))
-		if name != "" {
-			client.denylist[name] = struct{}{}
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
 		}
+
+		re, err := regexp.Compile("^(?:" + item + ")$")
+		if err != nil {
+			continue
+		}
+
+		patterns = append(patterns, re)
 	}
+
+	return patterns
 }
 
 func (client *Client) SetRestoreResolver(resolver RestoreCommandResolver) {
@@ -845,7 +852,7 @@ func (client *Client) restoreWindowCommands(
 			continue
 		}
 
-		if !client.commandAllowed(executableName(cmd)) {
+		if !client.commandAllowed(cmd) {
 			continue
 		}
 
@@ -860,8 +867,10 @@ func (client *Client) restoreWindowCommands(
 	return nil
 }
 
-func (client *Client) commandAllowed(executable string) bool {
-	if _, denied := client.denylist[executable]; denied {
+func (client *Client) commandAllowed(command string) bool {
+	command = strings.TrimSpace(command)
+
+	if matchesAny(client.denylist, command) {
 		return false
 	}
 
@@ -869,9 +878,17 @@ func (client *Client) commandAllowed(executable string) bool {
 		return true
 	}
 
-	_, ok := client.allowlist[executable]
+	return matchesAny(client.allowlist, command)
+}
 
-	return ok
+func matchesAny(patterns []*regexp.Regexp, command string) bool {
+	for _, re := range patterns {
+		if re.MatchString(command) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (client *Client) expectedPaneCommands(windows []snapshot.Window) map[string]string {
@@ -879,8 +896,10 @@ func (client *Client) expectedPaneCommands(windows []snapshot.Window) map[string
 
 	for _, window := range windows {
 		for _, pane := range window.Panes {
-			exe := executableName(client.effectiveRestoreCommand(pane))
-			if exe == "" || !client.commandAllowed(exe) {
+			cmd := client.effectiveRestoreCommand(pane)
+
+			exe := executableName(cmd)
+			if exe == "" || !client.commandAllowed(cmd) {
 				continue
 			}
 
