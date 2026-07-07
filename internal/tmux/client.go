@@ -729,14 +729,24 @@ func newWindowArgs(sessionName string, win snapshot.Window) []string {
 }
 
 // CapturePaneScrollback returns the last `lines` lines of a pane's history,
-// with ANSI escape sequences preserved (-e) so colors survive a restore. A
+// with ANSI escape sequences preserved (-e) so colors survive a restore and
+// wrapped lines joined (-J) so long output stays one logical line. A
 // non-positive lines value defaults to 5000.
 func (client *Client) CapturePaneScrollback(target string, lines int) (string, error) {
 	if lines <= 0 {
 		lines = 5000
 	}
 
-	return client.Output("capture-pane", "-p", "-e", "-S", fmt.Sprintf("-%d", lines), "-t", target)
+	return client.Output(
+		"capture-pane",
+		"-p",
+		"-e",
+		"-J",
+		"-S",
+		fmt.Sprintf("-%d", lines),
+		"-t",
+		target,
+	)
 }
 
 func (client *Client) createAndPopulateWindow(sessionName string, win snapshot.Window) error {
