@@ -35,7 +35,31 @@ const (
 	fzfWinName = 24
 	fzfCmdMax  = 30
 	fzfColGap  = "  "
+	fzfMetaSep = " · "
 )
+
+const fzfMetaColor = "#9e9e9e"
+
+const fzfTimeLayout = "2006-01-02 15:04"
+
+const (
+	hexByteMask   = 0xff
+	hexRedShift   = 16
+	hexGreenShift = 8
+)
+
+func fzfFg(hexColor, text string) string {
+	value, err := strconv.ParseInt(strings.TrimPrefix(hexColor, "#"), 16, 32)
+	if err != nil {
+		return text
+	}
+
+	red := (value >> hexRedShift) & hexByteMask
+	green := (value >> hexGreenShift) & hexByteMask
+	blue := value & hexByteMask
+
+	return fmt.Sprintf("\x1b[38;2;%d;%d;%dm%s\x1b[0m", red, green, blue, text)
+}
 
 func padCell(text string, width int) string {
 	gap := width - ansi.StringWidth(text)
@@ -57,6 +81,7 @@ func clampCell(s string, maxWidth int) string {
 func runFZF(input *bytes.Buffer, withNth string) (string, error) {
 	args := []string{
 		"fzf",
+		"--ansi",
 		"--delimiter", "\t",
 		"--with-nth", withNth,
 	}
@@ -67,6 +92,7 @@ func runFZF(input *bytes.Buffer, withNth string) (string, error) {
 			"--prompt", "lazy-tmux> ",
 			"--height", "100%",
 			"--layout", "reverse",
+			"--info", "hidden",
 		)
 	} else {
 		args = append(args, "--filter", "")
@@ -117,7 +143,7 @@ func sessionFZFLines(records []snapshot.Record) []string {
 		name := clampCell(r.SessionName, fzfNameMax)
 		rows[idx] = row{
 			name:  name,
-			when:  r.CapturedAt.Local().Format("2006-01-02 15:04:05"),
+			when:  r.CapturedAt.Local().Format(fzfTimeLayout),
 			count: fmt.Sprintf("%dw", r.Windows),
 		}
 
@@ -127,13 +153,8 @@ func sessionFZFLines(records []snapshot.Record) []string {
 
 	lines := make([]string, len(records))
 	for idx, item := range rows {
-		display := padCell(
-			item.name,
-			nameW,
-		) + fzfColGap + item.when + fzfColGap + padLeft(
-			item.count,
-			countW,
-		)
+		meta := fzfFg(fzfMetaColor, padLeft(item.count, countW)+fzfMetaSep+item.when)
+		display := padCell(item.name, nameW) + fzfColGap + meta
 		lines[idx] = display + "\t" + records[idx].SessionName
 	}
 
@@ -180,7 +201,7 @@ func windowFZFLines(sessions []Session, windowSort []WindowSortKey) []string {
 		copy(windows, session.Windows)
 		sortWindows(windows, windowSort)
 
-		captured := session.Record.CapturedAt.Local().Format("2006-01-02 15:04:05")
+		captured := session.Record.CapturedAt.Local().Format(fzfTimeLayout)
 
 		for _, window := range windows {
 			name := window.Name
@@ -215,13 +236,14 @@ func windowFZFLines(sessions []Session, windowSort []WindowSortKey) []string {
 	lines := make([]string, len(rows))
 
 	for idx, item := range rows {
-		display := strings.Join([]string{
+		head := strings.Join([]string{
 			padCell(clampCell(item.session, fzfNameMax), sessW),
 			padLeft(strconv.Itoa(item.index), idxW),
 			padCell(item.name, nameW),
-			padCell(item.cmd, cmdW),
-			item.when,
 		}, fzfColGap)
+
+		meta := fzfFg(fzfMetaColor, padCell(item.cmd, cmdW)+fzfMetaSep+item.when)
+		display := head + fzfColGap + meta
 
 		lines[idx] = fmt.Sprintf("%s\t%s\t%d", display, item.session, item.index)
 	}
