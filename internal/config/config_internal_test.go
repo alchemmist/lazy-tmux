@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -188,6 +189,23 @@ func TestLoadFromInvalidDurationErrors(t *testing.T) {
 
 	if _, err := LoadFrom(path); err == nil {
 		t.Fatal("expected error for invalid duration")
+	}
+}
+
+func TestLoadFromInvalidPatternErrors(t *testing.T) {
+	t.Parallel()
+
+	for _, key := range []string{"restore_allowlist", "restore_denylist"} {
+		path := writeConfig(t, key+" = [\"node .*\", \"(\"]\n")
+
+		_, err := LoadFrom(path)
+		if err == nil {
+			t.Fatalf("%s: expected error for an invalid regex", key)
+		}
+
+		if !errors.Is(err, errInvalidPattern) {
+			t.Fatalf("%s: expected errInvalidPattern, got %v", key, err)
+		}
 	}
 }
 
