@@ -53,13 +53,34 @@ func TestViewRendersStatusDot(t *testing.T) {
 
 	m := newTestModel(t, rec, sess)
 
-	if !strings.Contains(m.View().Content, glyphWorking) {
-		t.Fatal("expected a working status glyph in the rendered view")
+	if !strings.Contains(m.View().Content, workingSpinnerFrames[0]) {
+		t.Fatal("expected the working spinner glyph in the rendered view")
 	}
 
 	plain := makeSession("plain", true, "vim")
 
-	if strings.Contains(newTestModel(t, rec, plain).View().Content, glyphWorking) {
+	if strings.Contains(newTestModel(t, rec, plain).View().Content, workingSpinnerFrames[0]) {
 		t.Fatal("window without a status must not render a glyph")
+	}
+}
+
+func TestStatusGlyphFrameAnimatesWorking(t *testing.T) {
+	t.Parallel()
+
+	for i, frame := range workingSpinnerFrames {
+		if got := statusGlyphFrame(StatusWorking, i); got != frame {
+			t.Fatalf("frame %d: got %q want %q", i, got, frame)
+		}
+	}
+
+	if got := statusGlyphFrame(
+		StatusWorking,
+		len(workingSpinnerFrames),
+	); got != workingSpinnerFrames[0] {
+		t.Fatal("frame index must wrap around")
+	}
+
+	if got := statusGlyphFrame(StatusIdle, 3); got != glyphIdle {
+		t.Fatalf("non-working status must stay static, got %q", got)
 	}
 }

@@ -549,7 +549,7 @@ func TestFilteredTreeRowsAndTable(t *testing.T) {
 
 	sessions := []Session{makeSession("alpha", true, "edit", "shell")}
 
-	rows := filteredTreeRows(sessions, "", DefaultSortOptions().Window)
+	rows := filteredTreeRows(sessions, "", DefaultSortOptions().Window, 0)
 	if len(rows) != 3 {
 		t.Fatalf("expected header + 2 window rows, got %d", len(rows))
 	}

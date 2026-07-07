@@ -11,7 +11,12 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
-func filteredTreeRows(sessions []Session, query string, windowSort []WindowSortKey) []pickerRow {
+func filteredTreeRows(
+	sessions []Session,
+	query string,
+	windowSort []WindowSortKey,
+	spinnerFrame int,
+) []pickerRow {
 	rows := make([]pickerRow, 0)
 
 	for _, sess := range sessions {
@@ -48,26 +53,26 @@ func filteredTreeRows(sessions []Session, query string, windowSort []WindowSortK
 				branch = "╰─"
 			}
 
-			windowIdx := win.Index
-
-			status := sess.Statuses[win.Index]
-			state := statusGlyph(status)
-
-			rows = append(rows, pickerRow{
-				target:     Target{SessionName: sess.Record.SessionName, WindowIndex: &windowIdx},
-				item:       fmt.Sprintf("  %s [%d] %s", branch, win.Index, win.Name),
-				captured:   "",
-				wins:       "",
-				state:      state,
-				status:     status,
-				cmd:        windowPreviewCommand(win),
-				windowName: win.Name,
-				selectable: true,
-			})
+			rows = append(rows, windowRow(sess, win, branch, spinnerFrame))
 		}
 	}
 
 	return rows
+}
+
+func windowRow(sess Session, win snapshot.Window, branch string, spinnerFrame int) pickerRow {
+	windowIdx := win.Index
+	status := sess.Statuses[win.Index]
+
+	return pickerRow{
+		target:     Target{SessionName: sess.Record.SessionName, WindowIndex: &windowIdx},
+		item:       fmt.Sprintf("  %s [%d] %s", branch, win.Index, win.Name),
+		state:      statusGlyphFrame(status, spinnerFrame),
+		status:     status,
+		cmd:        windowPreviewCommand(win),
+		windowName: win.Name,
+		selectable: true,
+	}
 }
 
 func (m pickerModel) modeSessions() []Session {

@@ -57,6 +57,17 @@ const (
 	glyphError            = "✕"
 )
 
+//nolint:gochecknoglobals // static spinner frame table, never mutated
+var workingSpinnerFrames = []string{"◐", "◓", "◑", "◒"}
+
+func statusGlyphFrame(status WindowStatus, frame int) string {
+	if status == StatusWorking {
+		return workingSpinnerFrames[frame%len(workingSpinnerFrames)]
+	}
+
+	return statusGlyph(status)
+}
+
 func statusGlyph(status WindowStatus) string {
 	switch status {
 	case StatusWorking:
