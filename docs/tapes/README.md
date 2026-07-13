@@ -1,9 +1,7 @@
 # Demo recording
 
 `demo.gif` (used in the project README and the docs landing page) is generated
-from `demo.tape` with [VHS](https://github.com/charmbracelet/vhs), running
-inside a throwaway container so the recording never touches a real tmux server
-or your own snapshots.
+from `demo.tape` with [VHS](https://github.com/charmbracelet/vhs).
 
 The tape walks through the core promise of lazy-tmux: start inside a tmux
 session with `top` and a shell, open the picker in a floating window, detach,
@@ -12,26 +10,14 @@ running processes intact.
 
 ## Regenerate
 
-From the repository root:
-
 ```sh
-# 1. cross-compile a static Linux binary for the container
-CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o docs/tapes/lazy-tmux ./cmd/lazy-tmux
-
-# 2. build the recording image (VHS + tmux + procps + lazy-tmux)
-podman build -t lazy-tmux-vhs docs/tapes
-
-# 3. record
-mkdir -p docs/tapes/out
-podman run --rm \
-  -v "$PWD/docs/tapes/cfg.toml:/root/cfg.toml:ro" \
-  -v "$PWD/docs/tapes/demo.tape:/root/demo.tape:ro" \
-  -v "$PWD/docs/tapes/out:/root/out" \
-  lazy-tmux-vhs /root/demo.tape
-
-# 4. publish
-cp docs/tapes/out/demo.gif docs/public/assets/demo.gif
+make demo-gif
 ```
 
-Use `GOARCH=amd64` on an x86 host. The `lazy-tmux` binary and `out/` directory
-are build artifacts and are not committed.
+This builds `bin/lazy-tmux` from the current working tree and runs VHS on
+`demo.tape`, writing the result straight to `docs/public/assets/demo.gif`.
+
+Requires `vhs`, `ttyd` and `tmux` on your PATH (`brew install vhs ttyd tmux`).
+The recording runs an isolated tmux server (`TMUX_TMPDIR`) against a throwaway
+data dir under `~/.cache/lazy-tmux-demo`, so it never touches your real tmux
+sessions or snapshots.
