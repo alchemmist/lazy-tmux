@@ -9,7 +9,7 @@ Set TypingSpeed 60ms
 
 # ---------- hidden setup: build a session, save it ----------
 Hide
-Type "export PS1='\[\e[38;5;39m\]demo\[\e[0m\]:\w$ '; export LAZY_TMUX_CONFIG=/root/cfg.toml; export TMUX_TMPDIR=/root/tmuxtmp; export TERM=xterm-256color"
+Type "export PS1='\[\e[38;5;39m\]demo\[\e[0m\]:\w$ '; export LAZY_TMUX_CONFIG=/root/cfg.toml; export TMUX_TMPDIR=/root/tmuxtmp; export TERM=xterm-256color; export LANG=C.UTF-8 LC_ALL=C.UTF-8"
 Enter
 Type "rm -rf /root/data /root/tmuxtmp; mkdir -p /root/data /root/tmuxtmp; clear"
 Enter
