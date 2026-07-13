@@ -1,58 +1,109 @@
-Output demo.gif
+Output out/demo.gif
 
 Set Shell "bash"
 Set FontSize 18
-Set Width 1100
-Set Height 680
-Set Padding 22
-Set TypingSpeed 55ms
+Set Width 1180
+Set Height 720
+Set Padding 20
+Set TypingSpeed 60ms
 
+# ---------- hidden setup: build a session, save it ----------
 Hide
-Type "export PS1='$ '; export PATH=/Users/antonmoss/code/lazy-tmux/bin:$PATH"
+Type "export PS1='\[\e[38;5;39m\]demo\[\e[0m\]:\w$ '; export LAZY_TMUX_CONFIG=/root/cfg.toml; export TMUX_TMPDIR=/root/tmuxtmp; export TERM=xterm-256color"
 Enter
-Type "export TMUX_TMPDIR=/tmp/vhs/tmux; export TMUX=; export LAZY_TMUX_CONFIG=/tmp/vhs/cfg.toml"
+Type "rm -rf /root/data /root/tmuxtmp; mkdir -p /root/data /root/tmuxtmp; clear"
 Enter
-Type "rm -rf /tmp/vhs/tmux /tmp/vhs/data && mkdir -p /tmp/vhs/tmux /tmp/vhs/data"
+Type "tmux new-session -d -s dev -n shell -x 140 -y 34"
 Enter
-Type "alias lt=lazy-tmux"
+Type `tmux send-keys -t dev:shell "echo 'BUILD: compiling modules...'; seq 1 12; echo 'BUILD: done - server listening on :8080'" Enter`
 Enter
-Type "tmux new-session -d -s api -n server; tmux send-keys -t api:server top Enter; tmux new-window -t api -n logs; tmux send-keys -t api:logs top Enter"
+Type `tmux new-window -t dev -n monitor; tmux send-keys -t dev:monitor 'top' Enter`
 Enter
-Type "tmux new-session -d -s web -n editor; tmux send-keys -t web:editor top Enter; tmux new-window -t web -n shell"
+Type "tmux select-window -t dev:shell"
 Enter
-Type "tmux new-session -d -s notes -n scratch"
+Type `tmux bind-key -n M-p display-popup -E -w 70% -h 55% 'lazy-tmux picker'`
 Enter
-Type "sleep 1; lt save --all >/dev/null 2>&1; clear"
+Type "sleep 1; lazy-tmux save --all >/dev/null 2>&1; clear"
 Enter
-Sleep 500ms
+Sleep 800ms
+Type "tmux attach -t dev"
+Enter
+Sleep 2000ms
 Show
 
-Type "# Three tmux sessions, saved as snapshots:"
+# ---------- inside the session ----------
+Sleep 1500ms
+Type "# a shell window with real build output above"
+Sleep 600ms
+Enter
+Sleep 1800ms
+
+Type "# top is running in the next window - let's switch"
+Sleep 600ms
+Enter
+Sleep 1200ms
+Ctrl+b
+Sleep 400ms
+Type "n"
+Sleep 3000ms
+Ctrl+b
+Sleep 400ms
+Type "p"
+Sleep 1800ms
+
+Type "# open the lazy-tmux picker in a floating window"
+Sleep 600ms
+Enter
+Sleep 800ms
+Alt+p
+Sleep 2200ms
+Ctrl+j
+Sleep 1600ms
+Escape
+Sleep 1200ms
+
+# ---------- detach and destroy ----------
+Ctrl+b
+Sleep 400ms
+Type "d"
+Sleep 1600ms
+Type "# detached. the snapshot is saved - sessions survive:"
+Enter
+Sleep 800ms
+Type "tmux ls"
+Enter
+Sleep 2200ms
+Type "# now blow away the entire tmux server..."
 Enter
 Sleep 700ms
-Type "lt list"
-Enter
-Sleep 2s
-
-Type "# Now blow away the entire tmux server..."
-Enter
-Sleep 600ms
 Type "tmux kill-server"
 Enter
 Sleep 1200ms
+Type "tmux ls"
+Enter
+Sleep 2000ms
 
-Type "# ...gone. Restore from the TUI picker:"
+# ---------- restore ----------
+Type "# ...gone. restore it all with the picker:"
 Enter
 Sleep 700ms
-Type "lt picker"
+Type "lazy-tmux picker"
 Enter
-Sleep 2200ms
-Screenshot picker.png
+Sleep 4500ms
+Enter
+Sleep 4500ms
 
-Down
-Sleep 900ms
-Screenshot picker-nav.png
+# ---------- nothing was lost ----------
+Sleep 1500ms
+Type "# the shell's output history is right where we left it"
+Sleep 600ms
 Enter
-Sleep 3s
-Screenshot restored.png
+Sleep 1800ms
+Type "# and top is still running next door"
+Sleep 600ms
+Enter
 Sleep 1200ms
+Ctrl+b
+Sleep 400ms
+Type "n"
+Sleep 3500ms

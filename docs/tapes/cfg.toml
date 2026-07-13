@@ -1,0 +1,5 @@
+data_dir = "/root/data"
+
+[scrollback]
+enabled = true
+lines = 5000
