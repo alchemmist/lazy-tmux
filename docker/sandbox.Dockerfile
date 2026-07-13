@@ -50,7 +50,19 @@ RUN echo "source /root/.tmux/welcome.sh" >> /root/.zshrc
 COPY docker/welcome.sh /root/.tmux/welcome.sh
 RUN chmod +x /root/.tmux/welcome.sh
 
-RUN curl -fsSL https://lazy-tmux.xyz/install.sh | sh
+# Where the lazy-tmux binary comes from. "release" (default) downloads the
+# latest published release — used by `make docker-hub` for the image the docs
+# tell users to run. "local" installs the binary built from the current working
+# tree (see `make sandbox`), so dev testing runs the code in front of you,
+# including uncommitted changes, instead of the last release.
+ARG LAZY_TMUX_SOURCE=release
+COPY docker/local-bin/ /tmp/lazy-tmux-bin/
+RUN if [ "$LAZY_TMUX_SOURCE" = "local" ]; then \
+        install -m 0755 /tmp/lazy-tmux-bin/lazy-tmux /usr/local/bin/lazy-tmux; \
+    else \
+        curl -fsSL https://lazy-tmux.xyz/install.sh | sh; \
+    fi; \
+    rm -rf /tmp/lazy-tmux-bin
 
 COPY docker/test-versions-inner.sh /test-versions-inner.sh
 RUN chmod +x /test-versions-inner.sh

@@ -11,3 +11,6 @@ cover.html
 # docs site (Vite): dependencies and caches
 node_modules/
 .vite/
+
+# local sandbox binary (make sandbox)
+docker/local-bin/lazy-tmux

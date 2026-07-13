@@ -80,13 +80,17 @@ docker-hub:
 	podman tag lazy-tmux:$$SANDBOX_TAG alchemmist/lazy-tmux:$$SANDBOX_TAG; \
 	podman push alchemmist/lazy-tmux:$$SANDBOX_TAG
 
-# Build and drop into the interactive sandbox. Pick the tmux version with
-# TMUX_VERSION (defaults to 3.6a); each version gets its own cached image tag.
+# Build and drop into the interactive sandbox. The sandbox installs the
+# lazy-tmux binary built from the current working tree (including uncommitted
+# changes), not the last release, so you test the code in front of you. Pick the
+# tmux version with TMUX_VERSION (defaults to 3.6a); each version gets its own
+# cached image tag.
 #   make sandbox                  # tmux 3.6a
 #   make sandbox TMUX_VERSION=3.5a
 TMUX_VERSION ?= 3.6a
 sandbox:
-	podman build --build-arg TMUX_VERSION=$(TMUX_VERSION) -t lazy-tmux:local-$(TMUX_VERSION) -f docker/sandbox.Dockerfile .
+	CGO_ENABLED=0 GOOS=linux GOARCH=$$(go env GOARCH) go build -o docker/local-bin/$(BINARY) ./cmd/$(BINARY)
+	podman build --build-arg TMUX_VERSION=$(TMUX_VERSION) --build-arg LAZY_TMUX_SOURCE=local -t lazy-tmux:local-$(TMUX_VERSION) -f docker/sandbox.Dockerfile .
 	podman run -it --rm lazy-tmux:local-$(TMUX_VERSION)
 
 test-sup-versions:
@@ -109,4 +113,4 @@ docs-preview: docs-build
 	npm --prefix docs run preview
 
 clean:
-	rm -rf bin dist coverage.out cover.html cover.out .cache
+	rm -rf bin dist coverage.out cover.html cover.out .cache docker/local-bin/$(BINARY)
