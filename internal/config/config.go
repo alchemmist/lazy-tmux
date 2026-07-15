@@ -19,18 +19,20 @@ var (
 	errNoConfigPath      = errors.New(
 		"could not determine a config path (pass --path or set $HOME)",
 	)
-	errConfigExists   = errors.New("already exists (use --force to overwrite)")
-	errInvalidPattern = errors.New("invalid regular expression")
+	errConfigExists                = errors.New("already exists (use --force to overwrite)")
+	errInvalidPattern              = errors.New("invalid regular expression")
+	errInvalidRestoreHandlerSource = errors.New(`must be "saved" or "resolved"`)
 )
 
 type Config struct {
-	TmuxBin        string
-	DataDir        string
-	SaveInterval   time.Duration
-	RestoreTimeout time.Duration
-	RestoreHandler string
-	Scrollback     ScrollbackConfig
-	Integrations   IntegrationsConfig
+	TmuxBin              string
+	DataDir              string
+	SaveInterval         time.Duration
+	RestoreTimeout       time.Duration
+	RestoreHandler       string
+	RestoreHandlerSource string
+	Scrollback           ScrollbackConfig
+	Integrations         IntegrationsConfig
 
 	RestoreAllowlist []string
 
@@ -58,16 +60,20 @@ const (
 	defaultRestoreTimeout = 5 * time.Second
 	defaultClaudeHome     = "~/.claude"
 
+	RestoreHandlerSourceSaved    = "saved"
+	RestoreHandlerSourceResolved = "resolved"
+
 	DefaultScrollbackLines = 5000
 )
 
 func Default() Config {
 	return Config{
-		TmuxBin:        defaultTmuxBin,
-		DataDir:        store.DefaultDataDir(),
-		SaveInterval:   defaultSaveInterval,
-		RestoreTimeout: defaultRestoreTimeout,
-		RestoreHandler: "",
+		TmuxBin:              defaultTmuxBin,
+		DataDir:              store.DefaultDataDir(),
+		SaveInterval:         defaultSaveInterval,
+		RestoreTimeout:       defaultRestoreTimeout,
+		RestoreHandler:       "",
+		RestoreHandlerSource: RestoreHandlerSourceSaved,
 		Scrollback: ScrollbackConfig{
 			Enabled: false,
 			Lines:   DefaultScrollbackLines,
@@ -134,12 +140,30 @@ func LoadFrom(path string) (Config, error) {
 
 	final := cfg.withFile(file)
 
+	err = validateRestoreHandlerSource(final)
+	if err != nil {
+		return cfg, fmt.Errorf("config %s: %w", path, err)
+	}
+
 	err = validateCommandPatterns(final)
 	if err != nil {
 		return cfg, fmt.Errorf("config %s: %w", path, err)
 	}
 
 	return final, nil
+}
+
+func validateRestoreHandlerSource(cfg Config) error {
+	switch cfg.RestoreHandlerSource {
+	case RestoreHandlerSourceSaved, RestoreHandlerSourceResolved:
+		return nil
+	default:
+		return fmt.Errorf(
+			"restore_handler_source %q: %w",
+			cfg.RestoreHandlerSource,
+			errInvalidRestoreHandlerSource,
+		)
+	}
 }
 
 func validateCommandPatterns(cfg Config) error {
@@ -166,15 +190,16 @@ func validateCommandPatterns(cfg Config) error {
 }
 
 type fileConfig struct {
-	TmuxBin          *string               `toml:"tmux_bin"`
-	DataDir          *string               `toml:"data_dir"`
-	SaveInterval     *duration             `toml:"save_interval"`
-	RestoreTimeout   *duration             `toml:"restore_timeout"`
-	RestoreHandler   *string               `toml:"restore_handler"`
-	RestoreAllowlist *[]string             `toml:"restore_allowlist"`
-	RestoreDenylist  *[]string             `toml:"restore_denylist"`
-	Scrollback       *fileScrollbackConf   `toml:"scrollback"`
-	Integrations     *fileIntegrationsConf `toml:"integrations"`
+	TmuxBin              *string               `toml:"tmux_bin"`
+	DataDir              *string               `toml:"data_dir"`
+	SaveInterval         *duration             `toml:"save_interval"`
+	RestoreTimeout       *duration             `toml:"restore_timeout"`
+	RestoreHandler       *string               `toml:"restore_handler"`
+	RestoreHandlerSource *string               `toml:"restore_handler_source"`
+	RestoreAllowlist     *[]string             `toml:"restore_allowlist"`
+	RestoreDenylist      *[]string             `toml:"restore_denylist"`
+	Scrollback           *fileScrollbackConf   `toml:"scrollback"`
+	Integrations         *fileIntegrationsConf `toml:"integrations"`
 }
 
 type fileScrollbackConf struct {
@@ -211,6 +236,10 @@ func (cfg Config) withFile(file fileConfig) Config {
 
 	if file.RestoreHandler != nil {
 		cfg.RestoreHandler = strings.TrimSpace(*file.RestoreHandler)
+	}
+
+	if file.RestoreHandlerSource != nil {
+		cfg.RestoreHandlerSource = *file.RestoreHandlerSource
 	}
 
 	if file.RestoreAllowlist != nil {

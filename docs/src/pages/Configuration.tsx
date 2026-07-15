@@ -44,7 +44,8 @@ tmux_bin        = "tmux"                       # tmux binary to use
 data_dir        = "~/.local/share/lazy-tmux"   # where snapshots are stored (~ is expanded)
 save_interval   = "5m"                         # daemon autosave interval (Go duration)
 restore_timeout = "5s"                         # max wait for restored pane commands to start (0 disables)
-restore_handler = ""                           # optional handler run instead of saved commands
+restore_handler = ""                           # optional handler run instead of direct replay
+restore_handler_source = "saved"               # saved | resolved (exact, case-sensitive)
 # restore_handler = "echo"
 # restore_handler = "cowsay -f tux"
 
@@ -68,22 +69,34 @@ lines   = 5000    # max scrollback lines per pane`}</CodeBlock>
         <p className="muted">
           <InlineCode>restore_handler</InlineCode> is empty by default, which
           preserves direct application replay. A non-empty value is a trusted
-          shell prefix that runs instead of the saved command. lazy-tmux appends
-          the normalized saved command as one safely single-quoted argument, so
+          shell prefix that runs instead of direct replay. lazy-tmux appends the
+          selected command source as one safely single-quoted argument, so
           values such as <InlineCode>echo</InlineCode> and{" "}
-          <InlineCode>cowsay -f tux</InlineCode> receive the saved command as a
+          <InlineCode>cowsay -f tux</InlineCode> receive the selected command as a
           single argument. Surrounding whitespace is trimmed, but the prefix is
           not otherwise parsed or home-expanded.
         </p>
         <p className="muted">
-          For terminal safety, C0 control bytes and DEL in a saved command are
-          represented visibly as lowercase <InlineCode>\xNN</InlineCode> text
-          instead of being passed through exactly. Printable text and Unicode
-          remain unchanged.
+          <InlineCode>restore_handler_source</InlineCode> accepts only the exact,
+          case-sensitive values <InlineCode>saved</InlineCode> and{" "}
+          <InlineCode>resolved</InlineCode>; omission defaults to{" "}
+          <InlineCode>saved</InlineCode>. Saved mode passes the normalized
+          snapshot command and suppresses integration output. Resolved mode uses
+          non-empty integration resolver output, then falls back to the normalized
+          snapshot command. A non-empty shell-only resolver result is selected and
+          skipped rather than falling back again. The setting does nothing when
+          the handler is empty, so direct replay behavior is unchanged.
         </p>
         <p className="muted">
-          Handler mode replaces integration resume behavior, leaves empty and
-          shell-only panes untouched, and does not wait for{" "}
+          For terminal safety, C0 control bytes and DEL in the selected command are
+          represented visibly as lowercase <InlineCode>\xNN</InlineCode> text
+          instead of being passed through exactly. Printable text and Unicode
+          remain unchanged. The complete safely quoted handler line is sent as
+          literal tmux input, followed by a separate Enter dispatch.
+        </p>
+        <p className="muted">
+          Both source modes leave empty and shell-only selected commands untouched
+          and do not wait for{" "}
           <InlineCode>restore_timeout</InlineCode>. Handler shell parse errors,
           missing executables, and non-zero exits appear in the pane but cannot
           affect lazy-tmux&apos;s exit code; tmux dispatch failures are still
@@ -115,12 +128,21 @@ lines   = 5000    # max scrollback lines per pane`}</CodeBlock>
         <p className="muted">
           Each regular expression is anchored against the complete selected
           command string. In direct mode that is the effective replay command,
-          including integration output. In handler mode it is the normalized
-          saved command before the handler is added. Therefore{" "}
+          including integration output. In handler mode it is the saved or
+          resolved source before encoding and before the handler is added; the
+          handler invocation itself is never matched. Therefore{" "}
           <InlineCode>nvim</InlineCode> matches only that exact command; use{" "}
           <InlineCode>nvim( .*)?</InlineCode> to also permit arguments. A path
           such as <InlineCode>/usr/bin/nvim main.go</InlineCode> requires a
           pattern that includes the path.
+        </p>
+        <p className="muted">
+          For a Claude pane, <InlineCode>claude</InlineCode> permits the saved
+          source but not <InlineCode>claude --resume sess-9</InlineCode>, while{" "}
+          <InlineCode>claude --resume .*</InlineCode> permits the resolved command
+          but not the saved source. Claude Code is the only current production
+          integration; with <InlineCode>claude.session_id</InlineCode> metadata,
+          resolved mode can pass <InlineCode>claude --resume &lt;session-id&gt;</InlineCode>.
         </p>
 
         <h3 className="cli-subtitle">Restore command denylist</h3>
@@ -133,7 +155,8 @@ lines   = 5000    # max scrollback lines per pane`}</CodeBlock>
           <strong>wins over it</strong> — a command is replayed only when it is
           not denied and (no allowlist is set or it is allowed). It uses the
           same anchored, complete-command matching as the allowlist; an omitted
-          or empty list blocks nothing.
+          or empty list blocks nothing. Like the allowlist, it checks the selected
+          source and never the generated handler invocation.
         </p>
 
         <h3 className="cli-subtitle">Restore settle timeout</h3>
@@ -143,7 +166,10 @@ lines   = 5000    # max scrollback lines per pane`}</CodeBlock>
           <InlineCode>restore_timeout</InlineCode> /{" "}
           <InlineCode>--restore-timeout</InlineCode>), so automation can trust the
           session is fully restored once the command exits. Set it to{" "}
-          <InlineCode>0</InlineCode> to opt out and return immediately.
+          <InlineCode>0</InlineCode> to opt out and return immediately. A non-empty
+          handler is asynchronous and never waits in either source mode; when the
+          handler is empty, direct resolver, filtering, and settle behavior remain
+          unchanged.
         </p>
       </section>
     </>

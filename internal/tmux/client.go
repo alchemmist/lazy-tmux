@@ -87,8 +87,9 @@ type Client struct {
 
 	denylist []*regexp.Regexp
 
-	restoreHandler string
-	resolver       RestoreCommandResolver
+	restoreHandler            string
+	restoreHandlerUseResolver bool
+	resolver                  RestoreCommandResolver
 }
 
 type RestoreCommandResolver interface {
@@ -124,6 +125,10 @@ func (client *Client) SetRestoreTimeout(timeout time.Duration) {
 
 func (client *Client) SetRestoreHandler(handler string) {
 	client.restoreHandler = strings.TrimSpace(handler)
+}
+
+func (client *Client) SetRestoreHandlerUseResolver(useResolver bool) {
+	client.restoreHandlerUseResolver = useResolver
 }
 
 func (client *Client) SetRestoreAllowlist(list []string) {
@@ -835,6 +840,14 @@ func restoreHandlerCommand(handler, command string) string {
 	return strings.TrimSpace(handler) + " " + quoteShellArgument(encodeHandlerArgument(command))
 }
 
+func (client *Client) handlerRestoreCommand(pane snapshot.Pane) string {
+	if client.restoreHandlerUseResolver {
+		return client.effectiveRestoreCommand(pane)
+	}
+
+	return normalizedCommand(pane.RestoreCmd, pane.CurrentCmd)
+}
+
 func isShellCommand(cmd string) bool {
 	base := executableName(cmd)
 	shells := map[string]struct{}{
@@ -887,7 +900,7 @@ func (client *Client) restoreWindowCommands(
 
 	for _, pane := range panes {
 		if client.restoreHandler != "" {
-			cmd := normalizedCommand(pane.RestoreCmd, pane.CurrentCmd)
+			cmd := client.handlerRestoreCommand(pane)
 			if strings.TrimSpace(cmd) == "" || isShellCommand(cmd) {
 				continue
 			}
@@ -923,7 +936,7 @@ func (client *Client) restoreWindowCommands(
 
 		target := sessionPaneTarget(sessionName, windowIndex, pane.Index)
 
-		_, err := client.Output("send-keys", "-t", target, cmd, "C-m")
+		_, err := client.Output("send-keys", "-t", target, "--", cmd, "C-m")
 		if err != nil {
 			return err
 		}

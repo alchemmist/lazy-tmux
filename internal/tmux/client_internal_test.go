@@ -137,14 +137,21 @@ func waitTestWindows() []snapshot.Window {
 func TestWaitForRestoredCommandsBlocksUntilStarted(t *testing.T) {
 	t.Parallel()
 
-	runner := &pollRunner{settleOn: 3, before: "zsh", after: "cat"}
-	client := NewClientWithRunner("tmux", runner)
-	client.SetRestoreTimeout(2 * time.Second)
+	for _, useResolver := range []bool{false, true} {
+		runner := &pollRunner{settleOn: 3, before: "zsh", after: "cat"}
+		client := NewClientWithRunner("tmux", runner)
+		client.SetRestoreHandlerUseResolver(useResolver)
+		client.SetRestoreTimeout(2 * time.Second)
 
-	client.waitForRestoredCommands("sess", waitTestWindows())
+		client.waitForRestoredCommands("sess", waitTestWindows())
 
-	if runner.calls < 3 {
-		t.Fatalf("expected to poll until command started, polled %d times", runner.calls)
+		if runner.calls < 3 {
+			t.Fatalf(
+				"source resolver %t: expected to poll until command started, polled %d times",
+				useResolver,
+				runner.calls,
+			)
+		}
 	}
 }
 
@@ -184,15 +191,22 @@ func TestWaitForRestoredCommandsDisabled(t *testing.T) {
 func TestWaitForRestoredCommandsSkipsHandlerActions(t *testing.T) {
 	t.Parallel()
 
-	runner := &pollRunner{settleOn: 1, before: "zsh", after: "cat"}
-	client := NewClientWithRunner("tmux", runner)
-	client.SetRestoreHandler("echo")
-	client.SetRestoreTimeout(2 * time.Second)
+	for _, useResolver := range []bool{false, true} {
+		runner := &pollRunner{settleOn: 1, before: "zsh", after: "cat"}
+		client := NewClientWithRunner("tmux", runner)
+		client.SetRestoreHandler("echo")
+		client.SetRestoreHandlerUseResolver(useResolver)
+		client.SetRestoreTimeout(2 * time.Second)
 
-	client.waitForRestoredCommands("sess", waitTestWindows())
+		client.waitForRestoredCommands("sess", waitTestWindows())
 
-	if runner.calls != 0 {
-		t.Fatalf("handler actions must not poll, polled %d times", runner.calls)
+		if runner.calls != 0 {
+			t.Fatalf(
+				"source resolver %t: handler actions must not poll, polled %d times",
+				useResolver,
+				runner.calls,
+			)
+		}
 	}
 }
 
@@ -289,11 +303,18 @@ func TestExpectedPaneCommands(t *testing.T) {
 func TestExpectedPaneCommandsEmptyWithRestoreHandler(t *testing.T) {
 	t.Parallel()
 
-	client := NewClient("tmux")
-	client.SetRestoreHandler("echo")
+	for _, useResolver := range []bool{false, true} {
+		client := NewClient("tmux")
+		client.SetRestoreHandler("echo")
+		client.SetRestoreHandlerUseResolver(useResolver)
 
-	if got := client.expectedPaneCommands(waitTestWindows()); len(got) != 0 {
-		t.Fatalf("handler mode must have no settle expectations, got %#v", got)
+		if got := client.expectedPaneCommands(waitTestWindows()); len(got) != 0 {
+			t.Fatalf(
+				"source resolver %t: handler mode must have no settle expectations, got %#v",
+				useResolver,
+				got,
+			)
+		}
 	}
 }
 
@@ -641,7 +662,7 @@ func TestRestoreHandlerSelectsNormalizedSavedCommand(t *testing.T) {
 	}
 }
 
-func TestRestoreHandlerDispatchContainsNoSavedControlBytes(t *testing.T) {
+func TestRestoreHandlerDispatchContainsNoSelectedControlBytes(t *testing.T) {
 	t.Parallel()
 
 	unsafe := make([]byte, 0, 33)
@@ -650,24 +671,69 @@ func TestRestoreHandlerDispatchContainsNoSavedControlBytes(t *testing.T) {
 	}
 	unsafe = append(unsafe, '\x7f')
 
+	command := "cmd '$(touch nope);`false` " + string(unsafe) + " café/\u65e5\u672c\u8a9e end"
+	for _, useResolver := range []bool{false, true} {
+		runner := &restoreCommandRunner{}
+		client := NewClientWithRunner("tmux", runner)
+		client.SetRestoreHandler("echo")
+		client.SetRestoreHandlerUseResolver(useResolver)
+		if useResolver {
+			client.SetRestoreResolver(fakeResolver{matchCmd: "source", override: command})
+		}
+		window := restoreTestWindow(snapshot.Pane{CurrentCmd: "source", RestoreCmd: command})
+
+		if err := client.restoreWindowCommands("work", window, 1); err != nil {
+			t.Fatalf("source resolver %t: restoreWindowCommands: %v", useResolver, err)
+		}
+
+		if len(runner.calls) != 2 {
+			t.Fatalf(
+				"source resolver %t: got %d dispatch calls, want 2: %q",
+				useResolver,
+				len(runner.calls),
+				runner.calls,
+			)
+		}
+
+		line := runner.calls[0][len(runner.calls[0])-1]
+		wantLine := restoreHandlerCommand("echo", command)
+		if line != wantLine {
+			t.Fatalf("source resolver %t: line = %q, want %q", useResolver, line, wantLine)
+		}
+		for i := range len(line) {
+			if line[i] < ' ' || line[i] == '\x7f' {
+				t.Fatalf(
+					"source resolver %t: handler send-keys contains unsafe byte %#02x at offset %d",
+					useResolver,
+					line[i],
+					i,
+				)
+			}
+		}
+	}
+}
+
+func TestRestoreHandlerSavedShellAndEmptySourcesDoNotResolve(t *testing.T) {
+	t.Parallel()
+
 	runner := &restoreCommandRunner{}
+	resolver := &countingResolver{override: "nvim"}
 	client := NewClientWithRunner("tmux", runner)
 	client.SetRestoreHandler("echo")
-	window := restoreTestWindow(snapshot.Pane{RestoreCmd: "cmd" + string(unsafe) + "end"})
+	client.SetRestoreResolver(resolver)
 
+	window := restoreTestWindow(
+		snapshot.Pane{Index: 0, RestoreCmd: "", CurrentCmd: "zsh"},
+		snapshot.Pane{Index: 1, RestoreCmd: "/bin/bash", CurrentCmd: "fish -l"},
+	)
 	if err := client.restoreWindowCommands("work", window, 1); err != nil {
 		t.Fatalf("restoreWindowCommands: %v", err)
 	}
-
-	if len(runner.calls) != 2 {
-		t.Fatalf("got %d dispatch calls, want 2: %q", len(runner.calls), runner.calls)
+	if len(runner.calls) != 0 {
+		t.Fatalf("shell/empty sources dispatched %q", runner.calls)
 	}
-
-	line := runner.calls[0][len(runner.calls[0])-1]
-	for i := range len(line) {
-		if line[i] < ' ' || line[i] == '\x7f' {
-			t.Fatalf("handler send-keys contains unsafe byte %#02x at offset %d", line[i], i)
-		}
+	if resolver.calls != 0 {
+		t.Fatalf("saved source consulted resolver %d times", resolver.calls)
 	}
 }
 
@@ -729,10 +795,31 @@ func TestRestoreHandlerDisabledPreservesDirectDispatch(t *testing.T) {
 			t.Fatalf("restoreWindowCommands: %v", err)
 		}
 
-		want := [][]string{{"tmux", "send-keys", "-t", "=work:1.0", "nvim main.go", "C-m"}}
+		want := [][]string{
+			{"tmux", "send-keys", "-t", "=work:1.0", "--", "nvim main.go", "C-m"},
+		}
 		if !commandCallsEqual(runner.calls, want) {
 			t.Fatalf("direct dispatch calls:\n got %q\nwant %q", runner.calls, want)
 		}
+	}
+}
+
+func TestRestoreDirectDispatchTreatsLeadingDashAsCommandText(t *testing.T) {
+	t.Parallel()
+
+	runner := &restoreCommandRunner{}
+	client := NewClientWithRunner("tmux", runner)
+	window := restoreTestWindow(snapshot.Pane{RestoreCmd: "-bash", CurrentCmd: "-bash"})
+
+	if err := client.restoreWindowCommands("naps", window, 0); err != nil {
+		t.Fatalf("restoreWindowCommands: %v", err)
+	}
+
+	want := [][]string{
+		{"tmux", "send-keys", "-t", "=naps:0.0", "--", "-bash", "C-m"},
+	}
+	if !commandCallsEqual(runner.calls, want) {
+		t.Fatalf("direct dispatch calls:\n got %q\nwant %q", runner.calls, want)
 	}
 }
 
@@ -750,28 +837,34 @@ func TestRestoreHandlerDispatchErrors(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
+		for _, useResolver := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/resolver=%t", test.name, useResolver), func(t *testing.T) {
+				t.Parallel()
 
-			runner := &restoreCommandRunner{failAt: test.failAt, err: dispatchErr}
-			client := NewClientWithRunner("tmux", runner)
-			client.SetRestoreHandler("echo")
+				runner := &restoreCommandRunner{failAt: test.failAt, err: dispatchErr}
+				client := NewClientWithRunner("tmux", runner)
+				client.SetRestoreHandler("echo")
+				client.SetRestoreHandlerUseResolver(useResolver)
+				if useResolver {
+					client.SetRestoreResolver(fakeResolver{override: "nvim main.go"})
+				}
 
-			window := restoreTestWindow(snapshot.Pane{RestoreCmd: "nvim main.go"})
-			err := client.restoreWindowCommands("work", window, 1)
-			if !errors.Is(err, dispatchErr) {
-				t.Fatalf("restoreWindowCommands error = %v, want %v", err, dispatchErr)
-			}
+				window := restoreTestWindow(snapshot.Pane{RestoreCmd: "nvim main.go"})
+				err := client.restoreWindowCommands("work", window, 1)
+				if !errors.Is(err, dispatchErr) {
+					t.Fatalf("restoreWindowCommands error = %v, want %v", err, dispatchErr)
+				}
 
-			if len(runner.calls) != test.wantCalls {
-				t.Fatalf(
-					"got %d dispatch calls, want %d: %q",
-					len(runner.calls),
-					test.wantCalls,
-					runner.calls,
-				)
-			}
-		})
+				if len(runner.calls) != test.wantCalls {
+					t.Fatalf(
+						"got %d dispatch calls, want %d: %q",
+						len(runner.calls),
+						test.wantCalls,
+						runner.calls,
+					)
+				}
+			})
+		}
 	}
 }
 

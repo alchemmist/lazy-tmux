@@ -63,6 +63,11 @@ func (c Config) Render() string {
 	fmt.Fprintf(&buf, "save_interval   = %s\n", strconv.Quote(c.SaveInterval.String()))
 	fmt.Fprintf(&buf, "restore_timeout = %s\n", strconv.Quote(c.RestoreTimeout.String()))
 	fmt.Fprintf(&buf, "restore_handler = %s\n", strconv.Quote(c.RestoreHandler))
+	restoreHandlerSource := RestoreHandlerSourceSaved
+	if c.RestoreHandlerSource == RestoreHandlerSourceResolved {
+		restoreHandlerSource = RestoreHandlerSourceResolved
+	}
+	fmt.Fprintf(&buf, "restore_handler_source = %s\n", strconv.Quote(restoreHandlerSource))
 
 	if c.RestoreAllowlist == nil {
 		buf.WriteString("# restore_allowlist not set (every command is restored)\n")

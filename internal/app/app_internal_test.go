@@ -335,51 +335,108 @@ func TestNewWiresRestoreHandler(t *testing.T) {
 	)
 
 	dir := t.TempDir()
-	cfg := config.Default()
-	cfg.DataDir = dir
-	cfg.RestoreHandler = `printf 'restore-handler:%s\n'`
-	a := New(cfg)
-
-	snap := snapshot.SessionSnapshot{
-		Version:     snapshot.FormatVersion,
-		SessionName: "handled",
-		Windows: []snapshot.Window{
-			{
-				Index: 0,
-				Name:  "main",
-				Panes: []snapshot.Pane{
-					{Index: 0, CurrentPath: dir, CurrentCmd: "nvim", RestoreCmd: "nvim main.go"},
-				},
-			},
+	tests := []struct {
+		name   string
+		source string
+		meta   map[string]string
+		want   string
+	}{
+		{
+			name:   "default-saved",
+			source: config.RestoreHandlerSourceSaved,
+			meta:   map[string]string{"claude.session_id": "sess-9"},
+			want:   "claude",
+		},
+		{
+			name:   "programmatic-zero",
+			source: "",
+			meta:   map[string]string{"claude.session_id": "sess-9"},
+			want:   "claude",
+		},
+		{
+			name:   "programmatic-invalid",
+			source: "bogus",
+			meta:   map[string]string{"claude.session_id": "sess-9"},
+			want:   "claude",
+		},
+		{
+			name:   "resolved",
+			source: config.RestoreHandlerSourceResolved,
+			meta:   map[string]string{"claude.session_id": "sess-9"},
+			want:   "claude --resume sess-9",
+		},
+		{
+			name:   "resolved-fallback",
+			source: config.RestoreHandlerSourceResolved,
+			want:   "claude",
 		},
 	}
-	if err := a.store.SaveSession(snap); err != nil {
-		t.Fatalf("save snapshot: %v", err)
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := config.Default()
+			cfg.DataDir = dir
+			cfg.RestoreHandler = `printf 'restore-handler:[%s]\n'`
+			cfg.RestoreHandlerSource = test.source
+			a := New(cfg)
+
+			snap := snapshot.SessionSnapshot{
+				Version:     snapshot.FormatVersion,
+				SessionName: test.name,
+				Windows: []snapshot.Window{
+					{
+						Index: 0,
+						Name:  "main",
+						Panes: []snapshot.Pane{
+							{
+								Index:       0,
+								CurrentPath: dir,
+								CurrentCmd:  "claude",
+								RestoreCmd:  "claude",
+								Meta:        test.meta,
+							},
+						},
+					},
+				},
+			}
+			if err := a.store.SaveSession(snap); err != nil {
+				t.Fatalf("save snapshot: %v", err)
+			}
+
+			if err := a.Restore(test.name, false); err != nil {
+				t.Fatalf("restore snapshot: %v", err)
+			}
+
+			wantOutput := "restore-handler:[" + test.want + "]"
+			deadline := time.Now().Add(2 * time.Second)
+			var lastOutput string
+			var lastErr error
+			for time.Now().Before(deadline) {
+				output, err := testutil.TmuxTry(
+					"capture-pane",
+					"-p",
+					"-t",
+					"="+test.name+":0.0",
+				)
+				lastOutput = output
+				lastErr = err
+				if err == nil && strings.Contains(output, wantOutput) {
+					break
+				}
+
+				time.Sleep(20 * time.Millisecond)
+			}
+
+			if !strings.Contains(lastOutput, wantOutput) {
+				t.Fatalf(
+					"handler output %q did not appear: output %q, error %v",
+					wantOutput,
+					lastOutput,
+					lastErr,
+				)
+			}
+		})
 	}
-
-	if err := a.Restore("handled", false); err != nil {
-		t.Fatalf("restore snapshot: %v", err)
-	}
-
-	deadline := time.Now().Add(2 * time.Second)
-	var lastOutput string
-	var lastErr error
-	for time.Now().Before(deadline) {
-		output, err := testutil.TmuxTry("capture-pane", "-p", "-t", "=handled:0.0")
-		lastOutput = output
-		lastErr = err
-		if err == nil && strings.Contains(output, "restore-handler:nvim main.go") {
-			return
-		}
-
-		time.Sleep(20 * time.Millisecond)
-	}
-
-	t.Fatalf(
-		"handler output did not appear in restored pane: output %q, error %v",
-		lastOutput,
-		lastErr,
-	)
 }
 
 //nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)

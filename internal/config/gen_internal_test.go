@@ -35,6 +35,10 @@ func TestGenerateConfigWritesLoadableTemplate(t *testing.T) {
 		t.Fatal("generated config does not document restore_handler")
 	}
 
+	if !strings.Contains(string(data), `restore_handler_source = "saved"`) {
+		t.Fatal("generated config does not document restore_handler_source")
+	}
+
 	cfg, err := LoadFrom(path)
 	if err != nil {
 		t.Fatalf("generated config does not load: %v", err)
@@ -42,6 +46,10 @@ func TestGenerateConfigWritesLoadableTemplate(t *testing.T) {
 
 	if cfg.RestoreHandler != "" {
 		t.Fatalf("generated config restore_handler: got %q", cfg.RestoreHandler)
+	}
+
+	if cfg.RestoreHandlerSource != RestoreHandlerSourceSaved {
+		t.Fatalf("generated config restore_handler_source: got %q", cfg.RestoreHandlerSource)
 	}
 }
 
@@ -73,6 +81,7 @@ func TestRenderEffectiveConfig(t *testing.T) {
 		`tmux_bin        = "tmux"`,
 		"save_interval",
 		`restore_handler = ""`,
+		`restore_handler_source = "saved"`,
 		"[scrollback]",
 		"restore_allowlist not set",
 		"restore_denylist not set",
@@ -90,6 +99,50 @@ func TestRenderEffectiveConfig(t *testing.T) {
 	cfg.RestoreDenylist = []string{"npm", "node"}
 	if got := cfg.Render(); !strings.Contains(got, `restore_denylist = ["npm", "node"]`) {
 		t.Fatalf("render denylist wrong:\n%s", got)
+	}
+}
+
+func TestRenderRestoreHandlerSourceRoundTrips(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		source string
+		want   string
+	}{
+		{name: "default", source: RestoreHandlerSourceSaved, want: RestoreHandlerSourceSaved},
+		{
+			name:   "resolved",
+			source: RestoreHandlerSourceResolved,
+			want:   RestoreHandlerSourceResolved,
+		},
+		{name: "zero", source: "", want: RestoreHandlerSourceSaved},
+		{name: "invalid", source: "bogus", want: RestoreHandlerSourceSaved},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := Default()
+			cfg.RestoreHandlerSource = test.source
+			out := cfg.Render()
+			wantLine := `restore_handler_source = ` + strconv.Quote(test.want)
+			if strings.Count(out, "restore_handler_source = ") != 1 {
+				t.Fatalf("render must contain exactly one source line:\n%s", out)
+			}
+			if !strings.Contains(out, wantLine) {
+				t.Fatalf("render missing %q in:\n%s", wantLine, out)
+			}
+
+			loaded, err := LoadFrom(writeConfig(t, out))
+			if err != nil {
+				t.Fatalf("load rendered config: %v", err)
+			}
+			if loaded.RestoreHandlerSource != test.want {
+				t.Fatalf("round trip: got %q want %q", loaded.RestoreHandlerSource, test.want)
+			}
+		})
 	}
 }
 

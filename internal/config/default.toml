@@ -23,30 +23,42 @@ save_interval = "5m"
 # before returning. "0s" disables waiting (old fire-and-forget behavior).
 restore_timeout = "5s"
 
-# Optional trusted shell prefix to run instead of replaying saved pane commands.
-# The normalized saved command is appended as one safely single-quoted argument.
+# Optional trusted shell prefix to run instead of directly replaying pane commands.
+# The source selected below is appended as one safely single-quoted argument.
 # Control bytes (C0 and DEL) are represented visibly as lowercase \xNN text
 # rather than passed through exactly; printable text and Unicode stay unchanged.
 # Empty (the default) preserves direct replay. For example, use "echo" to print
-# saved commands or "cowsay -f tux" to display them. The prefix is trusted shell
+# selected commands or "cowsay -f tux" to display them. The prefix is trusted shell
 # source: surrounding whitespace is trimmed, but lazy-tmux does not otherwise
-# parse it or expand ~. Handler mode replaces
-# integration resume commands, leaves empty and shell-only panes untouched, and
-# does not wait for restore_timeout. Handler parse, not-found, and exit failures
-# appear in the pane and do not affect lazy-tmux's exit code; tmux dispatch
-# failures are still returned.
+# parse it or expand ~. Handler mode leaves empty and shell-only selected sources
+# untouched and does not wait for restore_timeout. Handler parse, not-found, and
+# exit failures appear in the pane and do not affect lazy-tmux's exit code; tmux
+# dispatch failures are still returned. The complete safely quoted handler line
+# is sent with literal tmux input, followed by a separate Enter dispatch.
 restore_handler = ""
 # restore_handler = "echo"
 # restore_handler = "cowsay -f tux"
+
+# Command source passed to a non-empty restore_handler. Only the exact,
+# case-sensitive values "saved" and "resolved" are accepted; omission defaults
+# to "saved". "saved" passes the normalized snapshot command and suppresses
+# integration output. "resolved" uses non-empty integration resolver output and
+# otherwise falls back to the normalized snapshot command. A non-empty shell-only
+# resolver result is selected and skipped, not replaced by the saved command.
+# This setting is inert when restore_handler is empty, so direct resolver,
+# filtering, replay, and restore_timeout behavior remain unchanged.
+restore_handler_source = "saved"
 
 # Allowlist of commands lazy-tmux may replay or handle on restore. Each entry is
 # a regular expression matched against the complete selected command, anchored
 # so it must match the whole line (e.g. "nvim( .*)?" allows nvim with or without
 # arguments, and "ssh .*" allows any ssh command). In direct mode this is the
-# effective replay command; in handler mode it is the normalized saved command
-# before the handler is added. Omit this key entirely to allow every command (the
-# default). Provide a list to allow only matching commands; use an empty list []
-# to allow no commands at all.
+# effective replay command; in handler mode it is the saved or resolved source
+# selected above, before encoding and before the handler is added. The handler
+# invocation itself is never matched. For example, "claude" permits only the
+# saved source while "claude --resume .*" permits a resolved resume command.
+# Omit this key entirely to allow every command (the default). Provide a list to
+# allow only matching commands; use an empty list [] to allow no commands at all.
 # restore_allowlist = ["nvim( .*)?", "vim( .*)?", "htop", "less .*", "tail .*", "ssh .*"]
 
 # Denylist of commands lazy-tmux must never replay or handle on restore. Entries
@@ -69,7 +81,9 @@ lines = 5000
 # on save and replays a smarter command on restore. During direct replay,
 # integrations compose with restore_allowlist: if an allowlist is set, the
 # replayed command must match it (e.g. "claude .*" to permit the
-# `claude --resume <id>` restore command).
+# `claude --resume <id>` restore command). Claude Code is the only current
+# production integration. Handler source "resolved" can pass that resume command
+# when `claude.session_id` metadata is present; "saved" never consults it.
 [integrations]
 # Master switch for all program integrations.
 enabled = true

@@ -36,6 +36,10 @@ func TestDefault(t *testing.T) {
 		t.Fatalf("expected empty default restore handler, got %q", cfg.RestoreHandler)
 	}
 
+	if cfg.RestoreHandlerSource != RestoreHandlerSourceSaved {
+		t.Fatalf("expected saved default restore handler source, got %q", cfg.RestoreHandlerSource)
+	}
+
 	if cfg.Scrollback.Enabled {
 		t.Fatal("expected scrollback disabled by default")
 	}
@@ -199,6 +203,98 @@ func TestLoadFromNonStringRestoreHandlerErrors(t *testing.T) {
 
 	if _, err := LoadFrom(writeConfig(t, "restore_handler = 42\n")); err == nil {
 		t.Fatal("expected error for non-string restore_handler")
+	}
+}
+
+func TestLoadFromRestoreHandlerSource(t *testing.T) {
+	t.Parallel()
+
+	for _, source := range []string{RestoreHandlerSourceSaved, RestoreHandlerSourceResolved} {
+		t.Run(source, func(t *testing.T) {
+			t.Parallel()
+
+			cfg, err := LoadFrom(
+				writeConfig(t, "restore_handler_source = "+strconv.Quote(source)+"\n"),
+			)
+			if err != nil {
+				t.Fatalf("load: %v", err)
+			}
+
+			if cfg.RestoreHandlerSource != source {
+				t.Fatalf("restore_handler_source: got %q want %q", cfg.RestoreHandlerSource, source)
+			}
+		})
+	}
+}
+
+func TestLoadFromOmittedRestoreHandlerSourceUsesSaved(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := LoadFrom(writeConfig(t, "tmux_bin = \"tmux\"\n"))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	if cfg.RestoreHandlerSource != RestoreHandlerSourceSaved {
+		t.Fatalf(
+			"restore_handler_source: got %q want %q",
+			cfg.RestoreHandlerSource,
+			RestoreHandlerSourceSaved,
+		)
+	}
+}
+
+func TestLoadFromRejectsInvalidRestoreHandlerSource(t *testing.T) {
+	t.Parallel()
+
+	invalid := []string{
+		"",
+		" ",
+		"\t",
+		" saved",
+		"saved ",
+		" resolved ",
+		"Saved",
+		"SAVED",
+		"Resolved",
+		"bogus",
+	}
+
+	for _, source := range invalid {
+		t.Run(strconv.Quote(source), func(t *testing.T) {
+			t.Parallel()
+
+			path := writeConfig(t, "restore_handler_source = "+strconv.Quote(source)+"\n")
+			_, err := LoadFrom(path)
+			if err == nil {
+				t.Fatal("expected invalid restore_handler_source error")
+			}
+
+			for _, want := range []string{
+				path,
+				"restore_handler_source",
+				strconv.Quote(source),
+				strconv.Quote(RestoreHandlerSourceSaved),
+				strconv.Quote(RestoreHandlerSourceResolved),
+			} {
+				if !strings.Contains(err.Error(), want) {
+					t.Fatalf("error %q does not contain %q", err, want)
+				}
+			}
+		})
+	}
+}
+
+func TestLoadFromNonStringRestoreHandlerSourceErrors(t *testing.T) {
+	t.Parallel()
+
+	_, err := LoadFrom(writeConfig(t, "restore_handler_source = 42\n"))
+	if err == nil {
+		t.Fatal("expected error for non-string restore_handler_source")
+	}
+
+	if !strings.Contains(err.Error(), "restore_handler_source") {
+		t.Fatalf("error must identify restore_handler_source, got %v", err)
 	}
 }
 
