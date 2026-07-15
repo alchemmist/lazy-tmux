@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -30,8 +31,17 @@ func TestGenerateConfigWritesLoadableTemplate(t *testing.T) {
 		t.Fatal("generated content != embedded template")
 	}
 
-	if _, err := LoadFrom(path); err != nil {
+	if !strings.Contains(string(data), `restore_handler = ""`) {
+		t.Fatal("generated config does not document restore_handler")
+	}
+
+	cfg, err := LoadFrom(path)
+	if err != nil {
 		t.Fatalf("generated config does not load: %v", err)
+	}
+
+	if cfg.RestoreHandler != "" {
+		t.Fatalf("generated config restore_handler: got %q", cfg.RestoreHandler)
 	}
 }
 
@@ -62,6 +72,7 @@ func TestRenderEffectiveConfig(t *testing.T) {
 	for _, want := range []string{
 		`tmux_bin        = "tmux"`,
 		"save_interval",
+		`restore_handler = ""`,
 		"[scrollback]",
 		"restore_allowlist not set",
 		"restore_denylist not set",
@@ -79,5 +90,36 @@ func TestRenderEffectiveConfig(t *testing.T) {
 	cfg.RestoreDenylist = []string{"npm", "node"}
 	if got := cfg.Render(); !strings.Contains(got, `restore_denylist = ["npm", "node"]`) {
 		t.Fatalf("render denylist wrong:\n%s", got)
+	}
+}
+
+func TestRenderRestoreHandlerRoundTrips(t *testing.T) {
+	t.Parallel()
+
+	for name, handler := range map[string]string{
+		"empty":     "",
+		"non-empty": "cowsay -f tux",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := Default()
+			cfg.RestoreHandler = handler
+
+			out := cfg.Render()
+			wantLine := `restore_handler = ` + strconv.Quote(handler)
+			if !strings.Contains(out, wantLine) {
+				t.Fatalf("render missing %q in:\n%s", wantLine, out)
+			}
+
+			loaded, err := LoadFrom(writeConfig(t, out))
+			if err != nil {
+				t.Fatalf("load rendered config: %v", err)
+			}
+
+			if loaded.RestoreHandler != handler {
+				t.Fatalf("round trip: got %q want %q", loaded.RestoreHandler, handler)
+			}
+		})
 	}
 }

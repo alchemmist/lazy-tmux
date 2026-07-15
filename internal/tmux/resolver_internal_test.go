@@ -114,3 +114,35 @@ func TestRestoreResolverRespectsAllowlist(t *testing.T) {
 		}
 	}
 }
+
+func TestRestoreHandlerSuppressesResolverOutput(t *testing.T) {
+	t.Parallel()
+
+	runner := &recordingRunner{}
+	client := NewClientWithRunner("tmux", runner)
+	client.SetRestoreResolver(fakeResolver{matchCmd: "claude", override: "claude --resume s"})
+	client.SetRestoreHandler("echo")
+
+	window := snapshot.Window{
+		Index: 1,
+		Panes: []snapshot.Pane{{Index: 0, CurrentCmd: "claude", RestoreCmd: "claude"}},
+	}
+
+	if err := client.restoreWindowCommands("work", window, 1); err != nil {
+		t.Fatalf("restoreWindowCommands: %v", err)
+	}
+
+	want := [][]string{
+		{"tmux", "send-keys", "-l", "-t", "=work:1.0", "echo 'claude'"},
+		{"tmux", "send-keys", "-t", "=work:1.0", "C-m"},
+	}
+	if len(runner.calls) != len(want) {
+		t.Fatalf("got %d calls, want %d: %q", len(runner.calls), len(want), runner.calls)
+	}
+
+	for i := range want {
+		if strings.Join(runner.calls[i], "\x00") != strings.Join(want[i], "\x00") {
+			t.Fatalf("call %d = %q, want %q", i, runner.calls[i], want[i])
+		}
+	}
+}

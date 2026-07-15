@@ -28,6 +28,7 @@ type Config struct {
 	DataDir        string
 	SaveInterval   time.Duration
 	RestoreTimeout time.Duration
+	RestoreHandler string
 	Scrollback     ScrollbackConfig
 	Integrations   IntegrationsConfig
 
@@ -66,6 +67,7 @@ func Default() Config {
 		DataDir:        store.DefaultDataDir(),
 		SaveInterval:   defaultSaveInterval,
 		RestoreTimeout: defaultRestoreTimeout,
+		RestoreHandler: "",
 		Scrollback: ScrollbackConfig{
 			Enabled: false,
 			Lines:   DefaultScrollbackLines,
@@ -168,6 +170,7 @@ type fileConfig struct {
 	DataDir          *string               `toml:"data_dir"`
 	SaveInterval     *duration             `toml:"save_interval"`
 	RestoreTimeout   *duration             `toml:"restore_timeout"`
+	RestoreHandler   *string               `toml:"restore_handler"`
 	RestoreAllowlist *[]string             `toml:"restore_allowlist"`
 	RestoreDenylist  *[]string             `toml:"restore_denylist"`
 	Scrollback       *fileScrollbackConf   `toml:"scrollback"`
@@ -204,6 +207,10 @@ func (cfg Config) withFile(file fileConfig) Config {
 
 	if file.RestoreTimeout != nil {
 		cfg.RestoreTimeout = file.RestoreTimeout.Duration
+	}
+
+	if file.RestoreHandler != nil {
+		cfg.RestoreHandler = strings.TrimSpace(*file.RestoreHandler)
 	}
 
 	if file.RestoreAllowlist != nil {

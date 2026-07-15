@@ -1,8 +1,10 @@
 package app
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -318,6 +320,138 @@ func TestSaveAllRestoreSleepWakeup(t *testing.T) {
 	if err := a.Restore("s2", false); err != nil {
 		t.Fatalf("restore existing should be tolerant: %v", err)
 	}
+}
+
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
+func TestNewWiresRestoreHandler(t *testing.T) {
+	testutil.IsolatedTmux(t)
+	testutil.Tmux(t, "set-option", "-g", "default-shell", "/bin/sh")
+	testutil.Tmux(
+		t,
+		"set-option",
+		"-g",
+		"default-command",
+		`IFS= read -r command; eval "$command"; sleep 2`,
+	)
+
+	dir := t.TempDir()
+	cfg := config.Default()
+	cfg.DataDir = dir
+	cfg.RestoreHandler = `printf 'restore-handler:%s\n'`
+	a := New(cfg)
+
+	snap := snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: "handled",
+		Windows: []snapshot.Window{
+			{
+				Index: 0,
+				Name:  "main",
+				Panes: []snapshot.Pane{
+					{Index: 0, CurrentPath: dir, CurrentCmd: "nvim", RestoreCmd: "nvim main.go"},
+				},
+			},
+		},
+	}
+	if err := a.store.SaveSession(snap); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+
+	if err := a.Restore("handled", false); err != nil {
+		t.Fatalf("restore snapshot: %v", err)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	var lastOutput string
+	var lastErr error
+	for time.Now().Before(deadline) {
+		output, err := testutil.TmuxTry("capture-pane", "-p", "-t", "=handled:0.0")
+		lastOutput = output
+		lastErr = err
+		if err == nil && strings.Contains(output, "restore-handler:nvim main.go") {
+			return
+		}
+
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	t.Fatalf(
+		"handler output did not appear in restored pane: output %q, error %v",
+		lastOutput,
+		lastErr,
+	)
+}
+
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
+func TestRestoreHandlerEncodesTerminalControlBytes(t *testing.T) {
+	if _, err := os.Stat("/bin/bash"); err != nil {
+		t.Skip("/bin/bash is required for the terminal-control regression")
+	}
+
+	testutil.IsolatedTmux(t)
+	testutil.Tmux(t, "set-option", "-g", "default-shell", "/bin/bash")
+	testutil.Tmux(
+		t,
+		"set-option",
+		"-g",
+		"default-command",
+		"exec /bin/bash --noprofile --norc -i",
+	)
+
+	dir := t.TempDir()
+	markerPath := filepath.Join(dir, "exploit-executed")
+	quotedMarkerPath := "'" + strings.ReplaceAll(markerPath, "'", "'\\''") + "'"
+	cfg := config.Default()
+	cfg.DataDir = dir
+	cfg.RestoreHandler = `printf '\x53AFE_HANDLER_RAN\n'; :`
+	a := New(cfg)
+
+	snap := snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: "control-safe",
+		Windows: []snapshot.Window{
+			{
+				Index: 0,
+				Name:  "main",
+				Panes: []snapshot.Pane{
+					{
+						Index:       0,
+						CurrentPath: dir,
+						CurrentCmd:  "touch",
+						RestoreCmd:  "\x15touch -- " + quotedMarkerPath + "\n#",
+					},
+				},
+			},
+		},
+	}
+	if err := a.store.SaveSession(snap); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+
+	if err := a.Restore("control-safe", false); err != nil {
+		t.Fatalf("restore snapshot: %v", err)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	var lastOutput string
+	var lastErr error
+	for time.Now().Before(deadline) {
+		output, err := testutil.TmuxTry("capture-pane", "-p", "-t", "=control-safe:0.0")
+		lastOutput = output
+		lastErr = err
+		if err == nil && strings.Contains(output, "SAFE_HANDLER_RAN") {
+			_, statErr := os.Stat(markerPath)
+			if !errors.Is(statErr, os.ErrNotExist) {
+				t.Fatalf("exploit marker stat error = %v, want os.ErrNotExist", statErr)
+			}
+
+			return
+		}
+
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	t.Fatalf("safe handler marker did not appear: output %q, error %v", lastOutput, lastErr)
 }
 
 //nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)

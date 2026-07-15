@@ -7,7 +7,7 @@ export function Configuration() {
     <>
       <Seo
         title="Configuration — lazy-tmux"
-        description="lazy-tmux TOML config file: lookup order, precedence, restore command allow/denylist and restore settle timeout."
+        description="lazy-tmux TOML config file: lookup order, precedence, restore handler, command allow/denylist, and settle timeout."
         slug="configuration"
       />
       <section className="doc-section">
@@ -44,21 +44,51 @@ tmux_bin        = "tmux"                       # tmux binary to use
 data_dir        = "~/.local/share/lazy-tmux"   # where snapshots are stored (~ is expanded)
 save_interval   = "5m"                         # daemon autosave interval (Go duration)
 restore_timeout = "5s"                         # max wait for restored pane commands to start (0 disables)
+restore_handler = ""                           # optional handler run instead of saved commands
+# restore_handler = "echo"
+# restore_handler = "cowsay -f tux"
 
-# Allowlist of commands lazy-tmux may replay on restore, matched by program name.
-# Omit this key to restore every command (default). Provide a list to restore
-# only those programs; use an empty list [] to restore no commands at all.
-restore_allowlist = ["nvim", "vim", "htop", "less", "tail", "ssh"]
+# Allowlist of commands lazy-tmux may replay or handle on restore. Patterns are
+# anchored against the complete selected command. Omit this key to allow every
+# command (default); use an empty list [] to allow no commands at all.
+restore_allowlist = ["nvim( .*)?", "vim( .*)?", "htop", "less .*", "tail .*", "ssh .*"]
 
-# Denylist of commands lazy-tmux must never replay, matched by program name.
+# Denylist of commands lazy-tmux must never replay or handle, using the same
+# complete-command matching.
 # Use this instead of an allowlist when you trust most commands and only want to
 # exclude a few. The denylist wins over the allowlist. Omit or leave empty to
 # block nothing (default).
-restore_denylist = ["npm", "node"]
+restore_denylist = ["npm( .*)?", "node( .*)?"]
 
 [scrollback]
 enabled = false   # capture shell pane scrollback
 lines   = 5000    # max scrollback lines per pane`}</CodeBlock>
+
+        <h3 className="cli-subtitle">Restore handler</h3>
+        <p className="muted">
+          <InlineCode>restore_handler</InlineCode> is empty by default, which
+          preserves direct application replay. A non-empty value is a trusted
+          shell prefix that runs instead of the saved command. lazy-tmux appends
+          the normalized saved command as one safely single-quoted argument, so
+          values such as <InlineCode>echo</InlineCode> and{" "}
+          <InlineCode>cowsay -f tux</InlineCode> receive the saved command as a
+          single argument. Surrounding whitespace is trimmed, but the prefix is
+          not otherwise parsed or home-expanded.
+        </p>
+        <p className="muted">
+          For terminal safety, C0 control bytes and DEL in a saved command are
+          represented visibly as lowercase <InlineCode>\xNN</InlineCode> text
+          instead of being passed through exactly. Printable text and Unicode
+          remain unchanged.
+        </p>
+        <p className="muted">
+          Handler mode replaces integration resume behavior, leaves empty and
+          shell-only panes untouched, and does not wait for{" "}
+          <InlineCode>restore_timeout</InlineCode>. Handler shell parse errors,
+          missing executables, and non-zero exits appear in the pane but cannot
+          affect lazy-tmux&apos;s exit code; tmux dispatch failures are still
+          returned.
+        </p>
 
         <h3 className="cli-subtitle">Restore command allowlist</h3>
         <p className="muted">
@@ -68,22 +98,29 @@ lines   = 5000    # max scrollback lines per pane`}</CodeBlock>
         </p>
         <ul>
           <li>
-            <strong>key omitted</strong> → every command is restored (default).
+            <strong>key omitted</strong> → every eligible command is replayed or
+            handled (default).
           </li>
           <li>
-            <strong>list given</strong> → only those programs are replayed; any
-            other pane is left at the shell.
+            <strong>list given</strong> → only matching commands are replayed or
+            handled; any other pane is left at the shell.
           </li>
           <li>
             <strong>
               empty list <InlineCode>[]</InlineCode>
             </strong>{" "}
-            → no commands are restored at all.
+            → no commands are replayed or handled at all.
           </li>
         </ul>
         <p className="muted">
-          Matching is by program name, so <InlineCode>nvim</InlineCode> also
-          matches <InlineCode>/usr/bin/nvim main.go</InlineCode>.
+          Each regular expression is anchored against the complete selected
+          command string. In direct mode that is the effective replay command,
+          including integration output. In handler mode it is the normalized
+          saved command before the handler is added. Therefore{" "}
+          <InlineCode>nvim</InlineCode> matches only that exact command; use{" "}
+          <InlineCode>nvim( .*)?</InlineCode> to also permit arguments. A path
+          such as <InlineCode>/usr/bin/nvim main.go</InlineCode> requires a
+          pattern that includes the path.
         </p>
 
         <h3 className="cli-subtitle">Restore command denylist</h3>
@@ -94,8 +131,9 @@ lines   = 5000    # max scrollback lines per pane`}</CodeBlock>
           everything and just want to stop a long-running server or a program
           that re-prompts from being replayed. It composes with the allowlist and{" "}
           <strong>wins over it</strong> — a command is replayed only when it is
-          not denied and (no allowlist is set or it is allowed). Matching is by
-          program name, and an omitted or empty list blocks nothing.
+          not denied and (no allowlist is set or it is allowed). It uses the
+          same anchored, complete-command matching as the allowlist; an omitted
+          or empty list blocks nothing.
         </p>
 
         <h3 className="cli-subtitle">Restore settle timeout</h3>

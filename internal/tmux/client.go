@@ -87,7 +87,8 @@ type Client struct {
 
 	denylist []*regexp.Regexp
 
-	resolver RestoreCommandResolver
+	restoreHandler string
+	resolver       RestoreCommandResolver
 }
 
 type RestoreCommandResolver interface {
@@ -119,6 +120,10 @@ func NewClientWithRunner(bin string, cmdRunner commandRunner) *Client {
 
 func (client *Client) SetRestoreTimeout(timeout time.Duration) {
 	client.settleTimeout = timeout
+}
+
+func (client *Client) SetRestoreHandler(handler string) {
+	client.restoreHandler = strings.TrimSpace(handler)
 }
 
 func (client *Client) SetRestoreAllowlist(list []string) {
@@ -796,6 +801,40 @@ func normalizedCommand(restore, current string) string {
 	return restore
 }
 
+func quoteShellArgument(argument string) string {
+	return "'" + strings.ReplaceAll(argument, "'", "'\\''") + "'"
+}
+
+func encodeHandlerArgument(command string) string {
+	const (
+		hexDigits     = "0123456789abcdef"
+		nibbleBits    = 4
+		lowNibbleMask = 0x0f
+	)
+
+	var encoded strings.Builder
+	encoded.Grow(len(command))
+
+	for i := range len(command) {
+		byteValue := command[i]
+		if byteValue >= ' ' && byteValue != '\x7f' {
+			encoded.WriteByte(byteValue)
+
+			continue
+		}
+
+		encoded.WriteString(`\x`)
+		encoded.WriteByte(hexDigits[byteValue>>nibbleBits])
+		encoded.WriteByte(hexDigits[byteValue&lowNibbleMask])
+	}
+
+	return encoded.String()
+}
+
+func restoreHandlerCommand(handler, command string) string {
+	return strings.TrimSpace(handler) + " " + quoteShellArgument(encodeHandlerArgument(command))
+}
+
 func isShellCommand(cmd string) bool {
 	base := executableName(cmd)
 	shells := map[string]struct{}{
@@ -847,6 +886,32 @@ func (client *Client) restoreWindowCommands(
 	sort.Slice(panes, func(i, j int) bool { return panes[i].Index < panes[j].Index })
 
 	for _, pane := range panes {
+		if client.restoreHandler != "" {
+			cmd := normalizedCommand(pane.RestoreCmd, pane.CurrentCmd)
+			if strings.TrimSpace(cmd) == "" || isShellCommand(cmd) {
+				continue
+			}
+
+			if !client.commandAllowed(cmd) {
+				continue
+			}
+
+			target := sessionPaneTarget(sessionName, windowIndex, pane.Index)
+			line := restoreHandlerCommand(client.restoreHandler, cmd)
+
+			_, err := client.Output("send-keys", "-l", "-t", target, line)
+			if err != nil {
+				return err
+			}
+
+			_, err = client.Output("send-keys", "-t", target, "C-m")
+			if err != nil {
+				return err
+			}
+
+			continue
+		}
+
 		cmd := client.effectiveRestoreCommand(pane)
 		if strings.TrimSpace(cmd) == "" {
 			continue
@@ -893,6 +958,9 @@ func matchesAny(patterns []*regexp.Regexp, command string) bool {
 
 func (client *Client) expectedPaneCommands(windows []snapshot.Window) map[string]string {
 	want := make(map[string]string)
+	if client.restoreHandler != "" {
+		return want
+	}
 
 	for _, window := range windows {
 		for _, pane := range window.Panes {

@@ -6,7 +6,7 @@
 #   ~/.config/lazy-tmux/lazy-tmux.toml
 #
 # Every key is optional; omitted keys fall back to the built-in defaults.
-# Command-line flags override anything set here.
+# Command-line flags override corresponding settings set here.
 # Run `lazy-tmux config show` to see the effective config actually being read.
 
 # tmux binary to invoke. A leading ~ is expanded. Set this if your tmux is a
@@ -23,16 +23,34 @@ save_interval = "5m"
 # before returning. "0s" disables waiting (old fire-and-forget behavior).
 restore_timeout = "5s"
 
-# Allowlist of commands lazy-tmux may replay on restore. Each entry is a regular
-# expression matched against the full command, anchored so it must match the
-# whole line (e.g. "nvim( .*)?" allows nvim with or without arguments, "ssh .*"
-# allows any ssh command). Omit this key entirely to restore every command (the
-# default). Provide a list to restore only matching commands; use an empty list
-# [] to restore no commands at all.
+# Optional trusted shell prefix to run instead of replaying saved pane commands.
+# The normalized saved command is appended as one safely single-quoted argument.
+# Control bytes (C0 and DEL) are represented visibly as lowercase \xNN text
+# rather than passed through exactly; printable text and Unicode stay unchanged.
+# Empty (the default) preserves direct replay. For example, use "echo" to print
+# saved commands or "cowsay -f tux" to display them. The prefix is trusted shell
+# source: surrounding whitespace is trimmed, but lazy-tmux does not otherwise
+# parse it or expand ~. Handler mode replaces
+# integration resume commands, leaves empty and shell-only panes untouched, and
+# does not wait for restore_timeout. Handler parse, not-found, and exit failures
+# appear in the pane and do not affect lazy-tmux's exit code; tmux dispatch
+# failures are still returned.
+restore_handler = ""
+# restore_handler = "echo"
+# restore_handler = "cowsay -f tux"
+
+# Allowlist of commands lazy-tmux may replay or handle on restore. Each entry is
+# a regular expression matched against the complete selected command, anchored
+# so it must match the whole line (e.g. "nvim( .*)?" allows nvim with or without
+# arguments, and "ssh .*" allows any ssh command). In direct mode this is the
+# effective replay command; in handler mode it is the normalized saved command
+# before the handler is added. Omit this key entirely to allow every command (the
+# default). Provide a list to allow only matching commands; use an empty list []
+# to allow no commands at all.
 # restore_allowlist = ["nvim( .*)?", "vim( .*)?", "htop", "less .*", "tail .*", "ssh .*"]
 
-# Denylist of commands lazy-tmux must never replay on restore. Each entry is a
-# regular expression matched against the full command (anchored). Use this
+# Denylist of commands lazy-tmux must never replay or handle on restore. Entries
+# use the same complete-command, anchored matching described above. Use this
 # instead of an allowlist when you trust most commands and only want to exclude
 # a few. Write a literal command to block exactly it (e.g.
 # "node ./scripts/heavy-watch\.js --poll"), or wildcard the arguments (e.g.
@@ -48,9 +66,10 @@ lines = 5000
 
 # Program integrations adapt interactive programs to lazy-tmux's save/restore.
 # When a pane runs a supported program, lazy-tmux records program-specific state
-# on save and replays a smarter command on restore. Integrations compose with
-# restore_allowlist: if an allowlist is set, the replayed command must match it
-# (e.g. "claude .*" to permit the `claude --resume <id>` restore command).
+# on save and replays a smarter command on restore. During direct replay,
+# integrations compose with restore_allowlist: if an allowlist is set, the
+# replayed command must match it (e.g. "claude .*" to permit the
+# `claude --resume <id>` restore command).
 [integrations]
 # Master switch for all program integrations.
 enabled = true

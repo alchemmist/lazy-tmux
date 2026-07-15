@@ -3,6 +3,7 @@ package tmux
 import (
 	"errors"
 	"fmt"
+	"io"
 	"slices"
 	"testing"
 	"time"
@@ -180,6 +181,21 @@ func TestWaitForRestoredCommandsDisabled(t *testing.T) {
 	}
 }
 
+func TestWaitForRestoredCommandsSkipsHandlerActions(t *testing.T) {
+	t.Parallel()
+
+	runner := &pollRunner{settleOn: 1, before: "zsh", after: "cat"}
+	client := NewClientWithRunner("tmux", runner)
+	client.SetRestoreHandler("echo")
+	client.SetRestoreTimeout(2 * time.Second)
+
+	client.waitForRestoredCommands("sess", waitTestWindows())
+
+	if runner.calls != 0 {
+		t.Fatalf("handler actions must not poll, polled %d times", runner.calls)
+	}
+}
+
 func TestFieldSepIsPrintableASCII(t *testing.T) {
 	t.Parallel()
 
@@ -267,6 +283,17 @@ func TestExpectedPaneCommands(t *testing.T) {
 		if got[key] != exe {
 			t.Fatalf("expectedPaneCommands[%q]=%q want %q (full %#v)", key, got[key], exe, got)
 		}
+	}
+}
+
+func TestExpectedPaneCommandsEmptyWithRestoreHandler(t *testing.T) {
+	t.Parallel()
+
+	client := NewClient("tmux")
+	client.SetRestoreHandler("echo")
+
+	if got := client.expectedPaneCommands(waitTestWindows()); len(got) != 0 {
+		t.Fatalf("handler mode must have no settle expectations, got %#v", got)
 	}
 }
 
@@ -473,6 +500,278 @@ func TestNormalizedCommand(t *testing.T) {
 		if got := normalizedCommand(c.restore, c.current); got != c.want {
 			t.Fatalf("normalizedCommand(%q,%q)=%q want %q", c.restore, c.current, got, c.want)
 		}
+	}
+}
+
+func TestRestoreHandlerCommand(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		source   string
+		expected string
+	}{
+		{name: "plain", source: "nvim", expected: "echo 'nvim'"},
+		{name: "spaces", source: "nvim main.go", expected: "echo 'nvim main.go'"},
+		{name: "single quote", source: "printf 'hello'", expected: "echo 'printf '\\''hello'\\'''"},
+		{name: "semicolon", source: "one; two", expected: "echo 'one; two'"},
+		{name: "dollar substitution", source: "$(touch file)", expected: "echo '$(touch file)'"},
+		{name: "backticks", source: "`touch file`", expected: "echo '`touch file`'"},
+		{name: "backslash", source: `printf \\n`, expected: `echo 'printf \\n'`},
+		{name: "double quote", source: `printf "hello"`, expected: `echo 'printf "hello"'`},
+		{name: "newline", source: "first\nsecond", expected: `echo 'first\x0asecond'`},
+		{
+			name:     "representative controls",
+			source:   "nul\x00tab\tesc\x1bctrl-u\x15del\x7f",
+			expected: `echo 'nul\x00tab\x09esc\x1bctrl-u\x15del\x7f'`,
+		},
+		{
+			name:     "unicode",
+			source:   "nvim café/\u65e5\u672c\u8a9e",
+			expected: "echo 'nvim café/\u65e5\u672c\u8a9e'",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := restoreHandlerCommand("  echo  ", test.source); got != test.expected {
+				t.Fatalf("restoreHandlerCommand() = %q, want %q", got, test.expected)
+			}
+		})
+	}
+}
+
+func TestEncodeHandlerArgumentEncodesEveryUnsafeByte(t *testing.T) {
+	t.Parallel()
+
+	unsafe := make([]byte, 0, 33)
+	for b := range byte(' ') {
+		unsafe = append(unsafe, b)
+	}
+	unsafe = append(unsafe, '\x7f')
+
+	for _, b := range unsafe {
+		encoded := encodeHandlerArgument(string([]byte{b}))
+		want := fmt.Sprintf(`\x%02x`, b)
+		if encoded != want {
+			t.Fatalf("encodeHandlerArgument(%#02x) = %q, want %q", b, encoded, want)
+		}
+	}
+}
+
+func TestEncodeHandlerArgumentHasNoUnsafeBytes(t *testing.T) {
+	t.Parallel()
+
+	input := "safe\x00\n\t\x1b\x15\x7f café/\u65e5\u672c\u8a9e"
+	encoded := encodeHandlerArgument(input)
+	want := "safe\\x00\\x0a\\x09\\x1b\\x15\\x7f café/\u65e5\u672c\u8a9e"
+	if encoded != want {
+		t.Fatalf("encodeHandlerArgument() = %q, want %q", encoded, want)
+	}
+
+	for i := range len(encoded) {
+		if encoded[i] < ' ' || encoded[i] == '\x7f' {
+			t.Fatalf("encoded output contains unsafe byte %#02x at offset %d", encoded[i], i)
+		}
+	}
+}
+
+type restoreCommandRunner struct {
+	calls  [][]string
+	failAt int
+	err    error
+}
+
+func (r *restoreCommandRunner) runCommand(args ...string) commandResult {
+	r.calls = append(r.calls, append([]string(nil), args...))
+	if len(r.calls) == r.failAt {
+		return commandResult{err: r.err}
+	}
+
+	return commandResult{}
+}
+
+func restoreTestWindow(panes ...snapshot.Pane) snapshot.Window {
+	return snapshot.Window{Index: 1, Panes: panes}
+}
+
+func commandCallsEqual(got, want [][]string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+
+	for i := range want {
+		if !slices.Equal(got[i], want[i]) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func TestRestoreHandlerSelectsNormalizedSavedCommand(t *testing.T) {
+	t.Parallel()
+
+	runner := &restoreCommandRunner{}
+	client := NewClientWithRunner("tmux", runner)
+	client.SetRestoreHandler("  cowsay -f tux  ")
+
+	window := restoreTestWindow(
+		snapshot.Pane{Index: 0, RestoreCmd: "nvim main.go", CurrentCmd: "nvim"},
+		snapshot.Pane{Index: 1, RestoreCmd: "zsh", CurrentCmd: "htop"},
+		snapshot.Pane{Index: 2},
+		snapshot.Pane{Index: 3, RestoreCmd: "   ", CurrentCmd: "bash"},
+		snapshot.Pane{Index: 4, RestoreCmd: "/bin/fish", CurrentCmd: "-zsh"},
+	)
+
+	if err := client.restoreWindowCommands("work", window, 1); err != nil {
+		t.Fatalf("restoreWindowCommands: %v", err)
+	}
+
+	want := [][]string{
+		{"tmux", "send-keys", "-l", "-t", "=work:1.0", "cowsay -f tux 'nvim main.go'"},
+		{"tmux", "send-keys", "-t", "=work:1.0", "C-m"},
+		{"tmux", "send-keys", "-l", "-t", "=work:1.1", "cowsay -f tux 'htop'"},
+		{"tmux", "send-keys", "-t", "=work:1.1", "C-m"},
+	}
+	if !commandCallsEqual(runner.calls, want) {
+		t.Fatalf("handler dispatch calls:\n got %q\nwant %q", runner.calls, want)
+	}
+}
+
+func TestRestoreHandlerDispatchContainsNoSavedControlBytes(t *testing.T) {
+	t.Parallel()
+
+	unsafe := make([]byte, 0, 33)
+	for b := range byte(' ') {
+		unsafe = append(unsafe, b)
+	}
+	unsafe = append(unsafe, '\x7f')
+
+	runner := &restoreCommandRunner{}
+	client := NewClientWithRunner("tmux", runner)
+	client.SetRestoreHandler("echo")
+	window := restoreTestWindow(snapshot.Pane{RestoreCmd: "cmd" + string(unsafe) + "end"})
+
+	if err := client.restoreWindowCommands("work", window, 1); err != nil {
+		t.Fatalf("restoreWindowCommands: %v", err)
+	}
+
+	if len(runner.calls) != 2 {
+		t.Fatalf("got %d dispatch calls, want 2: %q", len(runner.calls), runner.calls)
+	}
+
+	line := runner.calls[0][len(runner.calls[0])-1]
+	for i := range len(line) {
+		if line[i] < ' ' || line[i] == '\x7f' {
+			t.Fatalf("handler send-keys contains unsafe byte %#02x at offset %d", line[i], i)
+		}
+	}
+}
+
+func TestRestoreHandlerFiltersSavedCommandBeforeWrapping(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		allowlist []string
+		denylist  []string
+		wantCalls int
+	}{
+		{name: "saved command allowed", allowlist: []string{"nvim( .*)?"}, wantCalls: 2},
+		{name: "handler prefix does not allow source", allowlist: []string{"echo.*"}},
+		{
+			name:      "deny wins",
+			allowlist: []string{"nvim( .*)?"},
+			denylist:  []string{"nvim .*"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			runner := &restoreCommandRunner{}
+			client := NewClientWithRunner("tmux", runner)
+			client.SetRestoreHandler("echo")
+			client.SetRestoreAllowlist(test.allowlist)
+			client.SetRestoreDenylist(test.denylist)
+
+			window := restoreTestWindow(snapshot.Pane{RestoreCmd: "nvim main.go"})
+			if err := client.restoreWindowCommands("work", window, 1); err != nil {
+				t.Fatalf("restoreWindowCommands: %v", err)
+			}
+
+			if len(runner.calls) != test.wantCalls {
+				t.Fatalf(
+					"got %d dispatch calls, want %d: %q",
+					len(runner.calls),
+					test.wantCalls,
+					runner.calls,
+				)
+			}
+		})
+	}
+}
+
+func TestRestoreHandlerDisabledPreservesDirectDispatch(t *testing.T) {
+	t.Parallel()
+
+	for _, handler := range []string{"", "   \t\n"} {
+		runner := &restoreCommandRunner{}
+		client := NewClientWithRunner("tmux", runner)
+		client.SetRestoreHandler(handler)
+
+		window := restoreTestWindow(snapshot.Pane{RestoreCmd: "nvim main.go"})
+		if err := client.restoreWindowCommands("work", window, 1); err != nil {
+			t.Fatalf("restoreWindowCommands: %v", err)
+		}
+
+		want := [][]string{{"tmux", "send-keys", "-t", "=work:1.0", "nvim main.go", "C-m"}}
+		if !commandCallsEqual(runner.calls, want) {
+			t.Fatalf("direct dispatch calls:\n got %q\nwant %q", runner.calls, want)
+		}
+	}
+}
+
+func TestRestoreHandlerDispatchErrors(t *testing.T) {
+	t.Parallel()
+
+	dispatchErr := io.ErrUnexpectedEOF
+	tests := []struct {
+		name      string
+		failAt    int
+		wantCalls int
+	}{
+		{name: "literal text", failAt: 1, wantCalls: 1},
+		{name: "enter", failAt: 2, wantCalls: 2},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			runner := &restoreCommandRunner{failAt: test.failAt, err: dispatchErr}
+			client := NewClientWithRunner("tmux", runner)
+			client.SetRestoreHandler("echo")
+
+			window := restoreTestWindow(snapshot.Pane{RestoreCmd: "nvim main.go"})
+			err := client.restoreWindowCommands("work", window, 1)
+			if !errors.Is(err, dispatchErr) {
+				t.Fatalf("restoreWindowCommands error = %v, want %v", err, dispatchErr)
+			}
+
+			if len(runner.calls) != test.wantCalls {
+				t.Fatalf(
+					"got %d dispatch calls, want %d: %q",
+					len(runner.calls),
+					test.wantCalls,
+					runner.calls,
+				)
+			}
+		})
 	}
 }
 

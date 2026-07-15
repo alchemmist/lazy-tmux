@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -29,6 +30,10 @@ func TestDefault(t *testing.T) {
 
 	if cfg.RestoreTimeout != 5*time.Second {
 		t.Fatalf("expected 5s default restore timeout, got %s", cfg.RestoreTimeout)
+	}
+
+	if cfg.RestoreHandler != "" {
+		t.Fatalf("expected empty default restore handler, got %q", cfg.RestoreHandler)
 	}
 
 	if cfg.Scrollback.Enabled {
@@ -129,6 +134,71 @@ func TestLoadFromPartialFileKeepsDefaults(t *testing.T) {
 
 	if cfg.Scrollback.Lines != 5000 {
 		t.Fatalf("scrollback lines default lost: %d", cfg.Scrollback.Lines)
+	}
+}
+
+func TestLoadFromDisabledRestoreHandlerUsesDefault(t *testing.T) {
+	t.Setenv("LAZY_TMUX_DATA_DIR", "/data")
+
+	tests := []struct {
+		name string
+		body string
+	}{
+		{name: "omitted", body: "tmux_bin = \"tmux\"\n"},
+		{name: "empty", body: "restore_handler = \"\"\n"},
+		{name: "whitespace", body: "restore_handler = \"  \\t  \"\n"},
+	}
+
+	for _, test := range tests {
+		cfg, err := LoadFrom(writeConfig(t, test.body))
+		if err != nil {
+			t.Fatalf("%s: load: %v", test.name, err)
+		}
+
+		if !reflect.DeepEqual(cfg, Default()) {
+			t.Fatalf("%s: disabled handler should yield defaults, got %+v", test.name, cfg)
+		}
+	}
+}
+
+func TestLoadFromRestoreHandler(t *testing.T) {
+	t.Parallel()
+
+	for name, tc := range map[string]struct {
+		input string
+		want  string
+	}{
+		"trims surrounding whitespace": {
+			input: "  cowsay -f tux  ",
+			want:  "cowsay -f tux",
+		},
+		"does not expand home": {
+			input: "~/bin/show-command --flag",
+			want:  "~/bin/show-command --flag",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			path := writeConfig(t, "restore_handler = "+strconv.Quote(tc.input)+"\n")
+
+			cfg, err := LoadFrom(path)
+			if err != nil {
+				t.Fatalf("load: %v", err)
+			}
+
+			if cfg.RestoreHandler != tc.want {
+				t.Fatalf("restore_handler: got %q want %q", cfg.RestoreHandler, tc.want)
+			}
+		})
+	}
+}
+
+func TestLoadFromNonStringRestoreHandlerErrors(t *testing.T) {
+	t.Parallel()
+
+	if _, err := LoadFrom(writeConfig(t, "restore_handler = 42\n")); err == nil {
+		t.Fatal("expected error for non-string restore_handler")
 	}
 }
 
