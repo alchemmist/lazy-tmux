@@ -73,21 +73,27 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 }
 
 func runTUIPicker(tmuxApp *app.App, sortOpts app.PickerSortOptions, stderr io.Writer) int {
-	target, err := tmuxApp.SelectTargetWithTUISorted(sortOpts)
-	if err != nil {
-		writeErr(stderr, fmt.Errorf("select target: %w", err))
+	for {
+		target, err := tmuxApp.SelectTargetWithTUISorted(sortOpts)
+		if err != nil {
+			writeErr(stderr, fmt.Errorf("select target: %w", err))
 
-		return 1
+			return 1
+		}
+
+		cancelled, err := tmuxApp.RestoreTargetAnimated(target)
+		if err != nil {
+			writeErr(stderr, fmt.Errorf("restore target: %w", err))
+
+			return 1
+		}
+
+		if cancelled {
+			continue
+		}
+
+		return 0
 	}
-
-	err = tmuxApp.RestoreTargetAnimated(target)
-	if err != nil {
-		writeErr(stderr, fmt.Errorf("restore target: %w", err))
-
-		return 1
-	}
-
-	return 0
 }
 
 func runFZFPicker(

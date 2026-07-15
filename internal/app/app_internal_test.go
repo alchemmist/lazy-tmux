@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -19,8 +20,10 @@ type recordingTmux struct {
 	attached string
 }
 
-func (r *recordingTmux) RestoreSession(snapshot.SessionSnapshot) error { return nil }
-func (r *recordingTmux) InsideTmux() bool                              { return r.inside }
+func (r *recordingTmux) RestoreSession(context.Context, snapshot.SessionSnapshot) error {
+	return nil
+}
+func (r *recordingTmux) InsideTmux() bool { return r.inside }
 
 func (r *recordingTmux) SwitchClient(
 	target string,

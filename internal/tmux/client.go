@@ -510,7 +510,10 @@ func resolveRestoreFocus(
 	return win, pane
 }
 
-func (client *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) error {
+func (client *Client) RestoreSession(
+	ctx context.Context,
+	sessionSnapshot snapshot.SessionSnapshot,
+) error {
 	if sessionSnapshot.SessionName == "" {
 		return errEmptySessionName
 	}
@@ -532,18 +535,35 @@ func (client *Client) RestoreSession(sessionSnapshot snapshot.SessionSnapshot) e
 		return err
 	}
 
-	for i := 1; i < len(windows); i++ {
-		w := windows[i]
+	for idx := 1; idx < len(windows); idx++ {
+		err = restoreCanceled(ctx)
+		if err != nil {
+			return err
+		}
 
-		err := client.createAndPopulateWindow(sessionSnapshot.SessionName, w)
+		err = client.createAndPopulateWindow(sessionSnapshot.SessionName, windows[idx])
 		if err != nil {
 			return err
 		}
 	}
 
+	err = restoreCanceled(ctx)
+	if err != nil {
+		return err
+	}
+
 	client.selectRestoredFocus(sessionSnapshot, windows)
 
-	client.waitForRestoredCommands(sessionSnapshot.SessionName, windows)
+	client.waitForRestoredCommands(ctx, sessionSnapshot.SessionName, windows)
+
+	return nil
+}
+
+func restoreCanceled(ctx context.Context) error {
+	err := ctx.Err()
+	if err != nil {
+		return fmt.Errorf("restore canceled: %w", err)
+	}
 
 	return nil
 }
@@ -933,7 +953,11 @@ func (client *Client) paneCommands(sessionName string) map[string]string {
 	return result
 }
 
-func (client *Client) waitForRestoredCommands(sessionName string, windows []snapshot.Window) {
+func (client *Client) waitForRestoredCommands(
+	ctx context.Context,
+	sessionName string,
+	windows []snapshot.Window,
+) {
 	if client.settleTimeout <= 0 {
 		return
 	}
@@ -946,6 +970,10 @@ func (client *Client) waitForRestoredCommands(sessionName string, windows []snap
 	deadline := time.Now().Add(client.settleTimeout)
 
 	for {
+		if ctx.Err() != nil {
+			return
+		}
+
 		got := client.paneCommands(sessionName)
 
 		pending := false
@@ -962,7 +990,11 @@ func (client *Client) waitForRestoredCommands(sessionName string, windows []snap
 			return
 		}
 
-		time.Sleep(restoreSettlePollInterval)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(restoreSettlePollInterval):
+		}
 	}
 }
 
