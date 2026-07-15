@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -42,7 +43,7 @@ type tmuxSessionCapturer interface {
 }
 
 type tmuxSessionRestorer interface {
-	RestoreSession(snap snapshot.SessionSnapshot) error
+	RestoreSession(ctx context.Context, snap snapshot.SessionSnapshot) error
 	SwitchClient(target string) error
 	AttachSession(target string) error
 	InsideTmux() bool
@@ -157,7 +158,7 @@ func (a *App) Restore(session string, switchClient bool) error {
 }
 
 func (a *App) RestoreTarget(target PickerTarget, switchClient bool) error {
-	err := a.restoreSessionForTarget(target)
+	err := a.restoreSessionForTarget(context.Background(), target)
 	if err != nil {
 		return err
 	}
@@ -196,7 +197,7 @@ func (a *App) ListRecords() ([]snapshot.Record, error) {
 	return records, nil
 }
 
-func (a *App) restoreSessionForTarget(target PickerTarget) error {
+func (a *App) restoreSessionForTarget(ctx context.Context, target PickerTarget) error {
 	session := strings.TrimSpace(target.SessionName)
 	if session == "" {
 		return errSessionNameEmpty
@@ -207,7 +208,7 @@ func (a *App) restoreSessionForTarget(target PickerTarget) error {
 		return fmt.Errorf("load session: %w", err)
 	}
 
-	err = a.tmux.RestoreSession(snap)
+	err = a.tmux.RestoreSession(ctx, snap)
 	if err != nil && !errors.Is(err, tmux.ErrSessionExists) {
 		return fmt.Errorf("restore session: %w", err)
 	}

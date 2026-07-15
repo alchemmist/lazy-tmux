@@ -1,6 +1,7 @@
 package tmux_test
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -58,7 +59,7 @@ func TestRestoreToleratesBaseIndexMismatch(
 		},
 	}
 
-	if err := client.RestoreSession(snap); err != nil {
+	if err := client.RestoreSession(context.Background(), snap); err != nil {
 		t.Fatalf("restore with stale current_window must not fail: %v", err)
 	}
 
@@ -101,7 +102,7 @@ func TestRestoreToleratesPaneBaseIndexMismatch(
 		},
 	}
 
-	if err := client.RestoreSession(snap); err != nil {
+	if err := client.RestoreSession(context.Background(), snap); err != nil {
 		t.Fatalf("restore under base-index/pane-base-index 1 must not fail: %v", err)
 	}
 
@@ -135,7 +136,7 @@ func TestRestoreWaitsForCommandsToStart(
 		},
 	}
 
-	if err := client.RestoreSession(snap); err != nil {
+	if err := client.RestoreSession(context.Background(), snap); err != nil {
 		t.Fatalf("restore failed: %v", err)
 	}
 
@@ -186,7 +187,7 @@ func assertGuardedRestore(t *testing.T, name string, configure func(*tmux.Client
 		},
 	}
 
-	if err := client.RestoreSession(snap); err != nil {
+	if err := client.RestoreSession(context.Background(), snap); err != nil {
 		t.Fatalf("restore failed: %v", err)
 	}
 
@@ -242,7 +243,7 @@ func TestRestoreHonorsRecordedFocus(
 		},
 	}
 
-	if err := client.RestoreSession(snap); err != nil {
+	if err := client.RestoreSession(context.Background(), snap); err != nil {
 		t.Fatalf("restore failed: %v", err)
 	}
 

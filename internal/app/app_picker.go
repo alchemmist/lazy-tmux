@@ -1,9 +1,11 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/integration"
@@ -123,32 +125,60 @@ func toPickerStatus(status integration.Status) picker.WindowStatus {
 	}
 }
 
-func (a *App) RestoreTargetAnimated(target PickerTarget) error {
+func (a *App) RestoreTargetAnimated(target PickerTarget) (bool, error) {
+	preExisted := a.tmux.SessionExists(strings.TrimSpace(target.SessionName))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	done := make(chan struct{})
 
 	var restoreErr error
 
 	go func() {
-		restoreErr = a.restoreSessionForTarget(target)
+		restoreErr = a.restoreSessionForTarget(ctx, target)
 		close(done)
 	}()
 
-	animErr := picker.RunRestoreAnimation(target.SessionName, done)
+	cancelled, animErr := picker.RunRestoreAnimation(target.SessionName, done)
+	if cancelled {
+		cancel()
+		<-done
+
+		if !preExisted {
+			a.killPartialRestore(target.SessionName)
+		}
+
+		return true, nil
+	}
+
 	<-done
 
 	if restoreErr != nil {
-		return restoreErr
+		return false, restoreErr
 	}
 
 	if animErr != nil {
 		log.Printf("lazy-tmux: restore animation: %v", animErr)
 	}
 
-	return a.handoffToTarget(target, true)
+	return false, a.handoffToTarget(target, true)
+}
+
+func (a *App) killPartialRestore(session string) {
+	name := strings.TrimSpace(session)
+	if name == "" || !a.tmux.SessionExists(name) {
+		return
+	}
+
+	err := a.tmux.KillSession(name)
+	if err != nil {
+		log.Printf("lazy-tmux: cancel restore: kill session %s: %v", name, err)
+	}
 }
 
 func (a *App) RestoreTargetInteractive(target PickerTarget) error {
-	err := a.restoreSessionForTarget(target)
+	err := a.restoreSessionForTarget(context.Background(), target)
 	if err != nil {
 		return err
 	}

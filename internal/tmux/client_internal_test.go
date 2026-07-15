@@ -1,6 +1,7 @@
 package tmux
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -140,7 +141,7 @@ func TestWaitForRestoredCommandsBlocksUntilStarted(t *testing.T) {
 	client := NewClientWithRunner("tmux", runner)
 	client.SetRestoreTimeout(2 * time.Second)
 
-	client.waitForRestoredCommands("sess", waitTestWindows())
+	client.waitForRestoredCommands(context.Background(), "sess", waitTestWindows())
 
 	if runner.calls < 3 {
 		t.Fatalf("expected to poll until command started, polled %d times", runner.calls)
@@ -155,7 +156,7 @@ func TestWaitForRestoredCommandsRespectsTimeout(t *testing.T) {
 	client.SetRestoreTimeout(150 * time.Millisecond)
 
 	start := time.Now()
-	client.waitForRestoredCommands("sess", waitTestWindows())
+	client.waitForRestoredCommands(context.Background(), "sess", waitTestWindows())
 
 	if elapsed := time.Since(start); elapsed > 2*time.Second {
 		t.Fatalf("wait ignored its timeout, took %v", elapsed)
@@ -166,6 +167,24 @@ func TestWaitForRestoredCommandsRespectsTimeout(t *testing.T) {
 	}
 }
 
+func TestWaitForRestoredCommandsCancels(t *testing.T) {
+	t.Parallel()
+
+	runner := &pollRunner{settleOn: 1 << 30, before: "zsh", after: "cat"}
+	client := NewClientWithRunner("tmux", runner)
+	client.SetRestoreTimeout(10 * time.Second)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	start := time.Now()
+	client.waitForRestoredCommands(ctx, "sess", waitTestWindows())
+
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Fatalf("cancelled wait must return promptly despite 10s timeout, took %v", elapsed)
+	}
+}
+
 func TestWaitForRestoredCommandsDisabled(t *testing.T) {
 	t.Parallel()
 
@@ -173,7 +192,7 @@ func TestWaitForRestoredCommandsDisabled(t *testing.T) {
 	client := NewClientWithRunner("tmux", runner)
 	client.SetRestoreTimeout(0)
 
-	client.waitForRestoredCommands("sess", waitTestWindows())
+	client.waitForRestoredCommands(context.Background(), "sess", waitTestWindows())
 
 	if runner.calls != 0 {
 		t.Fatalf("a disabled timeout must not poll, polled %d times", runner.calls)

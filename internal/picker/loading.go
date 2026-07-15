@@ -26,12 +26,13 @@ type (
 )
 
 type loadingModel struct {
-	name    string
-	done    <-chan struct{}
-	width   int
-	height  int
-	frame   int
-	started bool
+	name      string
+	done      <-chan struct{}
+	width     int
+	height    int
+	frame     int
+	started   bool
+	cancelled bool
 
 	theme pickerTheme
 	dim   lipgloss.Style
@@ -90,6 +91,8 @@ func (m loadingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case tea.KeyPressMsg:
 		if s := msg.String(); s == keyCtrlC || s == keyEsc || s == "q" {
+			m.cancelled = true
+
 			return m, tea.Quit
 		}
 	}
@@ -230,15 +233,17 @@ func fieldGlyph(col, row, cols, rows, phase float64) (rune, int) {
 	}
 }
 
-func RunRestoreAnimation(sessionName string, done <-chan struct{}) error {
+func RunRestoreAnimation(sessionName string, done <-chan struct{}) (bool, error) {
 	if !isTerminal(os.Stdout) {
-		return nil
+		return false, nil
 	}
 
-	_, err := tea.NewProgram(newLoadingModel(sessionName, done)).Run()
+	final, err := tea.NewProgram(newLoadingModel(sessionName, done)).Run()
 	if err != nil {
-		return fmt.Errorf("run restore animation: %w", err)
+		return false, fmt.Errorf("run restore animation: %w", err)
 	}
 
-	return nil
+	model, ok := final.(loadingModel)
+
+	return ok && model.cancelled, nil
 }

@@ -2,6 +2,6 @@
 
 package picker
 
-func RunRestoreAnimation(_ string, _ <-chan struct{}) error {
-	return nil
+func RunRestoreAnimation(_ string, _ <-chan struct{}) (bool, error) {
+	return false, nil
 }
