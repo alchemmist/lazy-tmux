@@ -21,7 +21,7 @@ Type `tmux new-window -t dev -n monitor; tmux send-keys -t dev:monitor 'top' Ent
 Enter
 Type "tmux select-window -t dev:shell"
 Enter
-Type `tmux bind-key f display-popup -E -w 70% -h 55% "$LT_BIN_DIR/lazy-tmux picker"`
+Type `tmux bind-key f display-popup -B -E -w 70% -h 60% "$LT_BIN_DIR/lazy-tmux picker"`
 Enter
 Type "sleep 1; lazy-tmux save --all >/dev/null 2>&1; clear"
 Enter
