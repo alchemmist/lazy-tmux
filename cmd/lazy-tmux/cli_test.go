@@ -190,12 +190,8 @@ func TestCLISetupPrintsKeybinds(t *testing.T) {
 		}
 	}
 
-	if !strings.Contains(out, "-w 75% -h 85%") {
-		t.Fatalf("expected single-percent popup geometry, got %q", out)
-	}
-
-	if !strings.Contains(out, "display-popup -B ") {
-		t.Fatalf("expected borderless popup (-B), got %q", out)
+	if !strings.Contains(out, "bind-key f display-popup -B -E 'lazy-tmux picker'") {
+		t.Fatalf("expected borderless popup binding, got %q", out)
 	}
 
 	if strings.Contains(out, "%%") {
