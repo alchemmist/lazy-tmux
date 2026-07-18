@@ -105,8 +105,8 @@ lines   = 5000    # max scrollback lines per pane`}</CodeBlock>
           anchored end to end. So <InlineCode>nvim( .*)?</InlineCode> matches{" "}
           <InlineCode>nvim</InlineCode> with or without arguments, while a bare{" "}
           <InlineCode>nvim</InlineCode> matches only the exact command{" "}
-          <InlineCode>nvim</InlineCode>. Write a literal command to block exactly
-          it, or wildcard the arguments with <InlineCode>.*</InlineCode>.
+          <InlineCode>nvim</InlineCode>. Write a literal command to allow exactly
+          that command, or wildcard the arguments with <InlineCode>.*</InlineCode>.
         </p>
 
         <h3 className="cli-subtitle">Restore command denylist</h3>
