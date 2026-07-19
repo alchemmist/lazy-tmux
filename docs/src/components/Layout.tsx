@@ -10,6 +10,7 @@ const NAV: { label: string; to: string }[] = [
   { label: "CLI", to: "/cli" },
   { label: "Configuration", to: "/configuration" },
   { label: "TUI picker", to: "/tui-picker" },
+  { label: "Integrations", to: "/integrations" },
   { label: "About", to: "/about" },
 ];
 

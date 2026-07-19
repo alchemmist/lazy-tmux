@@ -7,6 +7,7 @@ import { TmuxSetup } from "./pages/TmuxSetup";
 import { Cli } from "./pages/Cli";
 import { Configuration } from "./pages/Configuration";
 import { TuiPicker } from "./pages/TuiPicker";
+import { Integrations } from "./pages/Integrations";
 import { About } from "./pages/About";
 
 // Routes mirror the previous static pages 1:1 so every canonical URL keeps
@@ -23,6 +24,7 @@ export const routes: RouteRecord[] = [
       { path: "cli", element: <Cli /> },
       { path: "configuration", element: <Configuration /> },
       { path: "tui-picker", element: <TuiPicker /> },
+      { path: "integrations", element: <Integrations /> },
       { path: "about", element: <About /> },
     ],
   },

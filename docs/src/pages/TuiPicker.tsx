@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { Seo } from "../components/Seo";
 import { InlineCode } from "../components/InlineCode";
-import { DemoVideo } from "../components/DemoVideo";
 
 const KEYS: { key: ReactNode; action: ReactNode }[] = [
   { key: <InlineCode>Type</InlineCode>, action: "Fuzzy search sessions and windows." },
@@ -90,33 +89,19 @@ export function TuiPicker() {
       <section className="doc-section">
         <h1>TUI picker</h1>
 
-        <DemoVideo src="/assets/demo-tui.mp4" />
+        <img
+          src="/assets/tui-picker.gif"
+          alt="lazy-tmux TUI picker: fuzzy search, the / command palette, the ? cheat sheet, and the restore loading animation"
+          style={{ width: "100%", height: "auto", borderRadius: 8 }}
+        />
 
         <p>
           Actions are organized into <strong>color-coded modes</strong>. Type <InlineCode>/</InlineCode>{" "}
           to open the command palette, or use the shortcut for a mode directly. While a mode is
           active the whole frame recolors (red for delete, blue for rename, green for new, cyan for
           wake/sleep), the list is filtered to the targets that mode can act on, and{" "}
-          <InlineCode>Esc</InlineCode> returns to the resting browse mode.
-        </p>
-
-        <h2>Claude status dots</h2>
-        <p>
-          For live sessions, windows running <InlineCode>claude</InlineCode> show a colored status
-          glyph in the <strong>State</strong> column, so you can tell at a glance which Claude is
-          busy and which one is waiting for you — without switching around. Each state has both a
-          distinct shape and color, so it stays readable in monochrome terminals:{" "}
-          <strong>◐ green</strong> = working (an animated half-circle spinner),{" "}
-          <strong>? amber</strong> = waiting for your answer to a question or permission,{" "}
-          <strong>◌ blue</strong> = waiting for input, <strong>○ grey</strong> = idle. The dots
-          refresh live while the picker is open, and the working state animates.
-        </p>
-        <p>
-          Working/idle is detected out of the box. For the precise “waiting for your answer” state,
-          install the Claude Code hooks once:{" "}
-          <InlineCode>lazy-tmux claude-hooks</InlineCode> (merges into{" "}
-          <InlineCode>~/.claude/settings.json</InlineCode>, preserving your existing hooks;{" "}
-          <InlineCode>lazy-tmux claude-hooks --uninstall</InlineCode> removes them).
+          <InlineCode>Esc</InlineCode> returns to the resting browse mode. Press{" "}
+          <InlineCode>?</InlineCode> for the full keybinding cheat sheet.
         </p>
 
         <table className="cli-table">
