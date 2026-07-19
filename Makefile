@@ -76,8 +76,8 @@ setup-env:
 
 docker-hub:
 	SANDBOX_TAG=$${SANDBOX_TAG:-latest}; \
-	podman build -t lazy-tmux:$$SANDBOX_TAG -f docker/sandbox.Dockerfile .; \
-	podman tag lazy-tmux:$$SANDBOX_TAG alchemmist/lazy-tmux:$$SANDBOX_TAG; \
+	podman build -t lazy-tmux:$$SANDBOX_TAG -f docker/sandbox.Dockerfile . && \
+	podman tag lazy-tmux:$$SANDBOX_TAG alchemmist/lazy-tmux:$$SANDBOX_TAG && \
 	podman push alchemmist/lazy-tmux:$$SANDBOX_TAG
 
 # Build and drop into the interactive sandbox. The sandbox installs the
