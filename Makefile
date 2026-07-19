@@ -7,7 +7,7 @@ MAKEFLAGS += --no-builtin-variables
 
 BINARY := lazy-tmux
 
-.PHONY: check build build-fzf build-all test test-cov integration-test fmt install clean dist dist-tui dist-fzf release-patch release-minor release-major sandbox test-sup-versions docker-hub vet setup-env golangci-lint docs-install docs-dev docs-build docs-preview
+.PHONY: check build build-fzf build-all test test-cov integration-test fmt install clean dist dist-tui dist-fzf release-patch release-minor release-major sandbox test-sup-versions docker-hub vet setup-env golangci-lint docs-install docs-dev docs-build docs-preview demo-gif
 
 check: build vet golangci-lint test integration-test
 
@@ -107,6 +107,9 @@ docs-build:
 
 docs-preview: docs-build
 	npm --prefix docs run preview
+
+demo-gif: build
+	LT_BIN_DIR=$(CURDIR)/bin vhs docs/tapes/demo.tape
 
 clean:
 	rm -rf bin dist coverage.out cover.html cover.out .cache

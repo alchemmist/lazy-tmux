@@ -27,6 +27,10 @@ Cli written on Go for saving and restoring tmux sessions lazy. Key features:
 - Full environment snapshots: restore pane layout and commands (e.g. `npm`, `docker-compose`, `nvim`).
 - Optional scrollback capture: preserve and replay previous terminal output.
 
+Save your sessions, kill the entire tmux server, then bring everything back from the TUI picker:
+
+![lazy-tmux demo — save, kill-server, and restore via the picker](./docs/public/assets/demo.gif)
+
 Chekout [lazy-tmux.xyz](https://lazy-tmux.xyz) for more informaiton about installation and usage!
 
 Just for bulding from source you need to have installed go and cloned this project. After that run:
@@ -37,9 +41,9 @@ make build
 
 Binary will compiled in `bin/lazy-tmux`. For more development options checkout `Makefile` tasks.
 
-> [!WARNING]
-> **tmux version requirement:** lazy-tmux requires **tmux 3.6** or **tmux 3.6a**.
-> Older versions may not work correctly.
+> [!NOTE]
+> **tmux versions:** lazy-tmux supports every tmux release from **2.9 through 3.7b**,
+> verified on each one by the CI version matrix. Newer releases are added as they ship.
 
 For configuration, CLI reference, and usage, see the docs at
 [lazy-tmux.xyz](https://lazy-tmux.xyz).

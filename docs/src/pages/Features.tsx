@@ -70,8 +70,9 @@ export function Features() {
           <li>
             Configurable via an optional <strong>TOML config file</strong> (
             <InlineCode>~/.config/lazy-tmux/lazy-tmux.toml</InlineCode>): set a{" "}
-            <strong>restore command allowlist</strong> so only trusted programs
-            are replayed, tune the restore settle timeout, scrollback, autosave
+            <strong>restore command allow/denylist</strong> (regular expressions
+            matched against the full command) so only trusted programs are
+            replayed, tune the restore settle timeout, scrollback, autosave
             interval and storage paths.
           </li>
           <li>
