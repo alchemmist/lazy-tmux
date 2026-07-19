@@ -202,11 +202,28 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+download() {
+  _url=$1
+  _out=$2
+  _i=1
+  while [ "$_i" -le 5 ]; do
+    if curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 30 "$_url" -o "$_out"; then
+      return 0
+    fi
+    if command -v wget >/dev/null 2>&1 && wget -q -O "$_out" "$_url"; then
+      return 0
+    fi
+    _i=$((_i + 1))
+    sleep 2
+  done
+  return 1
+}
+
 step 30 "Downloading ${asset}"
-curl -fsSL "$url" -o "$tmp_dir/$asset"
+download "$url" "$tmp_dir/$asset" || die "Failed to download ${asset}"
 
 step 55 "Verifying checksum"
-curl -fsSL "$checksums_url" -o "$tmp_dir/checksums.txt"
+download "$checksums_url" "$tmp_dir/checksums.txt" || die "Failed to download checksums"
 
 expected_sum=$(awk -v asset="$asset" '$2 == asset {print $1}' "$tmp_dir/checksums.txt")
 if [ -z "$expected_sum" ]; then
