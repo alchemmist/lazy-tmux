@@ -1,4 +1,4 @@
-Output docs/public/assets/demo.gif
+Output out/demo.gif
 
 Set Shell "bash"
 Set FontSize 18
@@ -9,9 +9,9 @@ Set TypingSpeed 60ms
 
 # ---------- hidden setup: build a session, save it ----------
 Hide
-Type `W="$HOME/.cache/lazy-tmux-demo"; export PATH="$LT_BIN_DIR:$W/bin:$PATH" TERM=xterm-256color LANG=C.UTF-8 LC_ALL=C.UTF-8 SHELL=/bin/bash; unset TMUX; export LAZY_TMUX_CONFIG="$W/cfg.toml" TMUX_TMPDIR="$W/tmux" HOME="$W/home"`
+Type `printf '#!/bin/bash\necho "[deploy] rolling out api-gateway..."\necho "[deploy]   building image"\necho "[deploy]   pushing to registry :5000"\necho "[deploy]   waiting for healthchecks"\nsleep 100000\n' > /usr/local/bin/deploy; chmod +x /usr/local/bin/deploy`
 Enter
-Type `rm -rf "$W"; mkdir -p "$W/data" "$W/tmux" "$W/home" "$W/bin"; printf 'data_dir="%s/data"\nrestore_timeout="3s"\n[scrollback]\nenabled=true\nlines=5000\n' "$W" > "$W/cfg.toml"; printf '#!/bin/bash\necho "[deploy] rolling out api-gateway..."\necho "[deploy]   building image"\necho "[deploy]   pushing to registry :5000"\necho "[deploy]   waiting for healthchecks"\nsleep 100000\n' > "$W/bin/deploy"; chmod +x "$W/bin/deploy"; printf 'PS1="demo:\\w\\$ "\n' > "$W/home/.bash_profile"; cp "$W/home/.bash_profile" "$W/home/.bashrc"; printf 'set -g status-right " %%H:%%M %%d-%%b "\nset -sg escape-time 20\n' > "$W/home/.tmux.conf"; export PS1='\[\e[38;5;39m\]demo\[\e[0m\]:\w$ '; cd "$HOME"; clear`
+Type "rm -rf /root/data; clear"
 Enter
 Type "tmux new-session -d -s dev -n shell -x 140 -y 34"
 Enter
@@ -23,11 +23,11 @@ Type `tmux new-window -t dev -n deploy; tmux send-keys -t dev:deploy 'deploy' En
 Enter
 Type "tmux select-window -t dev:shell"
 Enter
-Type `tmux bind-key f display-popup -B -E -w 70% -h 60% "$LT_BIN_DIR/lazy-tmux picker"`
+Type `tmux bind-key f display-popup -B -E -w 70% -h 60% 'lazy-tmux picker'`
 Enter
 Type "sleep 1; lazy-tmux save --all >/dev/null 2>&1"
 Enter
-Type `python3 -c "import json; p='$W/data/sessions/dev.json'; d=json.load(open(p)); [pane.update(restore_cmd='deploy') for w in d['windows'] if w['name']=='deploy' for pane in w['panes']]; json.dump(d,open(p,'w'))"`
+Type `python3 -c "import json; p='/root/data/sessions/dev.json'; d=json.load(open(p)); [pane.update(restore_cmd='deploy') for w in d['windows'] if w['name']=='deploy' for pane in w['panes']]; json.dump(d,open(p,'w'))"`
 Enter
 Type "clear"
 Enter

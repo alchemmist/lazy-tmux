@@ -7,7 +7,7 @@ MAKEFLAGS += --no-builtin-variables
 
 BINARY := lazy-tmux
 
-.PHONY: check build build-fzf build-all test test-cov integration-test fmt install clean dist dist-tui dist-fzf release-patch release-minor release-major sandbox test-sup-versions docker-hub vet setup-env golangci-lint docs-install docs-dev docs-build docs-preview demo-gif
+.PHONY: check build build-fzf build-all test test-cov integration-test fmt install clean dist dist-tui dist-fzf release-patch release-minor release-major sandbox test-sup-versions docker-hub vet setup-env golangci-lint docs-install docs-dev docs-build docs-preview gifs
 
 check: build vet golangci-lint test integration-test
 
@@ -112,8 +112,16 @@ docs-build:
 docs-preview: docs-build
 	npm --prefix docs run preview
 
-demo-gif: build
-	LT_BIN_DIR=$(CURDIR)/bin vhs docs/tapes/demo.tape
+gifs:
+	CGO_ENABLED=0 GOOS=linux GOARCH=$$(go env GOARCH) go build -o docs/tapes/$(BINARY) ./cmd/$(BINARY)
+	podman build -t lazy-tmux-vhs docs/tapes
+	@for tape in docs/tapes/*.tape; do \
+		echo "==> recording $$tape"; \
+		podman run --rm \
+			-v "$(CURDIR)/docs/public/assets:/root/out" \
+			-v "$(CURDIR)/$$tape:/root/tape.tape:ro" \
+			lazy-tmux-vhs /root/tape.tape || exit 1; \
+	done
 
 clean:
-	rm -rf bin dist coverage.out cover.html cover.out .cache docker/local-bin/$(BINARY)
+	rm -rf bin dist coverage.out cover.html cover.out .cache docker/local-bin/$(BINARY) docs/tapes/$(BINARY)
