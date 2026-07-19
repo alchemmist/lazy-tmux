@@ -27,7 +27,7 @@ func runSetup(args []string, stdout, stderr io.Writer) int {
 	const daemonCmd = "run-shell -b 'lazy-tmux daemon --interval 3m --scrollback " +
 		">/tmp/lazy-tmux.log 2>&1 || tmux display-message \"lazy-tmux daemon already running\"'"
 
-	const popupKey = "bind-key f display-popup -B -w 75% -h 85% -E 'lazy-tmux picker'"
+	const popupKey = "bind-key f display-popup -B -E 'lazy-tmux picker'"
 
 	const saveKey = "bind-key C-s run-shell 'lazy-tmux save --all --scrollback && " +
 		"tmux display-message \"All sessions saved successfully!\"'"
