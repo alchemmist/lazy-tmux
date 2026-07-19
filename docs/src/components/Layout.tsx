@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { AsciiField } from "./AsciiField";
+import { Version } from "./Version";
 
 const NAV: { label: string; to: string }[] = [
   { label: "Home", to: "/" },
@@ -48,6 +49,7 @@ export function Layout() {
           <img src="/assets/logo-white.svg" alt="lazy-tmux logo" />
           <span>lazy-tmux</span>
         </NavLink>
+        <Version />
         <nav>
           {NAV.map((item) => (
             <NavLink

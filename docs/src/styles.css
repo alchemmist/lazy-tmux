@@ -85,6 +85,20 @@ a {
   font-size: 28px;
 }
 
+.sidebar .version {
+  display: block;
+  margin: -24px 0 26px 50px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  color: var(--text);
+  opacity: 0.5;
+  text-decoration: none;
+}
+.sidebar .version:hover {
+  opacity: 0.85;
+}
+
 .sidebar nav {
   display: flex;
   flex-direction: column;
