@@ -17,7 +17,7 @@ Project architect: [@alchemmist](https://github.com/alchemmist)
 Cli written on Go for saving and restoring tmux sessions lazy. Key features:
 
 - Save sessions: current, specific, or all — including windows, panes, layouts, running commands, and scrollback history.
-- Lazy restore: restore only what you need, avoiding high RAM usage (unlike tmux-resurrect).
+- Lazy restore: restore only what you need, avoiding high RAM usage.
 - Autosave daemon: periodically snapshots all sessions in the background (single instance, no conflicts).
 - Interactive TUI browser: tree view (sessions/windows) + table (commands, snapshot time, counts, status) with fuzzy search.
 - Keyboard-driven picker for fast search, navigation, and manage sessions and windows directly inside picker tree.

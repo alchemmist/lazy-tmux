@@ -21,7 +21,7 @@ export function About() {
           <li>
             <strong>Lazy restoration:</strong> Only load what you need, keep
             memory and startup time low. No more waiting for all sessions to
-            restore like with tmux-resurrect.
+            restore at once.
           </li>
           <li>
             <strong>Deep visibility:</strong> Tree + table view shows sessions,
@@ -33,7 +33,8 @@ export function About() {
           </li>
           <li>
             <strong>Durable context:</strong> Optional scrollback capture keeps
-            logs and output across restarts – something tmux-continuum lacks.
+            logs and output across restarts, so a restored session picks up right
+            where it left off.
           </li>
         </ul>
         <p>

@@ -8,7 +8,7 @@ const LD_JSON = {
   "@type": "SoftwareApplication",
   name: "lazy-tmux",
   description:
-    "Lazy tmux session manager with scrollback restore, alternative to tmux-resurrect and tmux-continuum without bugs",
+    "Lazy tmux session manager with scrollback restore: snapshot tmux sessions with running processes and restore them lazily and seamlessly",
   applicationCategory: "Utility",
   operatingSystem: "Linux, macOS, BSD",
   url: SITE,

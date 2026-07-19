@@ -81,9 +81,9 @@ lines   = 5000    # max scrollback lines per pane`}</CodeBlock>
           }
         />
         <p className="muted">
-          Like tmux-resurrect, you can restrict which commands are replayed on
-          restore, so lazy-tmux never re-runs an arbitrary program that happened
-          to be active at save time:
+          You can restrict which commands are replayed on restore, so lazy-tmux
+          never re-runs an arbitrary program that happened to be active at save
+          time:
         </p>
         <ul>
           <li>

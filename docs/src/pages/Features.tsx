@@ -22,8 +22,7 @@ export function Features() {
             <strong>Lazy restore</strong> only the session you pick with{" "}
             <InlineCode>restore</InlineCode> command or interactively with{" "}
             <InlineCode>picker</InlineCode>. You don't need to spend RAM for all
-            sessions at startup – unlike tmux-resurrect which restores everything
-            at once.
+            sessions at startup, instead of restoring everything at once.
           </li>
           <li>
             Interactive TUI session browser combining a deep tree view of
