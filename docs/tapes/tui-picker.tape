@@ -66,7 +66,17 @@ Type "rename"
 Sleep 1200ms
 Enter
 Sleep 1200ms
-Type "logs-main"
+
+# pick the row to rename, confirm with enter, then type the new name
+Ctrl+j
+Sleep 700ms
+Ctrl+j
+Sleep 900ms
+Enter
+Sleep 1200ms
+Ctrl+u
+Sleep 500ms
+Type "todo"
 Sleep 900ms
 Enter
 Sleep 1600ms
