@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@gravity-ui/uikit";
 import { Seo } from "../components/Seo";
 import { InlineCode } from "../components/InlineCode";
-import { DemoVideo } from "../components/DemoVideo";
 
 // A modified click (middle/right button or a modifier key) should keep the
 // link's native behavior, e.g. open in a new tab, instead of client-routing.
@@ -24,7 +23,7 @@ export function Home() {
     <>
       <Seo
         title="lazy-tmux: lazy tmux session manager with scrollback restore"
-        description="Forget bugs of tmux-resurrect and tmux-continuum. lazy-tmux restores only the sessions you need, preserves scrollback history, and works instantly."
+        description="lazy-tmux restores only the sessions you need, preserves scrollback history, and works instantly."
         jsonLd
       />
 
@@ -88,22 +87,16 @@ export function Home() {
 
       <section className="doc-section">
         <h1>Demo Preview</h1>
-        <DemoVideo src="/assets/demo.mp4" />
-        <p>
-          We create activity in a temporary tmux session, then stop the tmux
-          server and restore the sessions with lazy-tmux. Logs are preserved,
-          and a Python HTTP server that ran in another session is restarted. The
-          TUI picker shows whether each session is restored, while still letting
-          you attach as if it were already loaded.
-        </p>
         <img
           src="/assets/demo.gif"
           alt="lazy-tmux: save sessions, kill the tmux server, then restore from the TUI picker"
           style={{ width: "100%", height: "auto", borderRadius: 8 }}
         />
         <p>
-          Snapshot three sessions, run <InlineCode>tmux kill-server</InlineCode> to
-          wipe everything, then bring it all back by picking a session in the TUI.
+          A tmux session with a shell, a running <InlineCode>top</InlineCode>, and
+          a deploying service. We detach, run <InlineCode>tmux kill-server</InlineCode>{" "}
+          to wipe everything, then bring it all back by picking the session in the
+          TUI — the shell's scrollback and the running processes come back intact.
         </p>
       </section>
     </>
