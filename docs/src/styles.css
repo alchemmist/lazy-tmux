@@ -208,7 +208,7 @@ video {
   position: relative;
 }
 .content.home .hero {
-  min-height: calc(100vh - 88px);
+  min-height: calc(100vh - 44px);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -490,7 +490,7 @@ table tbody tr:hover {
     padding-top: 66px;
   }
   .content.home .hero {
-    min-height: calc(100vh - 110px);
+    min-height: calc(100vh - 66px);
   }
   .topbar {
     display: flex;
