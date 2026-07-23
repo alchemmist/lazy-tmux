@@ -1,0 +1,51 @@
+<h2>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./docs/public/assets/logo-white.svg">
+    <img src="./docs/public/assets/logo.svg" alt="Favicon Preview" width="60" align="center">
+  </picture>
+  &nbsp;&nbsp;&nbsp;lazy-tmux
+</h2>
+
+[English](README.md) | [简体中文](README.zh-CN.md) | 日本語
+
+![Static Badge](https://img.shields.io/badge/website-red?style=flat&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPD94bWwgdmVyc2lvbj0iMS4wIiA%2FPgoNPCEtLSBVcGxvYWRlZCB0bzogU1ZHIFJlcG8sIHd3dy5zdmdyZXBvLmNvbSwgR2VuZXJhdG9yOiBTVkcgUmVwbyBNaXhlciBUb29scyAtLT4KPHN2ZyBmaWxsPSIjMDAwMDAwIiB3aWR0aD0iODAwcHgiIGhlaWdodD0iODAwcHgiIHZpZXdCb3g9IjAgMCA0MDAgNDAwIiBpZD0iTmlnaHQiIHZlcnNpb249IjEuMSIgeG1sOnNwYWNlPSJwcmVzZXJ2ZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayI%2BCg08ZyBpZD0iWE1MSURfNDJfIj4KDTxwb2x5Z29uIGlkPSJYTUxJRF80NF8iIHBvaW50cz0iMTMzLjMsNTMuMyAxMzMuMywyNi43IDEwNi43LDI2LjcgODAsMjYuNyA4MCw1My4zIDEwNi43LDUzLjMgICIvPgoNPHBvbHlnb24gaWQ9IlhNTElEXzY0XyIgcG9pbnRzPSIxNjAsNTMuMyAxODYuNyw1My4zIDE4Ni43LDI2LjcgMjEzLjMsMjYuNyAyMTMuMywwIDE4Ni43LDAgMTYwLDAgMTMzLjMsMCAxMzMuMywyNi43IDE2MCwyNi43ICAgICAiLz4KDTxyZWN0IGhlaWdodD0iMjYuNyIgaWQ9IlhNTElEXzY1XyIgd2lkdGg9IjI2LjciIHg9IjUzLjMiIHk9IjUzLjMiLz4KDTxyZWN0IGhlaWdodD0iMjYuNyIgaWQ9IlhNTElEXzY2XyIgd2lkdGg9IjI2LjciIHg9IjEzMy4zIiB5PSI1My4zIi8%2BCg08cG9seWdvbiBpZD0iWE1MSURfOTBfIiBwb2ludHM9IjEwNi43LDEwNi43IDEwNi43LDEzMy4zIDEwNi43LDE2MCAxMDYuNywxODYuNyAxMDYuNywyMTMuMyAxMzMuMywyMTMuMyAxMzMuMywxODYuNyAxMzMuMywxNjAgICAgMTMzLjMsMTMzLjMgMTMzLjMsMTA2LjcgMTMzLjMsODAgMTA2LjcsODAgICIvPgoNPHBvbHlnb24gaWQ9IlhNTElEXzkxXyIgcG9pbnRzPSI1My4zLDEwNi43IDUzLjMsODAgMjYuNyw4MCAyNi43LDEwNi43IDI2LjcsMTMzLjMgNTMuMywxMzMuMyAgIi8%2BCg08cG9seWdvbiBpZD0iWE1MSURfOTJfIiBwb2ludHM9IjM3My4zLDE4Ni43IDM3My4zLDIxMy4zIDM0Ni43LDIxMy4zIDM0Ni43LDI0MCAzNzMuMywyNDAgMzczLjMsMjY2LjcgNDAwLDI2Ni43IDQwMCwyNDAgICAgNDAwLDIxMy4zIDQwMCwxODYuNyAgIi8%2BCg08cG9seWdvbiBpZD0iWE1MSURfOTNfIiBwb2ludHM9IjI2LjcsMjEzLjMgMjYuNywxODYuNyAyNi43LDE2MCAyNi43LDEzMy4zIDAsMTMzLjMgMCwxNjAgMCwxODYuNyAwLDIxMy4zIDAsMjQwIDAsMjY2LjcgICAgMjYuNywyNjYuNyAyNi43LDI0MCAgIi8%2BCg08cmVjdCBoZWlnaHQ9IjI2LjciIGlkPSJYTUxJRF85NF8iIHdpZHRoPSIyNi43IiB4PSIxMzMuMyIgeT0iMjEzLjMiLz4KDTxyZWN0IGhlaWdodD0iMjYuNyIgaWQ9IlhNTElEXzk1XyIgd2lkdGg9IjI2LjciIHg9IjE2MCIgeT0iMjQwIi8%2BCg08cmVjdCBoZWlnaHQ9IjI2LjciIGlkPSJYTUxJRF85Nl8iIHdpZHRoPSIyNi43IiB4PSIzMjAiIHk9IjI0MCIvPgoNPHBvbHlnb24gaWQ9IlhNTElEXzk3XyIgcG9pbnRzPSI1My4zLDI2Ni43IDI2LjcsMjY2LjcgMjYuNywyOTMuMyAyNi43LDMyMCA1My4zLDMyMCA1My4zLDI5My4zICAiLz4KDTxwb2x5Z29uIGlkPSJYTUxJRF85OF8iIHBvaW50cz0iMjEzLjMsMjkzLjMgMjQwLDI5My4zIDI2Ni43LDI5My4zIDI5My4zLDI5My4zIDMyMCwyOTMuMyAzMjAsMjY2LjcgMjkzLjMsMjY2LjcgMjY2LjcsMjY2LjcgICAgMjQwLDI2Ni43IDIxMy4zLDI2Ni43IDE4Ni43LDI2Ni43IDE4Ni43LDI5My4zICAiLz4KDTxwb2x5Z29uIGlkPSJYTUxJRF85OV8iIHBvaW50cz0iMzQ2LjcsMjkzLjMgMzQ2LjcsMzIwIDM3My4zLDMyMCAzNzMuMywyOTMuMyAzNzMuMywyNjYuNyAzNDYuNywyNjYuNyAgIi8%2BCg08cmVjdCBoZWlnaHQ9IjI2LjciIGlkPSJYTUxJRF8xMDBfIiB3aWR0aD0iMjYuNyIgeD0iNTMuMyIgeT0iMzIwIi8%2BCg08cmVjdCBoZWlnaHQ9IjI2LjciIGlkPSJYTUxJRF8xMDFfIiB3aWR0aD0iMjYuNyIgeD0iMzIwIiB5PSIzMjAiLz4KDTxwb2x5Z29uIGlkPSJYTUxJRF8xMDJfIiBwb2ludHM9IjEwNi43LDM0Ni43IDgwLDM0Ni43IDgwLDM3My4zIDEwNi43LDM3My4zIDEzMy4zLDM3My4zIDEzMy4zLDM0Ni43ICAiLz4KDTxwb2x5Z29uIGlkPSJYTUxJRF8xMDNfIiBwb2ludHM9IjI2Ni43LDM0Ni43IDI2Ni43LDM3My4zIDI5My4zLDM3My4zIDMyMCwzNzMuMyAzMjAsMzQ2LjcgMjkzLjMsMzQ2LjcgICIvPgoNPHBvbHlnb24gaWQ9IlhNTElEXzEwNF8iIHBvaW50cz0iMjEzLjMsMzczLjMgMTg2LjcsMzczLjMgMTYwLDM3My4zIDEzMy4zLDM3My4zIDEzMy4zLDQwMCAxNjAsNDAwIDE4Ni43LDQwMCAyMTMuMyw0MDAgMjQwLDQwMCAgICAyNjYuNyw0MDAgMjY2LjcsMzczLjMgMjQwLDM3My4zICAiLz4KDTwvZz4KDTwvc3ZnPg%3D%3D&color=%23add8e6&link=https%3A%2F%2Flazy-tmux.xyz)
+![License](https://img.shields.io/github/license/alchemmist/devsyringe?style=flat)
+![Contributors](https://img.shields.io/github/contributors/alchemmist/devsyringe?style=flat)
+![Go](https://img.shields.io/badge/1.25-default?label=Go)
+[![Build](https://github.com/alchemmist/lazy-tmux/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/alchemmist/lazy-tmux/actions/workflows/build.yml)
+
+プロジェクトアーキテクト：[@alchemmist](https://github.com/alchemmist)
+
+tmux セッションを遅延保存・復元するための Go 製 CLI です。主な機能：
+
+- 現在のセッション、指定したセッション、またはすべてのセッションを、ウィンドウ、ペイン、レイアウト、実行中のコマンド、スクロールバック履歴を含めて保存。
+- 遅延復元：必要なものだけを復元し、大量の RAM 使用を回避。
+- 自動保存デーモン：バックグラウンドですべてのセッションを定期的にスナップショット化（単一インスタンスで競合なし）。
+- インタラクティブな TUI ブラウザー：ツリービュー（セッション/ウィンドウ）+ テーブル（コマンド、スナップショット時刻、件数、状態）とあいまい検索。
+- キーボード操作のピッカーにより、ピッカーツリー内でセッションやウィンドウを直接、高速に検索、移動、管理。
+- `--session-sort` または `--window-sort` による柔軟な並べ替え（最終使用、時刻、サイズ、名前、コマンドなど）。
+- オプションの `fzf` 統合は `--fzf-engine` で有効化できます（より軽量でバイナリに依存関係はありませんが、完全なキーボード操作と TUI ピッカーは利用できません）。セッション全体ではなく特定のウィンドウを選択するには `--windows` を追加します。
+- tmux 起動時のブートストラップ復元：最新または指定したセッションを自動復元。
+- 完全な環境スナップショット：ペインレイアウトとコマンド（例：`npm`、`docker-compose`、`nvim`）を復元。
+- オプションのスクロールバック取得：過去のターミナル出力を保存して再生。
+
+セッションを保存し、tmux サーバー全体を終了してから、TUI ピッカーですべてを復元できます。
+
+![lazy-tmux のデモ — ピッカーによる保存、サーバー終了、復元](./docs/public/assets/demo.gif)
+
+インストール方法と使用方法の詳細については、[lazy-tmux.xyz](https://lazy-tmux.xyz) をご覧ください。
+
+ソースからビルドする場合のみ、Go をインストールして本プロジェクトをクローンする必要があります。その後、次を実行します。
+
+```bash
+make build
+```
+
+バイナリは `bin/lazy-tmux` に生成されます。その他の開発用オプションについては、`Makefile` のタスクを確認してください。
+
+> [!NOTE]
+> **tmux バージョン：** lazy-tmux は **2.9 から 3.7b** までのすべての tmux リリースをサポートし、
+> CI のバージョンマトリックスで各バージョンを検証しています。新しいリリースも公開され次第追加されます。
+
+設定、CLI リファレンス、使用方法については、
+[lazy-tmux.xyz](https://lazy-tmux.xyz) のドキュメントを参照してください。
