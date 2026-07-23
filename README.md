@@ -14,7 +14,7 @@
 
 Project architect: [@alchemmist](https://github.com/alchemmist)
 
-Cli written on Go for saving and restoring tmux sessions lazy. Key features:
+CLI written in Go for saving and restoring tmux sessions lazily. Key features:
 
 - Save sessions: current, specific, or all — including windows, panes, layouts, running commands, and scrollback history.
 - Lazy restore: restore only what you need, avoiding high RAM usage.
@@ -31,15 +31,15 @@ Save your sessions, kill the entire tmux server, then bring everything back from
 
 ![lazy-tmux demo — save, kill-server, and restore via the picker](./docs/public/assets/demo.gif)
 
-Chekout [lazy-tmux.xyz](https://lazy-tmux.xyz) for more informaiton about installation and usage!
+Check out [lazy-tmux.xyz](https://lazy-tmux.xyz) for more information about installation and usage!
 
-Just for bulding from source you need to have installed go and cloned this project. After that run:
+Just for building from source you need to have installed go and cloned this project. After that run:
 
 ```bash
 make build
 ```
 
-Binary will compiled in `bin/lazy-tmux`. For more development options checkout `Makefile` tasks.
+Binary will be compiled in `bin/lazy-tmux`. For more development options check out `Makefile` tasks.
 
 > [!NOTE]
 > **tmux versions:** lazy-tmux supports every tmux release from **2.9 through 3.7b**,
