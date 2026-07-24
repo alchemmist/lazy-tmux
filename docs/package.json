@@ -15,7 +15,7 @@
     "@gravity-ui/uikit": "^7.18.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router-dom": "^6.30.0"
+    "react-router-dom": "^7.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
