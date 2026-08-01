@@ -30,8 +30,8 @@ const (
 	lightMeta    = "#666666"
 	lightFaint   = "#888888"
 	lightBorder  = "#000000"
-	lightSelBg   = "#000000"
-	lightSelText = "#ffffff"
+	lightSelBg   = "#e6e6e6"
+	lightSelText = "#000000"
 )
 
 type pickerTheme struct {
