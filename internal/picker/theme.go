@@ -25,6 +25,19 @@ const (
 	colSleepWake = "#8787af"
 )
 
+const (
+	lightAccent  = "#b45309"
+	lightText    = "#243447"
+	lightMeta    = "#637083"
+	lightFaint   = "#8491a3"
+	lightBorder  = "#9aa7b5"
+	lightSelBg   = "#d6e0ea"
+	lightSelText = "#17212b"
+	lightError   = "#b42318"
+	lightNew     = "#177245"
+	lightRename  = "#1d4ed8"
+)
+
 type pickerTheme struct {
 	border     lipgloss.Style
 	title      lipgloss.Style
@@ -47,6 +60,8 @@ type pickerTheme struct {
 	statusAwaitingInput    lipgloss.Style
 	statusIdle             lipgloss.Style
 	statusError            lipgloss.Style
+	selBg                  string
+	selText                string
 }
 
 const (
@@ -105,7 +120,7 @@ func (t pickerTheme) statusStyle(status WindowStatus) lipgloss.Style {
 func (t pickerTheme) statusStyleOn(status WindowStatus, selected bool) lipgloss.Style {
 	style := t.statusStyle(status)
 	if selected {
-		style = style.Background(lipgloss.Color(colSelBg))
+		style = style.Background(lipgloss.Color(t.selBg))
 	}
 
 	return style
@@ -113,7 +128,7 @@ func (t pickerTheme) statusStyleOn(status WindowStatus, selected bool) lipgloss.
 
 func (t pickerTheme) markStyle(selected bool) lipgloss.Style {
 	if selected {
-		return t.mark.Background(lipgloss.Color(colSelBg))
+		return t.mark.Background(lipgloss.Color(t.selBg))
 	}
 
 	return t.mark
@@ -128,7 +143,21 @@ func accentForMode(mode actionMode) string {
 }
 
 func newPickerTheme(accent string) pickerTheme {
+	return newPickerThemeFor("dark", accent)
+}
+
+func newPickerThemeFor(name, accent string) pickerTheme {
 	border := colBorder
+	text, meta, faint, selBG, selText, errColor := colText, colMeta, colFaint, colSelBg, colSelText, colError
+	statusNew, statusAccent, statusRename := colNew, colAccent, colRename
+	if name == "light" {
+		border, text, meta, faint = lightBorder, lightText, lightMeta, lightFaint
+		selBG, selText, errColor = lightSelBg, lightSelText, lightError
+		statusNew, statusAccent, statusRename = lightNew, lightAccent, lightRename
+		if accent == colAccent {
+			accent = lightAccent
+		}
+	}
 	if accent != colAccent {
 		border = accent
 	}
@@ -136,27 +165,29 @@ func newPickerTheme(accent string) pickerTheme {
 	return pickerTheme{
 		border:     lipgloss.NewStyle().Foreground(lipgloss.Color(border)),
 		title:      lipgloss.NewStyle().Foreground(lipgloss.Color(accent)).Bold(true),
-		count:      lipgloss.NewStyle().Foreground(lipgloss.Color(colCount)),
+		count:      lipgloss.NewStyle().Foreground(lipgloss.Color(meta)),
 		prompt:     lipgloss.NewStyle().Foreground(lipgloss.Color(accent)),
-		headerCell: lipgloss.NewStyle().Foreground(lipgloss.Color(colFaint)),
-		name:       lipgloss.NewStyle().Foreground(lipgloss.Color(colText)),
-		session:    lipgloss.NewStyle().Foreground(lipgloss.Color(colText)).Bold(true),
-		meta:       lipgloss.NewStyle().Foreground(lipgloss.Color(colMeta)),
-		faint:      lipgloss.NewStyle().Foreground(lipgloss.Color(colFaint)),
+		headerCell: lipgloss.NewStyle().Foreground(lipgloss.Color(faint)),
+		name:       lipgloss.NewStyle().Foreground(lipgloss.Color(text)),
+		session:    lipgloss.NewStyle().Foreground(lipgloss.Color(text)).Bold(true),
+		meta:       lipgloss.NewStyle().Foreground(lipgloss.Color(meta)),
+		faint:      lipgloss.NewStyle().Foreground(lipgloss.Color(faint)),
 		stripe:     lipgloss.NewStyle().Foreground(lipgloss.Color(accent)),
 		selBar: lipgloss.NewStyle().
-			Background(lipgloss.Color(colSelBg)).
-			Foreground(lipgloss.Color(colSelText)),
+			Background(lipgloss.Color(selBG)).
+			Foreground(lipgloss.Color(selText)),
 		mark:      lipgloss.NewStyle().Foreground(lipgloss.Color(accent)),
-		statusErr: lipgloss.NewStyle().Foreground(lipgloss.Color(colError)),
+		statusErr: lipgloss.NewStyle().Foreground(lipgloss.Color(errColor)),
 		helpKey:   lipgloss.NewStyle().Foreground(lipgloss.Color(accent)),
-		helpText:  lipgloss.NewStyle().Foreground(lipgloss.Color(colFaint)),
+		helpText:  lipgloss.NewStyle().Foreground(lipgloss.Color(faint)),
 
-		statusWorking:          lipgloss.NewStyle().Foreground(lipgloss.Color(colNew)),
-		statusAwaitingDecision: lipgloss.NewStyle().Foreground(lipgloss.Color(colAccent)),
-		statusAwaitingInput:    lipgloss.NewStyle().Foreground(lipgloss.Color(colRename)),
-		statusIdle:             lipgloss.NewStyle().Foreground(lipgloss.Color(colFaint)),
-		statusError:            lipgloss.NewStyle().Foreground(lipgloss.Color(colError)),
+		statusWorking:          lipgloss.NewStyle().Foreground(lipgloss.Color(statusNew)),
+		statusAwaitingDecision: lipgloss.NewStyle().Foreground(lipgloss.Color(statusAccent)),
+		statusAwaitingInput:    lipgloss.NewStyle().Foreground(lipgloss.Color(statusRename)),
+		statusIdle:             lipgloss.NewStyle().Foreground(lipgloss.Color(faint)),
+		statusError:            lipgloss.NewStyle().Foreground(lipgloss.Color(errColor)),
+		selBg:                  selBG,
+		selText:                selText,
 	}
 }
 

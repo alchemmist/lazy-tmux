@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alchemmist/lazy-tmux/internal/config"
 	"github.com/alchemmist/lazy-tmux/internal/integration"
 	"github.com/alchemmist/lazy-tmux/internal/picker"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
@@ -140,7 +141,7 @@ func (a *App) RestoreTargetAnimated(target PickerTarget) (bool, error) {
 		close(done)
 	}()
 
-	cancelled, animErr := picker.RunRestoreAnimation(target.SessionName, done)
+	cancelled, animErr := picker.RunRestoreAnimationWithTheme(target.SessionName, done, a.cfg.Theme)
 	if cancelled {
 		cancel()
 		<-done
@@ -209,6 +210,9 @@ func (a *App) SelectTargetWithTUISorted(opts PickerSortOptions) (PickerTarget, e
 		NewWindow:     a.NewWindow,
 		Wakeup:        a.Wakeup,
 		Sleep:         a.Sleep,
+		SetTheme: func(theme string) error {
+			return config.SetTheme(config.DefaultConfigPath(), theme)
+		},
 		Reload: func() ([]picker.Session, error) {
 			sessions, err := a.pickerSessions(opts)
 			if err != nil {
@@ -223,7 +227,7 @@ func (a *App) SelectTargetWithTUISorted(opts PickerSortOptions) (PickerTarget, e
 		},
 	}
 
-	target, err := picker.ChooseTarget(sessions, opts.Window, actions)
+	target, err := picker.ChooseTargetWithTheme(sessions, opts.Window, actions, a.cfg.Theme)
 	if err != nil {
 		return picker.Target{}, fmt.Errorf("choose target: %w", err)
 	}

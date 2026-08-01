@@ -60,6 +60,7 @@ func (c Config) Render() string {
 
 	fmt.Fprintf(&buf, "tmux_bin        = %s\n", strconv.Quote(c.TmuxBin))
 	fmt.Fprintf(&buf, "data_dir        = %s\n", strconv.Quote(c.DataDir))
+	fmt.Fprintf(&buf, "theme           = %s\n", strconv.Quote(c.Theme))
 	fmt.Fprintf(&buf, "save_interval   = %s\n", strconv.Quote(c.SaveInterval.String()))
 	fmt.Fprintf(&buf, "restore_timeout = %s\n", strconv.Quote(c.RestoreTimeout.String()))
 

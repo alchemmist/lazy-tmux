@@ -43,6 +43,7 @@ export function Configuration() {
 
 tmux_bin        = "tmux"                       # tmux binary to use
 data_dir        = "~/.local/share/lazy-tmux"   # where snapshots are stored (~ is expanded)
+theme           = "dark"                       # TUI picker theme: dark or light
 save_interval   = "5m"                         # daemon autosave interval (Go duration)
 restore_timeout = "5s"                         # max wait for restored pane commands to start (0 disables)
 

@@ -42,14 +42,22 @@ type loadingModel struct {
 }
 
 func newLoadingModel(sessionName string, done <-chan struct{}) loadingModel {
+	return newLoadingModelWithTheme(sessionName, done, "dark")
+}
+
+func newLoadingModelWithTheme(sessionName string, done <-chan struct{}, themeName string) loadingModel {
+	if themeName != "light" {
+		themeName = "dark"
+	}
+	theme := newPickerThemeFor(themeName, colAccent)
 	return loadingModel{
 		name:  strings.TrimSpace(sessionName),
 		done:  done,
-		theme: newPickerTheme(colAccent),
-		dim:   lipgloss.NewStyle().Foreground(lipgloss.Color(colFaint)),
-		mid:   lipgloss.NewStyle().Foreground(lipgloss.Color(colText)),
-		hot:   lipgloss.NewStyle().Foreground(lipgloss.Color(colAccent)),
-		label: lipgloss.NewStyle().Foreground(lipgloss.Color(colAccent)).Bold(true),
+		theme: theme,
+		dim:   theme.faint,
+		mid:   theme.name,
+		hot:   theme.title,
+		label: theme.title,
 	}
 }
 
@@ -234,11 +242,15 @@ func fieldGlyph(col, row, cols, rows, phase float64) (rune, int) {
 }
 
 func RunRestoreAnimation(sessionName string, done <-chan struct{}) (bool, error) {
+	return RunRestoreAnimationWithTheme(sessionName, done, "dark")
+}
+
+func RunRestoreAnimationWithTheme(sessionName string, done <-chan struct{}, themeName string) (bool, error) {
 	if !isTerminal(os.Stdout) {
 		return false, nil
 	}
 
-	final, err := tea.NewProgram(newLoadingModel(sessionName, done)).Run()
+	final, err := tea.NewProgram(newLoadingModelWithTheme(sessionName, done, themeName)).Run()
 	if err != nil {
 		return false, fmt.Errorf("run restore animation: %w", err)
 	}

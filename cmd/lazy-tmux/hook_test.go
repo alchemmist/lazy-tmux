@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/alchemmist/lazy-tmux/internal/config"
 )
 
 func TestRunClaudeStatusHookWritesFile(t *testing.T) {
@@ -46,5 +48,22 @@ func TestRunClaudeStatusHookRejectsBadState(t *testing.T) {
 	code := runClaudeStatusHook([]string{"--state", "bogus"}, strings.NewReader("{}"), io.Discard)
 	if code == 0 {
 		t.Fatal("invalid --state should be rejected")
+	}
+}
+
+func TestRunThemeHook(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "lazy-tmux.toml")
+	t.Setenv("LAZY_TMUX_CONFIG", path)
+
+	if code := runThemeHook([]string{"--theme", "light"}, io.Discard); code != 0 {
+		t.Fatalf("theme hook exit code = %d", code)
+	}
+
+	cfg, err := config.LoadFrom(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Theme != "light" {
+		t.Fatalf("theme = %q, want light", cfg.Theme)
 	}
 }

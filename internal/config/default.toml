@@ -9,6 +9,10 @@
 # Command-line flags override anything set here.
 # Run `lazy-tmux config show` to see the effective config actually being read.
 
+# TUI picker color theme: "dark" or "light". It can also be changed from the
+# picker with `/theme light` or by running `lazy-tmux hook theme --theme light`.
+theme = "dark"
+
 # tmux binary to invoke. A leading ~ is expanded. Set this if your tmux is a
 # shell alias or lives outside PATH (e.g. "~/bin/tmux.appimage").
 tmux_bin = "tmux"

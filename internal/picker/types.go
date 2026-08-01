@@ -36,4 +36,5 @@ type Actions struct {
 	Reload        func() ([]Session, error)
 	Wakeup        func(session string) error
 	Sleep         func(session string) error
+	SetTheme      func(theme string) error
 }

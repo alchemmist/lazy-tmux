@@ -23,11 +23,42 @@ func runHook(args []string, _, stderr io.Writer) int {
 	switch args[0] {
 	case "claude-status":
 		return runClaudeStatusHook(args[1:], os.Stdin, stderr)
+	case "theme":
+		return runThemeHook(args[1:], stderr)
 	default:
 		writeErr(stderr, fmt.Errorf("%w %q", errUnknownHook, args[0]))
 
 		return 1
 	}
+}
+
+func runThemeHook(args []string, stderr io.Writer) int {
+	flags := flag.NewFlagSet("theme", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	theme := flags.String("theme", "", "theme: dark|light")
+
+	if err := flags.Parse(args); err != nil {
+		writeErr(stderr, fmt.Errorf("parse flags: %w", err))
+
+		return 1
+	}
+	if !config.IsValidTheme(*theme) {
+		writeErr(stderr, fmt.Errorf("invalid theme %q (want dark or light)", *theme))
+
+		return 1
+	}
+	if flags.NArg() != 0 {
+		writeErr(stderr, errUnexpectedArguments)
+
+		return 1
+	}
+	if err := config.SetTheme(config.DefaultConfigPath(), *theme); err != nil {
+		writeErr(stderr, fmt.Errorf("set theme: %w", err))
+
+		return 1
+	}
+
+	return 0
 }
 
 func runClaudeStatusHook(args []string, stdin io.Reader, stderr io.Writer) int {
@@ -79,9 +110,12 @@ func runClaudeStatusHook(args []string, stdin io.Reader, stderr io.Writer) int {
 }
 
 func hookHelp(w io.Writer) {
-	_, _ = fmt.Fprint(w, `Usage: lazy-tmux hook claude-status --state <state>
+	_, _ = fmt.Fprint(w, `Usage: lazy-tmux hook <name> [flags]
 
 Record a program's live status (invoked from its hooks). States for claude-status:
 working, awaiting_decision, awaiting_input, idle.
+
+Theme hook (usable from a daemon or external automation):
+  lazy-tmux hook theme --theme dark|light
 `)
 }

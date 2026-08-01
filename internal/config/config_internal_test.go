@@ -77,6 +77,7 @@ tmux_bin = "/usr/local/bin/tmux"
 data_dir = "/snapshots"
 save_interval = "10m"
 restore_timeout = "0s"
+theme = "light"
 
 [scrollback]
 enabled = true
@@ -103,9 +104,35 @@ lines = 200
 	if cfg.RestoreTimeout != 0 {
 		t.Fatalf("restore_timeout: got %s", cfg.RestoreTimeout)
 	}
+	if cfg.Theme != "light" {
+		t.Fatalf("theme: got %q", cfg.Theme)
+	}
 
 	if !cfg.Scrollback.Enabled || cfg.Scrollback.Lines != 200 {
 		t.Fatalf("scrollback: got %+v", cfg.Scrollback)
+	}
+}
+
+func TestSetThemePreservesConfig(t *testing.T) {
+	path := writeConfig(t, "# keep me\ndata_dir = \"/data\"\n")
+
+	if err := SetTheme(path, "light"); err != nil {
+		t.Fatalf("set theme: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(data); !strings.Contains(got, "# keep me") || !strings.Contains(got, `theme = "light"`) {
+		t.Fatalf("theme update did not preserve config: %s", got)
+	}
+}
+
+func TestLoadFromInvalidThemeErrors(t *testing.T) {
+	_, err := LoadFrom(writeConfig(t, `theme = "solarized"`))
+	if err == nil || !strings.Contains(err.Error(), "invalid theme") {
+		t.Fatalf("expected invalid theme error, got %v", err)
 	}
 }
 

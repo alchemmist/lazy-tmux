@@ -21,11 +21,13 @@ var (
 	)
 	errConfigExists   = errors.New("already exists (use --force to overwrite)")
 	errInvalidPattern = errors.New("invalid regular expression")
+	errInvalidTheme   = errors.New("invalid theme")
 )
 
 type Config struct {
 	TmuxBin        string
 	DataDir        string
+	Theme          string
 	SaveInterval   time.Duration
 	RestoreTimeout time.Duration
 	Scrollback     ScrollbackConfig
@@ -56,6 +58,7 @@ const (
 	defaultSaveInterval   = 5 * time.Minute
 	defaultRestoreTimeout = 5 * time.Second
 	defaultClaudeHome     = "~/.claude"
+	DefaultTheme          = "dark"
 
 	DefaultScrollbackLines = 5000
 )
@@ -64,6 +67,7 @@ func Default() Config {
 	return Config{
 		TmuxBin:        defaultTmuxBin,
 		DataDir:        store.DefaultDataDir(),
+		Theme:          DefaultTheme,
 		SaveInterval:   defaultSaveInterval,
 		RestoreTimeout: defaultRestoreTimeout,
 		Scrollback: ScrollbackConfig{
@@ -141,6 +145,10 @@ func LoadFrom(path string) (Config, error) {
 }
 
 func validateCommandPatterns(cfg Config) error {
+	if !IsValidTheme(cfg.Theme) {
+		return fmt.Errorf("theme %q: %w (want dark or light)", cfg.Theme, errInvalidTheme)
+	}
+
 	lists := map[string][]string{
 		"restore_allowlist": cfg.RestoreAllowlist,
 		"restore_denylist":  cfg.RestoreDenylist,
@@ -166,6 +174,7 @@ func validateCommandPatterns(cfg Config) error {
 type fileConfig struct {
 	TmuxBin          *string               `toml:"tmux_bin"`
 	DataDir          *string               `toml:"data_dir"`
+	Theme            *string               `toml:"theme"`
 	SaveInterval     *duration             `toml:"save_interval"`
 	RestoreTimeout   *duration             `toml:"restore_timeout"`
 	RestoreAllowlist *[]string             `toml:"restore_allowlist"`
@@ -196,6 +205,10 @@ func (cfg Config) withFile(file fileConfig) Config {
 
 	if file.DataDir != nil {
 		cfg.DataDir = ExpandHome(*file.DataDir)
+	}
+
+	if file.Theme != nil {
+		cfg.Theme = strings.ToLower(strings.TrimSpace(*file.Theme))
 	}
 
 	if file.SaveInterval != nil {
@@ -234,6 +247,54 @@ func (cfg Config) withFile(file fileConfig) Config {
 	}
 
 	return cfg
+}
+
+func IsValidTheme(theme string) bool {
+	switch strings.ToLower(strings.TrimSpace(theme)) {
+	case "dark", "light":
+		return true
+	default:
+		return false
+	}
+}
+
+// SetTheme updates only the top-level theme setting, preserving the user's
+// comments and all other configuration. It is used by the picker and hooks.
+func SetTheme(path, theme string) error {
+	theme = strings.ToLower(strings.TrimSpace(theme))
+	if !IsValidTheme(theme) {
+		return fmt.Errorf("theme %q: %w (want dark or light)", theme, errInvalidTheme)
+	}
+
+	if strings.TrimSpace(path) == "" {
+		path = DefaultConfigPath()
+	}
+	if strings.TrimSpace(path) == "" {
+		return errNoConfigPath
+	}
+
+	data, err := os.ReadFile(path) // #nosec G304 -- path is user-selected config
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("read config %s: %w", path, err)
+	}
+
+	contents := string(data)
+	line := fmt.Sprintf("theme = %q", theme)
+	re := regexp.MustCompile(`(?m)^theme\s*=\s*[^\n]*$`)
+	if re.MatchString(contents) {
+		contents = re.ReplaceAllString(contents, line)
+	} else {
+		contents = line + "\n\n" + contents
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		return fmt.Errorf("create config directory: %w", err)
+	}
+	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+		return fmt.Errorf("write config %s: %w", path, err)
+	}
+
+	return nil
 }
 
 func (ic IntegrationsConfig) withFile(file fileIntegrationsConf) IntegrationsConfig {

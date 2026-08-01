@@ -89,6 +89,13 @@ export function TuiPicker() {
       <section className="doc-section">
         <h1>TUI picker</h1>
 
+        <p>
+          Choose the <InlineCode>dark</InlineCode> or <InlineCode>light</InlineCode> theme in
+          config with <InlineCode>theme = "light"</InlineCode>, or switch it live with{" "}
+          <InlineCode>/theme light</InlineCode>. Automation can use{" "}
+          <InlineCode>lazy-tmux hook theme --theme light</InlineCode>.
+        </p>
+
         <img
           src="/assets/tui-picker.gif"
           alt="lazy-tmux TUI picker: fuzzy search, the / command palette, the ? cheat sheet, and the restore loading animation"

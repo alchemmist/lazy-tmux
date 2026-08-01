@@ -49,6 +49,7 @@ type pickerModel struct {
 	queryInput   textinput.Model
 	viewport     viewport.Model
 	theme        pickerTheme
+	themeName    string
 	selected     Target
 	cancelled    bool
 	cursor       int
@@ -93,7 +94,14 @@ const hintMoveKeys = "^j/^k"
 const chromeRowsAboveList = 3
 
 func newPickerModel(sessions []Session, windowSort []WindowSortKey, actions Actions) pickerModel {
-	theme := newPickerTheme(colAccent)
+	return newPickerModelWithTheme(sessions, windowSort, actions, "dark")
+}
+
+func newPickerModelWithTheme(sessions []Session, windowSort []WindowSortKey, actions Actions, themeName string) pickerModel {
+	if themeName != "light" {
+		themeName = "dark"
+	}
+	theme := newPickerThemeFor(themeName, colAccent)
 
 	input := textinput.New()
 	input.Placeholder = ""
@@ -113,6 +121,7 @@ func newPickerModel(sessions []Session, windowSort []WindowSortKey, actions Acti
 		queryInput: input,
 		viewport:   viewPort,
 		theme:      theme,
+		themeName:  themeName,
 		cursor:     0,
 		actions:    actions,
 		mode:       modeBrowse,
@@ -589,7 +598,7 @@ func (m *pickerModel) enterMode(mode actionMode) {
 	m.paletteIdx = 0
 	m.marked = make(map[string]struct{})
 	m.queryInput.SetValue("")
-	m.theme = newPickerTheme(accentForMode(mode))
+	m.theme = newPickerThemeFor(m.themeName, accentForMode(mode))
 	m.resize()
 	m.applyFilter()
 	m.ensureCursorVisible()
@@ -674,7 +683,7 @@ func (m *pickerModel) exitMode() {
 	m.paletteIdx = 0
 	m.marked = make(map[string]struct{})
 	m.queryInput.SetValue("")
-	m.theme = newPickerTheme(colAccent)
+	m.theme = newPickerThemeFor(m.themeName, colAccent)
 	m.cursor = 0
 	m.resize()
 	m.applyFilter()
@@ -722,6 +731,11 @@ func (m pickerModel) handlePaletteKey(msg tea.KeyPressMsg) (tea.Model, bool) {
 		return m, true
 	case keyEnter:
 		if len(matches) > 0 {
+			if matches[m.paletteIdx].name == "theme" {
+				m.applyThemeCommand(strings.TrimSpace(strings.TrimPrefix(m.commandPrefix(), "theme")))
+
+				return m, true
+			}
 			m.enterMode(matches[m.paletteIdx].mode)
 			m.renderViewport()
 		}
@@ -730,6 +744,27 @@ func (m pickerModel) handlePaletteKey(msg tea.KeyPressMsg) (tea.Model, bool) {
 	}
 
 	return m, false
+}
+
+func (m *pickerModel) applyThemeCommand(arg string) {
+	theme := strings.ToLower(strings.TrimSpace(arg))
+	if theme != "dark" && theme != "light" {
+		m.setStatus("usage: /theme dark|light")
+
+		return
+	}
+	if m.actions.SetTheme != nil {
+		if err := m.actions.SetTheme(theme); err != nil {
+			m.setStatus(err.Error())
+
+			return
+		}
+	}
+	m.themeName = theme
+	m.theme = newPickerThemeFor(theme, colAccent)
+	m.queryInput.SetValue("")
+	m.syncPalette()
+	m.renderViewport()
 }
 
 func (m pickerModel) handleActionKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
@@ -1021,11 +1056,15 @@ var newPickerRunner = func(m pickerModel) pickerRunner {
 }
 
 func ChooseTarget(sessions []Session, windowSort []WindowSortKey, actions Actions) (Target, error) {
+	return ChooseTargetWithTheme(sessions, windowSort, actions, "dark")
+}
+
+func ChooseTargetWithTheme(sessions []Session, windowSort []WindowSortKey, actions Actions, themeName string) (Target, error) {
 	if tuiDisabled() {
 		return Target{}, errTUIDisabled
 	}
 
-	m := newPickerModel(sessions, windowSort, actions)
+	m := newPickerModelWithTheme(sessions, windowSort, actions, themeName)
 	runner := newPickerRunner(m)
 
 	finalModel, err := runner.Run()

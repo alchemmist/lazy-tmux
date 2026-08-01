@@ -30,6 +30,11 @@ type pickerCommand struct {
 //nolint:gochecknoglobals // static command-palette table, never mutated
 var pickerCommands = []pickerCommand{
 	{
+		name:  "theme",
+		label: "THEME",
+		desc:  "switch picker theme: /theme dark|light",
+	},
+	{
 		name:   "delete",
 		mode:   actionDelete,
 		accent: colDelete,
@@ -78,6 +83,9 @@ var pickerCommands = []pickerCommand{
 
 func matchCommands(prefix string) []pickerCommand {
 	prefix = strings.ToLower(strings.TrimSpace(prefix))
+	if fields := strings.Fields(prefix); len(fields) > 0 {
+		prefix = fields[0]
+	}
 
 	out := make([]pickerCommand, 0, len(pickerCommands))
 	for _, cmd := range pickerCommands {
@@ -90,6 +98,10 @@ func matchCommands(prefix string) []pickerCommand {
 }
 
 func commandForMode(mode actionMode) (pickerCommand, bool) {
+	if mode == actionBrowse {
+		return pickerCommand{}, false
+	}
+
 	for _, cmd := range pickerCommands {
 		if cmd.mode == mode {
 			return cmd, true

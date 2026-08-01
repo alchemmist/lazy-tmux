@@ -12,7 +12,7 @@ var (
 	errUnknownConfigSubcommand = errors.New("unknown config subcommand")
 	errUnexpectedArguments     = errors.New("unexpected arguments")
 	errScrollbackLinesInvalid  = errors.New("scrollback requires scrollback lines > 0")
-	errHookUsage               = errors.New("usage: lazy-tmux hook claude-status --state <state>")
+	errHookUsage               = errors.New("usage: lazy-tmux hook <claude-status|theme> [flags]")
 	errUnknownHook             = errors.New("unknown hook")
 	errInvalidHookState        = errors.New("invalid --state")
 	errWindowsRequiresFzf      = errors.New(
