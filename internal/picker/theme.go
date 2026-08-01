@@ -26,16 +26,12 @@ const (
 )
 
 const (
-	lightAccent  = "#b45309"
-	lightText    = "#243447"
-	lightMeta    = "#637083"
-	lightFaint   = "#8491a3"
-	lightBorder  = "#9aa7b5"
-	lightSelBg   = "#d6e0ea"
-	lightSelText = "#17212b"
-	lightError   = "#b42318"
-	lightNew     = "#177245"
-	lightRename  = "#1d4ed8"
+	lightText    = "#000000"
+	lightMeta    = "#666666"
+	lightFaint   = "#888888"
+	lightBorder  = "#000000"
+	lightSelBg   = "#000000"
+	lightSelText = "#ffffff"
 )
 
 type pickerTheme struct {
@@ -152,11 +148,7 @@ func newPickerThemeFor(name, accent string) pickerTheme {
 	statusNew, statusAccent, statusRename := colNew, colAccent, colRename
 	if name == "light" {
 		border, text, meta, faint = lightBorder, lightText, lightMeta, lightFaint
-		selBG, selText, errColor = lightSelBg, lightSelText, lightError
-		statusNew, statusAccent, statusRename = lightNew, lightAccent, lightRename
-		if accent == colAccent {
-			accent = lightAccent
-		}
+		selBG, selText = lightSelBg, lightSelText
 	}
 	if accent != colAccent {
 		border = accent
