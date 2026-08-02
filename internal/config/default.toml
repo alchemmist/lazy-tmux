@@ -10,7 +10,7 @@
 # Run `lazy-tmux config show` to see the effective config actually being read.
 
 # TUI picker color theme: "dark" or "light". It can also be changed from the
-# picker with `/theme light` or by running `lazy-tmux hook theme --theme light`.
+# picker with `/theme light` or by running `lazy-tmux hook theme light`.
 theme = "dark"
 
 # tmux binary to invoke. A leading ~ is expanded. Set this if your tmux is a

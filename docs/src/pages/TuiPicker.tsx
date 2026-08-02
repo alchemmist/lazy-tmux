@@ -93,7 +93,7 @@ export function TuiPicker() {
           Choose the <InlineCode>dark</InlineCode> or <InlineCode>light</InlineCode> theme in
           config with <InlineCode>theme = "light"</InlineCode>, or switch it live with{" "}
           <InlineCode>/theme light</InlineCode>. Automation can use{" "}
-          <InlineCode>lazy-tmux hook theme --theme light</InlineCode>.
+          <InlineCode>lazy-tmux hook theme light</InlineCode>.
         </p>
 
         <img

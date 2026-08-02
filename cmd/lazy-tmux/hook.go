@@ -42,13 +42,16 @@ func runThemeHook(args []string, stderr io.Writer) int {
 
 		return 1
 	}
-	if !config.IsValidTheme(*theme) {
-		writeErr(stderr, fmt.Errorf("invalid theme %q (want dark or light)", *theme))
+	if flags.NArg() > 1 || (flags.NArg() == 1 && *theme != "") {
+		writeErr(stderr, errUnexpectedArguments)
 
 		return 1
 	}
-	if flags.NArg() != 0 {
-		writeErr(stderr, errUnexpectedArguments)
+	if flags.NArg() == 1 {
+		*theme = flags.Arg(0)
+	}
+	if !config.IsValidTheme(*theme) {
+		writeErr(stderr, fmt.Errorf("invalid theme %q (want dark or light)", *theme))
 
 		return 1
 	}
@@ -116,6 +119,7 @@ Record a program's live status (invoked from its hooks). States for claude-statu
 working, awaiting_decision, awaiting_input, idle.
 
 Theme hook (usable from a daemon or external automation):
+  lazy-tmux hook theme dark|light
   lazy-tmux hook theme --theme dark|light
 `)
 }

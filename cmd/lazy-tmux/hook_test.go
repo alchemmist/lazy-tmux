@@ -67,3 +67,19 @@ func TestRunThemeHook(t *testing.T) {
 		t.Fatalf("theme = %q, want light", cfg.Theme)
 	}
 }
+
+func TestRunThemeHookAcceptsPositionalTheme(t *testing.T) {
+	t.Setenv("LAZY_TMUX_CONFIG", filepath.Join(t.TempDir(), "lazy-tmux.toml"))
+
+	if code := runThemeHook([]string{"dark"}, io.Discard); code != 0 {
+		t.Fatalf("theme hook exit code = %d", code)
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.Theme != "dark" {
+		t.Fatalf("theme = %q, want dark", cfg.Theme)
+	}
+}
