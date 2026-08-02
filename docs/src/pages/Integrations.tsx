@@ -6,7 +6,7 @@ export function Integrations() {
     <>
       <Seo
         title="Integrations — lazy-tmux"
-        description="Program integrations adapt interactive tools to lazy-tmux's save/restore and surface their live status in the picker. Claude Code is the first."
+        description="Program integrations adapt interactive tools to lazy-tmux's save/restore. Claude Code and Codex sessions resume from their current session."
         slug="integrations"
       />
       <section className="doc-section">
@@ -32,6 +32,22 @@ export function Integrations() {
           A window running <InlineCode>claude</InlineCode> is restored as{" "}
           <InlineCode>claude --resume &lt;session-id&gt;</InlineCode>, so the
           conversation continues instead of starting fresh.
+        </p>
+
+        <h2>Codex</h2>
+        <p>
+          A window running <InlineCode>codex</InlineCode> is restored as{" "}
+          <InlineCode>codex resume &lt;session-id&gt;</InlineCode>. On every save,
+          lazy-tmux rereads the rollout metadata and selects the newest session
+          for that pane&apos;s working directory, so switching sessions is reflected
+          in the next snapshot.
+        </p>
+
+        <p>
+          The integration is enabled by default. Its data directory can be
+          changed with <InlineCode>[integrations.codex]</InlineCode> and the{" "}
+          <InlineCode>home</InlineCode> option (default:{" "}
+          <InlineCode>~/.codex</InlineCode>).
         </p>
 
         <h3>Status dots</h3>

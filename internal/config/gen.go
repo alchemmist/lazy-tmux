@@ -95,6 +95,9 @@ func (c Config) Render() string {
 	buf.WriteString("\n[integrations.claude]\n")
 	fmt.Fprintf(&buf, "enabled = %t\n", c.Integrations.Claude.Enabled)
 	fmt.Fprintf(&buf, "home    = %s\n", strconv.Quote(c.Integrations.Claude.Home))
+	buf.WriteString("\n[integrations.codex]\n")
+	fmt.Fprintf(&buf, "enabled = %t\n", c.Integrations.Codex.Enabled)
+	fmt.Fprintf(&buf, "home    = %s\n", strconv.Quote(c.Integrations.Codex.Home))
 
 	return buf.String()
 }

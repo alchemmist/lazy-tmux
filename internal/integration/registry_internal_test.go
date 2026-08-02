@@ -75,6 +75,30 @@ func TestRegistryEnrichSwallowsCaptureFailures(t *testing.T) {
 	}
 }
 
+func TestRegistryEnrichesAgainOnEveryCall(t *testing.T) {
+	t.Parallel()
+
+	var calls int
+	reg := NewRegistry(dynamicIntegration{calls: &calls})
+	snap := paneSnap(snapshot.Pane{CurrentCmd: "dynamic"})
+	reg.Enrich(snap)
+	reg.Enrich(snap)
+
+	if calls != 2 {
+		t.Fatalf("integration capture called %d times, want 2", calls)
+	}
+}
+
+type dynamicIntegration struct{ calls *int }
+
+func (d dynamicIntegration) Name() string                 { return "dynamic" }
+func (d dynamicIntegration) Matches(p snapshot.Pane) bool { return p.CurrentCmd == "dynamic" }
+func (d dynamicIntegration) Capture(snapshot.Pane) (map[string]string, error) {
+	(*d.calls)++
+	return map[string]string{"session_id": "current"}, nil
+}
+func (d dynamicIntegration) RestoreCommand(_ snapshot.Pane, _ map[string]string) string { return "" }
+
 func TestRegistryResolveDeNamespaces(t *testing.T) {
 	t.Parallel()
 

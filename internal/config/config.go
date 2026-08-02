@@ -46,9 +46,15 @@ type ScrollbackConfig struct {
 type IntegrationsConfig struct {
 	Enabled bool
 	Claude  ClaudeIntegrationConfig
+	Codex   CodexIntegrationConfig
 }
 
 type ClaudeIntegrationConfig struct {
+	Enabled bool
+	Home    string
+}
+
+type CodexIntegrationConfig struct {
 	Enabled bool
 	Home    string
 }
@@ -58,6 +64,7 @@ const (
 	defaultSaveInterval   = 5 * time.Minute
 	defaultRestoreTimeout = 5 * time.Second
 	defaultClaudeHome     = "~/.claude"
+	defaultCodexHome      = "~/.codex"
 	DefaultTheme          = "dark"
 
 	DefaultScrollbackLines = 5000
@@ -79,6 +86,10 @@ func Default() Config {
 			Claude: ClaudeIntegrationConfig{
 				Enabled: true,
 				Home:    defaultClaudeHome,
+			},
+			Codex: CodexIntegrationConfig{
+				Enabled: true,
+				Home:    defaultCodexHome,
 			},
 		},
 	}
@@ -191,9 +202,15 @@ type fileScrollbackConf struct {
 type fileIntegrationsConf struct {
 	Enabled *bool                  `toml:"enabled"`
 	Claude  *fileClaudeIntegration `toml:"claude"`
+	Codex   *fileCodexIntegration  `toml:"codex"`
 }
 
 type fileClaudeIntegration struct {
+	Enabled *bool   `toml:"enabled"`
+	Home    *string `toml:"home"`
+}
+
+type fileCodexIntegration struct {
 	Enabled *bool   `toml:"enabled"`
 	Home    *string `toml:"home"`
 }
@@ -309,6 +326,16 @@ func (ic IntegrationsConfig) withFile(file fileIntegrationsConf) IntegrationsCon
 
 		if file.Claude.Home != nil {
 			ic.Claude.Home = ExpandHome(*file.Claude.Home)
+		}
+	}
+
+	if file.Codex != nil {
+		if file.Codex.Enabled != nil {
+			ic.Codex.Enabled = *file.Codex.Enabled
+		}
+
+		if file.Codex.Home != nil {
+			ic.Codex.Home = ExpandHome(*file.Codex.Home)
 		}
 	}
 

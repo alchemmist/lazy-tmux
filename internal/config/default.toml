@@ -67,3 +67,9 @@ enabled = true
 # <home>/projects/<cwd>/<session-id>.jsonl to resolve the pane's session. A
 # leading ~ is expanded.
 home = "~/.claude"
+
+# Codex CLI: restore a `codex` pane as `codex resume <session-id>`.
+[integrations.codex]
+enabled = true
+# Codex data directory containing sessions/YYYY/MM/DD/rollout-*.jsonl files.
+home = "~/.codex"
