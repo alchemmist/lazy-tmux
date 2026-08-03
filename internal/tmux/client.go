@@ -1124,10 +1124,14 @@ func (client *Client) foregroundCommand(paneTTY string, panePID int) (string, er
 	cmd := exec.CommandContext( // #nosec G204 -- fixed "ps" binary and numeric pane PID
 		context.Background(),
 		"ps",
-		"-axo",
+		"-ax",
+		"-o",
 		"pid=",
+		"-o",
 		"ppid=",
+		"-o",
 		"stat=",
+		"-o",
 		"command=",
 	)
 	allOut, allErr := cmd.Output()
@@ -1135,7 +1139,50 @@ func (client *Client) foregroundCommand(paneTTY string, panePID int) (string, er
 		return "", nil
 	}
 
-	return pickForegroundCommand(splitLines(string(allOut)), panePID), nil
+	return pickForegroundCommand(processTreeLines(splitLines(string(allOut)), panePID), panePID), nil
+}
+
+func processTreeLines(lines []string, rootPID int) []string {
+	processes := make(map[int]psProcess)
+	for _, line := range lines {
+		pid, ppid, stat, command, ok := parsePSLine(line)
+		if ok {
+			processes[pid] = psProcess{pid: pid, ppid: ppid, stat: stat, cmd: command}
+		}
+	}
+
+	children := make(map[int][]int)
+	for _, process := range processes {
+		children[process.ppid] = append(children[process.ppid], process.pid)
+	}
+
+	seen := map[int]bool{rootPID: true}
+	queue := []int{rootPID}
+	for len(queue) > 0 {
+		parent := queue[0]
+		queue = queue[1:]
+		for _, child := range children[parent] {
+			if seen[child] {
+				continue
+			}
+			seen[child] = true
+			queue = append(queue, child)
+		}
+	}
+
+	tree := make([]string, 0, len(seen)-1)
+	for pid := range seen {
+		if pid == rootPID {
+			continue
+		}
+		process, ok := processes[pid]
+		if !ok {
+			continue
+		}
+		tree = append(tree, fmt.Sprintf("%d %d %s %s", process.pid, process.ppid, process.stat, process.cmd))
+	}
+
+	return tree
 }
 
 type psProcess struct {

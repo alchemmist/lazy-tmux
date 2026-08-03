@@ -563,6 +563,24 @@ func TestPickForegroundCommandFromProcessTree(t *testing.T) {
 	}
 }
 
+func TestProcessTreeLinesExcludesUnrelatedProcesses(t *testing.T) {
+	t.Parallel()
+
+	lines := []string{
+		"100 1 Ss zsh",
+		"200 100 S+ codex",
+		"300 1 S+ unrelated",
+	}
+
+	tree := processTreeLines(lines, 100)
+	if got := pickForegroundCommand(tree, 100); got != "codex" {
+		t.Fatalf("expected codex from pane tree, got %q", got)
+	}
+	if len(tree) != 1 {
+		t.Fatalf("expected one descendant, got %v", tree)
+	}
+}
+
 type argsRunner struct{ calls [][]string }
 
 func (r *argsRunner) runCommand(args ...string) commandResult {
