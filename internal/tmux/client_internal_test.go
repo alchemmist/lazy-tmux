@@ -550,6 +550,19 @@ func TestPickForegroundCommand(t *testing.T) {
 	}
 }
 
+func TestPickForegroundCommandFromProcessTree(t *testing.T) {
+	t.Parallel()
+
+	lines := []string{
+		"100 1 Ss zsh",
+		"200 100 S codex",
+	}
+
+	if got := pickForegroundCommand(lines, 100); got != "codex" {
+		t.Fatalf("expected child codex, got %q", got)
+	}
+}
+
 type argsRunner struct{ calls [][]string }
 
 func (r *argsRunner) runCommand(args ...string) commandResult {

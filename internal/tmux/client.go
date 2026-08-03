@@ -1113,7 +1113,29 @@ func (client *Client) foregroundCommand(paneTTY string, panePID int) (string, er
 		return "", fmt.Errorf("get output: %w", err)
 	}
 
-	return pickForegroundCommand(splitLines(string(out)), panePID), nil
+	command := pickForegroundCommand(splitLines(string(out)), panePID)
+	if command != "" {
+		return command, nil
+	}
+
+	// Some terminal wrappers give the child process a different tty from the
+	// shell tmux reports for the pane. Fall back to the process tree so tools
+	// such as Codex are still detected instead of being saved as zsh.
+	cmd := exec.CommandContext( // #nosec G204 -- fixed "ps" binary and numeric pane PID
+		context.Background(),
+		"ps",
+		"-axo",
+		"pid=",
+		"ppid=",
+		"stat=",
+		"command=",
+	)
+	allOut, allErr := cmd.Output()
+	if allErr != nil {
+		return "", nil
+	}
+
+	return pickForegroundCommand(splitLines(string(allOut)), panePID), nil
 }
 
 type psProcess struct {
