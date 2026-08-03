@@ -95,9 +95,16 @@ func (d dynamicIntegration) Name() string                 { return "dynamic" }
 func (d dynamicIntegration) Matches(p snapshot.Pane) bool { return p.CurrentCmd == "dynamic" }
 func (d dynamicIntegration) Capture(snapshot.Pane) (map[string]string, error) {
 	(*d.calls)++
+
 	return map[string]string{"session_id": "current"}, nil
 }
-func (d dynamicIntegration) RestoreCommand(_ snapshot.Pane, _ map[string]string) string { return "" }
+
+func (d dynamicIntegration) RestoreCommand(
+	_ snapshot.Pane,
+	_ map[string]string,
+) string {
+	return ""
+}
 
 func TestRegistryResolveDeNamespaces(t *testing.T) {
 	t.Parallel()

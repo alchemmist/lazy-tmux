@@ -30,9 +30,13 @@ type pickerCommand struct {
 //nolint:gochecknoglobals // static command-palette table, never mutated
 var pickerCommands = []pickerCommand{
 	{
-		name:  "theme",
-		label: "THEME",
-		desc:  "switch picker theme: /theme dark|light",
+		name:   "theme",
+		mode:   actionBrowse,
+		accent: colAccent,
+		label:  "THEME",
+		desc:   "switch picker theme: /theme dark|light",
+		chord:  "",
+		hints:  nil,
 	},
 	{
 		name:   "delete",

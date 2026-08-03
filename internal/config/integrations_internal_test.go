@@ -80,7 +80,10 @@ func TestRenderIncludesIntegrations(t *testing.T) {
 
 	out := Default().Render()
 
-	for _, want := range []string{"[integrations]", "[integrations.claude]", "home    = \"~/.claude\"", "[integrations.codex]", "home    = \"~/.codex\""} {
+	for _, want := range []string{
+		"[integrations]", "[integrations.claude]", "home    = \"~/.claude\"",
+		"[integrations.codex]", "home    = \"~/.codex\"",
+	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("rendered config missing %q:\n%s", want, out)
 		}

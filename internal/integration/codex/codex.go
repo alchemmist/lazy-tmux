@@ -77,7 +77,7 @@ func (i *Integration) latestSessionID(cwd string) (string, bool) {
 	found := false
 	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
-			return nil
+			return walkErr
 		}
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".jsonl") {
 			return nil
@@ -90,6 +90,7 @@ func (i *Integration) latestSessionID(cwd string) (string, bool) {
 
 		newest = candidate
 		found = true
+
 		return nil
 	})
 	if err != nil || !found {
@@ -112,10 +113,12 @@ func readCandidate(path, cwd string) (sessionCandidate, bool) {
 	defer func() { _ = file.Close() }()
 
 	var meta sessionMetaLine
-	if err := json.NewDecoder(bufio.NewReader(file)).Decode(&meta); err != nil {
+	err = json.NewDecoder(bufio.NewReader(file)).Decode(&meta)
+	if err != nil {
 		return sessionCandidate{}, false
 	}
-	if meta.Type != "session_meta" || strings.TrimSpace(meta.Payload.ID) == "" || meta.Payload.CWD != cwd {
+	if meta.Type != "session_meta" || strings.TrimSpace(meta.Payload.ID) == "" ||
+		meta.Payload.CWD != cwd {
 		return sessionCandidate{}, false
 	}
 
@@ -129,5 +132,6 @@ func executableName(cmd string) string {
 	}
 
 	base := filepath.Base(fields[0])
+
 	return strings.TrimPrefix(base, "-")
 }

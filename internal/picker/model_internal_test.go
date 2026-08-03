@@ -162,9 +162,12 @@ func TestHasWorkingWindow(t *testing.T) {
 }
 
 func TestApplyThemeCommand(t *testing.T) {
+	t.Parallel()
+
 	var changed string
 	actions := Actions{SetTheme: func(theme string) error {
 		changed = theme
+
 		return nil
 	}}
 	m := newPickerModelWithTheme(nil, nil, actions, "dark")
@@ -173,6 +176,7 @@ func TestApplyThemeCommand(t *testing.T) {
 	if changed != "light" || m.themeName != "light" {
 		t.Fatalf("theme was not switched: callback=%q model=%q", changed, m.themeName)
 	}
+
 	if m.theme.selBg != lightSelBg {
 		t.Fatalf("light selection background = %q, want %q", m.theme.selBg, lightSelBg)
 	}

@@ -42,14 +42,19 @@ type loadingModel struct {
 }
 
 func newLoadingModel(sessionName string, done <-chan struct{}) loadingModel {
-	return newLoadingModelWithTheme(sessionName, done, "dark")
+	return newLoadingModelWithTheme(sessionName, done, themeDark)
 }
 
-func newLoadingModelWithTheme(sessionName string, done <-chan struct{}, themeName string) loadingModel {
-	if themeName != "light" {
-		themeName = "dark"
+func newLoadingModelWithTheme(
+	sessionName string,
+	done <-chan struct{},
+	themeName string,
+) loadingModel {
+	if themeName != themeLight {
+		themeName = themeDark
 	}
 	theme := newPickerThemeFor(themeName, colAccent)
+
 	return loadingModel{
 		name:  strings.TrimSpace(sessionName),
 		done:  done,
@@ -242,10 +247,14 @@ func fieldGlyph(col, row, cols, rows, phase float64) (rune, int) {
 }
 
 func RunRestoreAnimation(sessionName string, done <-chan struct{}) (bool, error) {
-	return RunRestoreAnimationWithTheme(sessionName, done, "dark")
+	return RunRestoreAnimationWithTheme(sessionName, done, themeDark)
 }
 
-func RunRestoreAnimationWithTheme(sessionName string, done <-chan struct{}, themeName string) (bool, error) {
+func RunRestoreAnimationWithTheme(
+	sessionName string,
+	done <-chan struct{},
+	themeName string,
+) (bool, error) {
 	if !isTerminal(os.Stdout) {
 		return false, nil
 	}

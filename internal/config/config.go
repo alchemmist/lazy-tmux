@@ -21,7 +21,7 @@ var (
 	)
 	errConfigExists   = errors.New("already exists (use --force to overwrite)")
 	errInvalidPattern = errors.New("invalid regular expression")
-	errInvalidTheme   = errors.New("invalid theme")
+	ErrInvalidTheme   = errors.New("invalid theme")
 )
 
 type Config struct {
@@ -157,7 +157,7 @@ func LoadFrom(path string) (Config, error) {
 
 func validateCommandPatterns(cfg Config) error {
 	if !IsValidTheme(cfg.Theme) {
-		return fmt.Errorf("theme %q: %w (want dark or light)", cfg.Theme, errInvalidTheme)
+		return fmt.Errorf("theme %q: %w (want dark or light)", cfg.Theme, ErrInvalidTheme)
 	}
 
 	lists := map[string][]string{
@@ -280,7 +280,7 @@ func IsValidTheme(theme string) bool {
 func SetTheme(path, theme string) error {
 	theme = strings.ToLower(strings.TrimSpace(theme))
 	if !IsValidTheme(theme) {
-		return fmt.Errorf("theme %q: %w (want dark or light)", theme, errInvalidTheme)
+		return fmt.Errorf("theme %q: %w (want dark or light)", theme, ErrInvalidTheme)
 	}
 
 	if strings.TrimSpace(path) == "" {
@@ -304,10 +304,13 @@ func SetTheme(path, theme string) error {
 		contents = line + "\n\n" + contents
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+	err = os.MkdirAll(filepath.Dir(path), 0o750)
+	if err != nil {
 		return fmt.Errorf("create config directory: %w", err)
 	}
-	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+	// #nosec G703 -- path is the user's explicit config path
+	err = os.WriteFile(path, []byte(contents), 0o600)
+	if err != nil {
 		return fmt.Errorf("write config %s: %w", path, err)
 	}
 

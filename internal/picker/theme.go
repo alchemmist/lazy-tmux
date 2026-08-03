@@ -26,6 +26,9 @@ const (
 )
 
 const (
+	themeDark  = "dark"
+	themeLight = "light"
+
 	lightText    = "#000000"
 	lightMeta    = "#666666"
 	lightFaint   = "#888888"
@@ -138,15 +141,11 @@ func accentForMode(mode actionMode) string {
 	return colAccent
 }
 
-func newPickerTheme(accent string) pickerTheme {
-	return newPickerThemeFor("dark", accent)
-}
-
 func newPickerThemeFor(name, accent string) pickerTheme {
 	border := colBorder
 	text, meta, faint, selBG, selText, errColor := colText, colMeta, colFaint, colSelBg, colSelText, colError
 	statusNew, statusAccent, statusRename := colNew, colAccent, colRename
-	if name == "light" {
+	if name == themeLight {
 		border, text, meta, faint = lightBorder, lightText, lightMeta, lightFaint
 		selBG, selText = lightSelBg, lightSelText
 	}

@@ -94,12 +94,17 @@ const hintMoveKeys = "^j/^k"
 const chromeRowsAboveList = 3
 
 func newPickerModel(sessions []Session, windowSort []WindowSortKey, actions Actions) pickerModel {
-	return newPickerModelWithTheme(sessions, windowSort, actions, "dark")
+	return newPickerModelWithTheme(sessions, windowSort, actions, themeDark)
 }
 
-func newPickerModelWithTheme(sessions []Session, windowSort []WindowSortKey, actions Actions, themeName string) pickerModel {
-	if themeName != "light" {
-		themeName = "dark"
+func newPickerModelWithTheme(
+	sessions []Session,
+	windowSort []WindowSortKey,
+	actions Actions,
+	themeName string,
+) pickerModel {
+	if themeName != themeLight {
+		themeName = themeDark
 	}
 	theme := newPickerThemeFor(themeName, colAccent)
 
@@ -732,7 +737,9 @@ func (m pickerModel) handlePaletteKey(msg tea.KeyPressMsg) (tea.Model, bool) {
 	case keyEnter:
 		if len(matches) > 0 {
 			if matches[m.paletteIdx].name == "theme" {
-				m.applyThemeCommand(strings.TrimSpace(strings.TrimPrefix(m.commandPrefix(), "theme")))
+				m.applyThemeCommand(
+					strings.TrimSpace(strings.TrimPrefix(m.commandPrefix(), "theme")),
+				)
 
 				return m, true
 			}
@@ -748,13 +755,14 @@ func (m pickerModel) handlePaletteKey(msg tea.KeyPressMsg) (tea.Model, bool) {
 
 func (m *pickerModel) applyThemeCommand(arg string) {
 	theme := strings.ToLower(strings.TrimSpace(arg))
-	if theme != "dark" && theme != "light" {
+	if theme != themeDark && theme != themeLight {
 		m.setStatus("usage: /theme dark|light")
 
 		return
 	}
 	if m.actions.SetTheme != nil {
-		if err := m.actions.SetTheme(theme); err != nil {
+		err := m.actions.SetTheme(theme)
+		if err != nil {
 			m.setStatus(err.Error())
 
 			return
@@ -1056,10 +1064,15 @@ var newPickerRunner = func(m pickerModel) pickerRunner {
 }
 
 func ChooseTarget(sessions []Session, windowSort []WindowSortKey, actions Actions) (Target, error) {
-	return ChooseTargetWithTheme(sessions, windowSort, actions, "dark")
+	return ChooseTargetWithTheme(sessions, windowSort, actions, themeDark)
 }
 
-func ChooseTargetWithTheme(sessions []Session, windowSort []WindowSortKey, actions Actions, themeName string) (Target, error) {
+func ChooseTargetWithTheme(
+	sessions []Session,
+	windowSort []WindowSortKey,
+	actions Actions,
+	themeName string,
+) (Target, error) {
 	if tuiDisabled() {
 		return Target{}, errTUIDisabled
 	}

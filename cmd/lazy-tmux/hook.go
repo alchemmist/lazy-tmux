@@ -37,7 +37,8 @@ func runThemeHook(args []string, stderr io.Writer) int {
 	flags.SetOutput(io.Discard)
 	theme := flags.String("theme", "", "theme: dark|light")
 
-	if err := flags.Parse(args); err != nil {
+	err := flags.Parse(args)
+	if err != nil {
 		writeErr(stderr, fmt.Errorf("parse flags: %w", err))
 
 		return 1
@@ -51,11 +52,12 @@ func runThemeHook(args []string, stderr io.Writer) int {
 		*theme = flags.Arg(0)
 	}
 	if !config.IsValidTheme(*theme) {
-		writeErr(stderr, fmt.Errorf("invalid theme %q (want dark or light)", *theme))
+		writeErr(stderr, fmt.Errorf("%w %q (want dark or light)", config.ErrInvalidTheme, *theme))
 
 		return 1
 	}
-	if err := config.SetTheme(config.DefaultConfigPath(), *theme); err != nil {
+	err = config.SetTheme(config.DefaultConfigPath(), *theme)
+	if err != nil {
 		writeErr(stderr, fmt.Errorf("set theme: %w", err))
 
 		return 1

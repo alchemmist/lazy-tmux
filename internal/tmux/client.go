@@ -1121,6 +1121,10 @@ func (client *Client) foregroundCommand(paneTTY string, panePID int) (string, er
 	// Some terminal wrappers give the child process a different tty from the
 	// shell tmux reports for the pane. Fall back to the process tree so tools
 	// such as Codex are still detected instead of being saved as zsh.
+	return client.fallbackForegroundCommand(panePID)
+}
+
+func (client *Client) fallbackForegroundCommand(panePID int) (string, error) {
 	cmd := exec.CommandContext( // #nosec G204 -- fixed "ps" binary and numeric pane PID
 		context.Background(),
 		"ps",
@@ -1134,12 +1138,15 @@ func (client *Client) foregroundCommand(paneTTY string, panePID int) (string, er
 		"-o",
 		"command=",
 	)
-	allOut, allErr := cmd.Output()
-	if allErr != nil {
-		return "", nil
+	allOut, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("get process list: %w", err)
 	}
 
-	return pickForegroundCommand(processTreeLines(splitLines(string(allOut)), panePID), panePID), nil
+	return pickForegroundCommand(
+		processTreeLines(splitLines(string(allOut)), panePID),
+		panePID,
+	), nil
 }
 
 func processTreeLines(lines []string, rootPID int) []string {
@@ -1179,7 +1186,10 @@ func processTreeLines(lines []string, rootPID int) []string {
 		if !ok {
 			continue
 		}
-		tree = append(tree, fmt.Sprintf("%d %d %s %s", process.pid, process.ppid, process.stat, process.cmd))
+		tree = append(
+			tree,
+			fmt.Sprintf("%d %d %s %s", process.pid, process.ppid, process.stat, process.cmd),
+		)
 	}
 
 	return tree

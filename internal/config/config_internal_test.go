@@ -114,6 +114,8 @@ lines = 200
 }
 
 func TestSetThemePreservesConfig(t *testing.T) {
+	t.Parallel()
+
 	path := writeConfig(t, "# keep me\ndata_dir = \"/data\"\n")
 
 	if err := SetTheme(path, "light"); err != nil {
@@ -124,12 +126,17 @@ func TestSetThemePreservesConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := string(data); !strings.Contains(got, "# keep me") || !strings.Contains(got, `theme = "light"`) {
+	if got := string(
+		data,
+	); !strings.Contains(got, "# keep me") ||
+		!strings.Contains(got, `theme = "light"`) {
 		t.Fatalf("theme update did not preserve config: %s", got)
 	}
 }
 
 func TestLoadFromInvalidThemeErrors(t *testing.T) {
+	t.Parallel()
+
 	_, err := LoadFrom(writeConfig(t, `theme = "solarized"`))
 	if err == nil || !strings.Contains(err.Error(), "invalid theme") {
 		t.Fatalf("expected invalid theme error, got %v", err)
