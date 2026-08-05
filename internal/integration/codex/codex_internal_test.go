@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alchemmist/lazy-tmux/internal/integration"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
@@ -57,5 +58,20 @@ func TestMatchesAndRestore(t *testing.T) {
 		map[string]string{metaSessionID: "abc"},
 	); got != "codex resume abc" {
 		t.Fatalf("unexpected restore command %q", got)
+	}
+}
+
+func TestStatusReportsWorkingForCodexPane(t *testing.T) {
+	t.Parallel()
+
+	i := New(t.TempDir())
+
+	got, ok := i.Status(snapshot.Pane{CurrentCmd: "codex"})
+	if !ok || got != integration.StatusWorking {
+		t.Fatalf("expected working status, got %v ok=%v", got, ok)
+	}
+
+	if _, ok := i.Status(snapshot.Pane{CurrentCmd: "zsh"}); ok {
+		t.Fatal("non-Codex pane should not have a status")
 	}
 }

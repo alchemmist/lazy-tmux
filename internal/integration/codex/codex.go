@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/alchemmist/lazy-tmux/internal/integration"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
@@ -33,6 +34,14 @@ func (i *Integration) Matches(pane snapshot.Pane) bool {
 	}
 
 	return false
+}
+
+func (i *Integration) Status(pane snapshot.Pane) (integration.Status, bool) {
+	if !i.Matches(pane) {
+		return integration.StatusUnknown, false
+	}
+
+	return integration.StatusWorking, true
 }
 
 func (i *Integration) Capture(pane snapshot.Pane) (map[string]string, error) {
