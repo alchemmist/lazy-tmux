@@ -64,7 +64,7 @@ func TestCLIPerCommandHelp(t *testing.T) {
 
 	for _, cmd := range []string{
 		"save", "restore", "picker", "bootstrap", "daemon",
-		"list", "setup", "wakeup", "sleep", "forget", "codex-session",
+		"list", "setup", "wakeup", "sleep", "forget", "codex-session", "codex-fork",
 	} {
 		code, out, _ := run(t, "help", cmd)
 		if code != 0 {
@@ -74,6 +74,53 @@ func TestCLIPerCommandHelp(t *testing.T) {
 		if !strings.Contains(strings.ToLower(out), "usage") {
 			t.Fatalf("help %s: expected usage text, got %q", cmd, out)
 		}
+	}
+}
+
+func TestCLICodexForkCreatesNamedWindowForFocusedSession(t *testing.T) {
+	tmuxBin := filepath.Join(t.TempDir(), "tmux")
+	logPath := filepath.Join(t.TempDir(), "tmux-args")
+	script := `#!/bin/sh
+if [ "$1" = "display-message" ]; then
+  printf '%s\n' 'codex|/work tree|019fc30a-6732-7c63-9732-c76949907c98'
+  exit 0
+fi
+printf '%s\n' "$@" > "$LAZY_TMUX_TEST_LOG"
+`
+	if err := os.WriteFile(tmuxBin, []byte(script), 0o755); err != nil {
+		t.Fatalf("write fake tmux: %v", err)
+	}
+	t.Setenv("LAZY_TMUX_TEST_LOG", logPath)
+
+	code, _, errOut := run(
+		t,
+		"codex-fork",
+		"--pane",
+		"%7",
+		"--tmux-bin",
+		tmuxBin,
+		"--codex-bin",
+		"/custom/codex",
+	)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d: %s", code, errOut)
+	}
+
+	args, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read tmux args: %v", err)
+	}
+	want := strings.Join([]string{
+		"new-window",
+		"-n",
+		"fork-019fc30a",
+		"-c",
+		"/work tree",
+		"'/custom/codex' fork '019fc30a-6732-7c63-9732-c76949907c98'",
+		"",
+	}, "\n")
+	if string(args) != want {
+		t.Fatalf("tmux args:\n got %q\nwant %q", string(args), want)
 	}
 }
 

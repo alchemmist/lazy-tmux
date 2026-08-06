@@ -41,6 +41,7 @@ const (
 	cmdHook         = "hook"
 	cmdClaudeHooks  = "claude-hooks"
 	cmdCodexSession = "codex-session"
+	cmdCodexFork    = "codex-fork"
 )
 
 const flagHelp = "--help"
@@ -64,6 +65,7 @@ func commands() map[string]func(args []string, stdout, stderr io.Writer) int {
 		cmdHook:         runHook,
 		cmdClaudeHooks:  runClaudeHooks,
 		cmdCodexSession: runCodexSession,
+		cmdCodexFork:    runCodexFork,
 	}
 }
 
@@ -84,6 +86,7 @@ func helpFuncs() map[string]func(io.Writer) {
 		cmdHook:         hookHelp,
 		cmdClaudeHooks:  claudeHooksHelp,
 		cmdCodexSession: codexSessionHelp,
+		cmdCodexFork:    codexForkHelp,
 	}
 }
 
@@ -167,6 +170,7 @@ Commands:
   setup      Print config keybinds for tmux
   config     Generate (gen) or show the config file
   codex-session  Print the Codex session ID running in a tmux pane
+  codex-fork     Fork the Codex session running in a tmux pane
   claude-hooks  Install or remove Claude Code status hooks
   hook       Internal hook entrypoints (used by Claude Code)
   version    Print the version
