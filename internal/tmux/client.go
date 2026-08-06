@@ -28,6 +28,7 @@ var (
 	errUnsupportedTTYPath   = errors.New("unsupported tty path")
 	errTTYNotCharDevice     = errors.New("tty path is not a character device")
 	errNoWindowsAfterCreate = errors.New("no windows found after session creation")
+	errInvalidPaneResponse  = errors.New("invalid pane response")
 )
 
 const fieldSep = "|"
@@ -610,6 +611,45 @@ func (client *Client) CapturePaneScrollback(target string, lines int) (string, e
 	)
 }
 
+func (client *Client) CapturePane(target string) (snapshot.Pane, error) {
+	args := []string{
+		"display-message",
+		"-p",
+	}
+	if strings.TrimSpace(target) != "" {
+		args = append(args, "-t", target)
+	}
+	args = append(
+		args,
+		"#{pane_current_command}"+fieldSep+
+			"#{pane_current_path}"+fieldSep+
+			"#{@codex_thread_id}",
+	)
+
+	out, err := client.Output(args...)
+	if err != nil {
+		return snapshot.Pane{}, err
+	}
+	parts := splitFieldsN(strings.TrimSpace(out), livePaneLineFields)
+	if len(parts) != livePaneLineFields {
+		return snapshot.Pane{}, fmt.Errorf(
+			"%w %q",
+			errInvalidPaneResponse,
+			strings.TrimSpace(out),
+		)
+	}
+
+	return snapshot.Pane{
+		Index:       0,
+		CurrentPath: parts[1],
+		CurrentCmd:  parts[0],
+		RestoreCmd:  "",
+		Scrollback:  nil,
+		IsActive:    true,
+		Meta:        codexSessionMeta(parts[2]),
+	}, nil
+}
+
 func (client *Client) createAndPopulateWindow(sessionName string, win snapshot.Window) error {
 	err := client.runWithShellFallback(newWindowArgs(sessionName, win), "")
 	if err != nil {
@@ -679,7 +719,8 @@ func (client *Client) capturePanes(name string, window *snapshot.Window) error {
 			"#{pane_pid}"+fieldSep+
 			"#{pane_tty}"+fieldSep+
 			"#{pane_current_command}"+fieldSep+
-			"#{pane_current_path}",
+			"#{pane_current_path}"+fieldSep+
+			"#{@codex_thread_id}",
 	)
 	if err != nil {
 		return err
@@ -702,7 +743,7 @@ func (client *Client) capturePanes(name string, window *snapshot.Window) error {
 			CurrentPath: parts[5],
 			RestoreCmd:  strings.TrimSpace(restoreCmd),
 			Scrollback:  nil,
-			Meta:        nil,
+			Meta:        codexSessionMeta(parts[6]),
 		}
 		if pane.IsActive {
 			window.ActivePane = pane.Index
@@ -717,6 +758,15 @@ func (client *Client) capturePanes(name string, window *snapshot.Window) error {
 	)
 
 	return nil
+}
+
+func codexSessionMeta(sessionID string) map[string]string {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return nil
+	}
+
+	return map[string]string{snapshot.CodexSessionIDMetaKey: sessionID}
 }
 
 func (client *Client) populateWindow(
@@ -1290,10 +1340,11 @@ func pickFromCandidates(allProcesses []psProcess) string {
 }
 
 const (
-	windowLineFields  = 4
-	paneLineFields    = 6
-	paneCommandFields = 3
-	psLineFields      = 4
+	windowLineFields   = 4
+	paneLineFields     = 7
+	livePaneLineFields = 3
+	paneCommandFields  = 3
+	psLineFields       = 4
 )
 
 func parsePSLine(line string) (int, int, string, string, bool) {

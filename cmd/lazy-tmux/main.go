@@ -18,27 +18,29 @@ var (
 	errWindowsRequiresFzf      = errors.New(
 		"--windows requires --fzf-engine (the TUI already lists windows)",
 	)
-	errRequiresSession = errors.New("requires --session")
+	errRequiresSession      = errors.New("requires --session")
+	errCodexSessionNotFound = errors.New("codex session not found for pane")
 )
 
 //nolint:gochecknoglobals // test seam: CLI tests stub process exit
 var exitFunc = os.Exit
 
 const (
-	cmdVersion     = "version"
-	cmdSave        = "save"
-	cmdRestore     = "restore"
-	cmdPicker      = "picker"
-	cmdBootstrap   = "bootstrap"
-	cmdDaemon      = "daemon"
-	cmdList        = "list"
-	cmdSetup       = "setup"
-	cmdWakeup      = "wakeup"
-	cmdSleep       = "sleep"
-	cmdForget      = "forget"
-	cmdConfig      = "config"
-	cmdHook        = "hook"
-	cmdClaudeHooks = "claude-hooks"
+	cmdVersion      = "version"
+	cmdSave         = "save"
+	cmdRestore      = "restore"
+	cmdPicker       = "picker"
+	cmdBootstrap    = "bootstrap"
+	cmdDaemon       = "daemon"
+	cmdList         = "list"
+	cmdSetup        = "setup"
+	cmdWakeup       = "wakeup"
+	cmdSleep        = "sleep"
+	cmdForget       = "forget"
+	cmdConfig       = "config"
+	cmdHook         = "hook"
+	cmdClaudeHooks  = "claude-hooks"
+	cmdCodexSession = "codex-session"
 )
 
 const flagHelp = "--help"
@@ -47,39 +49,41 @@ const exitUsage = 2
 
 func commands() map[string]func(args []string, stdout, stderr io.Writer) int {
 	return map[string]func(args []string, stdout, stderr io.Writer) int{
-		cmdVersion:     runVersionCmd,
-		cmdSave:        runSave,
-		cmdRestore:     runRestore,
-		cmdPicker:      runPicker,
-		cmdBootstrap:   runBootstrap,
-		cmdDaemon:      runDaemon,
-		cmdList:        runList,
-		cmdSetup:       runSetup,
-		cmdWakeup:      runWakeup,
-		cmdSleep:       runSleep,
-		cmdForget:      runForget,
-		cmdConfig:      runConfig,
-		cmdHook:        runHook,
-		cmdClaudeHooks: runClaudeHooks,
+		cmdVersion:      runVersionCmd,
+		cmdSave:         runSave,
+		cmdRestore:      runRestore,
+		cmdPicker:       runPicker,
+		cmdBootstrap:    runBootstrap,
+		cmdDaemon:       runDaemon,
+		cmdList:         runList,
+		cmdSetup:        runSetup,
+		cmdWakeup:       runWakeup,
+		cmdSleep:        runSleep,
+		cmdForget:       runForget,
+		cmdConfig:       runConfig,
+		cmdHook:         runHook,
+		cmdClaudeHooks:  runClaudeHooks,
+		cmdCodexSession: runCodexSession,
 	}
 }
 
 func helpFuncs() map[string]func(io.Writer) {
 	return map[string]func(io.Writer){
-		cmdVersion:     versionHelp,
-		cmdSave:        saveHelp,
-		cmdRestore:     restoreHelp,
-		cmdPicker:      pickerHelp,
-		cmdBootstrap:   bootstrapHelp,
-		cmdDaemon:      daemonHelp,
-		cmdList:        listHelp,
-		cmdSetup:       setupHelp,
-		cmdWakeup:      func(w io.Writer) { printSessionHelp(cmdWakeup, true, w) },
-		cmdSleep:       sleepHelp,
-		cmdForget:      func(w io.Writer) { printSessionHelp(cmdForget, false, w) },
-		cmdConfig:      configHelp,
-		cmdHook:        hookHelp,
-		cmdClaudeHooks: claudeHooksHelp,
+		cmdVersion:      versionHelp,
+		cmdSave:         saveHelp,
+		cmdRestore:      restoreHelp,
+		cmdPicker:       pickerHelp,
+		cmdBootstrap:    bootstrapHelp,
+		cmdDaemon:       daemonHelp,
+		cmdList:         listHelp,
+		cmdSetup:        setupHelp,
+		cmdWakeup:       func(w io.Writer) { printSessionHelp(cmdWakeup, true, w) },
+		cmdSleep:        sleepHelp,
+		cmdForget:       func(w io.Writer) { printSessionHelp(cmdForget, false, w) },
+		cmdConfig:       configHelp,
+		cmdHook:         hookHelp,
+		cmdClaudeHooks:  claudeHooksHelp,
+		cmdCodexSession: codexSessionHelp,
 	}
 }
 
@@ -162,6 +166,7 @@ Commands:
   list       List saved sessions
   setup      Print config keybinds for tmux
   config     Generate (gen) or show the config file
+  codex-session  Print the Codex session ID running in a tmux pane
   claude-hooks  Install or remove Claude Code status hooks
   hook       Internal hook entrypoints (used by Claude Code)
   version    Print the version

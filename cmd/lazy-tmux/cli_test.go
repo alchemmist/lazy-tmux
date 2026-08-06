@@ -64,7 +64,7 @@ func TestCLIPerCommandHelp(t *testing.T) {
 
 	for _, cmd := range []string{
 		"save", "restore", "picker", "bootstrap", "daemon",
-		"list", "setup", "wakeup", "sleep", "forget",
+		"list", "setup", "wakeup", "sleep", "forget", "codex-session",
 	} {
 		code, out, _ := run(t, "help", cmd)
 		if code != 0 {

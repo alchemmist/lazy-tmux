@@ -2,7 +2,10 @@ package snapshot
 
 import "time"
 
-const FormatVersion = 1
+const (
+	FormatVersion         = 1
+	CodexSessionIDMetaKey = "codex.session_id"
+)
 
 type SessionSnapshot struct {
 	Version     int       `json:"version"`

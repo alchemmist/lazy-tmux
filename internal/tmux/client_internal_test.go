@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -581,12 +582,53 @@ func TestProcessTreeLinesExcludesUnrelatedProcesses(t *testing.T) {
 	}
 }
 
-type argsRunner struct{ calls [][]string }
+type argsRunner struct {
+	calls [][]string
+	out   string
+}
 
 func (r *argsRunner) runCommand(args ...string) commandResult {
 	r.calls = append(r.calls, args)
 
-	return commandResult{}
+	return commandResult{stdout: r.out}
+}
+
+func TestCapturePane(t *testing.T) {
+	t.Parallel()
+
+	runner := &argsRunner{out: "codex|/workspace|thread-id\n"}
+	client := NewClientWithRunner("tmux", runner)
+
+	got, err := client.CapturePane("%7")
+	if err != nil {
+		t.Fatalf("CapturePane: %v", err)
+	}
+	want := snapshot.Pane{
+		Index:       0,
+		CurrentPath: "/workspace",
+		CurrentCmd:  "codex",
+		RestoreCmd:  "",
+		Scrollback:  nil,
+		IsActive:    true,
+		Meta: map[string]string{
+			snapshot.CodexSessionIDMetaKey: "thread-id",
+		},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("CapturePane() = %#v; want %#v", got, want)
+	}
+
+	wantArgs := []string{
+		"tmux",
+		"display-message",
+		"-p",
+		"-t",
+		"%7",
+		"#{pane_current_command}|#{pane_current_path}|#{@codex_thread_id}",
+	}
+	if len(runner.calls) != 1 || !slices.Equal(runner.calls[0], wantArgs) {
+		t.Fatalf("CapturePane args = %q; want %q", runner.calls, wantArgs)
+	}
 }
 
 func TestCapturePaneScrollbackArgs(t *testing.T) {

@@ -42,6 +42,25 @@ func TestCaptureReturnsNewestMatchingSession(t *testing.T) {
 	}
 }
 
+func TestCapturePrefersActivePaneSession(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	cwd := "/Users/me/code/proj"
+	writeRollout(t, home, "2026/01/03", "newest", cwd, time.Now())
+
+	meta, err := New(home).Capture(snapshot.Pane{
+		CurrentPath: cwd,
+		CurrentCmd:  "codex",
+		Meta: map[string]string{
+			snapshot.CodexSessionIDMetaKey: "active",
+		},
+	})
+	if err != nil || meta[metaSessionID] != "active" {
+		t.Fatalf("Capture() = %v, %v; want active pane session", meta, err)
+	}
+}
+
 func TestMatchesAndRestore(t *testing.T) {
 	t.Parallel()
 

@@ -45,12 +45,23 @@ func (i *Integration) Status(pane snapshot.Pane) (integration.Status, bool) {
 }
 
 func (i *Integration) Capture(pane snapshot.Pane) (map[string]string, error) {
-	sessionID, ok := i.latestSessionID(pane.CurrentPath)
+	sessionID, ok := i.SessionID(pane)
 	if !ok {
 		return map[string]string{}, nil
 	}
 
 	return map[string]string{metaSessionID: sessionID}, nil
+}
+
+func (i *Integration) SessionID(pane snapshot.Pane) (string, bool) {
+	if !i.Matches(pane) {
+		return "", false
+	}
+	if sessionID := strings.TrimSpace(pane.Meta[snapshot.CodexSessionIDMetaKey]); sessionID != "" {
+		return sessionID, true
+	}
+
+	return i.latestSessionID(pane.CurrentPath)
 }
 
 func (i *Integration) RestoreCommand(_ snapshot.Pane, meta map[string]string) string {
