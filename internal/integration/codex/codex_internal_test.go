@@ -3,6 +3,7 @@ package codex
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,7 +11,7 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
-func writeRollout(t *testing.T, home, date, id, cwd string, mod time.Time) {
+func writeRollout(t *testing.T, home, date, id, cwd string, mod time.Time) string {
 	t.Helper()
 	path := filepath.Join(home, "sessions", date, "rollout-"+id+".jsonl")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -22,6 +23,22 @@ func writeRollout(t *testing.T, home, date, id, cwd string, mod time.Time) {
 		t.Fatal(err)
 	}
 	if err := os.Chtimes(path, mod, mod); err != nil {
+		t.Fatal(err)
+	}
+
+	return path
+}
+
+func appendRolloutLine(t *testing.T, path, line string) {
+	t.Helper()
+
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = file.Close() }()
+
+	if _, err := file.WriteString(line + "\n"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -80,16 +97,103 @@ func TestMatchesAndRestore(t *testing.T) {
 	}
 }
 
-func TestStatusReportsWorkingForCodexPane(t *testing.T) {
+func TestStatusFromRolloutLifecycle(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name  string
+		event string
+		want  integration.Status
+	}{
+		{name: "working", event: "task_started", want: integration.StatusWorking},
+		{name: "completed", event: "task_complete", want: integration.StatusAwaitingInput},
+		{name: "aborted", event: "turn_aborted", want: integration.StatusAwaitingInput},
+		{
+			name:  "approval",
+			event: "exec_approval_request",
+			want:  integration.StatusAwaitingDecision,
+		},
+		{name: "input", event: "request_user_input", want: integration.StatusAwaitingInput},
+		{name: "error", event: "error", want: integration.StatusError},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			home := t.TempDir()
+			path := writeRollout(t, home, "2026/01/03", tc.name, "/workspace", time.Now())
+			appendRolloutLine(t, path, `{"type":"event_msg","payload":{"type":"`+tc.event+`"}}`)
+
+			got, ok := New(home).Status(snapshot.Pane{
+				CurrentCmd: "codex",
+				Meta:       map[string]string{snapshot.CodexSessionIDMetaKey: tc.name},
+			})
+			if !ok || got != tc.want {
+				t.Fatalf("Status() = %v, %v; want %v", got, ok, tc.want)
+			}
+		})
+	}
+}
+
+func TestStatusUsesLatestLifecycleEvent(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	path := writeRollout(t, home, "2026/01/03", "active", "/workspace", time.Now())
+	appendRolloutLine(t, path, `{"type":"event_msg","payload":{"type":"task_started"}}`)
+	appendRolloutLine(t, path, `{"type":"event_msg","payload":{"type":"task_complete"}}`)
+
+	got, ok := New(home).Status(snapshot.Pane{
+		CurrentCmd: "codex",
+		Meta:       map[string]string{snapshot.CodexSessionIDMetaKey: "active"},
+	})
+	if !ok || got != integration.StatusAwaitingInput {
+		t.Fatalf("Status() = %v, %v; want awaiting input", got, ok)
+	}
+}
+
+func TestStatusReadsAcrossLargeRolloutTail(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	path := writeRollout(t, home, "2026/01/03", "active", "/workspace", time.Now())
+	appendRolloutLine(t, path, `{"type":"event_msg","payload":{"type":"task_started"}}`)
+	appendRolloutLine(t, path, `{"type":"response_item","payload":{"text":"`+
+		strings.Repeat("x", int(statusReadBlockSize*2))+`"}}`)
+
+	got, ok := New(home).Status(snapshot.Pane{
+		CurrentCmd: "codex",
+		Meta:       map[string]string{snapshot.CodexSessionIDMetaKey: "active"},
+	})
+	if !ok || got != integration.StatusWorking {
+		t.Fatalf("Status() = %v, %v; want working", got, ok)
+	}
+}
+
+func TestStatusWithoutLifecycleIsIdle(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	writeRollout(t, home, "2026/01/03", "idle", "/workspace", time.Now())
+
+	got, ok := New(home).Status(snapshot.Pane{
+		CurrentCmd: "codex",
+		Meta:       map[string]string{snapshot.CodexSessionIDMetaKey: "idle"},
+	})
+	if !ok || got != integration.StatusIdle {
+		t.Fatalf("Status() = %v, %v; want idle", got, ok)
+	}
+}
+
+func TestStatusRejectsNonCodexAndMissingSession(t *testing.T) {
 	t.Parallel()
 
 	i := New(t.TempDir())
 
-	got, ok := i.Status(snapshot.Pane{CurrentCmd: "codex"})
-	if !ok || got != integration.StatusWorking {
-		t.Fatalf("expected working status, got %v ok=%v", got, ok)
+	if _, ok := i.Status(snapshot.Pane{CurrentCmd: "codex"}); ok {
+		t.Fatal("Codex pane without a rollout should not have a status")
 	}
-
 	if _, ok := i.Status(snapshot.Pane{CurrentCmd: "zsh"}); ok {
 		t.Fatal("non-Codex pane should not have a status")
 	}
