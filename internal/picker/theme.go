@@ -144,7 +144,7 @@ func accentForMode(mode actionMode) string {
 func newPickerThemeFor(name, accent string) pickerTheme {
 	border := colBorder
 	text, meta, faint, selBG, selText, errColor := colText, colMeta, colFaint, colSelBg, colSelText, colError
-	statusNew, statusAccent, statusRename := colNew, colAccent, colRename
+	statusNew, statusAccent := colNew, colAccent
 	if name == themeLight {
 		border, text, meta, faint = lightBorder, lightText, lightMeta, lightFaint
 		selBG, selText = lightSelBg, lightSelText
@@ -174,7 +174,7 @@ func newPickerThemeFor(name, accent string) pickerTheme {
 
 		statusWorking:          lipgloss.NewStyle().Foreground(lipgloss.Color(statusNew)),
 		statusAwaitingDecision: lipgloss.NewStyle().Foreground(lipgloss.Color(statusAccent)),
-		statusAwaitingInput:    lipgloss.NewStyle().Foreground(lipgloss.Color(statusRename)),
+		statusAwaitingInput:    lipgloss.NewStyle().Foreground(lipgloss.Color(faint)),
 		statusIdle:             lipgloss.NewStyle().Foreground(lipgloss.Color(faint)),
 		statusError:            lipgloss.NewStyle().Foreground(lipgloss.Color(errColor)),
 		selBg:                  selBG,
