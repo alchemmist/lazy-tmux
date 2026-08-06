@@ -65,10 +65,10 @@ type pickerTheme struct {
 
 const (
 	glyphWorking          = "●"
-	glyphAwaitingDecision = "?"
-	glyphAwaitingInput    = "◌"
+	glyphAwaitingDecision = "●"
+	glyphAwaitingInput    = "●"
 	glyphIdle             = "○"
-	glyphError            = "✕"
+	glyphError            = "×"
 )
 
 //nolint:gochecknoglobals // static spinner frame table, never mutated
