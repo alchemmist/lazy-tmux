@@ -682,6 +682,38 @@ func TestFilteredTreeRowsAndTable(t *testing.T) {
 	}
 }
 
+func TestFilteredTreeRowsRanksExactWindowFirst(t *testing.T) {
+	t.Parallel()
+
+	sessions := []Session{
+		makeSession("arcadia-turbo", true, "codex", "code"),
+		makeSession("arcadia", true, "pilot", "code"),
+		makeSession("monori", true, "CI"),
+	}
+
+	rows := filteredTreeRows(sessions, "ci", DefaultSortOptions().Window, 0)
+	if len(rows) < 2 {
+		t.Fatalf("expected exact match rows, got %d", len(rows))
+	}
+	if rows[0].target.SessionName != "monori" {
+		t.Fatalf("exact window session should rank first, got %q", rows[0].target.SessionName)
+	}
+	if rows[1].windowName != "CI" {
+		t.Fatalf("exact window should rank first, got %q", rows[1].windowName)
+	}
+}
+
+func TestFilteredTreeRowsRanksMatchingWindowWithinSession(t *testing.T) {
+	t.Parallel()
+
+	sessions := []Session{makeSession("project", true, "shell", "codex", "code")}
+	rows := filteredTreeRows(sessions, "codex", DefaultSortOptions().Window, 0)
+
+	if len(rows) < 2 || rows[1].windowName != "codex" {
+		t.Fatalf("expected exact matching window first, got %+v", rows)
+	}
+}
+
 //nolint:paralleltest // stubs the package-level newPickerRunner seam
 func TestChooseTargetSuccess(
 	t *testing.T,

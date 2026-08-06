@@ -11,12 +11,39 @@ func TestFuzzyMatch(t *testing.T) {
 		t.Fatal("expected subsequence match")
 	}
 
-	if fuzzyMatch("abc", "acb") {
-		t.Fatal("expected order-sensitive non-match")
+	if !fuzzyMatch("abc", "acb") {
+		t.Fatal("expected transposed letters to match")
+	}
+
+	if fuzzyMatch("abc", "cab") {
+		t.Fatal("expected unrelated ordering not to match")
 	}
 
 	if !fuzzyMatch("", "anything") {
 		t.Fatal("empty query matches everything")
+	}
+}
+
+func TestFuzzyScorePrioritizesStrongMatches(t *testing.T) {
+	t.Parallel()
+
+	exact, _ := fuzzyScore("ci", "ci")
+	prefix, _ := fuzzyScore("ci", "ci-tools")
+	substring, _ := fuzzyScore("ci", "my-ci-tools")
+	subsequence, _ := fuzzyScore("ci", "codex integration")
+
+	if exact <= prefix || prefix <= substring || substring <= subsequence {
+		t.Fatalf(
+			"unexpected score order: exact=%d prefix=%d substring=%d subsequence=%d",
+			exact,
+			prefix,
+			substring,
+			subsequence,
+		)
+	}
+
+	if _, ok := fuzzyScore("codxe", "codex"); !ok {
+		t.Fatal("expected a transposition typo to match")
 	}
 }
 
