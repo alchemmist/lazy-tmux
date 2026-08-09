@@ -21,6 +21,7 @@ func keyRune(r rune) tea.KeyPressMsg {
 func keyCode(code rune) tea.KeyPressMsg { return tea.KeyPressMsg{Code: code} }
 func keyCtrl(r rune) tea.KeyPressMsg    { return tea.KeyPressMsg{Code: r, Mod: tea.ModCtrl} }
 func keyAlt(r rune) tea.KeyPressMsg     { return tea.KeyPressMsg{Code: r, Mod: tea.ModAlt} }
+func keySuper(r rune) tea.KeyPressMsg   { return tea.KeyPressMsg{Code: r, Mod: tea.ModSuper} }
 
 func feed(t *testing.T, m pickerModel, msg tea.Msg) pickerModel {
 	t.Helper()
@@ -271,6 +272,53 @@ func TestModelNavigationAndSelect(t *testing.T) {
 	if m.selected.SessionName != "alpha" || m.selected.WindowIndex == nil ||
 		*m.selected.WindowIndex != 2 {
 		t.Fatalf("enter should select alpha window 2, got %+v", m.selected)
+	}
+}
+
+func TestModelJumpToFirstVisibleWindowByIndex(t *testing.T) {
+	t.Parallel()
+
+	rec := &recordingActions{}
+	m := newTestModel(t, rec,
+		makeSession("alpha", false, "one", "needle"),
+		makeSession("beta", true, "needle", "three"),
+	)
+
+	for _, r := range "needle" {
+		m = feed(t, m, keyRune(r))
+	}
+	m = feed(t, m, keyCtrl('1'))
+
+	if m.visible[m.cursor].target.SessionName != "beta" ||
+		m.visible[m.cursor].target.WindowIndex == nil ||
+		*m.visible[m.cursor].target.WindowIndex != 1 {
+		t.Fatalf("ctrl+1 should jump to beta window 1, got cursor=%d row=%+v", m.cursor, m.visible[m.cursor])
+	}
+}
+
+func TestModelJumpToWindowSupportsCommandModifier(t *testing.T) {
+	t.Parallel()
+
+	rec := &recordingActions{}
+	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two"))
+	m = feed(t, m, keySuper('2'))
+
+	if m.visible[m.cursor].target.WindowIndex == nil || *m.visible[m.cursor].target.WindowIndex != 2 {
+		t.Fatalf("command+2 should jump to window 2, got cursor=%d row=%+v", m.cursor, m.visible[m.cursor])
+	}
+}
+
+func TestModelJumpToMissingWindowDoesNothing(t *testing.T) {
+	t.Parallel()
+
+	rec := &recordingActions{}
+	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two"))
+	m.cursor = 2
+	before := m.cursor
+	m = feed(t, m, keyCtrl('9'))
+
+	if m.cursor != before {
+		t.Fatalf("missing window index should keep cursor at %d, got %d", before, m.cursor)
 	}
 }
 

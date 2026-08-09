@@ -524,7 +524,7 @@ func (m pickerModel) helpHints() string {
 		pairs = []hint{{"any key", "close help"}}
 	default:
 		pairs = []hint{
-			{"↵", "select"}, hintMove, {"/", "commands"}, {"?", "help"}, {keyEsc, "quit"},
+			{"↵", "select"}, hintMove, {"⌘/ctrl+digit", "jump"}, {"/", "commands"}, {"?", "help"}, {keyEsc, "quit"},
 		}
 	}
 
@@ -547,6 +547,14 @@ func (m pickerModel) helpHints() string {
 }
 
 func (m pickerModel) handleBrowseKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
+	if windowIndex, ok := windowJumpIndex(msg); ok {
+		if m.jumpToWindow(windowIndex) {
+			m.renderViewport()
+		}
+
+		return m, nil, true
+	}
+
 	switch msg.String() {
 	case keyCtrlC, "ctrl+q", keyEsc:
 		m.cancelled = true
@@ -584,6 +592,30 @@ func (m pickerModel) handleBrowseKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, b
 	}
 
 	return m, nil, false
+}
+
+func windowJumpIndex(msg tea.KeyPressMsg) (int, bool) {
+	if msg.Mod&(tea.ModCtrl|tea.ModMeta|tea.ModSuper) == 0 ||
+		msg.Code < '0' || msg.Code > '9' {
+		return 0, false
+	}
+
+	return int(msg.Code - '0'), true
+}
+
+func (m *pickerModel) jumpToWindow(index int) bool {
+	for rowIndex, row := range m.visible {
+		if row.target.WindowIndex == nil || *row.target.WindowIndex != index {
+			continue
+		}
+
+		m.cursor = rowIndex
+		m.ensureCursorVisible()
+
+		return true
+	}
+
+	return false
 }
 
 func (m *pickerModel) applyActionResult(err error) {
