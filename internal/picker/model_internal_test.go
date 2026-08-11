@@ -292,7 +292,11 @@ func TestModelJumpToFirstVisibleWindowByIndex(t *testing.T) {
 	if m.visible[m.cursor].target.SessionName != "beta" ||
 		m.visible[m.cursor].target.WindowIndex == nil ||
 		*m.visible[m.cursor].target.WindowIndex != 1 {
-		t.Fatalf("ctrl+1 should jump to beta window 1, got cursor=%d row=%+v", m.cursor, m.visible[m.cursor])
+		t.Fatalf(
+			"ctrl+1 should jump to beta window 1, got cursor=%d row=%+v",
+			m.cursor,
+			m.visible[m.cursor],
+		)
 	}
 }
 
@@ -303,8 +307,13 @@ func TestModelJumpToWindowSupportsCommandModifier(t *testing.T) {
 	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two"))
 	m = feed(t, m, keySuper('2'))
 
-	if m.visible[m.cursor].target.WindowIndex == nil || *m.visible[m.cursor].target.WindowIndex != 2 {
-		t.Fatalf("command+2 should jump to window 2, got cursor=%d row=%+v", m.cursor, m.visible[m.cursor])
+	if m.visible[m.cursor].target.WindowIndex == nil ||
+		*m.visible[m.cursor].target.WindowIndex != 2 {
+		t.Fatalf(
+			"command+2 should jump to window 2, got cursor=%d row=%+v",
+			m.cursor,
+			m.visible[m.cursor],
+		)
 	}
 }
 

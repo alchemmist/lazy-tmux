@@ -524,7 +524,15 @@ func (m pickerModel) helpHints() string {
 		pairs = []hint{{"any key", "close help"}}
 	default:
 		pairs = []hint{
-			{"↵", "select"}, hintMove, {"⌘/ctrl+digit", "jump"}, {"/", "commands"}, {"?", "help"}, {keyEsc, "quit"},
+			{
+				"↵",
+				"select",
+			},
+			hintMove,
+			{"⌘/ctrl+digit", "jump"},
+			{"/", "commands"},
+			{"?", "help"},
+			{keyEsc, "quit"},
 		}
 	}
 
