@@ -603,12 +603,18 @@ func (m pickerModel) handleBrowseKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, b
 }
 
 func windowJumpIndex(msg tea.KeyPressMsg) (int, bool) {
-	if msg.Mod&(tea.ModCtrl|tea.ModMeta|tea.ModSuper) == 0 ||
-		msg.Code < '0' || msg.Code > '9' {
+	if msg.Mod&(tea.ModCtrl|tea.ModMeta|tea.ModSuper) == 0 {
 		return 0, false
 	}
 
-	return int(msg.Code - '0'), true
+	switch {
+	case msg.Code >= '0' && msg.Code <= '9':
+		return int(msg.Code - '0'), true
+	case msg.Code >= tea.KeyKp0 && msg.Code <= tea.KeyKp9:
+		return int(msg.Code - tea.KeyKp0), true
+	default:
+		return 0, false
+	}
 }
 
 func (m *pickerModel) jumpToWindow(index int) bool {
