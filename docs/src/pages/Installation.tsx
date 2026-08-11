@@ -39,11 +39,12 @@ export function Installation() {
           curl -fsSL https://lazy-tmux.xyz/install.sh | sh -s -- --fzf-engine
         </CodeBlock>
 
-        <p>Or use your package manager. Arch:</p>
+        <p>Or use your package manager.</p>
+        <p>Arch:</p>
         <CodeBlock>yay -S lazy-tmux</CodeBlock>
 
-        <p>MacOS (Homebrew):</p>
-        <CodeBlock>brew install alchemmist/tap/lazy-tmux</CodeBlock>
+        <p>macOS (Homebrew):</p>
+        <CodeBlock>brew install lazy-tmux</CodeBlock>
       </section>
     </>
   );
