@@ -335,6 +335,24 @@ func TestModelJumpToWindowSupportsCommandKeypadDigit(t *testing.T) {
 	}
 }
 
+func TestModelJumpToWindowSupportsTerminalDigitFallback(t *testing.T) {
+	t.Parallel()
+
+	rec := &recordingActions{}
+	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two"))
+	m.cursor = 2
+	m = feed(t, m, tea.KeyPressMsg{BaseCode: '1', Mod: tea.ModAlt})
+
+	if m.visible[m.cursor].target.WindowIndex == nil ||
+		*m.visible[m.cursor].target.WindowIndex != 1 {
+		t.Fatalf(
+			"terminal digit fallback should jump to window 1, got cursor=%d row=%+v",
+			m.cursor,
+			m.visible[m.cursor],
+		)
+	}
+}
+
 func TestModelJumpToMissingWindowDoesNothing(t *testing.T) {
 	t.Parallel()
 
