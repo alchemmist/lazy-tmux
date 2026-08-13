@@ -298,6 +298,10 @@ func TestModelJumpToFirstVisibleWindowByIndex(t *testing.T) {
 			m.visible[m.cursor],
 		)
 	}
+	if m.selected.SessionName != "beta" || m.selected.WindowIndex == nil ||
+		*m.selected.WindowIndex != 1 {
+		t.Fatalf("alt+1 should select beta window 1, got %+v", m.selected)
+	}
 }
 
 func TestModelJumpToWindowSupportsAltModifier(t *testing.T) {

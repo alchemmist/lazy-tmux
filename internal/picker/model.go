@@ -557,7 +557,9 @@ func (m pickerModel) helpHints() string {
 func (m pickerModel) handleBrowseKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 	if windowIndex, ok := windowJumpIndex(msg); ok {
 		if m.jumpToWindow(windowIndex) {
-			m.renderViewport()
+			m.selected = m.visible[m.cursor].target
+
+			return m, tea.Quit, true
 		}
 
 		return m, nil, true
