@@ -287,48 +287,48 @@ func TestModelJumpToFirstVisibleWindowByIndex(t *testing.T) {
 	for _, r := range "needle" {
 		m = feed(t, m, keyRune(r))
 	}
-	m = feed(t, m, keyCtrl('1'))
+	m = feed(t, m, keyAlt('1'))
 
 	if m.visible[m.cursor].target.SessionName != "beta" ||
 		m.visible[m.cursor].target.WindowIndex == nil ||
 		*m.visible[m.cursor].target.WindowIndex != 1 {
 		t.Fatalf(
-			"ctrl+1 should jump to beta window 1, got cursor=%d row=%+v",
+			"alt+1 should jump to beta window 1, got cursor=%d row=%+v",
 			m.cursor,
 			m.visible[m.cursor],
 		)
 	}
 }
 
-func TestModelJumpToWindowSupportsCommandModifier(t *testing.T) {
+func TestModelJumpToWindowSupportsAltModifier(t *testing.T) {
 	t.Parallel()
 
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two"))
-	m = feed(t, m, keySuper('2'))
+	m = feed(t, m, keyAlt('2'))
 
 	if m.visible[m.cursor].target.WindowIndex == nil ||
 		*m.visible[m.cursor].target.WindowIndex != 2 {
 		t.Fatalf(
-			"command+2 should jump to window 2, got cursor=%d row=%+v",
+			"alt+2 should jump to window 2, got cursor=%d row=%+v",
 			m.cursor,
 			m.visible[m.cursor],
 		)
 	}
 }
 
-func TestModelJumpToWindowSupportsCommandKeypadDigit(t *testing.T) {
+func TestModelJumpToWindowSupportsAltKeypadDigit(t *testing.T) {
 	t.Parallel()
 
 	rec := &recordingActions{}
 	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two"))
 	m.cursor = 2
-	m = feed(t, m, tea.KeyPressMsg{Code: tea.KeyKp1, Mod: tea.ModSuper})
+	m = feed(t, m, tea.KeyPressMsg{Code: tea.KeyKp1, Mod: tea.ModAlt})
 
 	if m.visible[m.cursor].target.WindowIndex == nil ||
 		*m.visible[m.cursor].target.WindowIndex != 1 {
 		t.Fatalf(
-			"command+keypad 1 should jump to window 1, got cursor=%d row=%+v",
+			"alt+keypad 1 should jump to window 1, got cursor=%d row=%+v",
 			m.cursor,
 			m.visible[m.cursor],
 		)
@@ -353,6 +353,16 @@ func TestModelJumpToWindowSupportsTerminalDigitFallback(t *testing.T) {
 	}
 }
 
+func TestModelJumpToWindowIgnoresNonAltModifiers(t *testing.T) {
+	t.Parallel()
+
+	for _, mod := range []tea.KeyMod{tea.ModCtrl, tea.ModMeta, tea.ModSuper} {
+		if _, ok := windowJumpIndex(tea.KeyPressMsg{Code: '1', Mod: mod}); ok {
+			t.Fatalf("modifier %v should not trigger a window jump", mod)
+		}
+	}
+}
+
 func TestModelJumpToMissingWindowDoesNothing(t *testing.T) {
 	t.Parallel()
 
@@ -360,7 +370,7 @@ func TestModelJumpToMissingWindowDoesNothing(t *testing.T) {
 	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two"))
 	m.cursor = 2
 	before := m.cursor
-	m = feed(t, m, keyCtrl('9'))
+	m = feed(t, m, keyAlt('9'))
 
 	if m.cursor != before {
 		t.Fatalf("missing window index should keep cursor at %d, got %d", before, m.cursor)

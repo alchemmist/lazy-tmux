@@ -529,7 +529,7 @@ func (m pickerModel) helpHints() string {
 				"select",
 			},
 			hintMove,
-			{"⌘/ctrl+digit", "jump"},
+			{"option/alt+digit", "jump"},
 			{"/", "commands"},
 			{"?", "help"},
 			{keyEsc, "quit"},
@@ -603,7 +603,7 @@ func (m pickerModel) handleBrowseKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, b
 }
 
 func windowJumpIndex(msg tea.KeyPressMsg) (int, bool) {
-	if msg.Mod&(tea.ModAlt|tea.ModCtrl|tea.ModMeta|tea.ModSuper) == 0 {
+	if msg.Mod&tea.ModAlt == 0 {
 		return 0, false
 	}
 
