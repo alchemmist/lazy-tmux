@@ -21,7 +21,6 @@ func keyRune(r rune) tea.KeyPressMsg {
 func keyCode(code rune) tea.KeyPressMsg { return tea.KeyPressMsg{Code: code} }
 func keyCtrl(r rune) tea.KeyPressMsg    { return tea.KeyPressMsg{Code: r, Mod: tea.ModCtrl} }
 func keyAlt(r rune) tea.KeyPressMsg     { return tea.KeyPressMsg{Code: r, Mod: tea.ModAlt} }
-func keySuper(r rune) tea.KeyPressMsg   { return tea.KeyPressMsg{Code: r, Mod: tea.ModSuper} }
 
 func feed(t *testing.T, m pickerModel, msg tea.Msg) pickerModel {
 	t.Helper()
