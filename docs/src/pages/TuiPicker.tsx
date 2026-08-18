@@ -27,6 +27,11 @@ const KEYS: { key: ReactNode; action: ReactNode }[] = [
     action: "Restore the selected target — or, inside a mode, perform that mode's action.",
   },
   {
+    key: <InlineCode>{"<Option/Alt-1..9>"}</InlineCode>,
+    action:
+      "Immediately restore the first matching window with that tmux index in the current search results.",
+  },
+  {
     key: <InlineCode>Esc</InlineCode>,
     action: "Cancel the active mode and return to browse; in browse mode, close the picker.",
   },
