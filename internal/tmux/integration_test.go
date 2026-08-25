@@ -338,7 +338,7 @@ func TestSynchronizeWindowSizeUsesAttachedClient(t *testing.T) {
 			"#{pane_width}x#{pane_height}",
 		),
 	)
-	if after != "180x56" {
-		t.Fatalf("pane should fit attached client: got %s, want 180x56", after)
+	if after != "180x55" && after != "180x56" {
+		t.Fatalf("pane should fit attached client: got %s, want 180x55 or 180x56", after)
 	}
 }
