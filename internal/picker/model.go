@@ -656,7 +656,6 @@ func (m *pickerModel) enterMode(mode actionMode) {
 	m.palette = false
 	m.paletteIdx = 0
 	m.marked = make(map[string]struct{})
-	m.queryInput.SetValue("")
 	m.theme = newPickerThemeFor(m.themeName, accentForMode(mode))
 	m.resize()
 	m.applyFilter()
@@ -741,7 +740,6 @@ func (m *pickerModel) exitMode() {
 	m.palette = false
 	m.paletteIdx = 0
 	m.marked = make(map[string]struct{})
-	m.queryInput.SetValue("")
 	m.theme = newPickerThemeFor(m.themeName, colAccent)
 	m.cursor = 0
 	m.resize()
@@ -797,6 +795,7 @@ func (m pickerModel) handlePaletteKey(msg tea.KeyPressMsg) (tea.Model, bool) {
 
 				return m, true
 			}
+			m.queryInput.SetValue("")
 			m.enterMode(matches[m.paletteIdx].mode)
 			m.renderViewport()
 		}
