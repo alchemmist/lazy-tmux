@@ -719,6 +719,25 @@ func TestInsideTmux(t *testing.T) {
 	}
 }
 
+func TestSynchronizeWindowSize(t *testing.T) {
+	t.Parallel()
+
+	runner := &argsRunner{}
+	client := NewClientWithRunner("tmux", runner)
+
+	if err := client.SynchronizeWindowSize("proj:2"); err != nil {
+		t.Fatalf("SynchronizeWindowSize: %v", err)
+	}
+
+	want := [][]string{
+		{"tmux", "resize-window", "-A", "-t", "=proj:2"},
+		{"tmux", "set-option", "-wu", "-t", "=proj:2", "window-size"},
+	}
+	if !reflect.DeepEqual(runner.calls, want) {
+		t.Fatalf("SynchronizeWindowSize calls = %q; want %q", runner.calls, want)
+	}
+}
+
 //nolint:paralleltest // stubs the package-level attachExec/hasControllingTTY seams
 func TestAttachSessionExecsTmux(
 	t *testing.T,

@@ -2,8 +2,11 @@ package tmux_test
 
 import (
 	"context"
+	"io"
+	"os/exec"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 	"github.com/alchemmist/lazy-tmux/internal/testutil"
@@ -249,5 +252,95 @@ func TestRestoreHonorsRecordedFocus(
 
 	if got := activeWindowIndex(t, name); got != "2" {
 		t.Fatalf("expected recorded window 2 focused, got %q", got)
+	}
+}
+
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
+func TestSynchronizeWindowSizeUsesAttachedClient(t *testing.T) {
+	testutil.IsolatedTmux(t)
+
+	client := tmux.NewClient("tmux")
+	testutil.Tmux(t, "set-option", "-g", "window-size", "manual")
+	testutil.Tmux(t, "new-session", "-d", "-s", "restored", "-x", "80", "-y", "24")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	control := exec.CommandContext(ctx, "tmux", "-C", "attach-session", "-t", "=restored")
+	control.Stdout = io.Discard
+	control.Stderr = io.Discard
+	stdin, err := control.StdinPipe()
+	if err != nil {
+		cancel()
+		t.Fatalf("control client stdin: %v", err)
+	}
+	if err = control.Start(); err != nil {
+		cancel()
+		t.Fatalf("start control client: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = stdin.Close()
+		cancel()
+		_ = control.Wait()
+	})
+
+	clientName := ""
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		out, listErr := testutil.TmuxTry(
+			"list-clients",
+			"-F",
+			"#{client_name}|#{session_name}",
+		)
+		if listErr == nil {
+			for line := range strings.SplitSeq(strings.TrimSpace(out), "\n") {
+				fields := strings.Split(line, "|")
+				if len(fields) == 2 && fields[1] == "restored" {
+					clientName = fields[0]
+
+					break
+				}
+			}
+		}
+		if clientName != "" {
+			break
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	if clientName == "" {
+		t.Fatal("control client did not attach")
+	}
+	if _, err = testutil.TmuxTry("refresh-client", "-t", clientName, "-C", "180x56"); err != nil {
+		testutil.Tmux(t, "refresh-client", "-t", clientName, "-C", "180,56")
+	}
+
+	before := strings.TrimSpace(
+		testutil.Tmux(
+			t,
+			"display-message",
+			"-p",
+			"-t",
+			"=restored:0.0",
+			"#{pane_width}x#{pane_height}",
+		),
+	)
+	if before != "80x23" && before != "80x24" {
+		t.Fatalf("fixture must start undersized: got %s, want 80x23 or 80x24", before)
+	}
+
+	if err := client.SynchronizeWindowSize("restored:0"); err != nil {
+		t.Fatalf("synchronize window size: %v", err)
+	}
+
+	after := strings.TrimSpace(
+		testutil.Tmux(
+			t,
+			"display-message",
+			"-p",
+			"-t",
+			"=restored:0.0",
+			"#{pane_width}x#{pane_height}",
+		),
+	)
+	if after != "180x55" && after != "180x56" {
+		t.Fatalf("pane should fit attached client: got %s, want 180x55 or 180x56", after)
 	}
 }
