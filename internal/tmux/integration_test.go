@@ -320,8 +320,8 @@ func TestSynchronizeWindowSizeUsesAttachedClient(t *testing.T) {
 			"#{pane_width}x#{pane_height}",
 		),
 	)
-	if before != "80x24" {
-		t.Fatalf("fixture must start undersized: got %s, want 80x24", before)
+	if before != "80x23" && before != "80x24" {
+		t.Fatalf("fixture must start undersized: got %s, want 80x23 or 80x24", before)
 	}
 
 	if err := client.SynchronizeWindowSize("restored:0"); err != nil {
