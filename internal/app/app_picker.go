@@ -163,7 +163,7 @@ func (a *App) RestoreTargetAnimated(target PickerTarget) (bool, error) {
 		log.Printf("lazy-tmux: restore animation: %v", animErr)
 	}
 
-	return false, a.handoffToTarget(target, true)
+	return false, a.handoffToTarget(target, true, !preExisted)
 }
 
 func (a *App) killPartialRestore(session string) {
@@ -179,12 +179,13 @@ func (a *App) killPartialRestore(session string) {
 }
 
 func (a *App) RestoreTargetInteractive(target PickerTarget) error {
+	preExisted := a.tmux.SessionExists(strings.TrimSpace(target.SessionName))
 	err := a.restoreSessionForTarget(context.Background(), target)
 	if err != nil {
 		return err
 	}
 
-	return a.handoffToTarget(target, true)
+	return a.handoffToTarget(target, true, !preExisted)
 }
 
 func (a *App) SelectTargetWithTUI() (PickerTarget, error) {
