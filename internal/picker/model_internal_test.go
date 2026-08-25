@@ -402,6 +402,55 @@ func TestModelFilter(t *testing.T) {
 	}
 }
 
+func TestModelActionModePreservesFilter(t *testing.T) {
+	t.Parallel()
+
+	rec := &recordingActions{}
+	m := newTestModel(t, rec,
+		makeSession("alpha", false, "one"),
+		makeSession("beta", false, "two"),
+	)
+
+	m = feed(t, m, keyRune('b'))
+	wantRows := append([]pickerRow(nil), m.visible...)
+	m = feed(t, m, keyAlt('d'))
+
+	if got := m.queryInput.Value(); got != "b" {
+		t.Fatalf("alt+d should preserve query %q, got %q", "b", got)
+	}
+	if !sameVisibleTargets(m.visible, wantRows) {
+		t.Fatalf("alt+d should preserve filtered rows, got %+v, want %+v", m.visible, wantRows)
+	}
+
+	m = feed(t, m, keyCode(tea.KeyEscape))
+	if got := m.queryInput.Value(); got != "b" {
+		t.Fatalf("exiting delete mode should restore query %q, got %q", "b", got)
+	}
+}
+
+func sameVisibleTargets(got, want []pickerRow) bool {
+	if len(got) != len(want) {
+		return false
+	}
+
+	for i := range got {
+		if got[i].target.SessionName != want[i].target.SessionName ||
+			!sameWindowIndex(got[i].target.WindowIndex, want[i].target.WindowIndex) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func sameWindowIndex(got, want *int) bool {
+	if got == nil || want == nil {
+		return got == want
+	}
+
+	return *got == *want
+}
+
 func TestModelEscCancels(t *testing.T) {
 	t.Parallel()
 

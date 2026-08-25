@@ -46,6 +46,7 @@ type tmuxSessionCapturer interface {
 type tmuxSessionRestorer interface {
 	RestoreSession(ctx context.Context, snap snapshot.SessionSnapshot) error
 	SwitchClient(target string) error
+	SynchronizeWindowSize(target string) error
 	AttachSession(target string) error
 	InsideTmux() bool
 }
@@ -163,13 +164,14 @@ func (a *App) Restore(session string, switchClient bool) error {
 }
 
 func (a *App) RestoreTarget(target PickerTarget, switchClient bool) error {
+	preExisted := a.tmux.SessionExists(strings.TrimSpace(target.SessionName))
 	err := a.restoreSessionForTarget(context.Background(), target)
 	if err != nil {
 		return err
 	}
 
 	if switchClient {
-		return a.handoffToTarget(target, false)
+		return a.handoffToTarget(target, false, !preExisted)
 	}
 
 	return nil
@@ -226,7 +228,11 @@ func (a *App) restoreSessionForTarget(ctx context.Context, target PickerTarget) 
 	return nil
 }
 
-func (a *App) handoffToTarget(target PickerTarget, allowAttach bool) error {
+func (a *App) handoffToTarget(
+	target PickerTarget,
+	allowAttach bool,
+	synchronizeSize bool,
+) error {
 	session := strings.TrimSpace(target.SessionName)
 
 	switchTarget := session
@@ -238,6 +244,12 @@ func (a *App) handoffToTarget(target PickerTarget, allowAttach bool) error {
 		err := a.tmux.SwitchClient(switchTarget)
 		if err != nil {
 			return fmt.Errorf("switch client: %w", err)
+		}
+		if synchronizeSize {
+			err = a.tmux.SynchronizeWindowSize(switchTarget)
+			if err != nil {
+				return fmt.Errorf("synchronize window size: %w", err)
+			}
 		}
 
 		return nil
