@@ -16,14 +16,17 @@ type recordingTmux struct {
 	tmuxClient
 
 	inside   bool
+	exists   bool
 	switched string
+	synced   string
 	attached string
 }
 
 func (r *recordingTmux) RestoreSession(context.Context, snapshot.SessionSnapshot) error {
 	return nil
 }
-func (r *recordingTmux) InsideTmux() bool { return r.inside }
+func (r *recordingTmux) InsideTmux() bool          { return r.inside }
+func (r *recordingTmux) SessionExists(string) bool { return r.exists }
 
 func (r *recordingTmux) SwitchClient(
 	target string,
@@ -41,6 +44,12 @@ func (r *recordingTmux) AttachSession(
 	return nil
 }
 
+func (r *recordingTmux) SynchronizeWindowSize(target string) error {
+	r.synced = target
+
+	return nil
+}
+
 func TestRestoreTargetHandsOff(t *testing.T) {
 	t.Parallel()
 
@@ -52,10 +61,19 @@ func TestRestoreTargetHandsOff(t *testing.T) {
 		inside       bool
 		windowIndex  *int
 		wantSwitched string
+		wantSynced   string
 		wantAttached string
+		exists       bool
 	}{
-		{name: "cli inside tmux switches", inside: true, wantSwitched: "s1"},
-		{name: "picker inside tmux switches", interactive: true, inside: true, wantSwitched: "s1"},
+		{name: "cli inside tmux switches", inside: true, wantSwitched: "s1", wantSynced: "s1"},
+		{
+			name:         "picker inside tmux switches",
+			interactive:  true,
+			inside:       true,
+			wantSwitched: "s1",
+			wantSynced:   "s1",
+		},
+		{name: "live session keeps its size mode", inside: true, exists: true, wantSwitched: "s1"},
 
 		{name: "cli outside tmux does not attach", inside: false},
 		{
@@ -83,7 +101,7 @@ func TestRestoreTargetHandsOff(t *testing.T) {
 				t.Fatalf("save snapshot: %v", err)
 			}
 
-			fake := &recordingTmux{inside: tc.inside}
+			fake := &recordingTmux{inside: tc.inside, exists: tc.exists}
 			a.tmux = fake
 
 			target := PickerTarget{SessionName: "s1", WindowIndex: tc.windowIndex}
@@ -101,6 +119,9 @@ func TestRestoreTargetHandsOff(t *testing.T) {
 
 			if fake.switched != tc.wantSwitched {
 				t.Fatalf("switched = %q, want %q", fake.switched, tc.wantSwitched)
+			}
+			if fake.synced != tc.wantSynced {
+				t.Fatalf("synced = %q, want %q", fake.synced, tc.wantSynced)
 			}
 
 			if fake.attached != tc.wantAttached {
