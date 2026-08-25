@@ -3,8 +3,10 @@ FROM golang:1.27
 ENV PATH=/usr/local/go/bin:/go/bin:$PATH
 ENV ENABLE_INTEGRATION_TESTS=true
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends tmux fzf && \
+COPY docker/install-tmux.sh /tmp/install-tmux.sh
+RUN TMUX_VERSION=3.7b sh /tmp/install-tmux.sh && \
+    rm /tmp/install-tmux.sh && \
+    apt-get install -y --no-install-recommends fzf && \
     rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -s /bin/bash appuser && \
