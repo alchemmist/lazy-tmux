@@ -6,7 +6,7 @@
 # review (not a released binary) and does not depend on lazy-tmux.xyz being up.
 
 # --- build stage: compile lazy-tmux from source ---
-FROM golang:1.26 AS build
+FROM golang:1.27 AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
