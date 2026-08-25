@@ -71,7 +71,7 @@ release-major:
 
 setup-env:
 	go install gotest.tools/gotestsum@v1.13.0
-	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 	go install github.com/vladopajic/go-test-coverage/v2@v2.18.4
 
 docker-hub:

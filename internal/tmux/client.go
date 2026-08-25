@@ -321,6 +321,18 @@ func (client *Client) SwitchClient(session string) error {
 	return err
 }
 
+func (client *Client) SynchronizeWindowSize(target string) error {
+	tmuxTarget := sessionTarget(target)
+	_, err := client.Output("resize-window", "-A", "-t", tmuxTarget)
+	if err != nil {
+		return err
+	}
+
+	_, err = client.Output("set-option", "-wu", "-t", tmuxTarget, "window-size")
+
+	return err
+}
+
 func (client *Client) InsideTmux() bool {
 	return strings.TrimSpace(os.Getenv("TMUX")) != ""
 }
