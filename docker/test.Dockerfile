@@ -1,4 +1,4 @@
-FROM golang:1.26
+FROM golang:1.27
 
 ENV PATH=/usr/local/go/bin:/go/bin:$PATH
 ENV ENABLE_INTEGRATION_TESTS=true
