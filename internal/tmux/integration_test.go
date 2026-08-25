@@ -308,7 +308,9 @@ func TestSynchronizeWindowSizeUsesAttachedClient(t *testing.T) {
 	if clientName == "" {
 		t.Fatal("control client did not attach")
 	}
-	testutil.Tmux(t, "refresh-client", "-t", clientName, "-C", "180x56")
+	if _, err = testutil.TmuxTry("refresh-client", "-t", clientName, "-C", "180x56"); err != nil {
+		testutil.Tmux(t, "refresh-client", "-t", clientName, "-C", "180,56")
+	}
 
 	before := strings.TrimSpace(
 		testutil.Tmux(
