@@ -288,12 +288,12 @@ func TestSynchronizeWindowSizeUsesAttachedClient(t *testing.T) {
 		out, listErr := testutil.TmuxTry(
 			"list-clients",
 			"-F",
-			"#{client_name}|#{client_control_mode}|#{session_name}",
+			"#{client_name}|#{session_name}",
 		)
 		if listErr == nil {
 			for line := range strings.SplitSeq(strings.TrimSpace(out), "\n") {
 				fields := strings.Split(line, "|")
-				if len(fields) == 3 && fields[1] == "1" && fields[2] == "restored" {
+				if len(fields) == 2 && fields[1] == "restored" {
 					clientName = fields[0]
 
 					break
