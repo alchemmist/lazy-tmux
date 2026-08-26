@@ -33,6 +33,13 @@ type Pane struct {
 	Scrollback  *ScrollbackRef `json:"scrollback,omitempty"`
 	IsActive    bool           `json:"is_active"`
 
+	// ForegroundPID is the pid resolved by foregroundCommand at capture time.
+	// In-memory only (never persisted): integrations use it during the same
+	// save() call to disambiguate panes that share a cwd (see the claude
+	// integration's Capture, which needs the exact pid to tell apart
+	// multiple Claude Code panes running in the same directory).
+	ForegroundPID int `json:"-"`
+
 	Meta map[string]string `json:"meta,omitempty"`
 }
 

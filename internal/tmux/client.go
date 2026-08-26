@@ -746,16 +746,17 @@ func (client *Client) capturePanes(name string, window *snapshot.Window) error {
 
 		pIdx, _ := strconv.Atoi(parts[0])
 		panePID, _ := strconv.Atoi(strings.TrimSpace(parts[2]))
-		restoreCmd, _ := client.foregroundCommand(parts[3], panePID)
+		restoreCmd, foregroundPID, _ := client.foregroundCommand(parts[3], panePID)
 
 		pane := snapshot.Pane{
-			Index:       pIdx,
-			IsActive:    parts[1] == "1",
-			CurrentCmd:  parts[4],
-			CurrentPath: parts[5],
-			RestoreCmd:  strings.TrimSpace(restoreCmd),
-			Scrollback:  nil,
-			Meta:        codexSessionMeta(parts[6]),
+			Index:         pIdx,
+			IsActive:      parts[1] == "1",
+			CurrentCmd:    parts[4],
+			CurrentPath:   parts[5],
+			RestoreCmd:    strings.TrimSpace(restoreCmd),
+			Scrollback:    nil,
+			Meta:          codexSessionMeta(parts[6]),
+			ForegroundPID: foregroundPID,
 		}
 		if pane.IsActive {
 			window.ActivePane = pane.Index
@@ -1130,10 +1131,10 @@ func writePaneTTY(path, content string) error {
 	return nil
 }
 
-func (client *Client) foregroundCommand(paneTTY string, panePID int) (string, error) {
+func (client *Client) foregroundCommand(paneTTY string, panePID int) (string, int, error) {
 	tty := strings.TrimSpace(paneTTY)
 	if tty == "" {
-		return "", nil
+		return "", 0, nil
 	}
 
 	candidates := []string{tty}
@@ -1172,12 +1173,12 @@ func (client *Client) foregroundCommand(paneTTY string, panePID int) (string, er
 	}
 
 	if err != nil {
-		return "", fmt.Errorf("get output: %w", err)
+		return "", 0, fmt.Errorf("get output: %w", err)
 	}
 
-	command := pickForegroundCommand(splitLines(string(out)), panePID)
+	command, pid := pickForegroundCommand(splitLines(string(out)), panePID)
 	if command != "" {
-		return command, nil
+		return command, pid, nil
 	}
 
 	// Some terminal wrappers give the child process a different tty from the
@@ -1186,7 +1187,7 @@ func (client *Client) foregroundCommand(paneTTY string, panePID int) (string, er
 	return client.fallbackForegroundCommand(panePID)
 }
 
-func (client *Client) fallbackForegroundCommand(panePID int) (string, error) {
+func (client *Client) fallbackForegroundCommand(panePID int) (string, int, error) {
 	cmd := exec.CommandContext( // #nosec G204 -- fixed "ps" binary and numeric pane PID
 		context.Background(),
 		"ps",
@@ -1202,13 +1203,15 @@ func (client *Client) fallbackForegroundCommand(panePID int) (string, error) {
 	)
 	allOut, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("get process list: %w", err)
+		return "", 0, fmt.Errorf("get process list: %w", err)
 	}
 
-	return pickForegroundCommand(
+	command, pid := pickForegroundCommand(
 		processTreeLines(splitLines(string(allOut)), panePID),
 		panePID,
-	), nil
+	)
+
+	return command, pid, nil
 }
 
 func processTreeLines(lines []string, rootPID int) []string {
@@ -1300,19 +1303,19 @@ func collectCandidateProcesses(lines []string, panePID int) ([]psProcess, []psPr
 	return nonShell, shells
 }
 
-func pickForegroundCommand(lines []string, panePID int) string {
+func pickForegroundCommand(lines []string, panePID int) (string, int) {
 	nonShell, shells := collectCandidateProcesses(lines, panePID)
 
-	if cmd := pickFromCandidates(nonShell); cmd != "" {
-		return cmd
+	if cmd, pid := pickFromCandidates(nonShell); cmd != "" {
+		return cmd, pid
 	}
 
 	return pickFromCandidates(shells)
 }
 
-func pickFromCandidates(allProcesses []psProcess) string {
+func pickFromCandidates(allProcesses []psProcess) (string, int) {
 	if len(allProcesses) == 0 {
-		return ""
+		return "", 0
 	}
 
 	allPIDs := make(map[int]struct{}, len(allProcesses))
@@ -1331,24 +1334,24 @@ func pickFromCandidates(allProcesses []psProcess) string {
 	if len(rootProcesses) > 0 {
 		for _, p := range rootProcesses {
 			if strings.Contains(p.stat, "+") {
-				return p.cmd
+				return p.cmd, p.pid
 			}
 		}
 
-		return rootProcesses[0].cmd
+		return rootProcesses[0].cmd, rootProcesses[0].pid
 	}
 
 	for _, p := range allProcesses {
 		if strings.Contains(p.stat, "+") {
-			return p.cmd
+			return p.cmd, p.pid
 		}
 	}
 
 	if len(allProcesses) > 0 {
-		return allProcesses[0].cmd
+		return allProcesses[0].cmd, allProcesses[0].pid
 	}
 
-	return ""
+	return "", 0
 }
 
 const (

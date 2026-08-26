@@ -517,11 +517,11 @@ func TestPickForegroundCommand(t *testing.T) {
 		"200 100 S+ nvim",
 	}
 
-	if got := pickForegroundCommand(lines, 100); got != "nvim" {
+	if got, _ := pickForegroundCommand(lines, 100); got != "nvim" {
 		t.Fatalf("expected foreground nvim, got %q", got)
 	}
 
-	if got := pickForegroundCommand([]string{"100 1 Ss zsh"}, 100); got != "" {
+	if got, _ := pickForegroundCommand([]string{"100 1 Ss zsh"}, 100); got != "" {
 		t.Fatalf("expected empty for shell-only, got %q", got)
 	}
 
@@ -529,15 +529,15 @@ func TestPickForegroundCommand(t *testing.T) {
 		"100 1 Ss zsh",
 		"300 100 S+ fish",
 	}
-	if got := pickForegroundCommand(launched, 100); got != "fish" {
-		t.Fatalf("expected launched fish, got %q", got)
+	if got, pid := pickForegroundCommand(launched, 100); got != "fish" || pid != 300 {
+		t.Fatalf("expected launched fish/300, got %q/%d", got, pid)
 	}
 
 	helper := []string{
 		"100 1 Ss zsh",
 		"301 100 S zsh -c helper",
 	}
-	if got := pickForegroundCommand(helper, 100); got != "" {
+	if got, _ := pickForegroundCommand(helper, 100); got != "" {
 		t.Fatalf("expected empty for background shell helper, got %q", got)
 	}
 
@@ -546,8 +546,8 @@ func TestPickForegroundCommand(t *testing.T) {
 		"300 100 S fish",
 		"400 300 S+ nvim",
 	}
-	if got := pickForegroundCommand(nested, 100); got != "nvim" {
-		t.Fatalf("expected nvim over launched shell, got %q", got)
+	if got, pid := pickForegroundCommand(nested, 100); got != "nvim" || pid != 400 {
+		t.Fatalf("expected nvim/400 over launched shell, got %q/%d", got, pid)
 	}
 }
 
@@ -559,8 +559,8 @@ func TestPickForegroundCommandFromProcessTree(t *testing.T) {
 		"200 100 S codex",
 	}
 
-	if got := pickForegroundCommand(lines, 100); got != "codex" {
-		t.Fatalf("expected child codex, got %q", got)
+	if got, pid := pickForegroundCommand(lines, 100); got != "codex" || pid != 200 {
+		t.Fatalf("expected child codex/200, got %q/%d", got, pid)
 	}
 }
 
@@ -574,8 +574,8 @@ func TestProcessTreeLinesExcludesUnrelatedProcesses(t *testing.T) {
 	}
 
 	tree := processTreeLines(lines, 100)
-	if got := pickForegroundCommand(tree, 100); got != "codex" {
-		t.Fatalf("expected codex from pane tree, got %q", got)
+	if got, pid := pickForegroundCommand(tree, 100); got != "codex" || pid != 200 {
+		t.Fatalf("expected codex/200 from pane tree, got %q/%d", got, pid)
 	}
 	if len(tree) != 1 {
 		t.Fatalf("expected one descendant, got %v", tree)

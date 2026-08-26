@@ -3,6 +3,7 @@ package claude
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -61,6 +62,104 @@ func TestCaptureMissingProjectDir(t *testing.T) {
 
 	if len(meta) != 0 {
 		t.Fatalf("missing dir should yield no meta, got %v", meta)
+	}
+}
+
+func writeLiveSession(t *testing.T, home string, pid int, sessionID, cwd string) {
+	t.Helper()
+
+	dir := filepath.Join(home, "sessions")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	body := `{"pid":` + strconv.Itoa(pid) + `,"sessionId":"` + sessionID + `","cwd":"` + cwd + `"}`
+
+	path := filepath.Join(dir, strconv.Itoa(pid)+".json")
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatalf("write live session: %v", err)
+	}
+}
+
+func TestCaptureDisambiguatesPanesInSameDirectory(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	cwd := "/Users/me/code/proj"
+
+	// Same directory, single transcript on disk — latestSessionID alone
+	// can't tell the two panes apart, both would resolve to this one.
+	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	writeTranscript(t, home, cwd, "either-pane-session", base)
+
+	writeLiveSession(t, home, 1001, "session-a", cwd)
+	writeLiveSession(t, home, 1002, "session-b", cwd)
+
+	integ := New(home, "")
+
+	metaA, err := integ.Capture(snapshot.Pane{CurrentPath: cwd, CurrentCmd: "claude", ForegroundPID: 1001})
+	if err != nil {
+		t.Fatalf("capture pane a: %v", err)
+	}
+
+	metaB, err := integ.Capture(snapshot.Pane{CurrentPath: cwd, CurrentCmd: "claude", ForegroundPID: 1002})
+	if err != nil {
+		t.Fatalf("capture pane b: %v", err)
+	}
+
+	if metaA["session_id"] != "session-a" {
+		t.Fatalf("pane a: expected session-a, got %q", metaA["session_id"])
+	}
+
+	if metaB["session_id"] != "session-b" {
+		t.Fatalf("pane b: expected session-b, got %q", metaB["session_id"])
+	}
+}
+
+func TestCaptureFallsBackWhenNoLiveSessionFile(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	cwd := "/Users/me/code/proj"
+
+	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	writeTranscript(t, home, cwd, "from-directory", base)
+
+	integ := New(home, "")
+
+	// No ~/.claude/sessions/9999.json — must fall back to the directory scan.
+	meta, err := integ.Capture(snapshot.Pane{CurrentPath: cwd, CurrentCmd: "claude", ForegroundPID: 9999})
+	if err != nil {
+		t.Fatalf("capture: %v", err)
+	}
+
+	if meta["session_id"] != "from-directory" {
+		t.Fatalf("expected fallback to directory scan, got %q", meta["session_id"])
+	}
+}
+
+func TestCaptureIgnoresLiveSessionForDifferentCwd(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	cwd := "/Users/me/code/proj"
+
+	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	writeTranscript(t, home, cwd, "from-directory", base)
+
+	// A reused/stale pid whose session file points at a different cwd
+	// entirely — must not be trusted, falls back to the directory scan.
+	writeLiveSession(t, home, 1003, "stale-session", "/Users/me/code/other-proj")
+
+	integ := New(home, "")
+
+	meta, err := integ.Capture(snapshot.Pane{CurrentPath: cwd, CurrentCmd: "claude", ForegroundPID: 1003})
+	if err != nil {
+		t.Fatalf("capture: %v", err)
+	}
+
+	if meta["session_id"] != "from-directory" {
+		t.Fatalf("cwd mismatch should be ignored, got %q", meta["session_id"])
 	}
 }
 
