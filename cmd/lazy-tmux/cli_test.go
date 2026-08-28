@@ -23,6 +23,24 @@ func run(t *testing.T, args ...string) (int, string, string) {
 	return code, out.String(), errOut.String()
 }
 
+func TestIntegrationDockerfileUsesDistributionTmux(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join("..", "..", "docker", "test.Dockerfile")
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read integration Dockerfile: %v", err)
+	}
+
+	content := string(body)
+	if !strings.Contains(content, "apt-get install -y --no-install-recommends tmux fzf") {
+		t.Fatal("integration Dockerfile must install tmux from the distribution")
+	}
+	if strings.Contains(content, "install-tmux.sh") {
+		t.Fatal("integration Dockerfile must not download and build tmux from release assets")
+	}
+}
+
 func TestCLINoArgsPrintsUsage(t *testing.T) {
 	t.Parallel()
 
