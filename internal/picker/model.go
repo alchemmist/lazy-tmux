@@ -14,10 +14,11 @@ import (
 )
 
 var (
-	errTUIDisabled       = errors.New("TUI picker disabled in fzf-only build")
-	errUnexpectedModel   = errors.New("unexpected picker model type")
-	errSelectionCanceled = errors.New("selection canceled")
-	errNoSessionSelected = errors.New("no session selected")
+	errTUIDisabled              = errors.New("TUI picker disabled in fzf-only build")
+	errUnexpectedModel          = errors.New("unexpected picker model type")
+	errSelectionCanceled        = errors.New("selection canceled")
+	errNoSessionSelected        = errors.New("no session selected")
+	errSessionLoaderUnavailable = errors.New("session loader unavailable")
 )
 
 const statusRefreshInterval = 2 * time.Second
@@ -27,6 +28,11 @@ const spinnerInterval = 160 * time.Millisecond
 type statusTickMsg struct{}
 
 type spinnerTickMsg struct{}
+
+type sessionsLoadedMsg struct {
+	sessions []Session
+	err      error
+}
 
 type pickerRow struct {
 	target     Target
@@ -43,30 +49,32 @@ type pickerRow struct {
 
 //nolint:recvcheck // deliberate value/pointer receiver mix, see above
 type pickerModel struct {
-	sessions     []Session
-	windowSort   []WindowSortKey
-	visible      []pickerRow
-	queryInput   textinput.Model
-	viewport     viewport.Model
-	theme        pickerTheme
-	themeName    string
-	selected     Target
-	cancelled    bool
-	cursor       int
-	width        int
-	height       int
-	actions      Actions
-	statusMsg    string
-	mode         pickerMode
-	action       actionMode
-	marked       map[string]struct{}
-	palette      bool
-	paletteIdx   int
-	promptInput  textinput.Model
-	pending      Target
-	helpOpen     bool
-	spinnerFrame int
-	spinnerOn    bool
+	sessions      []Session
+	windowSort    []WindowSortKey
+	visible       []pickerRow
+	queryInput    textinput.Model
+	viewport      viewport.Model
+	theme         pickerTheme
+	themeName     string
+	selected      Target
+	cancelled     bool
+	cursor        int
+	width         int
+	height        int
+	actions       Actions
+	statusMsg     string
+	mode          pickerMode
+	action        actionMode
+	marked        map[string]struct{}
+	palette       bool
+	paletteIdx    int
+	promptInput   textinput.Model
+	pending       Target
+	helpOpen      bool
+	spinnerFrame  int
+	spinnerOn     bool
+	loading       bool
+	reloadPending bool
 }
 
 type pickerMode int
@@ -140,7 +148,24 @@ func newPickerModelWithTheme(
 }
 
 func (m pickerModel) Init() tea.Cmd {
-	return tea.Batch(textinput.Blink, scheduleStatusRefresh(), scheduleSpinner())
+	cmds := []tea.Cmd{textinput.Blink, scheduleStatusRefresh(), scheduleSpinner()}
+	if m.loading {
+		cmds = append(cmds, loadSessions(m.actions.Reload))
+	}
+
+	return tea.Batch(cmds...)
+}
+
+func loadSessions(loader func() ([]Session, error)) tea.Cmd {
+	return func() tea.Msg {
+		if loader == nil {
+			return sessionsLoadedMsg{sessions: nil, err: errSessionLoaderUnavailable}
+		}
+
+		sessions, err := loader()
+
+		return sessionsLoadedMsg{sessions: sessions, err: err}
+	}
 }
 
 func scheduleStatusRefresh() tea.Cmd {
@@ -164,6 +189,20 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleStatusTick()
 	case spinnerTickMsg:
 		return m.handleSpinnerTick()
+	case sessionsLoadedMsg:
+		m.loading = false
+		m.reloadPending = false
+		if msg.err != nil {
+			m.setStatus(msg.err.Error())
+		} else {
+			m.clearStatus()
+			m.sessions = msg.sessions
+			m.applyFilter()
+			m.ensureCursorVisible()
+		}
+		m.renderViewport()
+
+		return m, nil
 	case tea.MouseWheelMsg:
 		return m.handleWheel(msg)
 	case tea.MouseClickMsg:
@@ -240,12 +279,12 @@ func (m pickerModel) View() tea.View {
 }
 
 func (m pickerModel) handleStatusTick() (tea.Model, tea.Cmd) {
-	if m.mode == modeBrowse && !m.palette {
-		m.reload()
-		m.renderViewport()
-	}
-
 	cmds := []tea.Cmd{scheduleStatusRefresh()}
+	if m.mode == modeBrowse && !m.palette && !m.loading && !m.reloadPending &&
+		m.actions.Reload != nil {
+		m.reloadPending = true
+		cmds = append(cmds, loadSessions(m.actions.Reload))
+	}
 	if m.hasWorkingWindow() && !m.spinnerOn {
 		m.spinnerOn = true
 		cmds = append(cmds, scheduleSpinner())
@@ -345,6 +384,12 @@ func (m pickerModel) writeTable(buf *strings.Builder, width int) {
 	if m.statusMsg != "" {
 		buf.WriteString(m.theme.frameLine(m.theme.statusErr.Render(m.statusMsg), width))
 		buf.WriteString("\n")
+	}
+	if m.loading {
+		buf.WriteString(m.theme.frameLine(m.theme.faint.Render("Loading sessions…"), width))
+		buf.WriteString("\n")
+
+		return
 	}
 
 	if len(m.visible) == 0 {
@@ -1131,6 +1176,27 @@ func ChooseTargetWithTheme(
 	}
 
 	m := newPickerModelWithTheme(sessions, windowSort, actions, themeName)
+
+	return runPicker(m)
+}
+
+func ChooseTargetWithLoader(
+	windowSort []WindowSortKey,
+	actions Actions,
+	themeName string,
+) (Target, error) {
+	if tuiDisabled() {
+		return Target{}, errTUIDisabled
+	}
+
+	m := newPickerModelWithTheme([]Session{}, windowSort, actions, themeName)
+	m.loading = true
+	m.reloadPending = true
+
+	return runPicker(m)
+}
+
+func runPicker(m pickerModel) (Target, error) {
 	runner := newPickerRunner(m)
 
 	finalModel, err := runner.Run()
