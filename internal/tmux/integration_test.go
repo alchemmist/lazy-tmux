@@ -260,8 +260,8 @@ func TestSynchronizeWindowSizeUsesAttachedClient(t *testing.T) {
 	testutil.IsolatedTmux(t)
 
 	client := tmux.NewClient("tmux")
-	testutil.Tmux(t, "set-option", "-g", "window-size", "manual")
 	testutil.Tmux(t, "new-session", "-d", "-s", "restored", "-x", "80", "-y", "24")
+	testutil.Tmux(t, "set-option", "-w", "-t", "=restored:0", "window-size", "manual")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	control := exec.CommandContext(ctx, "tmux", "-C", "attach-session", "-t", "=restored")
