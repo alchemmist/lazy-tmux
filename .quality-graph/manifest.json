@@ -1,0 +1,206 @@
+{
+  "administration": {
+    "roles": [
+      "admin"
+    ]
+  },
+  "graphDigest": "837c4fdac3c390975bcb24b8648637375754fd81c9f5b17e0e801955b0f083cb",
+  "graphVersion": 0,
+  "labels": {
+    "enabled": false
+  },
+  "manifestVersion": 0,
+  "nodes": [
+    {
+      "env": {},
+      "id": "build",
+      "needs": [],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "go",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "make build"
+      },
+      "title": "Build"
+    },
+    {
+      "env": {},
+      "id": "coverage",
+      "needs": [],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "go-tools",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "make test-cov"
+      },
+      "title": "Coverage"
+    },
+    {
+      "env": {},
+      "id": "golangci-lint",
+      "needs": [],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "go-tools",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "make golangci-lint"
+      },
+      "title": "GolangCI-Lint"
+    },
+    {
+      "env": {},
+      "id": "test",
+      "needs": [],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "go-tools",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "make test"
+      },
+      "title": "Test"
+    },
+    {
+      "env": {},
+      "id": "integration",
+      "needs": [],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "go-tools",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "make integration-test"
+      },
+      "title": "Integration tests"
+    }
+  ],
+  "profiles": {
+    "default": {
+      "env": {},
+      "permissions": {
+        "contents": "read"
+      },
+      "runner": "ubuntu-latest",
+      "services": {},
+      "setup": [
+        {
+          "uses": "actions/checkout@v7",
+          "with": {
+            "persist-credentials": "false"
+          }
+        }
+      ]
+    },
+    "go": {
+      "env": {},
+      "permissions": {
+        "contents": "read"
+      },
+      "runner": "ubuntu-latest",
+      "services": {},
+      "setup": [
+        {
+          "uses": "actions/checkout@v7",
+          "with": {
+            "persist-credentials": "false"
+          }
+        },
+        {
+          "uses": "actions/setup-go@v7",
+          "with": {
+            "go-version-file": "go.mod"
+          }
+        }
+      ]
+    },
+    "go-tools": {
+      "env": {},
+      "permissions": {
+        "contents": "read"
+      },
+      "runner": "ubuntu-latest",
+      "services": {},
+      "setup": [
+        {
+          "uses": "actions/checkout@v7",
+          "with": {
+            "persist-credentials": "false"
+          }
+        },
+        {
+          "uses": "actions/setup-go@v7",
+          "with": {
+            "go-version-file": "go.mod"
+          }
+        },
+        {
+          "name": "Setup tools",
+          "run": "make setup-env"
+        }
+      ]
+    }
+  },
+  "provider": "github",
+  "resultSchemaVersion": 0,
+  "runtime": {
+    "action": "alchemmist/quality-graph@a4a65abfc9364da6801be56b992358d302c7ad77"
+  }
+}

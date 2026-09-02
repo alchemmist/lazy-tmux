@@ -1,0 +1,54 @@
+---
+version: 0
+provider:
+  name: github
+  configuration:
+    runtime:
+      action: alchemmist/quality-graph@a4a65abfc9364da6801be56b992358d302c7ad77
+
+profiles:
+  default:
+    runner: ubuntu-latest
+    setup:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: "false"
+
+  go:
+    extends: default
+    setup:
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+  go-tools:
+    extends: go
+    setup:
+      - name: Setup tools
+        run: make setup-env
+
+nodes:
+  build:
+    title: Build
+    profile: go
+    run: make build
+
+  coverage:
+    title: Coverage
+    profile: go-tools
+    run: make test-cov
+
+  golangci-lint:
+    title: GolangCI-Lint
+    profile: go-tools
+    run: make golangci-lint
+
+  test:
+    title: Test
+    profile: go-tools
+    run: make test
+
+  integration:
+    title: Integration tests
+    profile: go-tools
+    run: make integration-test
