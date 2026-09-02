@@ -1,10 +1,22 @@
 package picker
 
-import "github.com/alchemmist/lazy-tmux/internal/snapshot"
+import (
+	"errors"
+
+	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+)
+
+var errTUIDisabled = errors.New("TUI picker disabled in fzf-only build")
 
 type Target struct {
 	SessionName string
 	WindowIndex *int
+}
+
+type QuickSession struct {
+	Name     string
+	Restored bool
+	Current  bool
 }
 
 type Session struct {

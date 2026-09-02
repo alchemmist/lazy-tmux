@@ -113,6 +113,30 @@ func TestCLIPerCommandHelp(t *testing.T) {
 	}
 }
 
+func TestCLIPickerHelpIncludesSessionsOnly(t *testing.T) {
+	t.Parallel()
+
+	code, out, errOut := run(t, "picker", "--help")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d: %s", code, errOut)
+	}
+	if !strings.Contains(out, "-sessions-only") {
+		t.Fatalf("picker help missing sessions-only mode: %q", out)
+	}
+}
+
+func TestCLIPickerSessionsOnlyRejectsFZF(t *testing.T) {
+	t.Parallel()
+
+	code, _, errOut := run(t, "picker", "--sessions-only", "--fzf-engine")
+	if code != 1 {
+		t.Fatalf("expected exit 1, got %d", code)
+	}
+	if !strings.Contains(errOut, "sessions-only mode requires the built-in TUI") {
+		t.Fatalf("unexpected stderr: %q", errOut)
+	}
+}
+
 func TestCLICodexForkCreatesNamedWindowForFocusedSession(t *testing.T) {
 	tmuxBin := filepath.Join(t.TempDir(), "tmux")
 	logPath := filepath.Join(t.TempDir(), "tmux-args")

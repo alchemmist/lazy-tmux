@@ -15,7 +15,6 @@ import (
 )
 
 var (
-	errTUIDisabled              = errors.New("TUI picker disabled in fzf-only build")
 	errUnexpectedModel          = errors.New("unexpected picker model type")
 	errSelectionCanceled        = errors.New("selection canceled")
 	errNoSessionSelected        = errors.New("no session selected")
@@ -105,6 +104,7 @@ const (
 	keyEnter = "enter"
 	keyEsc   = "esc"
 	keyCtrlC = "ctrl+c"
+	keyCtrlQ = "ctrl+q"
 	keyCtrlJ = "ctrl+j"
 	keyCtrlK = "ctrl+k"
 )
@@ -667,7 +667,7 @@ func (m pickerModel) handleBrowseKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, b
 	}
 
 	switch msg.String() {
-	case keyCtrlC, "ctrl+q", keyEsc:
+	case keyCtrlC, keyCtrlQ, keyEsc:
 		m.cancelled = true
 
 		return m, tea.Quit, true

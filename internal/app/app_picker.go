@@ -236,6 +236,82 @@ func (a *App) SelectWithTUI() (string, error) {
 	return target.SessionName, nil
 }
 
+func (a *App) SelectQuickSessionWithTUISorted(opts PickerSortOptions) (string, error) {
+	sessions, err := a.quickPickerSessions(opts)
+	if err != nil {
+		return "", err
+	}
+
+	session, err := picker.ChooseQuickSession(sessions, a.cfg.Theme)
+	if err != nil {
+		return "", fmt.Errorf("choose quick session: %w", err)
+	}
+
+	return session, nil
+}
+
+func (a *App) quickPickerSessions(opts PickerSortOptions) ([]picker.QuickSession, error) {
+	records, err := a.store.ListRecords()
+	if err != nil {
+		return nil, fmt.Errorf("list records: %w", err)
+	}
+
+	liveSessions, err := a.tmux.ListSessions()
+	if err != nil {
+		return nil, fmt.Errorf("list sessions: %w", err)
+	}
+
+	attached := a.tmux.SessionsLastAttached()
+	byName := make(map[string]struct{}, len(records)+len(liveSessions))
+	live := make(map[string]struct{}, len(liveSessions))
+	for index := range records {
+		byName[records[index].SessionName] = struct{}{}
+		if when, ok := attached[records[index].SessionName]; ok &&
+			when.After(records[index].LastAccessed) {
+			records[index].LastAccessed = when
+		}
+	}
+	for _, name := range liveSessions {
+		live[name] = struct{}{}
+		if _, ok := byName[name]; ok {
+			continue
+		}
+
+		records = append(records, snapshot.Record{
+			SessionName:  name,
+			File:         "",
+			CapturedAt:   time.Time{},
+			LastAccessed: attached[name],
+			Windows:      0,
+			Panes:        0,
+		})
+		byName[name] = struct{}{}
+	}
+	picker.SortSessionRecords(records, opts.Session)
+
+	current, _ := a.tmux.CurrentSession()
+	sessions := make([]picker.QuickSession, 0, len(records))
+	for _, record := range records {
+		_, restored := live[record.SessionName]
+		sessions = append(sessions, picker.QuickSession{
+			Name:     record.SessionName,
+			Restored: restored,
+			Current:  record.SessionName == current,
+		})
+	}
+
+	return sessions, nil
+}
+
+func (a *App) OpenQuickSession(session string) error {
+	target := PickerTarget{SessionName: session}
+	if a.tmux.SessionExists(strings.TrimSpace(session)) {
+		return a.handoffToTarget(target, true, false)
+	}
+
+	return a.RestoreTargetInteractive(target)
+}
+
 func (a *App) SelectWithFZF() (string, error) {
 	return a.SelectWithFZFSorted(DefaultPickerSortOptions())
 }

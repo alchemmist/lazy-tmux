@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/config"
+	"github.com/alchemmist/lazy-tmux/internal/picker"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
@@ -27,6 +28,17 @@ func (r *recordingTmux) RestoreSession(context.Context, snapshot.SessionSnapshot
 }
 func (r *recordingTmux) InsideTmux() bool          { return r.inside }
 func (r *recordingTmux) SessionExists(string) bool { return r.exists }
+
+type quickRecordingTmux struct {
+	recordingTmux
+
+	sessions []string
+	current  string
+}
+
+func (r *quickRecordingTmux) ListSessions() ([]string, error)            { return r.sessions, nil }
+func (r *quickRecordingTmux) CurrentSession() (string, error)            { return r.current, nil }
+func (r *quickRecordingTmux) SessionsLastAttached() map[string]time.Time { return nil }
 
 func (r *recordingTmux) SwitchClient(
 	target string,
@@ -128,6 +140,54 @@ func TestRestoreTargetHandsOff(t *testing.T) {
 				t.Fatalf("attached = %q, want %q", fake.attached, tc.wantAttached)
 			}
 		})
+	}
+}
+
+func TestQuickPickerSessionsIncludesLiveWithoutSnapshot(t *testing.T) {
+	t.Parallel()
+
+	a, _ := newTestApp(t)
+	if err := a.store.SaveSession(snapshot.SessionSnapshot{SessionName: "saved"}); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+	a.tmux = &quickRecordingTmux{
+		recordingTmux: recordingTmux{},
+		sessions:      []string{"live-only"},
+		current:       "live-only",
+	}
+
+	sessions, err := a.quickPickerSessions(DefaultPickerSortOptions())
+	if err != nil {
+		t.Fatalf("quick picker sessions: %v", err)
+	}
+	if len(sessions) != 2 {
+		t.Fatalf("sessions = %+v, want saved and live-only", sessions)
+	}
+
+	byName := make(map[string]picker.QuickSession, len(sessions))
+	for _, session := range sessions {
+		byName[session.Name] = session
+	}
+	if byName["saved"].Restored {
+		t.Fatal("saved snapshot should not be marked restored")
+	}
+	if !byName["live-only"].Restored || !byName["live-only"].Current {
+		t.Fatalf("live-only session flags = %+v", byName["live-only"])
+	}
+}
+
+func TestOpenQuickSessionSwitchesLiveSessionWithoutSnapshot(t *testing.T) {
+	t.Parallel()
+
+	a, _ := newTestApp(t)
+	fake := &recordingTmux{inside: true, exists: true}
+	a.tmux = fake
+
+	if err := a.OpenQuickSession("live-only"); err != nil {
+		t.Fatalf("open quick session: %v", err)
+	}
+	if fake.switched != "live-only" {
+		t.Fatalf("switched = %q, want live-only", fake.switched)
 	}
 }
 

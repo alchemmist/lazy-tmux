@@ -14,6 +14,10 @@ const COMMANDS: { cmd: ReactNode; desc: ReactNode }[] = [
     desc: "Open session picker and restore selected session (default: TUI)",
   },
   {
+    cmd: <InlineCode>picker --sessions-only</InlineCode>,
+    desc: "Open the lightweight sessions-only TUI for a narrow quick-switch popup",
+  },
+  {
     cmd: <InlineCode>{"bootstrap [--session last|NAME]"}</InlineCode>,
     desc: "Restore one session automatically at tmux startup",
   },

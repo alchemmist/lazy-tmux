@@ -21,6 +21,7 @@ CLI written in Go for saving and restoring tmux sessions lazily. Key features:
 - Autosave daemon: periodically snapshots all sessions in the background (single instance, no conflicts).
 - Interactive TUI browser: tree view (sessions/windows) + table (commands, snapshot time, counts, status) with fuzzy search.
 - Keyboard-driven picker for fast search, navigation, and manage sessions and windows directly inside picker tree.
+- Lightweight `picker --sessions-only` mode for Alt-Tab-style switching in a narrow tmux popup.
 - In the picker, press `Option/Alt` + a window number (`1`, `2`, `3`, …) to immediately restore the first matching window from the current results.
 - Codex and Claude Code integrations detect the active session on every save and restore the exact session instead of starting a new conversation.
 - Flexible sorting via `--session-sort` or `--window-sort` (by last-used, time, size, name, command, etc.).
