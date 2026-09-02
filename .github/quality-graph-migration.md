@@ -26,6 +26,7 @@ persisted credentials.
 Quality Graph 0.1.6 does not support event-specific nodes. The `tmux-versions`
 node emits a skipped result on pushes and runs the Docker matrix only for pull
 requests. Its native result publishes the complete version table in the job
-summary, and any unsupported tested version fails the node.
+summary. The node compares supported versions with the pull request's base and
+fails when a version previously supported on the base is no longer supported.
 
 Rollback is restoring the standalone workflow and its required check.

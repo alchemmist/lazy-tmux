@@ -28,6 +28,14 @@ profiles:
       - name: Setup tools
         run: make setup-env
 
+  tmux:
+    runner: ubuntu-latest
+    setup:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: "false"
+          fetch-depth: "0"
+
 nodes:
   build:
     title: Build
@@ -56,6 +64,7 @@ nodes:
 
   tmux-versions:
     title: Tmux version test
+    profile: tmux
     timeout-minutes: 60
     run: ./scripts/quality-graph-tmux-versions.sh
     results:

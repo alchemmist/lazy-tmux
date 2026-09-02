@@ -15,23 +15,23 @@ func TestQualityGraphTmuxVersionsResult(t *testing.T) {
 
 	cases := []struct {
 		name        string
-		exitCode    string
+		baseHas36   string
 		wantStatus  string
 		wantFailure string
 	}{
-		{name: "supported", exitCode: "0", wantStatus: "passed"},
-		{name: "lost version", exitCode: "1", wantStatus: "failed", wantFailure: "quality"},
+		{name: "known incompatibility", baseHas36: "0", wantStatus: "passed"},
+		{name: "lost version", baseHas36: "1", wantStatus: "failed", wantFailure: "quality"},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			runQualityGraphTmuxVersionCase(t, tc.exitCode, tc.wantStatus, tc.wantFailure)
+			runQualityGraphTmuxVersionCase(t, tc.baseHas36, tc.wantStatus, tc.wantFailure)
 		})
 	}
 }
 
-func runQualityGraphTmuxVersionCase(t *testing.T, exitCode, wantStatus, wantFailure string) {
+func runQualityGraphTmuxVersionCase(t *testing.T, baseHas36, wantStatus, wantFailure string) {
 	t.Helper()
 
 	root, err := filepath.Abs(filepath.Join("..", ".."))
@@ -41,13 +41,22 @@ func runQualityGraphTmuxVersionCase(t *testing.T, exitCode, wantStatus, wantFail
 
 	temp := t.TempDir()
 	fakeMake := filepath.Join(temp, "make")
-	makeBody := "#!/bin/sh\nprintf '  tmux 3.5      ✓\\n  tmux 3.6      ✗\\n'\nexit \"$FAKE_EXIT_CODE\"\n"
+	makeBody := `#!/bin/sh
+status=✗
+if [ "${1:-}" = "-C" ] && [ "$FAKE_BASE_HAS_36" = "1" ]; then
+    status=✓
+fi
+printf '  tmux 3.5      ✓\n  tmux 3.6      %s\n' "$status"
+exit 1
+`
 	if err := os.WriteFile(fakeMake, []byte(makeBody), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
 	eventPath := filepath.Join(temp, "event.json")
-	event := []byte(`{"pull_request":{"number":42}}`)
+	event := []byte(
+		`{"pull_request":{"number":42,"base":{"sha":"2222222222222222222222222222222222222222"}}}`,
+	)
 	if err := os.WriteFile(eventPath, event, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +68,7 @@ func runQualityGraphTmuxVersionCase(t *testing.T, exitCode, wantStatus, wantFail
 	cmd.Dir = root
 	cmd.Env = append(os.Environ(),
 		"PATH="+temp+":"+os.Getenv("PATH"),
-		"FAKE_EXIT_CODE="+exitCode,
+		"FAKE_BASE_HAS_36="+baseHas36,
 		"GITHUB_EVENT_NAME=pull_request",
 		"GITHUB_EVENT_PATH="+eventPath,
 		"GITHUB_REPOSITORY=alchemmist/lazy-tmux",
@@ -67,13 +76,14 @@ func runQualityGraphTmuxVersionCase(t *testing.T, exitCode, wantStatus, wantFail
 		"GITHUB_RUN_ID=7",
 		"GITHUB_RUN_ATTEMPT=2",
 		"QUALITY_GRAPH_REPORT_DIR="+temp,
+		"QUALITY_GRAPH_BASE_DIR="+temp,
 	)
 
 	runErr := cmd.Run()
-	if exitCode == "0" && runErr != nil {
+	if wantStatus == "passed" && runErr != nil {
 		t.Fatalf("script failed: %v", runErr)
 	}
-	if exitCode != "0" && runErr == nil {
+	if wantStatus == "failed" && runErr == nil {
 		t.Fatal("script succeeded after a lost tmux version")
 	}
 

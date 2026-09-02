@@ -5,6 +5,7 @@ set -euo pipefail
 CACHE_DIR=${QUALITY_GRAPH_REPORT_DIR:-.cache/quality-graph}
 REPORT=$CACHE_DIR/tmux-versions.json
 RESULTS=$CACHE_DIR/tmux-versions.txt
+BASE_RESULTS=$CACHE_DIR/tmux-versions-base.txt
 SUMMARY=$CACHE_DIR/tmux-versions.md
 
 mkdir -p "$(dirname "$REPORT")"
@@ -14,22 +15,44 @@ failure_kind=
 exit_code=0
 
 if [[ ${GITHUB_EVENT_NAME:-} == pull_request ]]; then
-    set +e
-    make test-sup-versions | tee "$RESULTS"
-    exit_code=${PIPESTATUS[0]}
-    set -e
+    make test-sup-versions | tee "$RESULTS" || true
+
+    if [[ -n ${QUALITY_GRAPH_BASE_DIR:-} ]]; then
+        base_dir=$QUALITY_GRAPH_BASE_DIR
+    else
+        base_dir=$(mktemp -d)
+        trap 'rm -rf "$base_dir"' EXIT
+        base_sha=$(jq -r '.pull_request.base.sha' "${GITHUB_EVENT_PATH:?}")
+        git archive "$base_sha" | tar -x -C "$base_dir"
+    fi
+
+    make -C "$base_dir" test-sup-versions | tee "$BASE_RESULTS" || true
+
+    awk '$1 == "tmux" && $3 == "✓" { print $2 }' "$RESULTS" | sort -V >"$CACHE_DIR/head-supported.txt"
+    awk '$1 == "tmux" && $3 == "✓" { print $2 }' "$BASE_RESULTS" | sort -V >"$CACHE_DIR/base-supported.txt"
+    comm -23 "$CACHE_DIR/base-supported.txt" "$CACHE_DIR/head-supported.txt" >"$CACHE_DIR/missing.txt"
 
     {
         printf '| tmux version | Status |\n'
         printf '| --- | --- |\n'
         awk '$1 == "tmux" { printf "| `%s` | %s |\n", $2, $3 }' "$RESULTS"
+
+        if [[ -s $CACHE_DIR/missing.txt ]]; then
+            printf '\nVersions supported on the base branch but missing from this change:\n\n'
+            sed 's/^/- `/' "$CACHE_DIR/missing.txt" | sed 's/$/`/'
+        fi
     } >"$SUMMARY"
 
-    if [[ $exit_code -eq 0 ]]; then
-        status=passed
-    else
+    if ! grep -q '^  tmux ' "$RESULTS" || ! grep -q '^  tmux ' "$BASE_RESULTS"; then
+        status=failed
+        failure_kind=infrastructure
+        exit_code=1
+    elif [[ -s $CACHE_DIR/missing.txt ]]; then
         status=failed
         failure_kind=quality
+        exit_code=1
+    else
+        status=passed
     fi
 else
     printf 'The tmux version matrix runs on pull requests.\n' >"$SUMMARY"

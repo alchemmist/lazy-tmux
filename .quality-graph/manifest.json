@@ -5,7 +5,7 @@
       "admin"
     ]
   },
-  "graphDigest": "b41e6f7ccdf33fc8f1a7f651e998bf62d41441881c59a74bd7404968484029fa",
+  "graphDigest": "434ade0f6063934c44260558802575d82d54fcb224e0542258d1d2768c49766c",
   "graphVersion": 0,
   "labels": {
     "enabled": false
@@ -147,7 +147,7 @@
           "error"
         ]
       },
-      "profile": "default",
+      "profile": "tmux",
       "result": {
         "adapter": "native",
         "path": ".cache/quality-graph/tmux-versions.json"
@@ -221,6 +221,23 @@
         {
           "name": "Setup tools",
           "run": "make setup-env"
+        }
+      ]
+    },
+    "tmux": {
+      "env": {},
+      "permissions": {
+        "contents": "read"
+      },
+      "runner": "ubuntu-latest",
+      "services": {},
+      "setup": [
+        {
+          "uses": "actions/checkout@v7",
+          "with": {
+            "fetch-depth": "0",
+            "persist-credentials": "false"
+          }
         }
       ]
     }
