@@ -39,7 +39,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c125fc63c788222ba344719e338e97d17d30c45f28cb6cf5bf65c1596fbff810
+          graph-digest: b41e6f7ccdf33fc8f1a7f651e998bf62d41441881c59a74bd7404968484029fa
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -86,7 +86,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c125fc63c788222ba344719e338e97d17d30c45f28cb6cf5bf65c1596fbff810
+          graph-digest: b41e6f7ccdf33fc8f1a7f651e998bf62d41441881c59a74bd7404968484029fa
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -133,7 +133,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c125fc63c788222ba344719e338e97d17d30c45f28cb6cf5bf65c1596fbff810
+          graph-digest: b41e6f7ccdf33fc8f1a7f651e998bf62d41441881c59a74bd7404968484029fa
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -180,7 +180,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c125fc63c788222ba344719e338e97d17d30c45f28cb6cf5bf65c1596fbff810
+          graph-digest: b41e6f7ccdf33fc8f1a7f651e998bf62d41441881c59a74bd7404968484029fa
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -227,7 +227,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c125fc63c788222ba344719e338e97d17d30c45f28cb6cf5bf65c1596fbff810
+          graph-digest: b41e6f7ccdf33fc8f1a7f651e998bf62d41441881c59a74bd7404968484029fa
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -245,3 +245,46 @@ jobs:
         env:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
+  tmux-versions:
+    name: Tmux version test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: 'false'
+      - run: ./scripts/quality-graph-tmux-versions.sh
+        name: Run Tmux version test
+        id: quality-command
+        continue-on-error: true
+      - name: Collect Tmux version test result
+        id: quality-result
+        if: always()
+        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        with:
+          operation: collect
+          node-id: tmux-versions
+          title: Tmux version test
+          adapter: native
+          report-path: .cache/quality-graph/tmux-versions.json
+          command-outcome: ${{ steps.quality-command.outcome }}
+          graph-digest: b41e6f7ccdf33fc8f1a7f651e998bf62d41441881c59a74bd7404968484029fa
+          approval-findings: 'true'
+          approval-files: 'false'
+          approval-node: 'false'
+      - name: Upload Tmux version test result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-result-tmux-versions-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/quality-graph/tmux-versions.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce Tmux version test result
+        if: always()
+        shell: bash
+        env:
+          EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
+        run: exit "${EXIT_CODE:-2}"
+    timeout-minutes: 60

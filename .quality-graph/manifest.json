@@ -5,7 +5,7 @@
       "admin"
     ]
   },
-  "graphDigest": "c125fc63c788222ba344719e338e97d17d30c45f28cb6cf5bf65c1596fbff810",
+  "graphDigest": "b41e6f7ccdf33fc8f1a7f651e998bf62d41441881c59a74bd7404968484029fa",
   "graphVersion": 0,
   "labels": {
     "enabled": false
@@ -131,6 +131,32 @@
         "run": "make integration-test"
       },
       "title": "Integration tests"
+    },
+    {
+      "env": {},
+      "id": "tmux-versions",
+      "needs": [],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "default",
+      "result": {
+        "adapter": "native",
+        "path": ".cache/quality-graph/tmux-versions.json"
+      },
+      "step": {
+        "run": "./scripts/quality-graph-tmux-versions.sh"
+      },
+      "timeoutMinutes": 60,
+      "title": "Tmux version test"
     }
   ],
   "profiles": {

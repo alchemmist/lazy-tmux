@@ -53,3 +53,10 @@ nodes:
     title: Integration tests
     profile: go-tools
     run: make integration-test
+
+  tmux-versions:
+    title: Tmux version test
+    timeout-minutes: 60
+    run: ./scripts/quality-graph-tmux-versions.sh
+    results:
+      native: .cache/quality-graph/tmux-versions.json
