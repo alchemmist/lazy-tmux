@@ -312,6 +312,41 @@ func TestStaleReloadDoesNotOverwriteMutationResult(t *testing.T) {
 	}
 }
 
+func TestSuccessfulRefreshPreservesActionStatus(t *testing.T) {
+	t.Parallel()
+
+	m := newPickerModel(nil, nil, Actions{})
+	m.reloadGeneration = 1
+	m.setStatus("delete failed")
+	m = feed(t, m, sessionsLoadedMsg{
+		sessions:   []Session{makeSession("alpha", false, "one")},
+		generation: 1,
+	})
+
+	if m.statusMsg != "delete failed" {
+		t.Fatalf("successful refresh cleared action status: %q", m.statusMsg)
+	}
+	if len(m.sessions) != 1 || m.sessions[0].Record.SessionName != "alpha" {
+		t.Fatalf("successful refresh did not apply sessions: %+v", m.sessions)
+	}
+}
+
+func TestSuccessfulRefreshClearsLoaderStatus(t *testing.T) {
+	t.Parallel()
+
+	m := newPickerModel(nil, nil, Actions{})
+	m.reloadGeneration = 1
+	m.setLoaderStatus("load failed")
+	m = feed(t, m, sessionsLoadedMsg{
+		sessions:   []Session{makeSession("alpha", false, "one")},
+		generation: 1,
+	})
+
+	if m.statusMsg != "" || m.statusFromLoader {
+		t.Fatalf("successful refresh kept loader status: %q", m.statusMsg)
+	}
+}
+
 func TestStatusTickSchedulesReloadWithoutBlocking(t *testing.T) {
 	t.Parallel()
 

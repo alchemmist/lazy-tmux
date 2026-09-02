@@ -35,6 +35,13 @@ type sessionsLoadedMsg struct {
 	generation uint64
 }
 
+type sessionLoadSource int
+
+const (
+	sessionLoadBackground sessionLoadSource = iota
+	sessionLoadMutation
+)
+
 type pickerRow struct {
 	target     Target
 	item       string
@@ -64,6 +71,7 @@ type pickerModel struct {
 	height           int
 	actions          Actions
 	statusMsg        string
+	statusFromLoader bool
 	mode             pickerMode
 	action           actionMode
 	marked           map[string]struct{}
@@ -277,14 +285,7 @@ func (m pickerModel) handleSessionsLoaded(msg sessionsLoadedMsg) (tea.Model, tea
 
 	m.loading = false
 	m.reloadPending = false
-	if msg.err != nil {
-		m.setStatus(msg.err.Error())
-	} else {
-		m.clearStatus()
-		m.sessions = msg.sessions
-		m.applyFilter()
-		m.ensureCursorVisible()
-	}
+	m.applySessionLoadResult(msg.sessions, msg.err, sessionLoadBackground)
 	m.renderViewport()
 
 	return m, nil
