@@ -187,3 +187,20 @@ func TestQuickPickerShowsEmptySearchResult(t *testing.T) {
 		t.Fatal("empty search result message is missing")
 	}
 }
+
+func TestQuickPickerSearchKeepsLiveSessionsAboveSleeping(t *testing.T) {
+	t.Parallel()
+
+	model := newQuickPickerModel([]QuickSession{
+		{Name: "x-prod-old", Restored: true, Current: false, Working: false},
+		{Name: "prod", Restored: false, Current: false, Working: false},
+	}, themeDark, []string{"control"})
+	for _, key := range "prod" {
+		model = updateQuick(t, model, keyRune(key))
+	}
+
+	if len(model.visible) != 2 || model.visible[0].Name != "x-prod-old" ||
+		model.visible[1].Name != "prod" {
+		t.Fatalf("search mixed live and sleeping groups: %+v", model.visible)
+	}
+}

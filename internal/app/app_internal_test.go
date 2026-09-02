@@ -219,7 +219,7 @@ func TestQuickPickerSessionsHaveStableNameOrder(t *testing.T) {
 	for _, session := range sessions {
 		names = append(names, session.Name)
 	}
-	if !slices.Equal(names, []string{"alpha", "bravo", "charlie", "delta"}) {
+	if !slices.Equal(names, []string{"bravo", "delta", "alpha", "charlie"}) {
 		t.Fatalf("session order = %v", names)
 	}
 }

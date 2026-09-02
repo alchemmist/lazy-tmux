@@ -287,8 +287,14 @@ func (a *App) quickPickerSessions() ([]picker.QuickSession, error) {
 		})
 		byName[name] = struct{}{}
 	}
-	sort.Slice(records, func(i, j int) bool {
-		return records[i].SessionName < records[j].SessionName
+	sort.Slice(records, func(indexI, indexJ int) bool {
+		_, liveI := live[records[indexI].SessionName]
+		_, liveJ := live[records[indexJ].SessionName]
+		if liveI != liveJ {
+			return liveI
+		}
+
+		return records[indexI].SessionName < records[indexJ].SessionName
 	})
 
 	current, _ := a.tmux.CurrentSession()

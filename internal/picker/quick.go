@@ -267,7 +267,13 @@ func (m quickPickerModel) filtered(selectCurrent bool) quickPickerModel {
 	if query != "" {
 		sort.SliceStable(
 			matches,
-			func(i, j int) bool { return matches[i].score > matches[j].score },
+			func(i, j int) bool {
+				if matches[i].session.Restored != matches[j].session.Restored {
+					return matches[i].session.Restored
+				}
+
+				return matches[i].score > matches[j].score
+			},
 		)
 	}
 
