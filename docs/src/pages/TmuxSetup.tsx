@@ -40,6 +40,28 @@ export function TmuxSetup() {
         </p>
         <CodeBlock>{`bind-key f display-popup -B -w 65% -h 75% -E 'lazy-tmux picker'`}</CodeBlock>
 
+        <h2>Alt-Tab-style session switching</h2>
+        <p>
+          The sessions-only picker reads the compact session index and skips window snapshots and
+          integration status checks. It starts on the current session, wraps at both ends, and is
+          designed for a narrow popup on the left edge. Popup bindings require tmux 3.2 or newer:
+        </p>
+        <CodeBlock>{`bind-key -n C-j display-popup -B -x 0 -y 0 -w 32 -h 100% -E 'lazy-tmux picker --sessions-only'
+bind-key -n C-k display-popup -B -x 0 -y 0 -w 32 -h 100% -E 'lazy-tmux picker --sessions-only'`}</CodeBlock>
+        <p>
+          On tmux 2.9–3.1, open the same picker in a temporary window instead:
+        </p>
+        <CodeBlock>{`bind-key -n C-j new-window -n quick-switch 'lazy-tmux picker --sessions-only'
+bind-key -n C-k new-window -n quick-switch 'lazy-tmux picker --sessions-only'`}</CodeBlock>
+        <p>
+          Configure your terminal to send <InlineCode>{"Ctrl-J"}</InlineCode> for{" "}
+          <InlineCode>{"Cmd-J"}</InlineCode> and <InlineCode>{"Ctrl-K"}</InlineCode> for{" "}
+          <InlineCode>{"Cmd-K"}</InlineCode>. The first shortcut opens the popup with the current
+          session selected. While it is open, press the shortcut again to move down or up, then{" "}
+          <InlineCode>Enter</InlineCode> to switch. lazy-tmux cannot bind the macOS Command key
+          directly because tmux receives the key sequence produced by the terminal.
+        </p>
+
         <p>Or edit time interval:</p>
         <CodeBlock>{`run-shell -b 'lazy-tmux daemon --interval 5m --scrollback > /tmp/lazy-tmux.log 2>&1 || tmux display-message "lazy-tmux daemon already running"'`}</CodeBlock>
 

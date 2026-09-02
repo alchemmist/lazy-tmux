@@ -18,8 +18,9 @@ var (
 	errWindowsRequiresFzf      = errors.New(
 		"--windows requires --fzf-engine (the TUI already lists windows)",
 	)
-	errRequiresSession      = errors.New("requires --session")
-	errCodexSessionNotFound = errors.New("codex session not found for pane")
+	errSessionsOnlyRequiresTUI = errors.New("sessions-only mode requires the built-in TUI")
+	errRequiresSession         = errors.New("requires --session")
+	errCodexSessionNotFound    = errors.New("codex session not found for pane")
 )
 
 //nolint:gochecknoglobals // test seam: CLI tests stub process exit

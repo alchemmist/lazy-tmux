@@ -3,3 +3,9 @@ run-shell -b 'lazy-tmux daemon --interval 5m >/tmp/lazy-tmux.log 2>&1'
 run-shell -b 'lazy-tmux bootstrap --session last >/tmp/lazy-tmux-bootstrap.log 2>&1'
 bind-key s run-shell 'lazy-tmux save --all'
 bind-key f display-popup -B -E 'lazy-tmux picker'
+# tmux 3.2+
+bind-key -n C-j display-popup -B -x 0 -y 0 -w 32 -h 100% -E 'lazy-tmux picker --sessions-only'
+bind-key -n C-k display-popup -B -x 0 -y 0 -w 32 -h 100% -E 'lazy-tmux picker --sessions-only'
+# tmux 2.9-3.1 fallback
+# bind-key -n C-j new-window -n quick-switch 'lazy-tmux picker --sessions-only'
+# bind-key -n C-k new-window -n quick-switch 'lazy-tmux picker --sessions-only'
