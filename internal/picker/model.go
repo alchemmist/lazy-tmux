@@ -61,6 +61,7 @@ type pickerModel struct {
 	sessions         []Session
 	windowSort       []WindowSortKey
 	visible          []pickerRow
+	rendered         []string
 	queryInput       textinput.Model
 	viewport         viewport.Model
 	theme            pickerTheme
@@ -334,11 +335,35 @@ func (m pickerModel) handleSpinnerTick() (tea.Model, tea.Cmd) {
 	m.spinnerFrame++
 
 	if m.mode == modeBrowse && !m.palette {
-		m.applyFilter()
-		m.renderViewport()
+		m.refreshSpinnerRows()
 	}
 
 	return m, scheduleSpinner()
+}
+
+func (m *pickerModel) refreshSpinnerRows() {
+	if len(m.rendered) != len(m.visible) {
+		m.renderViewport()
+
+		return
+	}
+
+	layout := buildPickerTableLayout(m.tableContentWidth())
+	barWidth := max(0, m.contentWidth()-2)
+	changed := false
+
+	for rowIndex := range m.visible {
+		row := &m.visible[rowIndex]
+		if row.status == StatusWorking {
+			row.state = statusGlyphFrame(row.status, m.spinnerFrame)
+			m.rendered[rowIndex] = m.renderRow(rowIndex, layout, barWidth)
+			changed = true
+		}
+	}
+
+	if changed {
+		m.viewport.SetContent(strings.Join(m.rendered, "\n"))
+	}
 }
 
 func (m pickerModel) hasWorkingWindow() bool {
@@ -1054,6 +1079,7 @@ func (m pickerModel) nearestSelectable(from int) int {
 
 func (m *pickerModel) renderViewport() {
 	if len(m.visible) == 0 {
+		m.rendered = nil
 		m.viewport.SetContent("")
 
 		return
@@ -1061,25 +1087,32 @@ func (m *pickerModel) renderViewport() {
 
 	layout := buildPickerTableLayout(m.tableContentWidth())
 	barWidth := max(0, m.contentWidth()-2)
-	lines := make([]string, 0, len(m.visible))
+	m.rendered = make([]string, len(m.visible))
 
-	for rowIndex, row := range m.visible {
-		if rowIndex == m.cursor && m.rowSelectable(row) {
-			body := m.selectedMarker(row) + layout.selectedRow(row, m.theme)
-
-			if pad := barWidth - displayWidth(body); pad > 0 {
-				body += m.theme.selBar.Render(strings.Repeat(" ", pad))
-			}
-
-			lines = append(lines, m.theme.stripe.Render("▌")+m.theme.selBar.Render(" ")+body)
-
-			continue
-		}
-
-		lines = append(lines, "  "+m.markerFor(row)+layout.styledRow(row, m.theme))
+	for rowIndex := range m.visible {
+		m.rendered[rowIndex] = m.renderRow(rowIndex, layout, barWidth)
 	}
 
-	m.viewport.SetContent(strings.Join(lines, "\n"))
+	m.viewport.SetContent(strings.Join(m.rendered, "\n"))
+}
+
+func (m pickerModel) renderRow(
+	rowIndex int,
+	layout pickerTableLayout,
+	barWidth int,
+) string {
+	row := m.visible[rowIndex]
+	if rowIndex == m.cursor && m.rowSelectable(row) {
+		body := m.selectedMarker(row) + layout.selectedRow(row, m.theme)
+
+		if pad := barWidth - displayWidth(body); pad > 0 {
+			body += m.theme.selBar.Render(strings.Repeat(" ", pad))
+		}
+
+		return m.theme.stripe.Render("▌") + m.theme.selBar.Render(" ") + body
+	}
+
+	return "  " + m.markerFor(row) + layout.styledRow(row, m.theme)
 }
 
 func (m pickerModel) markGlyph(row pickerRow) (string, bool) {
