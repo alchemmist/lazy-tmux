@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/config"
+	"github.com/alchemmist/lazy-tmux/internal/integration"
 	"github.com/alchemmist/lazy-tmux/internal/picker"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 	"github.com/alchemmist/lazy-tmux/internal/testutil"
@@ -39,6 +40,21 @@ type quickRecordingTmux struct {
 func (r *quickRecordingTmux) ListSessions() ([]string, error)            { return r.sessions, nil }
 func (r *quickRecordingTmux) CurrentSession() (string, error)            { return r.current, nil }
 func (r *quickRecordingTmux) SessionsLastAttached() map[string]time.Time { return nil }
+
+type workingCodexIntegration struct{}
+
+func (workingCodexIntegration) Name() string { return "codex" }
+func (workingCodexIntegration) Matches(pane snapshot.Pane) bool {
+	return pane.CurrentCmd == "codex"
+}
+
+func (workingCodexIntegration) Capture(snapshot.Pane) (map[string]string, error) {
+	return map[string]string{}, nil
+}
+func (workingCodexIntegration) RestoreCommand(snapshot.Pane, map[string]string) string { return "" }
+func (workingCodexIntegration) Status(snapshot.Pane) (integration.Status, bool) {
+	return integration.StatusWorking, true
+}
 
 func (r *recordingTmux) SwitchClient(
 	target string,
@@ -188,6 +204,51 @@ func TestOpenQuickSessionSwitchesLiveSessionWithoutSnapshot(t *testing.T) {
 	}
 	if fake.switched != "live-only" {
 		t.Fatalf("switched = %q, want live-only", fake.switched)
+	}
+}
+
+func TestQuickPickerSessionMarksWorkingCodex(t *testing.T) {
+	t.Parallel()
+
+	a, _ := newTestApp(t)
+	a.integrations = integration.NewRegistry(workingCodexIntegration{})
+	if err := a.store.SaveSession(snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: "working",
+		CapturedAt:  time.Now(),
+		CurrentWin:  0,
+		CurrentPane: 0,
+		Windows: []snapshot.Window{{
+			Index:      0,
+			Name:       "codex",
+			Layout:     "",
+			IsActive:   true,
+			ActivePane: 0,
+			Panes: []snapshot.Pane{{
+				Index:       0,
+				CurrentPath: "/workspace",
+				CurrentCmd:  "codex",
+				RestoreCmd:  "",
+				Scrollback:  nil,
+				IsActive:    true,
+				Meta:        nil,
+			}},
+		}},
+	}); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+	a.tmux = &quickRecordingTmux{
+		recordingTmux: recordingTmux{},
+		sessions:      []string{"working"},
+		current:       "working",
+	}
+
+	sessions, err := a.quickPickerSessions(DefaultPickerSortOptions())
+	if err != nil {
+		t.Fatalf("quick picker sessions: %v", err)
+	}
+	if len(sessions) != 1 || !sessions[0].Working {
+		t.Fatalf("working Codex session was not marked: %+v", sessions)
 	}
 }
 

@@ -25,9 +25,9 @@ func TestQuickPickerStartsOnCurrentSession(t *testing.T) {
 	t.Parallel()
 
 	model := newQuickPickerModel([]QuickSession{
-		{Name: "alpha", Restored: true},
-		{Name: "bravo", Restored: true, Current: true},
-		{Name: "charlie"},
+		{Name: "alpha", Restored: true, Current: false, Working: false},
+		{Name: "bravo", Restored: true, Current: true, Working: false},
+		{Name: "charlie", Restored: false, Current: false, Working: false},
 	}, themeDark)
 
 	if model.cursor != 1 {
@@ -41,7 +41,10 @@ func TestQuickPickerStartsOnCurrentSession(t *testing.T) {
 func TestQuickPickerNavigationWraps(t *testing.T) {
 	t.Parallel()
 
-	model := newQuickPickerModel([]QuickSession{{Name: "alpha"}, {Name: "bravo"}}, themeDark)
+	model := newQuickPickerModel([]QuickSession{
+		{Name: "alpha", Restored: false, Current: false, Working: false},
+		{Name: "bravo", Restored: false, Current: false, Working: false},
+	}, themeDark)
 	model = updateQuick(t, model, tea.KeyPressMsg{Code: tea.KeyUp})
 	if model.cursor != 1 {
 		t.Fatalf("up cursor = %d, want 1", model.cursor)
@@ -56,7 +59,9 @@ func TestQuickPickerNavigationWraps(t *testing.T) {
 func TestQuickPickerSelectsSession(t *testing.T) {
 	t.Parallel()
 
-	model := newQuickPickerModel([]QuickSession{{Name: "alpha"}}, themeDark)
+	model := newQuickPickerModel([]QuickSession{
+		{Name: "alpha", Restored: false, Current: false, Working: false},
+	}, themeDark)
 	model = updateQuick(t, model, tea.KeyPressMsg{Code: tea.KeyEnter})
 
 	if model.selected != "alpha" {
@@ -67,7 +72,9 @@ func TestQuickPickerSelectsSession(t *testing.T) {
 func TestQuickPickerFitsNarrowPopup(t *testing.T) {
 	t.Parallel()
 
-	model := newQuickPickerModel([]QuickSession{{Name: "a-very-long-session-name"}}, themeDark)
+	model := newQuickPickerModel([]QuickSession{
+		{Name: "a-very-long-session-name", Restored: false, Current: false, Working: false},
+	}, themeDark)
 	model.width = 20
 	model.height = 10
 
@@ -75,5 +82,21 @@ func TestQuickPickerFitsNarrowPopup(t *testing.T) {
 		if displayWidth(line) > 20 {
 			t.Fatalf("line width = %d, want <= 20: %q", displayWidth(line), line)
 		}
+	}
+}
+
+func TestQuickPickerAnimatesWorkingSession(t *testing.T) {
+	t.Parallel()
+
+	model := newQuickPickerModel([]QuickSession{
+		{Name: "alpha", Restored: true, Current: false, Working: true},
+	}, themeDark)
+	if !strings.Contains(model.View().Content, workingSpinnerFrames[0]) {
+		t.Fatal("working session should render the first spinner frame")
+	}
+
+	model = updateQuick(t, model, spinnerTickMsg{})
+	if !strings.Contains(model.View().Content, workingSpinnerFrames[1]) {
+		t.Fatal("working session should advance the spinner frame")
 	}
 }

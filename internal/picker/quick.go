@@ -11,13 +11,14 @@ import (
 )
 
 type quickPickerModel struct {
-	sessions  []QuickSession
-	theme     pickerTheme
-	cursor    int
-	width     int
-	height    int
-	selected  string
-	cancelled bool
+	sessions     []QuickSession
+	theme        pickerTheme
+	cursor       int
+	width        int
+	height       int
+	selected     string
+	cancelled    bool
+	spinnerFrame int
 }
 
 func newQuickPickerModel(sessions []QuickSession, themeName string) quickPickerModel {
@@ -35,17 +36,22 @@ func newQuickPickerModel(sessions []QuickSession, themeName string) quickPickerM
 	}
 
 	return quickPickerModel{
-		sessions:  sessions,
-		theme:     newPickerThemeFor(themeName, colAccent),
-		cursor:    cursor,
-		width:     0,
-		height:    0,
-		selected:  "",
-		cancelled: false,
+		sessions:     sessions,
+		theme:        newPickerThemeFor(themeName, colAccent),
+		cursor:       cursor,
+		width:        0,
+		height:       0,
+		selected:     "",
+		cancelled:    false,
+		spinnerFrame: 0,
 	}
 }
 
 func (m quickPickerModel) Init() tea.Cmd {
+	if m.hasWorkingSession() {
+		return scheduleSpinner()
+	}
+
 	return nil
 }
 
@@ -54,6 +60,12 @@ func (m quickPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+	case spinnerTickMsg:
+		if m.hasWorkingSession() {
+			m.spinnerFrame++
+
+			return m, scheduleSpinner()
+		}
 	case tea.KeyPressMsg:
 		switch msg.String() {
 		case keyCtrlC, keyCtrlQ, keyEsc:
@@ -130,7 +142,9 @@ func (m quickPickerModel) visibleRange() (int, int) {
 func (m quickPickerModel) renderSession(index, width int) string {
 	session := m.sessions[index]
 	state := "○"
-	if session.Restored {
+	if session.Working {
+		state = m.theme.statusWorking.Render(statusGlyphFrame(StatusWorking, m.spinnerFrame))
+	} else if session.Restored {
 		state = "●"
 	}
 
@@ -146,6 +160,16 @@ func (m quickPickerModel) renderSession(index, width int) string {
 	}
 
 	return line
+}
+
+func (m quickPickerModel) hasWorkingSession() bool {
+	for _, session := range m.sessions {
+		if session.Working {
+			return true
+		}
+	}
+
+	return false
 }
 
 //nolint:gochecknoglobals

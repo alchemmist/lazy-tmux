@@ -297,10 +297,36 @@ func (a *App) quickPickerSessions(opts PickerSortOptions) ([]picker.QuickSession
 			Name:     record.SessionName,
 			Restored: restored,
 			Current:  record.SessionName == current,
+			Working:  a.sessionHasWorkingCodex(record.SessionName, restored),
 		})
 	}
 
 	return sessions, nil
+}
+
+func (a *App) sessionHasWorkingCodex(session string, restored bool) bool {
+	if !restored {
+		return false
+	}
+
+	snap, err := a.store.LoadSession(session)
+	if err != nil {
+		return false
+	}
+
+	for windowIndex := range snap.Windows {
+		for paneIndex := range snap.Windows[windowIndex].Panes {
+			status, ok := a.integrations.StatusFor(
+				"codex",
+				snap.Windows[windowIndex].Panes[paneIndex],
+			)
+			if ok && status == integration.StatusWorking {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func (a *App) OpenQuickSession(session string) error {

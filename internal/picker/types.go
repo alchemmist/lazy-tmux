@@ -17,6 +17,7 @@ type QuickSession struct {
 	Name     string
 	Restored bool
 	Current  bool
+	Working  bool
 }
 
 type Session struct {
