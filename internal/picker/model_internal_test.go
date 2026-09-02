@@ -365,6 +365,60 @@ func TestMutationReloadEndsInitialLoading(t *testing.T) {
 	}
 }
 
+func TestMutationReloadWaitsForBackgroundReload(t *testing.T) {
+	t.Parallel()
+
+	firstStarted := make(chan struct{})
+	secondStarted := make(chan struct{})
+	releaseFirst := make(chan struct{})
+	released := false
+	defer func() {
+		if !released {
+			close(releaseFirst)
+		}
+	}()
+
+	calls := 0
+	m := newPickerModel(nil, nil, Actions{
+		Reload: func() ([]Session, error) {
+			calls++
+			if calls == 1 {
+				close(firstStarted)
+				<-releaseFirst
+			} else {
+				close(secondStarted)
+			}
+
+			return nil, nil
+		},
+	})
+
+	backgroundDone := make(chan struct{})
+	go func() {
+		_ = loadSessions(m.actions.Reload, 1)()
+		close(backgroundDone)
+	}()
+	<-firstStarted
+
+	mutationDone := make(chan struct{})
+	go func() {
+		m.reload()
+		close(mutationDone)
+	}()
+
+	select {
+	case <-secondStarted:
+		t.Fatal("mutation loader started while background loader was still running")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	close(releaseFirst)
+	released = true
+	<-backgroundDone
+	<-secondStarted
+	<-mutationDone
+}
+
 func TestSuccessfulRefreshPreservesActionStatus(t *testing.T) {
 	t.Parallel()
 

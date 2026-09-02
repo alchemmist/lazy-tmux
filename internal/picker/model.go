@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"charm.land/bubbles/v2/textinput"
@@ -121,6 +122,7 @@ func newPickerModelWithTheme(
 	actions Actions,
 	themeName string,
 ) pickerModel {
+	actions.Reload = serializeSessionLoader(actions.Reload)
 	if themeName != themeLight {
 		themeName = themeDark
 	}
@@ -155,6 +157,21 @@ func newPickerModelWithTheme(
 	model.applyFilter()
 
 	return model
+}
+
+func serializeSessionLoader(loader func() ([]Session, error)) func() ([]Session, error) {
+	if loader == nil {
+		return nil
+	}
+
+	var mutex sync.Mutex
+
+	return func() ([]Session, error) {
+		mutex.Lock()
+		defer mutex.Unlock()
+
+		return loader()
+	}
 }
 
 func (m pickerModel) Init() tea.Cmd {
