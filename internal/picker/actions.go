@@ -431,7 +431,7 @@ func (m *pickerModel) sleepSession() error {
 
 func (m *pickerModel) reload() {
 	m.reloadGeneration++
-	m.reloadPending = false
+	m.loading = false
 	if m.actions.Reload == nil {
 		return
 	}

@@ -298,6 +298,16 @@ func TestStaleReloadDoesNotOverwriteMutationResult(t *testing.T) {
 	m.reloadGeneration = 1
 	m.reloadPending = true
 	m.applyActionResult(errBoom)
+	mutationGeneration := m.reloadGeneration
+
+	next, _ := m.handleStatusTick()
+	m, _ = next.(pickerModel)
+	if m.reloadGeneration != mutationGeneration {
+		t.Fatal("status tick scheduled another reload while an older reload was in flight")
+	}
+	if !m.reloadPending {
+		t.Fatal("mutation reload cleared the in-flight reload marker")
+	}
 
 	m = feed(t, m, sessionsLoadedMsg{
 		sessions:   []Session{makeSession("deleted", false, "old")},
@@ -309,6 +319,49 @@ func TestStaleReloadDoesNotOverwriteMutationResult(t *testing.T) {
 	}
 	if m.statusMsg != errBoom.Error() {
 		t.Fatalf("stale reload changed action status: %q", m.statusMsg)
+	}
+	if m.reloadPending {
+		t.Fatal("completed stale reload did not clear the in-flight marker")
+	}
+}
+
+func TestMutationReloadEndsInitialLoading(t *testing.T) {
+	t.Parallel()
+
+	current := []Session{makeSession("created", false, "one")}
+	m := newPickerModel(nil, nil, Actions{
+		Reload: func() ([]Session, error) {
+			return current, nil
+		},
+	})
+	m.loading = true
+	m.reloadPending = true
+	m.reloadGeneration = 1
+	m.applyActionResult(nil)
+
+	if m.loading {
+		t.Fatal("mutation reload left the picker in its initial loading state")
+	}
+	if !m.reloadPending {
+		t.Fatal("mutation reload lost track of the initial load still in flight")
+	}
+	if len(m.sessions) != 1 || m.sessions[0].Record.SessionName != "created" {
+		t.Fatalf("mutation reload did not apply current sessions: %+v", m.sessions)
+	}
+
+	m = feed(t, m, sessionsLoadedMsg{
+		sessions:   []Session{},
+		generation: 1,
+	})
+	if m.loading || m.reloadPending {
+		t.Fatalf(
+			"stale initial load changed lifecycle flags: loading=%v pending=%v",
+			m.loading,
+			m.reloadPending,
+		)
+	}
+	if len(m.sessions) != 1 || m.sessions[0].Record.SessionName != "created" {
+		t.Fatalf("stale initial load overwrote mutation sessions: %+v", m.sessions)
 	}
 }
 

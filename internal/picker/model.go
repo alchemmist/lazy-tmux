@@ -279,12 +279,12 @@ func (m pickerModel) View() tea.View {
 }
 
 func (m pickerModel) handleSessionsLoaded(msg sessionsLoadedMsg) (tea.Model, tea.Cmd) {
+	m.reloadPending = false
 	if msg.generation != m.reloadGeneration {
 		return m, nil
 	}
 
 	m.loading = false
-	m.reloadPending = false
 	m.applySessionLoadResult(msg.sessions, msg.err, sessionLoadBackground)
 	m.renderViewport()
 
