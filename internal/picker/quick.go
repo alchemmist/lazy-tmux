@@ -4,14 +4,18 @@ package picker
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
+	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 )
 
 type quickPickerModel struct {
 	sessions     []QuickSession
+	visible      []QuickSession
+	queryInput   textinput.Model
 	theme        pickerTheme
 	cursor       int
 	width        int
@@ -21,38 +25,46 @@ type quickPickerModel struct {
 	spinnerFrame int
 }
 
+const quickChromeRows = 3
+
 func newQuickPickerModel(sessions []QuickSession, themeName string) quickPickerModel {
 	if themeName != themeLight {
 		themeName = themeDark
 	}
+	theme := newPickerThemeFor(themeName, colAccent)
+	input := textinput.New()
+	input.Placeholder = ""
+	input.Prompt = "❯ "
+	inputStyles := input.Styles()
+	inputStyles.Focused.Prompt = theme.prompt
+	inputStyles.Blurred.Prompt = theme.prompt
+	input.SetStyles(inputStyles)
+	input.Focus()
 
-	cursor := 0
-	for index := range sessions {
-		if sessions[index].Current {
-			cursor = index
-
-			break
-		}
-	}
-
-	return quickPickerModel{
+	model := quickPickerModel{
 		sessions:     sessions,
-		theme:        newPickerThemeFor(themeName, colAccent),
-		cursor:       cursor,
+		visible:      nil,
+		queryInput:   input,
+		theme:        theme,
+		cursor:       0,
 		width:        0,
 		height:       0,
 		selected:     "",
 		cancelled:    false,
 		spinnerFrame: 0,
 	}
+	model = model.filtered(true)
+
+	return model
 }
 
 func (m quickPickerModel) Init() tea.Cmd {
+	cmds := []tea.Cmd{textinput.Blink}
 	if m.hasWorkingSession() {
-		return scheduleSpinner()
+		cmds = append(cmds, scheduleSpinner())
 	}
 
-	return nil
+	return tea.Batch(cmds...)
 }
 
 func (m quickPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -72,20 +84,31 @@ func (m quickPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cancelled = true
 
 			return m, tea.Quit
-		case keyCtrlJ, "j", "down":
+		case keyCtrlJ, "down":
 			m = m.moved(1)
-		case keyCtrlK, "k", "up":
+
+			return m, nil
+		case keyCtrlK, "up":
 			m = m.moved(-1)
+
+			return m, nil
 		case keyEnter:
-			if len(m.sessions) > 0 {
-				m.selected = m.sessions[m.cursor].Name
+			if len(m.visible) > 0 {
+				m.selected = m.visible[m.cursor].Name
 
 				return m, tea.Quit
 			}
 		}
 	}
 
-	return m, nil
+	previousQuery := m.queryInput.Value()
+	var cmd tea.Cmd
+	m.queryInput, cmd = m.queryInput.Update(msg)
+	if previousQuery != m.queryInput.Value() {
+		m = m.filtered(false)
+	}
+
+	return m, cmd
 }
 
 func (m quickPickerModel) View() tea.View {
@@ -95,11 +118,21 @@ func (m quickPickerModel) View() tea.View {
 	}
 
 	var buf strings.Builder
-	buf.WriteString(m.theme.frameTop("sessions", strconv.Itoa(len(m.sessions)), width))
+	right := strconv.Itoa(len(m.visible))
+	if len(m.visible) != len(m.sessions) {
+		right += "/" + strconv.Itoa(len(m.sessions))
+	}
+	buf.WriteString(m.theme.frameTop("sessions", right, width))
+	buf.WriteString("\n")
+	buf.WriteString(m.theme.frameLine(m.queryInput.View(), width))
 	buf.WriteString("\n")
 
-	if len(m.sessions) == 0 {
-		buf.WriteString(m.theme.frameLine(m.theme.faint.Render("No saved sessions"), width))
+	if len(m.visible) == 0 {
+		empty := "No saved sessions"
+		if m.queryInput.Value() != "" {
+			empty = "No sessions match query"
+		}
+		buf.WriteString(m.theme.frameLine(m.theme.faint.Render(empty), width))
 		buf.WriteString("\n")
 	} else {
 		start, end := m.visibleRange()
@@ -118,29 +151,29 @@ func (m quickPickerModel) View() tea.View {
 }
 
 func (m quickPickerModel) moved(delta int) quickPickerModel {
-	if len(m.sessions) == 0 {
+	if len(m.visible) == 0 {
 		return m
 	}
 
-	m.cursor = (m.cursor + delta + len(m.sessions)) % len(m.sessions)
+	m.cursor = (m.cursor + delta + len(m.visible)) % len(m.visible)
 
 	return m
 }
 
 func (m quickPickerModel) visibleRange() (int, int) {
-	available := max(1, m.height-2)
-	if available >= len(m.sessions) {
-		return 0, len(m.sessions)
+	available := max(1, m.height-quickChromeRows)
+	if available >= len(m.visible) {
+		return 0, len(m.visible)
 	}
 
 	start := m.cursor - available/2
-	start = max(0, min(start, len(m.sessions)-available))
+	start = max(0, min(start, len(m.visible)-available))
 
 	return start, start + available
 }
 
 func (m quickPickerModel) renderSession(index, width int) string {
-	session := m.sessions[index]
+	session := m.visible[index]
 	state := "○"
 	if session.Working {
 		state = m.theme.statusWorking.Render(statusGlyphFrame(StatusWorking, m.spinnerFrame))
@@ -163,13 +196,47 @@ func (m quickPickerModel) renderSession(index, width int) string {
 }
 
 func (m quickPickerModel) hasWorkingSession() bool {
-	for _, session := range m.sessions {
+	for _, session := range m.visible {
 		if session.Working {
 			return true
 		}
 	}
 
 	return false
+}
+
+func (m quickPickerModel) filtered(selectCurrent bool) quickPickerModel {
+	type match struct {
+		session QuickSession
+		score   int
+	}
+
+	query := m.queryInput.Value()
+	matches := make([]match, 0, len(m.sessions))
+	for _, session := range m.sessions {
+		score, ok := fuzzyScore(query, session.Name)
+		if !ok {
+			continue
+		}
+		matches = append(matches, match{session: session, score: score})
+	}
+	if query != "" {
+		sort.SliceStable(
+			matches,
+			func(i, j int) bool { return matches[i].score > matches[j].score },
+		)
+	}
+
+	m.visible = make([]QuickSession, 0, len(matches))
+	m.cursor = 0
+	for index, item := range matches {
+		m.visible = append(m.visible, item.session)
+		if selectCurrent && item.session.Current {
+			m.cursor = index
+		}
+	}
+
+	return m
 }
 
 //nolint:gochecknoglobals

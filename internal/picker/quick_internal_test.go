@@ -100,3 +100,43 @@ func TestQuickPickerAnimatesWorkingSession(t *testing.T) {
 		t.Fatal("working session should advance the spinner frame")
 	}
 }
+
+func TestQuickPickerFiltersAndSelectsSessions(t *testing.T) {
+	t.Parallel()
+
+	model := newQuickPickerModel([]QuickSession{
+		{Name: "project", Restored: true, Current: true, Working: false},
+		{Name: "jumpbox", Restored: true, Current: false, Working: false},
+		{Name: "kubernetes", Restored: true, Current: false, Working: false},
+	}, themeDark)
+
+	model = updateQuick(t, model, keyRune('j'))
+	if model.queryInput.Value() != "j" {
+		t.Fatalf("query = %q, want j", model.queryInput.Value())
+	}
+	if len(model.visible) != 2 {
+		t.Fatalf("filtered sessions = %+v", model.visible)
+	}
+
+	model = updateQuick(t, model, keyRune('u'))
+	model = updateQuick(t, model, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if model.selected != "jumpbox" {
+		t.Fatalf("selected = %q, want jumpbox", model.selected)
+	}
+}
+
+func TestQuickPickerShowsEmptySearchResult(t *testing.T) {
+	t.Parallel()
+
+	model := newQuickPickerModel([]QuickSession{
+		{Name: "alpha", Restored: true, Current: false, Working: false},
+	}, themeDark)
+	model = updateQuick(t, model, keyRune('z'))
+
+	if len(model.visible) != 0 {
+		t.Fatalf("visible sessions = %+v, want none", model.visible)
+	}
+	if !strings.Contains(model.View().Content, "No sessions match query") {
+		t.Fatal("empty search result message is missing")
+	}
+}
