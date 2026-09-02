@@ -41,6 +41,24 @@ func TestIntegrationDockerfileUsesDistributionTmux(t *testing.T) {
 	}
 }
 
+func TestMakefileScopesGolangCILintCacheToCheckout(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join("..", "..", "Makefile")
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read Makefile: %v", err)
+	}
+
+	content := string(body)
+	if !strings.Contains(content, "GOLANGCI_LINT_CACHE ?= $(CURDIR)/.cache/golangci-lint") {
+		t.Fatal("Makefile must scope the golangci-lint cache to the current checkout")
+	}
+	if !strings.Contains(content, "export GOLANGCI_LINT_CACHE") {
+		t.Fatal("Makefile must export the checkout-local golangci-lint cache")
+	}
+}
+
 func TestCLINoArgsPrintsUsage(t *testing.T) {
 	t.Parallel()
 
