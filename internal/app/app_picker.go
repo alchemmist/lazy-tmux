@@ -242,7 +242,11 @@ func (a *App) SelectQuickSessionWithTUISorted(opts PickerSortOptions) (string, e
 		return "", err
 	}
 
-	session, err := picker.ChooseQuickSession(sessions, a.cfg.Theme)
+	session, err := picker.ChooseQuickSession(
+		sessions,
+		a.cfg.Theme,
+		a.cfg.SessionPicker.NavigationModifiers,
+	)
 	if err != nil {
 		return "", fmt.Errorf("choose quick session: %w", err)
 	}

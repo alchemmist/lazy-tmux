@@ -44,6 +44,11 @@ restore_timeout = "5s"
 # even if the allowlist would permit it. Omit or leave empty to block nothing.
 # restore_denylist = ["htop", "npm .*", "node .*"]
 
+# Modifiers accepted by the sessions-only picker for J/K navigation.
+# Supported values: "command" (macOS Command / Super) and "control".
+[session_picker]
+navigation_modifiers = ["control"]
+
 [scrollback]
 # Capture and replay shell pane scrollback on save/restore.
 enabled = false

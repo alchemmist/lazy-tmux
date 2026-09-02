@@ -59,9 +59,23 @@ restore_allowlist = ["nvim( .*)?", "vim( .*)?", "htop", "less .*", "tail .*", "s
 # allowlist. Omit or leave empty to block nothing (default).
 restore_denylist = ["npm .*", "node .*"]
 
+[session_picker]
+# J/K navigation modifiers: "command", "control", or both
+navigation_modifiers = ["control"]
+
 [scrollback]
 enabled = false   # capture shell pane scrollback
 lines   = 5000    # max scrollback lines per pane`}</CodeBlock>
+
+        <h3 className="cli-subtitle">Quick session picker navigation</h3>
+        <p className="muted">
+          Configure which modified J/K key pairs navigate in{" "}
+          <InlineCode>picker --sessions-only</InlineCode>. Use{" "}
+          <InlineCode>command</InlineCode> for macOS Command/Super,{" "}
+          <InlineCode>control</InlineCode> for Ctrl, or include both values. Arrow keys always work.
+        </p>
+        <CodeBlock>{`[session_picker]
+navigation_modifiers = ["command", "control"]`}</CodeBlock>
 
         <h3 className="cli-subtitle">Restore command allowlist</h3>
         <Alert

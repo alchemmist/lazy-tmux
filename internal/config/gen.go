@@ -86,6 +86,13 @@ func (c Config) Render() string {
 		fmt.Fprintf(&buf, "restore_denylist = [%s]\n", strings.Join(quoted, ", "))
 	}
 
+	modifiers := make([]string, len(c.SessionPicker.NavigationModifiers))
+	for i, modifier := range c.SessionPicker.NavigationModifiers {
+		modifiers[i] = strconv.Quote(modifier)
+	}
+	buf.WriteString("\n[session_picker]\n")
+	fmt.Fprintf(&buf, "navigation_modifiers = [%s]\n", strings.Join(modifiers, ", "))
+
 	buf.WriteString("\n[scrollback]\n")
 	fmt.Fprintf(&buf, "enabled = %t\n", c.Scrollback.Enabled)
 	fmt.Fprintf(&buf, "lines   = %d\n", c.Scrollback.Lines)

@@ -30,6 +30,9 @@ func TestDefault(t *testing.T) {
 	if cfg.RestoreTimeout != 5*time.Second {
 		t.Fatalf("expected 5s default restore timeout, got %s", cfg.RestoreTimeout)
 	}
+	if !reflect.DeepEqual(cfg.SessionPicker.NavigationModifiers, []string{"control"}) {
+		t.Fatalf("session picker modifiers: %#v", cfg.SessionPicker.NavigationModifiers)
+	}
 
 	if cfg.Scrollback.Enabled {
 		t.Fatal("expected scrollback disabled by default")
@@ -239,6 +242,35 @@ func TestLoadFromInvalidPatternErrors(t *testing.T) {
 
 		if !errors.Is(err, errInvalidPattern) {
 			t.Fatalf("%s: expected errInvalidPattern, got %v", key, err)
+		}
+	}
+}
+
+func TestLoadFromSessionPickerNavigationModifiers(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := LoadFrom(writeConfig(t, `
+[session_picker]
+navigation_modifiers = [" Command ", "CONTROL"]
+`))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if !reflect.DeepEqual(
+		cfg.SessionPicker.NavigationModifiers,
+		[]string{"command", "control"},
+	) {
+		t.Fatalf("navigation modifiers: %#v", cfg.SessionPicker.NavigationModifiers)
+	}
+}
+
+func TestLoadFromInvalidSessionPickerNavigationModifier(t *testing.T) {
+	t.Parallel()
+
+	for _, modifiers := range []string{`["alt"]`, `["control", "control"]`} {
+		_, err := LoadFrom(writeConfig(t, "[session_picker]\nnavigation_modifiers = "+modifiers))
+		if err == nil {
+			t.Fatalf("expected invalid modifiers %s to fail", modifiers)
 		}
 	}
 }

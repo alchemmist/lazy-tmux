@@ -2,7 +2,7 @@
 
 package picker
 
-func ChooseQuickSession([]QuickSession, string) (string, error) {
+func ChooseQuickSession([]QuickSession, string, []string) (string, error) {
 	return "", errTUIDisabled
 }
 

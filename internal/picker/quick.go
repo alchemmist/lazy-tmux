@@ -13,21 +13,26 @@ import (
 )
 
 type quickPickerModel struct {
-	sessions     []QuickSession
-	visible      []QuickSession
-	queryInput   textinput.Model
-	theme        pickerTheme
-	cursor       int
-	width        int
-	height       int
-	selected     string
-	cancelled    bool
-	spinnerFrame int
+	sessions            []QuickSession
+	visible             []QuickSession
+	queryInput          textinput.Model
+	theme               pickerTheme
+	cursor              int
+	width               int
+	height              int
+	selected            string
+	cancelled           bool
+	spinnerFrame        int
+	navigationModifiers map[string]struct{}
 }
 
 const quickChromeRows = 3
 
-func newQuickPickerModel(sessions []QuickSession, themeName string) quickPickerModel {
+func newQuickPickerModel(
+	sessions []QuickSession,
+	themeName string,
+	navigationModifiers []string,
+) quickPickerModel {
 	if themeName != themeLight {
 		themeName = themeDark
 	}
@@ -42,16 +47,17 @@ func newQuickPickerModel(sessions []QuickSession, themeName string) quickPickerM
 	input.Focus()
 
 	model := quickPickerModel{
-		sessions:     sessions,
-		visible:      nil,
-		queryInput:   input,
-		theme:        theme,
-		cursor:       0,
-		width:        0,
-		height:       0,
-		selected:     "",
-		cancelled:    false,
-		spinnerFrame: 0,
+		sessions:            sessions,
+		visible:             nil,
+		queryInput:          input,
+		theme:               theme,
+		cursor:              0,
+		width:               0,
+		height:              0,
+		selected:            "",
+		cancelled:           false,
+		spinnerFrame:        0,
+		navigationModifiers: modifierSet(navigationModifiers),
 	}
 	model = model.filtered(true)
 
@@ -79,19 +85,17 @@ func (m quickPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, scheduleSpinner()
 		}
 	case tea.KeyPressMsg:
+		if delta, ok := m.navigationDelta(msg); ok {
+			m = m.moved(delta)
+
+			return m, nil
+		}
+
 		switch msg.String() {
 		case keyCtrlC, keyCtrlQ, keyEsc:
 			m.cancelled = true
 
 			return m, tea.Quit
-		case keyCtrlJ, "down":
-			m = m.moved(1)
-
-			return m, nil
-		case keyCtrlK, "up":
-			m = m.moved(-1)
-
-			return m, nil
 		case keyEnter:
 			if len(m.visible) > 0 {
 				m.selected = m.visible[m.cursor].Name
@@ -142,12 +146,52 @@ func (m quickPickerModel) View() tea.View {
 		}
 	}
 
-	buf.WriteString(m.theme.frameBottom("^j/^k move  ·  enter switch  ·  esc quit", width))
+	buf.WriteString(m.theme.frameBottom(m.helpHints(), width))
 
 	view := tea.NewView(buf.String())
 	view.AltScreen = true
 
 	return view
+}
+
+func (m quickPickerModel) navigationDelta(msg tea.KeyPressMsg) (int, bool) {
+	switch msg.String() {
+	case "down":
+		return 1, true
+	case "up":
+		return -1, true
+	case keyCtrlJ:
+		_, ok := m.navigationModifiers["control"]
+
+		return 1, ok
+	case keyCtrlK:
+		_, ok := m.navigationModifiers["control"]
+
+		return -1, ok
+	case "super+j":
+		_, ok := m.navigationModifiers["command"]
+
+		return 1, ok
+	case "super+k":
+		_, ok := m.navigationModifiers["command"]
+
+		return -1, ok
+	default:
+		return 0, false
+	}
+}
+
+func (m quickPickerModel) helpHints() string {
+	keys := make([]string, 0, len(m.navigationModifiers))
+	if _, ok := m.navigationModifiers["command"]; ok {
+		keys = append(keys, "⌘j/⌘k")
+	}
+	if _, ok := m.navigationModifiers["control"]; ok {
+		keys = append(keys, "^j/^k")
+	}
+	keys = append(keys, "↑/↓")
+
+	return strings.Join(keys, " ") + " move  ·  enter switch  ·  esc quit"
 }
 
 func (m quickPickerModel) moved(delta int) quickPickerModel {
@@ -239,17 +283,30 @@ func (m quickPickerModel) filtered(selectCurrent bool) quickPickerModel {
 	return m
 }
 
+func modifierSet(modifiers []string) map[string]struct{} {
+	result := make(map[string]struct{}, len(modifiers))
+	for _, modifier := range modifiers {
+		result[modifier] = struct{}{}
+	}
+
+	return result
+}
+
 //nolint:gochecknoglobals
 var newQuickPickerRunner = func(m quickPickerModel) pickerRunner {
 	return tea.NewProgram(m)
 }
 
-func ChooseQuickSession(sessions []QuickSession, themeName string) (string, error) {
+func ChooseQuickSession(
+	sessions []QuickSession,
+	themeName string,
+	navigationModifiers []string,
+) (string, error) {
 	if tuiDisabled() {
 		return "", errTUIDisabled
 	}
 
-	runner := newQuickPickerRunner(newQuickPickerModel(sessions, themeName))
+	runner := newQuickPickerRunner(newQuickPickerModel(sessions, themeName, navigationModifiers))
 	finalModel, err := runner.Run()
 	if err != nil {
 		return "", fmt.Errorf("run quick picker: %w", err)

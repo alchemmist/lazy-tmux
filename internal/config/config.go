@@ -19,9 +19,11 @@ var (
 	errNoConfigPath      = errors.New(
 		"could not determine a config path (pass --path or set $HOME)",
 	)
-	errConfigExists   = errors.New("already exists (use --force to overwrite)")
-	errInvalidPattern = errors.New("invalid regular expression")
-	ErrInvalidTheme   = errors.New("invalid theme")
+	errConfigExists                = errors.New("already exists (use --force to overwrite)")
+	errInvalidPattern              = errors.New("invalid regular expression")
+	ErrInvalidTheme                = errors.New("invalid theme")
+	errInvalidNavigationModifier   = errors.New("must be command or control")
+	errDuplicateNavigationModifier = errors.New("duplicate modifier")
 )
 
 type Config struct {
@@ -32,6 +34,7 @@ type Config struct {
 	RestoreTimeout time.Duration
 	Scrollback     ScrollbackConfig
 	Integrations   IntegrationsConfig
+	SessionPicker  SessionPickerConfig
 
 	RestoreAllowlist []string
 
@@ -59,6 +62,10 @@ type CodexIntegrationConfig struct {
 	Home    string
 }
 
+type SessionPickerConfig struct {
+	NavigationModifiers []string
+}
+
 const (
 	defaultTmuxBin        = "tmux"
 	defaultSaveInterval   = 5 * time.Minute
@@ -66,6 +73,8 @@ const (
 	defaultClaudeHome     = "~/.claude"
 	defaultCodexHome      = "~/.codex"
 	DefaultTheme          = "dark"
+	ModifierCommand       = "command"
+	ModifierControl       = "control"
 
 	DefaultScrollbackLines = 5000
 )
@@ -91,6 +100,9 @@ func Default() Config {
 				Enabled: true,
 				Home:    defaultCodexHome,
 			},
+		},
+		SessionPicker: SessionPickerConfig{
+			NavigationModifiers: []string{ModifierControl},
 		},
 	}
 }
@@ -151,8 +163,36 @@ func LoadFrom(path string) (Config, error) {
 	if err != nil {
 		return cfg, fmt.Errorf("config %s: %w", path, err)
 	}
+	err = validateSessionPicker(final.SessionPicker)
+	if err != nil {
+		return cfg, fmt.Errorf("config %s: %w", path, err)
+	}
 
 	return final, nil
+}
+
+func validateSessionPicker(cfg SessionPickerConfig) error {
+	seen := make(map[string]struct{}, len(cfg.NavigationModifiers))
+	for _, modifier := range cfg.NavigationModifiers {
+		modifier = strings.ToLower(strings.TrimSpace(modifier))
+		if modifier != ModifierCommand && modifier != ModifierControl {
+			return fmt.Errorf(
+				"session_picker.navigation_modifiers %q: %w",
+				modifier,
+				errInvalidNavigationModifier,
+			)
+		}
+		if _, ok := seen[modifier]; ok {
+			return fmt.Errorf(
+				"session_picker.navigation_modifiers %q: %w",
+				modifier,
+				errDuplicateNavigationModifier,
+			)
+		}
+		seen[modifier] = struct{}{}
+	}
+
+	return nil
 }
 
 func validateCommandPatterns(cfg Config) error {
@@ -192,6 +232,11 @@ type fileConfig struct {
 	RestoreDenylist  *[]string             `toml:"restore_denylist"`
 	Scrollback       *fileScrollbackConf   `toml:"scrollback"`
 	Integrations     *fileIntegrationsConf `toml:"integrations"`
+	SessionPicker    *fileSessionPicker    `toml:"session_picker"`
+}
+
+type fileSessionPicker struct {
+	NavigationModifiers *[]string `toml:"navigation_modifiers"`
 }
 
 type fileScrollbackConf struct {
@@ -261,6 +306,24 @@ func (cfg Config) withFile(file fileConfig) Config {
 
 	if file.Integrations != nil {
 		cfg.Integrations = cfg.Integrations.withFile(*file.Integrations)
+	}
+	cfg.SessionPicker = cfg.SessionPicker.withFile(file.SessionPicker)
+
+	return cfg
+}
+
+func (cfg SessionPickerConfig) withFile(file *fileSessionPicker) SessionPickerConfig {
+	if file == nil || file.NavigationModifiers == nil {
+		return cfg
+	}
+
+	modifiers := *file.NavigationModifiers
+	cfg.NavigationModifiers = make([]string, 0, len(modifiers))
+	for _, modifier := range modifiers {
+		cfg.NavigationModifiers = append(
+			cfg.NavigationModifiers,
+			strings.ToLower(strings.TrimSpace(modifier)),
+		)
 	}
 
 	return cfg
