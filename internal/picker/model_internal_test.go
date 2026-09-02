@@ -239,6 +239,258 @@ func TestStatusTickResumesSpinnerOnWork(t *testing.T) {
 	}
 }
 
+func TestLoadingModelRendersBeforeSessionsArrive(t *testing.T) {
+	t.Parallel()
+
+	m := newTestModel(t, &recordingActions{})
+	m.loading = true
+
+	if view := m.View().Content; !strings.Contains(view, "Loading sessions…") {
+		t.Fatalf("loading view missing from first frame:\n%s", view)
+	}
+}
+
+func TestSessionsLoadedMessagePopulatesPicker(t *testing.T) {
+	t.Parallel()
+
+	m := newTestModel(t, &recordingActions{})
+	m.loading = true
+	m.reloadPending = true
+	m = feed(t, m, sessionsLoadedMsg{
+		sessions: []Session{makeSession("alpha", false, "one")},
+	})
+
+	if m.loading || m.reloadPending {
+		t.Fatalf("load flags were not cleared: loading=%v pending=%v", m.loading, m.reloadPending)
+	}
+	if len(m.sessions) != 1 || m.sessions[0].Record.SessionName != "alpha" {
+		t.Fatalf("loaded sessions were not applied: %+v", m.sessions)
+	}
+	if len(m.visible) == 0 {
+		t.Fatal("loaded sessions were not rendered")
+	}
+}
+
+func TestSessionsLoadedMessageRendersError(t *testing.T) {
+	t.Parallel()
+
+	m := newTestModel(t, &recordingActions{})
+	m.loading = true
+	m = feed(t, m, sessionsLoadedMsg{err: errBoom})
+
+	if m.loading {
+		t.Fatal("loading flag must clear after an error")
+	}
+	if !strings.Contains(m.View().Content, errBoom.Error()) {
+		t.Fatalf("loader error is missing from view: %s", m.View().Content)
+	}
+}
+
+func TestStaleReloadDoesNotOverwriteMutationResult(t *testing.T) {
+	t.Parallel()
+
+	current := []Session{makeSession("remaining", false, "one")}
+	m := newPickerModel([]Session{makeSession("deleted", false, "old")}, nil, Actions{
+		Reload: func() ([]Session, error) {
+			return current, nil
+		},
+	})
+	m.reloadGeneration = 1
+	m.reloadPending = true
+	m.applyActionResult(errBoom)
+	mutationGeneration := m.reloadGeneration
+
+	next, _ := m.handleStatusTick()
+	m, _ = next.(pickerModel)
+	if m.reloadGeneration != mutationGeneration {
+		t.Fatal("status tick scheduled another reload while an older reload was in flight")
+	}
+	if !m.reloadPending {
+		t.Fatal("mutation reload cleared the in-flight reload marker")
+	}
+
+	m = feed(t, m, sessionsLoadedMsg{
+		sessions:   []Session{makeSession("deleted", false, "old")},
+		generation: 1,
+	})
+
+	if len(m.sessions) != 1 || m.sessions[0].Record.SessionName != "remaining" {
+		t.Fatalf("stale reload overwrote mutation result: %+v", m.sessions)
+	}
+	if m.statusMsg != errBoom.Error() {
+		t.Fatalf("stale reload changed action status: %q", m.statusMsg)
+	}
+	if m.reloadPending {
+		t.Fatal("completed stale reload did not clear the in-flight marker")
+	}
+}
+
+func TestMutationReloadEndsInitialLoading(t *testing.T) {
+	t.Parallel()
+
+	current := []Session{makeSession("created", false, "one")}
+	m := newPickerModel(nil, nil, Actions{
+		Reload: func() ([]Session, error) {
+			return current, nil
+		},
+	})
+	m.loading = true
+	m.reloadPending = true
+	m.reloadGeneration = 1
+	m.applyActionResult(nil)
+
+	if m.loading {
+		t.Fatal("mutation reload left the picker in its initial loading state")
+	}
+	if !m.reloadPending {
+		t.Fatal("mutation reload lost track of the initial load still in flight")
+	}
+	if len(m.sessions) != 1 || m.sessions[0].Record.SessionName != "created" {
+		t.Fatalf("mutation reload did not apply current sessions: %+v", m.sessions)
+	}
+
+	m = feed(t, m, sessionsLoadedMsg{
+		sessions:   []Session{},
+		generation: 1,
+	})
+	if m.loading || m.reloadPending {
+		t.Fatalf(
+			"stale initial load changed lifecycle flags: loading=%v pending=%v",
+			m.loading,
+			m.reloadPending,
+		)
+	}
+	if len(m.sessions) != 1 || m.sessions[0].Record.SessionName != "created" {
+		t.Fatalf("stale initial load overwrote mutation sessions: %+v", m.sessions)
+	}
+}
+
+func TestMutationReloadWaitsForBackgroundReload(t *testing.T) {
+	t.Parallel()
+
+	firstStarted := make(chan struct{})
+	secondStarted := make(chan struct{})
+	releaseFirst := make(chan struct{})
+	released := false
+	defer func() {
+		if !released {
+			close(releaseFirst)
+		}
+	}()
+
+	calls := 0
+	m := newPickerModel(nil, nil, Actions{
+		Reload: func() ([]Session, error) {
+			calls++
+			if calls == 1 {
+				close(firstStarted)
+				<-releaseFirst
+			} else {
+				close(secondStarted)
+			}
+
+			return nil, nil
+		},
+	})
+
+	backgroundDone := make(chan struct{})
+	go func() {
+		_ = loadSessions(m.actions.Reload, 1)()
+		close(backgroundDone)
+	}()
+	<-firstStarted
+
+	mutationDone := make(chan struct{})
+	go func() {
+		m.reload()
+		close(mutationDone)
+	}()
+
+	select {
+	case <-secondStarted:
+		t.Fatal("mutation loader started while background loader was still running")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	close(releaseFirst)
+	released = true
+	<-backgroundDone
+	<-secondStarted
+	<-mutationDone
+}
+
+func TestSuccessfulRefreshPreservesActionStatus(t *testing.T) {
+	t.Parallel()
+
+	m := newPickerModel(nil, nil, Actions{})
+	m.reloadGeneration = 1
+	m.setStatus("delete failed")
+	m = feed(t, m, sessionsLoadedMsg{
+		sessions:   []Session{makeSession("alpha", false, "one")},
+		generation: 1,
+	})
+
+	if m.statusMsg != "delete failed" {
+		t.Fatalf("successful refresh cleared action status: %q", m.statusMsg)
+	}
+	if len(m.sessions) != 1 || m.sessions[0].Record.SessionName != "alpha" {
+		t.Fatalf("successful refresh did not apply sessions: %+v", m.sessions)
+	}
+}
+
+func TestSuccessfulRefreshClearsLoaderStatus(t *testing.T) {
+	t.Parallel()
+
+	m := newPickerModel(nil, nil, Actions{})
+	m.reloadGeneration = 1
+	m.setLoaderStatus("load failed")
+	m = feed(t, m, sessionsLoadedMsg{
+		sessions:   []Session{makeSession("alpha", false, "one")},
+		generation: 1,
+	})
+
+	if m.statusMsg != "" || m.statusFromLoader {
+		t.Fatalf("successful refresh kept loader status: %q", m.statusMsg)
+	}
+}
+
+func TestStatusTickSchedulesReloadWithoutBlocking(t *testing.T) {
+	t.Parallel()
+
+	called := false
+	m := newPickerModel(nil, nil, Actions{
+		Reload: func() ([]Session, error) {
+			called = true
+
+			return nil, nil
+		},
+	})
+
+	next, cmd := m.handleStatusTick()
+	updated, _ := next.(pickerModel)
+	if called {
+		t.Fatal("status tick called the session loader synchronously")
+	}
+	if !updated.reloadPending {
+		t.Fatal("status tick did not mark the asynchronous reload as pending")
+	}
+	if cmd == nil {
+		t.Fatal("status tick did not schedule reload commands")
+	}
+}
+
+func TestEscapeCancelsWhileSessionsLoad(t *testing.T) {
+	t.Parallel()
+
+	m := newTestModel(t, &recordingActions{})
+	m.loading = true
+	m = feed(t, m, keyCode(tea.KeyEscape))
+
+	if !m.cancelled {
+		t.Fatal("escape must cancel the picker while sessions load")
+	}
+}
+
 func TestModelNavigationAndSelect(t *testing.T) {
 	t.Parallel()
 
@@ -931,11 +1183,67 @@ func TestChooseTargetNoSelection(
 	}
 }
 
+//nolint:paralleltest // stubs the package-level newPickerRunner seam
+func TestChooseTargetWithLoaderStartsRunnerBeforeLoaderCompletes(t *testing.T) {
+	orig := newPickerRunner
+	defer func() { newPickerRunner = orig }()
+
+	loaderStarted := make(chan struct{})
+	releaseLoader := make(chan struct{})
+	runnerStarted := make(chan struct{})
+	released := false
+	defer func() {
+		if !released {
+			close(releaseLoader)
+		}
+	}()
+
+	newPickerRunner = func(m pickerModel) pickerRunner {
+		return blockingLoaderRunner{model: m, started: runnerStarted}
+	}
+
+	done := make(chan struct{})
+	go func() {
+		_, _ = ChooseTargetWithLoader(nil, Actions{
+			Reload: func() ([]Session, error) {
+				close(loaderStarted)
+				<-releaseLoader
+
+				return []Session{makeSession("alpha", false, "one")}, nil
+			},
+		}, themeDark)
+		close(done)
+	}()
+
+	select {
+	case <-runnerStarted:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("picker runner did not start while session loader was blocked")
+	}
+	<-loaderStarted
+	close(releaseLoader)
+	released = true
+	<-done
+}
+
 type staticRunner struct {
 	model pickerModel
 }
 
 func (s staticRunner) Run() (tea.Model, error) { return s.model, nil }
+
+type blockingLoaderRunner struct {
+	model   pickerModel
+	started chan struct{}
+}
+
+func (r blockingLoaderRunner) Run() (tea.Model, error) {
+	close(r.started)
+	_, _ = r.model.actions.Reload()
+	r.model.cancelled = true
+
+	return r.model, nil
+}
 
 func TestModelHelpToggle(t *testing.T) {
 	t.Parallel()

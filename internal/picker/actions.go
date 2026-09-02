@@ -430,15 +430,32 @@ func (m *pickerModel) sleepSession() error {
 }
 
 func (m *pickerModel) reload() {
+	m.reloadGeneration++
+	m.loading = false
 	if m.actions.Reload == nil {
 		return
 	}
 
 	sessions, err := m.actions.Reload()
+	m.applySessionLoadResult(sessions, err, sessionLoadMutation)
+}
+
+func (m *pickerModel) applySessionLoadResult(
+	sessions []Session,
+	err error,
+	source sessionLoadSource,
+) {
 	if err != nil {
-		m.setStatus(err.Error())
+		if source == sessionLoadBackground {
+			m.setLoaderStatus(err.Error())
+		} else {
+			m.setStatus(err.Error())
+		}
 
 		return
+	}
+	if source == sessionLoadBackground && m.statusFromLoader {
+		m.clearStatus()
 	}
 
 	m.sessions = sessions
@@ -456,11 +473,19 @@ func (m *pickerModel) currentRow() (pickerRow, bool) {
 
 func (m *pickerModel) setStatus(msg string) {
 	m.statusMsg = strings.TrimSpace(msg)
+	m.statusFromLoader = false
+	m.resize()
+}
+
+func (m *pickerModel) setLoaderStatus(msg string) {
+	m.statusMsg = strings.TrimSpace(msg)
+	m.statusFromLoader = true
 	m.resize()
 }
 
 func (m *pickerModel) clearStatus() {
 	m.statusMsg = ""
+	m.statusFromLoader = false
 	m.resize()
 }
 

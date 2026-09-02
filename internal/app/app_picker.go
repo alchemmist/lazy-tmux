@@ -193,15 +193,6 @@ func (a *App) SelectTargetWithTUI() (PickerTarget, error) {
 }
 
 func (a *App) SelectTargetWithTUISorted(opts PickerSortOptions) (PickerTarget, error) {
-	sessions, err := a.pickerSessions(opts)
-	if err != nil {
-		if errors.Is(err, errNoSavedSessions) {
-			sessions = []picker.Session{}
-		} else {
-			return PickerTarget{}, err
-		}
-	}
-
 	actions := picker.Actions{
 		DeleteWindow:  a.DeleteWindow,
 		DeleteSession: a.DeleteSession,
@@ -228,7 +219,7 @@ func (a *App) SelectTargetWithTUISorted(opts PickerSortOptions) (PickerTarget, e
 		},
 	}
 
-	target, err := picker.ChooseTargetWithTheme(sessions, opts.Window, actions, a.cfg.Theme)
+	target, err := picker.ChooseTargetWithLoader(opts.Window, actions, a.cfg.Theme)
 	if err != nil {
 		return picker.Target{}, fmt.Errorf("choose target: %w", err)
 	}
