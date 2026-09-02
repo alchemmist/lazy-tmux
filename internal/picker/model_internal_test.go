@@ -4,6 +4,7 @@ package picker
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -142,6 +143,66 @@ func workingSession(name string) Session {
 	sess.Statuses = map[int]WindowStatus{1: StatusWorking}
 
 	return sess
+}
+
+func largeWorkingPickerModel() pickerModel {
+	sessions := make([]Session, 100)
+	for sessionIndex := range sessions {
+		windowNames := make([]string, 10)
+		for windowIndex := range windowNames {
+			windowNames[windowIndex] = fmt.Sprintf("window-%03d-%02d", sessionIndex, windowIndex)
+		}
+
+		sessions[sessionIndex] = makeSession(
+			fmt.Sprintf("session-%03d", sessionIndex),
+			true,
+			windowNames...,
+		)
+	}
+	sessions[0].Statuses = map[int]WindowStatus{1: StatusWorking}
+
+	m := newPickerModel(sessions, DefaultSortOptions().Window, Actions{})
+	m.queryInput.SetValue("session")
+	m.applyFilter()
+	m.width = 120
+	m.height = 30
+	m.resize()
+	m.renderViewport()
+
+	return m
+}
+
+//nolint:paralleltest // AllocsPerRun cannot execute in a parallel test
+func TestSpinnerTickAllocationBudget(t *testing.T) {
+	m := largeWorkingPickerModel()
+	allocations := testing.AllocsPerRun(10, func() {
+		m = spinnerTickModel(m)
+	})
+
+	if allocations > 300 {
+		t.Fatalf("spinner tick allocated %.0f objects, want at most 300", allocations)
+	}
+}
+
+func BenchmarkSpinnerTickLargePicker(b *testing.B) {
+	m := largeWorkingPickerModel()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for range b.N {
+		m = spinnerTickModel(m)
+	}
+}
+
+func spinnerTickModel(m pickerModel) pickerModel {
+	next, _ := m.handleSpinnerTick()
+	updated, ok := next.(pickerModel)
+	if !ok {
+		panic(fmt.Sprintf("unexpected spinner model type %T", next))
+	}
+
+	return updated
 }
 
 func TestHasWorkingWindow(t *testing.T) {
