@@ -80,7 +80,7 @@ func runConfiguredPicker(
 		return runFZFPicker(tmuxApp, windows, sortOpts, stderr)
 	}
 	if sessionsOnly {
-		return runQuickSessionPicker(tmuxApp, sortOpts, stderr)
+		return runQuickSessionPicker(tmuxApp, stderr)
 	}
 
 	return runTUIPicker(tmuxApp, sortOpts, stderr)
@@ -99,10 +99,9 @@ func validatePickerEngineFlags(fzfEngine, windows, sessionsOnly bool) error {
 
 func runQuickSessionPicker(
 	tmuxApp *app.App,
-	sortOpts app.PickerSortOptions,
 	stderr io.Writer,
 ) int {
-	session, err := tmuxApp.SelectQuickSessionWithTUISorted(sortOpts)
+	session, err := tmuxApp.SelectQuickSessionWithTUI()
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("select session: %w", err))
 

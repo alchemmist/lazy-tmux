@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -172,7 +173,7 @@ func TestQuickPickerSessionsIncludesLiveWithoutSnapshot(t *testing.T) {
 		current:       "live-only",
 	}
 
-	sessions, err := a.quickPickerSessions(DefaultPickerSortOptions())
+	sessions, err := a.quickPickerSessions()
 	if err != nil {
 		t.Fatalf("quick picker sessions: %v", err)
 	}
@@ -189,6 +190,37 @@ func TestQuickPickerSessionsIncludesLiveWithoutSnapshot(t *testing.T) {
 	}
 	if !byName["live-only"].Restored || !byName["live-only"].Current {
 		t.Fatalf("live-only session flags = %+v", byName["live-only"])
+	}
+}
+
+func TestQuickPickerSessionsHaveStableNameOrder(t *testing.T) {
+	t.Parallel()
+
+	a, _ := newTestApp(t)
+	for _, session := range []snapshot.SessionSnapshot{
+		{SessionName: "charlie", CapturedAt: time.Now().Add(time.Hour)},
+		{SessionName: "alpha", CapturedAt: time.Now()},
+	} {
+		if err := a.store.SaveSession(session); err != nil {
+			t.Fatalf("save snapshot: %v", err)
+		}
+	}
+	a.tmux = &quickRecordingTmux{
+		recordingTmux: recordingTmux{},
+		sessions:      []string{"delta", "bravo"},
+		current:       "delta",
+	}
+
+	sessions, err := a.quickPickerSessions()
+	if err != nil {
+		t.Fatalf("quick picker sessions: %v", err)
+	}
+	names := make([]string, 0, len(sessions))
+	for _, session := range sessions {
+		names = append(names, session.Name)
+	}
+	if !slices.Equal(names, []string{"alpha", "bravo", "charlie", "delta"}) {
+		t.Fatalf("session order = %v", names)
 	}
 }
 
@@ -243,7 +275,7 @@ func TestQuickPickerSessionMarksWorkingCodex(t *testing.T) {
 		current:       "working",
 	}
 
-	sessions, err := a.quickPickerSessions(DefaultPickerSortOptions())
+	sessions, err := a.quickPickerSessions()
 	if err != nil {
 		t.Fatalf("quick picker sessions: %v", err)
 	}

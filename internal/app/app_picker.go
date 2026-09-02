@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"time"
 
@@ -236,8 +237,8 @@ func (a *App) SelectWithTUI() (string, error) {
 	return target.SessionName, nil
 }
 
-func (a *App) SelectQuickSessionWithTUISorted(opts PickerSortOptions) (string, error) {
-	sessions, err := a.quickPickerSessions(opts)
+func (a *App) SelectQuickSessionWithTUI() (string, error) {
+	sessions, err := a.quickPickerSessions()
 	if err != nil {
 		return "", err
 	}
@@ -254,7 +255,7 @@ func (a *App) SelectQuickSessionWithTUISorted(opts PickerSortOptions) (string, e
 	return session, nil
 }
 
-func (a *App) quickPickerSessions(opts PickerSortOptions) ([]picker.QuickSession, error) {
+func (a *App) quickPickerSessions() ([]picker.QuickSession, error) {
 	records, err := a.store.ListRecords()
 	if err != nil {
 		return nil, fmt.Errorf("list records: %w", err)
@@ -265,15 +266,10 @@ func (a *App) quickPickerSessions(opts PickerSortOptions) ([]picker.QuickSession
 		return nil, fmt.Errorf("list sessions: %w", err)
 	}
 
-	attached := a.tmux.SessionsLastAttached()
 	byName := make(map[string]struct{}, len(records)+len(liveSessions))
 	live := make(map[string]struct{}, len(liveSessions))
 	for index := range records {
 		byName[records[index].SessionName] = struct{}{}
-		if when, ok := attached[records[index].SessionName]; ok &&
-			when.After(records[index].LastAccessed) {
-			records[index].LastAccessed = when
-		}
 	}
 	for _, name := range liveSessions {
 		live[name] = struct{}{}
@@ -285,13 +281,15 @@ func (a *App) quickPickerSessions(opts PickerSortOptions) ([]picker.QuickSession
 			SessionName:  name,
 			File:         "",
 			CapturedAt:   time.Time{},
-			LastAccessed: attached[name],
+			LastAccessed: time.Time{},
 			Windows:      0,
 			Panes:        0,
 		})
 		byName[name] = struct{}{}
 	}
-	picker.SortSessionRecords(records, opts.Session)
+	sort.Slice(records, func(i, j int) bool {
+		return records[i].SessionName < records[j].SessionName
+	})
 
 	current, _ := a.tmux.CurrentSession()
 	sessions := make([]picker.QuickSession, 0, len(records))
