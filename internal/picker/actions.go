@@ -430,6 +430,8 @@ func (m *pickerModel) sleepSession() error {
 }
 
 func (m *pickerModel) reload() {
+	m.reloadGeneration++
+	m.reloadPending = false
 	if m.actions.Reload == nil {
 		return
 	}

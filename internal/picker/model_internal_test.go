@@ -286,6 +286,32 @@ func TestSessionsLoadedMessageRendersError(t *testing.T) {
 	}
 }
 
+func TestStaleReloadDoesNotOverwriteMutationResult(t *testing.T) {
+	t.Parallel()
+
+	current := []Session{makeSession("remaining", false, "one")}
+	m := newPickerModel([]Session{makeSession("deleted", false, "old")}, nil, Actions{
+		Reload: func() ([]Session, error) {
+			return current, nil
+		},
+	})
+	m.reloadGeneration = 1
+	m.reloadPending = true
+	m.applyActionResult(errBoom)
+
+	m = feed(t, m, sessionsLoadedMsg{
+		sessions:   []Session{makeSession("deleted", false, "old")},
+		generation: 1,
+	})
+
+	if len(m.sessions) != 1 || m.sessions[0].Record.SessionName != "remaining" {
+		t.Fatalf("stale reload overwrote mutation result: %+v", m.sessions)
+	}
+	if m.statusMsg != errBoom.Error() {
+		t.Fatalf("stale reload changed action status: %q", m.statusMsg)
+	}
+}
+
 func TestStatusTickSchedulesReloadWithoutBlocking(t *testing.T) {
 	t.Parallel()
 

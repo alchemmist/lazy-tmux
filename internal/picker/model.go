@@ -30,8 +30,9 @@ type statusTickMsg struct{}
 type spinnerTickMsg struct{}
 
 type sessionsLoadedMsg struct {
-	sessions []Session
-	err      error
+	sessions   []Session
+	err        error
+	generation uint64
 }
 
 type pickerRow struct {
@@ -49,32 +50,33 @@ type pickerRow struct {
 
 //nolint:recvcheck // deliberate value/pointer receiver mix, see above
 type pickerModel struct {
-	sessions      []Session
-	windowSort    []WindowSortKey
-	visible       []pickerRow
-	queryInput    textinput.Model
-	viewport      viewport.Model
-	theme         pickerTheme
-	themeName     string
-	selected      Target
-	cancelled     bool
-	cursor        int
-	width         int
-	height        int
-	actions       Actions
-	statusMsg     string
-	mode          pickerMode
-	action        actionMode
-	marked        map[string]struct{}
-	palette       bool
-	paletteIdx    int
-	promptInput   textinput.Model
-	pending       Target
-	helpOpen      bool
-	spinnerFrame  int
-	spinnerOn     bool
-	loading       bool
-	reloadPending bool
+	sessions         []Session
+	windowSort       []WindowSortKey
+	visible          []pickerRow
+	queryInput       textinput.Model
+	viewport         viewport.Model
+	theme            pickerTheme
+	themeName        string
+	selected         Target
+	cancelled        bool
+	cursor           int
+	width            int
+	height           int
+	actions          Actions
+	statusMsg        string
+	mode             pickerMode
+	action           actionMode
+	marked           map[string]struct{}
+	palette          bool
+	paletteIdx       int
+	promptInput      textinput.Model
+	pending          Target
+	helpOpen         bool
+	spinnerFrame     int
+	spinnerOn        bool
+	loading          bool
+	reloadPending    bool
+	reloadGeneration uint64
 }
 
 type pickerMode int
@@ -150,21 +152,23 @@ func newPickerModelWithTheme(
 func (m pickerModel) Init() tea.Cmd {
 	cmds := []tea.Cmd{textinput.Blink, scheduleStatusRefresh(), scheduleSpinner()}
 	if m.loading {
-		cmds = append(cmds, loadSessions(m.actions.Reload))
+		cmds = append(cmds, loadSessions(m.actions.Reload, m.reloadGeneration))
 	}
 
 	return tea.Batch(cmds...)
 }
 
-func loadSessions(loader func() ([]Session, error)) tea.Cmd {
+func loadSessions(loader func() ([]Session, error), generation uint64) tea.Cmd {
 	return func() tea.Msg {
 		if loader == nil {
-			return sessionsLoadedMsg{sessions: nil, err: errSessionLoaderUnavailable}
+			return sessionsLoadedMsg{
+				sessions: nil, err: errSessionLoaderUnavailable, generation: generation,
+			}
 		}
 
 		sessions, err := loader()
 
-		return sessionsLoadedMsg{sessions: sessions, err: err}
+		return sessionsLoadedMsg{sessions: sessions, err: err, generation: generation}
 	}
 }
 
@@ -190,19 +194,7 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case spinnerTickMsg:
 		return m.handleSpinnerTick()
 	case sessionsLoadedMsg:
-		m.loading = false
-		m.reloadPending = false
-		if msg.err != nil {
-			m.setStatus(msg.err.Error())
-		} else {
-			m.clearStatus()
-			m.sessions = msg.sessions
-			m.applyFilter()
-			m.ensureCursorVisible()
-		}
-		m.renderViewport()
-
-		return m, nil
+		return m.handleSessionsLoaded(msg)
 	case tea.MouseWheelMsg:
 		return m.handleWheel(msg)
 	case tea.MouseClickMsg:
@@ -278,12 +270,33 @@ func (m pickerModel) View() tea.View {
 	return view
 }
 
+func (m pickerModel) handleSessionsLoaded(msg sessionsLoadedMsg) (tea.Model, tea.Cmd) {
+	if msg.generation != m.reloadGeneration {
+		return m, nil
+	}
+
+	m.loading = false
+	m.reloadPending = false
+	if msg.err != nil {
+		m.setStatus(msg.err.Error())
+	} else {
+		m.clearStatus()
+		m.sessions = msg.sessions
+		m.applyFilter()
+		m.ensureCursorVisible()
+	}
+	m.renderViewport()
+
+	return m, nil
+}
+
 func (m pickerModel) handleStatusTick() (tea.Model, tea.Cmd) {
 	cmds := []tea.Cmd{scheduleStatusRefresh()}
 	if m.mode == modeBrowse && !m.palette && !m.loading && !m.reloadPending &&
 		m.actions.Reload != nil {
+		m.reloadGeneration++
 		m.reloadPending = true
-		cmds = append(cmds, loadSessions(m.actions.Reload))
+		cmds = append(cmds, loadSessions(m.actions.Reload, m.reloadGeneration))
 	}
 	if m.hasWorkingWindow() && !m.spinnerOn {
 		m.spinnerOn = true
@@ -1192,6 +1205,7 @@ func ChooseTargetWithLoader(
 	m := newPickerModelWithTheme([]Session{}, windowSort, actions, themeName)
 	m.loading = true
 	m.reloadPending = true
+	m.reloadGeneration = 1
 
 	return runPicker(m)
 }
