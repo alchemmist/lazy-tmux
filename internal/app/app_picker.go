@@ -98,24 +98,50 @@ func (a *App) pickerSessions(opts PickerSortOptions) ([]picker.Session, error) {
 func (a *App) pickerSnapshot(record snapshot.Record) (snapshot.SessionSnapshot, error) {
 	a.pickerCacheMu.Lock()
 	cached, ok := a.pickerCache[record.SessionName]
-	a.pickerCacheMu.Unlock()
 	if ok && cached.file == record.File && cached.capturedAt.Equal(record.CapturedAt) {
+		a.pickerCacheMu.Unlock()
+
 		return cached.snapshot, nil
 	}
+	key := pickerCacheKey{
+		sessionName: record.SessionName,
+		file:        record.File,
+		capturedAt:  record.CapturedAt,
+	}
+	if load, loading := a.pickerLoads[key]; loading {
+		a.pickerCacheMu.Unlock()
+		<-load.done
+
+		return load.snapshot, load.err
+	}
+	load := &pickerSnapshotLoad{
+		done:     make(chan struct{}),
+		snapshot: snapshot.SessionSnapshot{},
+		err:      nil,
+	}
+	a.pickerLoads[key] = load
+	a.pickerCacheMisses++
+	a.pickerCacheMu.Unlock()
 
 	snap, err := a.store.LoadSessionMetadata(record.SessionName)
 	if err != nil {
-		return snapshot.SessionSnapshot{}, fmt.Errorf("load picker snapshot: %w", err)
+		err = fmt.Errorf("load picker snapshot: %w", err)
 	}
 	a.pickerCacheMu.Lock()
-	a.pickerCache[record.SessionName] = cachedPickerSnapshot{
-		capturedAt: record.CapturedAt,
-		file:       record.File,
-		snapshot:   snap,
+	if err == nil {
+		a.pickerCache[record.SessionName] = cachedPickerSnapshot{
+			capturedAt: record.CapturedAt,
+			file:       record.File,
+			snapshot:   snap,
+		}
 	}
+	load.snapshot = snap
+	load.err = err
+	delete(a.pickerLoads, key)
+	close(load.done)
 	a.pickerCacheMu.Unlock()
 
-	return snap, nil
+	return snap, err
 }
 
 func windowStatuses(

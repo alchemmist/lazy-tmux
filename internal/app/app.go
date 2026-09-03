@@ -71,19 +71,33 @@ type tmuxClient interface {
 }
 
 type App struct {
-	cfg           config.Config
-	store         *store.Store
-	tmux          tmuxClient
-	integrations  *integration.Registry
-	saveAllFn     func() error
-	pickerCacheMu sync.Mutex
-	pickerCache   map[string]cachedPickerSnapshot
+	cfg               config.Config
+	store             *store.Store
+	tmux              tmuxClient
+	integrations      *integration.Registry
+	saveAllFn         func() error
+	pickerCacheMu     sync.Mutex
+	pickerCache       map[string]cachedPickerSnapshot
+	pickerLoads       map[pickerCacheKey]*pickerSnapshotLoad
+	pickerCacheMisses int
 }
 
 type cachedPickerSnapshot struct {
 	capturedAt time.Time
 	file       string
 	snapshot   snapshot.SessionSnapshot
+}
+
+type pickerCacheKey struct {
+	sessionName string
+	file        string
+	capturedAt  time.Time
+}
+
+type pickerSnapshotLoad struct {
+	done     chan struct{}
+	snapshot snapshot.SessionSnapshot
+	err      error
 }
 
 func New(cfg config.Config) *App {
@@ -96,12 +110,14 @@ func New(cfg config.Config) *App {
 	client.SetRestoreResolver(registry)
 
 	return &App{
-		cfg:           cfg,
-		store:         store.New(cfg.DataDir),
-		tmux:          client,
-		integrations:  registry,
-		pickerCacheMu: sync.Mutex{},
-		pickerCache:   make(map[string]cachedPickerSnapshot),
+		cfg:               cfg,
+		store:             store.New(cfg.DataDir),
+		tmux:              client,
+		integrations:      registry,
+		pickerCacheMu:     sync.Mutex{},
+		pickerCache:       make(map[string]cachedPickerSnapshot),
+		pickerLoads:       make(map[pickerCacheKey]*pickerSnapshotLoad),
+		pickerCacheMisses: 0,
 	}
 }
 
@@ -133,7 +149,10 @@ func (a *App) SaveAll() (int, error) {
 		return 0, fmt.Errorf("list sessions: %w", err)
 	}
 
-	errs := parallelMap(sessions, saveAllWorkerLimit, a.SaveSession)
+	integrationScope := a.integrations.Scope()
+	errs := parallelMap(sessions, saveAllWorkerLimit, func(session string) error {
+		return a.saveSession(session, integrationScope)
+	})
 	for _, err := range errs {
 		if err != nil {
 			return 0, err
@@ -144,23 +163,7 @@ func (a *App) SaveAll() (int, error) {
 }
 
 func (a *App) SaveSession(session string) error {
-	snap, err := a.tmux.CaptureSession(session)
-	if err != nil {
-		return fmt.Errorf("capture session: %w", err)
-	}
-
-	if a.cfg.Scrollback.Enabled {
-		a.captureShellScrollback(&snap)
-	}
-
-	a.integrations.Scope().Enrich(&snap)
-
-	err = a.store.SaveSession(snap)
-	if err != nil {
-		return fmt.Errorf("save session: %w", err)
-	}
-
-	return nil
+	return a.saveSession(session, a.integrations.Scope())
 }
 
 func (a *App) SaveCurrent() error {
@@ -215,6 +218,26 @@ func (a *App) ListRecords() ([]snapshot.Record, error) {
 	}
 
 	return records, nil
+}
+
+func (a *App) saveSession(session string, integrationScope *integration.Registry) error {
+	snap, err := a.tmux.CaptureSession(session)
+	if err != nil {
+		return fmt.Errorf("capture session: %w", err)
+	}
+
+	if a.cfg.Scrollback.Enabled {
+		a.captureShellScrollback(&snap)
+	}
+
+	integrationScope.Enrich(&snap)
+
+	err = a.store.SaveSession(snap)
+	if err != nil {
+		return fmt.Errorf("save session: %w", err)
+	}
+
+	return nil
 }
 
 func (a *App) restoreSessionForTarget(ctx context.Context, target PickerTarget) error {
