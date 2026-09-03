@@ -153,7 +153,7 @@ func (a *App) SaveSession(session string) error {
 		a.captureShellScrollback(&snap)
 	}
 
-	a.integrations.Enrich(&snap)
+	a.integrations.Scope().Enrich(&snap)
 
 	err = a.store.SaveSession(snap)
 	if err != nil {

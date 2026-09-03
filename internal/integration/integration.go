@@ -13,6 +13,10 @@ type StatusReporter interface {
 	Status(pane snapshot.Pane) (Status, bool)
 }
 
+type Scoper interface {
+	Scope() Integration
+}
+
 type Status int
 
 const (

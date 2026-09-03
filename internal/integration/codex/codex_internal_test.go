@@ -215,8 +215,42 @@ func TestStatusConcurrentReadersShareSessionPath(t *testing.T) {
 	for result := range errs {
 		t.Fatal(result)
 	}
-	if codexIntegration.indexBuilds != 1 {
-		t.Fatalf("rollout tree scanned %d times, want 1", codexIntegration.indexBuilds)
+	if codexIntegration.index.indexBuilds != 1 {
+		t.Fatalf("rollout tree scanned %d times, want 1", codexIntegration.index.indexBuilds)
+	}
+}
+
+func TestScopedCaptureValidatesRolloutTreeOnce(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	cwd := "/workspace"
+	writeRollout(t, home, "2026/01/03", "session", cwd, time.Now())
+	base := New(home)
+	pane := snapshot.Pane{CurrentPath: cwd, CurrentCmd: "codex"}
+
+	scoped, ok := base.Scope().(*Integration)
+	if !ok {
+		t.Fatal("Codex scope has unexpected type")
+	}
+	for range 20 {
+		if _, err := scoped.Capture(pane); err != nil {
+			t.Fatalf("scoped capture: %v", err)
+		}
+	}
+	if base.index.validationChecks != 1 {
+		t.Fatalf("scope validation checks = %d, want 1", base.index.validationChecks)
+	}
+
+	next, ok := base.Scope().(*Integration)
+	if !ok {
+		t.Fatal("next Codex scope has unexpected type")
+	}
+	if _, err := next.Capture(pane); err != nil {
+		t.Fatalf("next scope capture: %v", err)
+	}
+	if base.index.validationChecks != 2 {
+		t.Fatalf("next scope validation checks = %d, want 2", base.index.validationChecks)
 	}
 }
 

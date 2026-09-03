@@ -67,6 +67,7 @@ func (a *App) pickerSessions(opts PickerSortOptions) ([]picker.Session, error) {
 	}
 
 	sessions := make([]picker.Session, 0, len(records))
+	statusRegistry := a.integrations.Scope()
 
 	for _, rec := range records {
 		snap, err := a.pickerSnapshot(rec)
@@ -85,7 +86,7 @@ func (a *App) pickerSessions(opts PickerSortOptions) ([]picker.Session, error) {
 		}
 
 		if restored {
-			session.Statuses = a.windowStatuses(snap.Windows)
+			session.Statuses = windowStatuses(statusRegistry, snap.Windows)
 		}
 
 		sessions = append(sessions, session)
@@ -117,12 +118,15 @@ func (a *App) pickerSnapshot(record snapshot.Record) (snapshot.SessionSnapshot, 
 	return snap, nil
 }
 
-func (a *App) windowStatuses(windows []snapshot.Window) map[int]picker.WindowStatus {
+func windowStatuses(
+	registry *integration.Registry,
+	windows []snapshot.Window,
+) map[int]picker.WindowStatus {
 	statuses := make(map[int]picker.WindowStatus)
 
 	for _, window := range windows {
 		for paneIdx := range window.Panes {
-			status, ok := a.integrations.Status(window.Panes[paneIdx])
+			status, ok := registry.Status(window.Panes[paneIdx])
 			if !ok {
 				continue
 			}
@@ -335,11 +339,12 @@ func (a *App) quickPickerSessions() ([]picker.QuickSession, error) {
 
 func (a *App) quickWorkingSessions(sessions []picker.QuickSession) map[string]bool {
 	working := make(map[string]bool)
+	registry := a.integrations.Scope()
 	statuses := parallelMap(
 		sessions,
 		quickStatusWorkerLimit,
 		func(session picker.QuickSession) bool {
-			return a.sessionHasWorkingCodex(session.Name, session.Restored)
+			return a.sessionHasWorkingCodex(registry, session.Name, session.Restored)
 		},
 	)
 	for index, isWorking := range statuses {
@@ -369,7 +374,11 @@ func sortQuickSessionRecords(records []snapshot.Record, live map[string]struct{}
 	})
 }
 
-func (a *App) sessionHasWorkingCodex(session string, restored bool) bool {
+func (a *App) sessionHasWorkingCodex(
+	registry *integration.Registry,
+	session string,
+	restored bool,
+) bool {
 	if !restored {
 		return false
 	}
@@ -381,7 +390,7 @@ func (a *App) sessionHasWorkingCodex(session string, restored bool) bool {
 
 	for windowIndex := range snap.Windows {
 		for paneIndex := range snap.Windows[windowIndex].Panes {
-			status, ok := a.integrations.StatusFor(
+			status, ok := registry.StatusFor(
 				"codex",
 				snap.Windows[windowIndex].Panes[paneIndex],
 			)

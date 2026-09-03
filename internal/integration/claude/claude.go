@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/alchemmist/lazy-tmux/internal/integration"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
@@ -17,11 +18,18 @@ const (
 )
 
 type Integration struct {
-	home         string
-	statusDir    string
-	indexMu      sync.Mutex
-	projectIndex map[string]projectCache
-	indexBuilds  int
+	home        string
+	statusDir   string
+	index       *projectIndexState
+	scopeMu     sync.Mutex
+	validations map[string]*sync.Once
+}
+
+type projectIndexState struct {
+	indexMu          sync.Mutex
+	projectIndex     map[string]projectCache
+	indexBuilds      int
+	validationChecks int
 }
 
 type projectCache struct {
@@ -31,11 +39,26 @@ type projectCache struct {
 
 func New(home, statusDir string) *Integration {
 	return &Integration{
-		home:         home,
-		statusDir:    statusDir,
-		indexMu:      sync.Mutex{},
-		projectIndex: make(map[string]projectCache),
-		indexBuilds:  0,
+		home:      home,
+		statusDir: statusDir,
+		index: &projectIndexState{
+			indexMu:          sync.Mutex{},
+			projectIndex:     make(map[string]projectCache),
+			indexBuilds:      0,
+			validationChecks: 0,
+		},
+		scopeMu:     sync.Mutex{},
+		validations: nil,
+	}
+}
+
+func (i *Integration) Scope() integration.Integration {
+	return &Integration{
+		home:        i.home,
+		statusDir:   i.statusDir,
+		index:       i.index,
+		scopeMu:     sync.Mutex{},
+		validations: make(map[string]*sync.Once),
 	}
 }
 
@@ -80,13 +103,34 @@ func (i *Integration) latestSessionID(cwd string) (string, bool) {
 		return "", false
 	}
 
+	if i.validations != nil {
+		i.scopeMu.Lock()
+		once, ok := i.validations[cwd]
+		if !ok {
+			once = &sync.Once{}
+			i.validations[cwd] = once
+		}
+		i.scopeMu.Unlock()
+		once.Do(func() { i.refreshProject(cwd) })
+
+		return i.cachedProject(cwd)
+	}
+	i.refreshProject(cwd)
+
+	return i.cachedProject(cwd)
+}
+
+func (i *Integration) refreshProject(cwd string) {
 	dir := filepath.Join(i.home, "projects", EncodeProjectDir(cwd))
-	i.indexMu.Lock()
-	defer i.indexMu.Unlock()
+	i.index.indexMu.Lock()
+	defer i.index.indexMu.Unlock()
+	i.index.validationChecks++
 
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return "", false
+		delete(i.index.projectIndex, cwd)
+
+		return
 	}
 
 	var (
@@ -120,14 +164,20 @@ func (i *Integration) latestSessionID(cwd string) (string, bool) {
 		}
 	}
 	fingerprint := hash.Sum64()
-	if cached, ok := i.projectIndex[cwd]; ok && cached.fingerprint == fingerprint {
-		return cached.sessionID, cached.sessionID != ""
+	if cached, ok := i.index.projectIndex[cwd]; ok && cached.fingerprint == fingerprint {
+		return
 	}
 
-	i.projectIndex[cwd] = projectCache{fingerprint: fingerprint, sessionID: newestID}
-	i.indexBuilds++
+	i.index.projectIndex[cwd] = projectCache{fingerprint: fingerprint, sessionID: newestID}
+	i.index.indexBuilds++
+}
 
-	return newestID, found
+func (i *Integration) cachedProject(cwd string) (string, bool) {
+	i.index.indexMu.Lock()
+	defer i.index.indexMu.Unlock()
+	cached, ok := i.index.projectIndex[cwd]
+
+	return cached.sessionID, ok && cached.sessionID != ""
 }
 
 func EncodeProjectDir(cwd string) string {

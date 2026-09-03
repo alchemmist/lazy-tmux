@@ -9,20 +9,27 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/alchemmist/lazy-tmux/internal/integration"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
 const metaSessionID = "session_id"
 
 type Integration struct {
-	home         string
-	indexMu      sync.Mutex
-	indexed      bool
-	indexBuilds  int
-	sessionPaths map[string]string
-	latestByCWD  map[string]sessionCandidate
-	fileStates   map[string]fileState
-	dirStates    map[string]int64
+	home       string
+	index      *sessionIndex
+	validation *sync.Once
+}
+
+type sessionIndex struct {
+	indexMu          sync.Mutex
+	indexed          bool
+	indexBuilds      int
+	validationChecks int
+	sessionPaths     map[string]string
+	latestByCWD      map[string]sessionCandidate
+	fileStates       map[string]fileState
+	dirStates        map[string]int64
 }
 
 type fileState struct {
@@ -32,15 +39,23 @@ type fileState struct {
 
 func New(home string) *Integration {
 	return &Integration{
-		home:         home,
-		indexMu:      sync.Mutex{},
-		indexed:      false,
-		indexBuilds:  0,
-		sessionPaths: make(map[string]string),
-		latestByCWD:  make(map[string]sessionCandidate),
-		fileStates:   make(map[string]fileState),
-		dirStates:    make(map[string]int64),
+		home: home,
+		index: &sessionIndex{
+			indexMu:          sync.Mutex{},
+			indexed:          false,
+			indexBuilds:      0,
+			validationChecks: 0,
+			sessionPaths:     make(map[string]string),
+			latestByCWD:      make(map[string]sessionCandidate),
+			fileStates:       make(map[string]fileState),
+			dirStates:        make(map[string]int64),
+		},
+		validation: nil,
 	}
+}
+
+func (i *Integration) Scope() integration.Integration {
+	return &Integration{home: i.home, index: i.index, validation: &sync.Once{}}
 }
 
 func (i *Integration) Name() string { return "codex" }
@@ -111,9 +126,9 @@ func (i *Integration) latestSessionID(cwd string) (string, bool) {
 	}
 	i.ensureIndex("")
 
-	i.indexMu.Lock()
-	defer i.indexMu.Unlock()
-	candidate, found := i.latestByCWD[cwd]
+	i.index.indexMu.Lock()
+	defer i.index.indexMu.Unlock()
+	candidate, found := i.index.latestByCWD[cwd]
 
 	return candidate.id, found
 }
@@ -121,18 +136,28 @@ func (i *Integration) latestSessionID(cwd string) (string, bool) {
 func (i *Integration) sessionPath(sessionID string) (string, bool) {
 	i.ensureIndex(sessionID)
 
-	i.indexMu.Lock()
-	defer i.indexMu.Unlock()
-	path, ok := i.sessionPaths[sessionID]
+	i.index.indexMu.Lock()
+	defer i.index.indexMu.Unlock()
+	path, ok := i.index.sessionPaths[sessionID]
 
 	return path, ok
 }
 
 func (i *Integration) ensureIndex(requiredID string) {
-	i.indexMu.Lock()
-	defer i.indexMu.Unlock()
-	if i.indexed && !i.indexStale() {
-		if requiredID == "" || i.sessionPaths[requiredID] != "" {
+	if i.validation != nil {
+		i.validation.Do(func() { i.ensureIndexFresh(requiredID) })
+
+		return
+	}
+	i.ensureIndexFresh(requiredID)
+}
+
+func (i *Integration) ensureIndexFresh(requiredID string) {
+	i.index.indexMu.Lock()
+	defer i.index.indexMu.Unlock()
+	i.index.validationChecks++
+	if i.index.indexed && !i.indexStale() {
+		if requiredID == "" || i.index.sessionPaths[requiredID] != "" {
 			return
 		}
 	}
@@ -180,23 +205,23 @@ func (i *Integration) ensureIndex(requiredID string) {
 		return nil
 	})
 	if err == nil {
-		i.sessionPaths = paths
-		i.latestByCWD = latest
-		i.fileStates = files
-		i.dirStates = dirs
-		i.indexed = true
-		i.indexBuilds++
+		i.index.sessionPaths = paths
+		i.index.latestByCWD = latest
+		i.index.fileStates = files
+		i.index.dirStates = dirs
+		i.index.indexed = true
+		i.index.indexBuilds++
 	}
 }
 
 func (i *Integration) indexStale() bool {
-	for path, state := range i.fileStates {
+	for path, state := range i.index.fileStates {
 		info, err := os.Stat(path)
 		if err != nil || info.ModTime().UnixNano() != state.modTime || info.Size() != state.size {
 			return true
 		}
 	}
-	for path, modTime := range i.dirStates {
+	for path, modTime := range i.index.dirStates {
 		info, err := os.Stat(path)
 		if err != nil || info.ModTime().UnixNano() != modTime {
 			return true

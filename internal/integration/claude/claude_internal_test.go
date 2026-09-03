@@ -99,8 +99,42 @@ func TestCaptureConcurrentReadersBuildOneProjectIndex(t *testing.T) {
 	for result := range errs {
 		t.Fatal(result)
 	}
-	if integration.indexBuilds != 1 {
-		t.Fatalf("project directory scanned %d times, want 1", integration.indexBuilds)
+	if integration.index.indexBuilds != 1 {
+		t.Fatalf("project directory scanned %d times, want 1", integration.index.indexBuilds)
+	}
+}
+
+func TestScopedCaptureValidatesProjectOnce(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	cwd := "/workspace"
+	writeTranscript(t, home, cwd, "session", time.Now())
+	base := New(home, "")
+	pane := snapshot.Pane{CurrentPath: cwd, CurrentCmd: "claude"}
+
+	scoped, ok := base.Scope().(*Integration)
+	if !ok {
+		t.Fatal("Claude scope has unexpected type")
+	}
+	for range 20 {
+		if _, err := scoped.Capture(pane); err != nil {
+			t.Fatalf("scoped capture: %v", err)
+		}
+	}
+	if base.index.validationChecks != 1 {
+		t.Fatalf("scope validation checks = %d, want 1", base.index.validationChecks)
+	}
+
+	next, ok := base.Scope().(*Integration)
+	if !ok {
+		t.Fatal("next Claude scope has unexpected type")
+	}
+	if _, err := next.Capture(pane); err != nil {
+		t.Fatalf("next scope capture: %v", err)
+	}
+	if base.index.validationChecks != 2 {
+		t.Fatalf("next scope validation checks = %d, want 2", base.index.validationChecks)
 	}
 }
 

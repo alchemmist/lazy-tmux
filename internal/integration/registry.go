@@ -14,6 +14,23 @@ func NewRegistry(items ...Integration) *Registry {
 	return &Registry{items: items}
 }
 
+func (r *Registry) Scope() *Registry {
+	if r == nil {
+		return NewRegistry()
+	}
+
+	items := make([]Integration, 0, len(r.items))
+	for _, item := range r.items {
+		if scoper, ok := item.(Scoper); ok {
+			items = append(items, scoper.Scope())
+		} else {
+			items = append(items, item)
+		}
+	}
+
+	return NewRegistry(items...)
+}
+
 func (r *Registry) Enrich(snap *snapshot.SessionSnapshot) {
 	if r == nil || snap == nil || len(r.items) == 0 {
 		return
