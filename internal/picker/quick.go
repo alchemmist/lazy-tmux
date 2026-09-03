@@ -254,23 +254,41 @@ func (m quickPickerModel) renderSession(index, width int) string {
 	session := m.visible[index]
 	state := "○"
 	if session.Working {
-		state = m.theme.statusWorking.Render(statusGlyphFrame(StatusWorking, m.spinnerFrame))
+		state = statusGlyphFrame(StatusWorking, m.spinnerFrame)
 	} else if session.Restored {
 		state = "●"
 	}
 
 	name := session.Name
 	if session.Current {
-		name += "  current"
+		name += "  ←"
 	}
 
-	line := "  " + state + " " + name
-	line = clampWidth(line, max(0, width-frameChromeWidth))
+	contentWidth := max(0, width-frameChromeWidth)
+	if index == m.cursor && session.Working {
+		return m.renderSelectedWorkingSession(state, name, contentWidth)
+	}
+	if session.Working {
+		state = m.theme.statusWorking.Render(state)
+	}
+
+	line := clampWidth("  "+state+" "+name, contentWidth)
 	if index == m.cursor {
-		line = m.theme.selBar.Width(max(0, width-frameChromeWidth)).Render(line)
+		line = m.theme.selBar.Width(contentWidth).Render(line)
 	}
 
 	return line
+}
+
+func (m quickPickerModel) renderSelectedWorkingSession(state, name string, width int) string {
+	const prefixWidth = 3
+
+	name = clampWidth(name, max(0, width-prefixWidth-1))
+	prefix := m.theme.selBar.Render("  ")
+	spinner := m.theme.statusStyleOn(StatusWorking, true).Render(state)
+	suffix := m.theme.selBar.Width(max(0, width-prefixWidth)).Render(" " + name)
+
+	return prefix + spinner + suffix
 }
 
 func (m quickPickerModel) hasWorkingSession() bool {

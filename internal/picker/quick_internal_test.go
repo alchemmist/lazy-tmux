@@ -33,7 +33,7 @@ func TestQuickPickerStartsOnCurrentSession(t *testing.T) {
 	if model.cursor != 1 {
 		t.Fatalf("cursor = %d, want 1", model.cursor)
 	}
-	if view := model.View().Content; !strings.Contains(view, "bravo  current") {
+	if view := model.View().Content; !strings.Contains(view, "bravo  ←") {
 		t.Fatalf("view does not mark current session: %q", view)
 	}
 }
@@ -145,6 +145,24 @@ func TestQuickPickerAnimatesWorkingSession(t *testing.T) {
 	model = updateQuick(t, model, spinnerTickMsg{})
 	if !strings.Contains(model.View().Content, workingSpinnerFrames[1]) {
 		t.Fatal("working session should advance the spinner frame")
+	}
+}
+
+func TestQuickPickerSelectedWorkingSessionKeepsBackgroundAcrossRow(t *testing.T) {
+	t.Parallel()
+
+	model := newQuickPickerModel([]QuickSession{
+		{Name: "working", Restored: true, Current: false, Working: true},
+	}, themeDark, []string{"control"})
+	width := 28
+	contentWidth := width - frameChromeWidth
+	state := workingSpinnerFrames[0]
+	want := model.theme.selBar.Render("  ") +
+		model.theme.statusStyleOn(StatusWorking, true).Render(state) +
+		model.theme.selBar.Width(contentWidth-3).Render(" working")
+
+	if got := model.renderSession(0, width); got != want {
+		t.Fatalf("selected working row styling:\n got %q\nwant %q", got, want)
 	}
 }
 
