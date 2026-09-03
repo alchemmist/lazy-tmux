@@ -526,10 +526,10 @@ func TestPickForegroundCommand(t *testing.T) {
 	}
 
 	launched := []string{
-		"100 1 Ss zsh",
-		"300 100 S+ fish",
+		"101 1 Ss zsh",
+		"300 101 S+ fish",
 	}
-	if got := pickForegroundCommand(launched, 100); got != "fish" {
+	if got := pickForegroundCommand(launched, 101); got != "fish" {
 		t.Fatalf("expected launched fish, got %q", got)
 	}
 
@@ -561,6 +561,45 @@ func TestPickForegroundCommandFromProcessTree(t *testing.T) {
 
 	if got := pickForegroundCommand(lines, 100); got != "codex" {
 		t.Fatalf("expected child codex, got %q", got)
+	}
+}
+
+func TestProcessSnapshotResolvesIndependentPaneTrees(t *testing.T) {
+	t.Parallel()
+
+	snapshot := newProcessSnapshot([]string{
+		"100 1 Ss zsh",
+		"101 100 S+ nvim main.go",
+		"200 1 Ss zsh",
+		"201 200 S+ codex",
+		"300 1 S unrelated",
+	})
+
+	if got := snapshot.foregroundCommand(100); got != "nvim main.go" {
+		t.Fatalf("pane 100 foreground = %q", got)
+	}
+	if got := snapshot.foregroundCommand(200); got != "codex" {
+		t.Fatalf("pane 200 foreground = %q", got)
+	}
+}
+
+func BenchmarkProcessSnapshotForegroundCommands(b *testing.B) {
+	lines := make([]string, 0, 2000)
+	for index := 1; index <= 1000; index++ {
+		root := index * 2
+		lines = append(
+			lines,
+			fmt.Sprintf("%d 1 Ss zsh", root),
+			fmt.Sprintf("%d %d S+ command-%d", root+1, root, index),
+		)
+	}
+
+	b.ReportAllocs()
+	for b.Loop() {
+		snapshot := newProcessSnapshot(lines)
+		for root := 2; root <= 200; root += 2 {
+			_ = snapshot.foregroundCommand(root)
+		}
 	}
 }
 

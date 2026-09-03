@@ -2,8 +2,11 @@ package tmux_test
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -76,6 +79,101 @@ func TestRestoreToleratesBaseIndexMismatch(
 }
 
 //nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
+func TestCaptureSessionCollectsAllWindowsAndPanes(t *testing.T) {
+	testutil.IsolatedTmux(t)
+
+	const name = "capture-many"
+	testutil.Tmux(t, "new-session", "-d", "-s", name, "-n", "one")
+	testutil.Tmux(t, "split-window", "-d", "-t", "="+name+":0", "-c", "/tmp")
+	testutil.Tmux(t, "new-window", "-d", "-t", "="+name+":2", "-n", "two", "-c", "/")
+	testutil.Tmux(t, "set-option", "-p", "-t", "="+name+":2.0", "@codex_thread_id", "thread-2")
+	testutil.Tmux(t, "select-window", "-t", "="+name+":2")
+
+	snap, err := tmux.NewClient("tmux").CaptureSession(name)
+	if err != nil {
+		t.Fatalf("capture session: %v", err)
+	}
+	if len(snap.Windows) != 2 || len(snap.Windows[0].Panes) != 2 ||
+		len(snap.Windows[1].Panes) != 1 {
+		t.Fatalf("captured hierarchy: %+v", snap.Windows)
+	}
+	if snap.CurrentWin != 2 || snap.Windows[1].Name != "two" {
+		t.Fatalf("captured focus/windows: %+v", snap)
+	}
+	if got := snap.Windows[1].Panes[0].Meta[snapshot.CodexSessionIDMetaKey]; got != "thread-2" {
+		t.Fatalf("captured Codex thread = %q", got)
+	}
+}
+
+func TestCaptureSessionUsesConstantDiscoveryRoundTrips(t *testing.T) {
+	testutil.IsolatedTmux(t)
+
+	const name = "capture-count"
+	testutil.Tmux(t, "new-session", "-d", "-s", name)
+	for index := 1; index < 8; index++ {
+		testutil.Tmux(t, "new-window", "-d", "-t", "="+name+":", "-n", fmt.Sprintf("w%d", index))
+	}
+
+	dir := t.TempDir()
+	tmuxLog := filepath.Join(dir, "tmux.log")
+	psLog := filepath.Join(dir, "ps.log")
+	realTmux, err := exec.LookPath("tmux")
+	if err != nil {
+		t.Fatal(err)
+	}
+	realPS, err := exec.LookPath("ps")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmuxWrapper := writeCountingWrapper(t, dir, "tmux", realTmux, tmuxLog)
+	writeCountingWrapper(t, dir, "ps", realPS, psLog)
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	if _, err = tmux.NewClient(tmuxWrapper).CaptureSession(name); err != nil {
+		t.Fatalf("capture: %v", err)
+	}
+	if got := countLogCommand(t, tmuxLog, "list-panes"); got != 1 {
+		t.Fatalf("list-panes calls = %d, want 1", got)
+	}
+	if got := countLogCommand(t, psLog, "-ax"); got != 1 {
+		t.Fatalf("ps process-table calls = %d, want 1", got)
+	}
+}
+
+func writeCountingWrapper(t *testing.T, dir, name, target, logPath string) string {
+	t.Helper()
+
+	path := filepath.Join(dir, name)
+	body := fmt.Sprintf(
+		"#!/bin/sh\nprintf '%%s\\n' \"$*\" >> %q\nexec %q \"$@\"\n",
+		logPath,
+		target,
+	)
+	if err := os.WriteFile(path, []byte(body), 0o755); err != nil {
+		t.Fatalf("write %s wrapper: %v", name, err)
+	}
+
+	return path
+}
+
+func countLogCommand(t *testing.T, path, command string) int {
+	t.Helper()
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read command log: %v", err)
+	}
+	count := 0
+	for line := range strings.SplitSeq(string(data), "\n") {
+		if strings.Contains(line, command) {
+			count++
+		}
+	}
+
+	return count
+}
+
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestRestoreToleratesPaneBaseIndexMismatch(
 	t *testing.T,
 ) {
@@ -111,6 +209,36 @@ func TestRestoreToleratesPaneBaseIndexMismatch(
 
 	if _, err := testutil.TmuxTry("has-session", "-t", "="+name); err != nil {
 		t.Fatalf("session should be alive after restore: %v", err)
+	}
+}
+
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
+func TestRestoreStopsAfterRealContextCancellation(t *testing.T) {
+	testutil.IsolatedTmux(t)
+
+	const name = "cancel-real"
+	snap := snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: name,
+		CapturedAt:  time.Now(),
+		CurrentWin:  0,
+		CurrentPane: 0,
+		Windows: []snapshot.Window{
+			{Index: 0, Name: "first", Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/tmp"}}},
+			{Index: 1, Name: "second", Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/tmp"}}},
+			{Index: 2, Name: "third", Panes: []snapshot.Pane{{Index: 0, CurrentPath: "/tmp"}}},
+		},
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := tmux.NewClient("tmux").RestoreSession(ctx, snap)
+	if err == nil || !strings.Contains(err.Error(), "restore canceled") {
+		t.Fatalf("restore cancellation error = %v", err)
+	}
+	out := testutil.Tmux(t, "list-windows", "-t", "="+name, "-F", "#{window_index}")
+	if got := len(strings.Fields(out)); got != 1 {
+		t.Fatalf("canceled restore created %d windows, want only initial window", got)
 	}
 }
 

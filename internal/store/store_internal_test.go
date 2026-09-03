@@ -1,13 +1,124 @@
 package store
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
+
+func TestConcurrentStoreInstancesPreserveEveryIndexEntry(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	stores := []*Store{New(dir), New(dir)}
+	const sessionCount = 40
+
+	errs := make(chan error, sessionCount)
+	var group sync.WaitGroup
+	for index := range sessionCount {
+		group.Go(func() {
+			name := fmt.Sprintf("session-%02d", index)
+			errs <- stores[index%len(stores)].SaveSession(snapshot.SessionSnapshot{
+				Version:     snapshot.FormatVersion,
+				SessionName: name,
+			})
+		})
+	}
+	group.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("concurrent save: %v", err)
+		}
+	}
+
+	records, err := New(dir).ListRecords()
+	if err != nil {
+		t.Fatalf("list records: %v", err)
+	}
+	if len(records) != sessionCount {
+		t.Fatalf("index has %d sessions, want %d", len(records), sessionCount)
+	}
+}
+
+func TestConcurrentStoreInstancesKeepOneSessionConsistent(t *testing.T) {
+	t.Parallel()
+
+	for iteration := range 20 {
+		dir := t.TempDir()
+		stores := []*Store{New(dir), New(dir)}
+		snapshots := []snapshot.SessionSnapshot{
+			concurrentSnapshot("shared", "alpha", iteration),
+			concurrentSnapshot("shared", "bravo", iteration),
+		}
+
+		errs := make(chan error, len(stores))
+		var group sync.WaitGroup
+		for index := range stores {
+			group.Go(func() { errs <- stores[index].SaveSession(snapshots[index]) })
+		}
+		group.Wait()
+		close(errs)
+		for err := range errs {
+			if err != nil {
+				t.Fatalf("iteration %d concurrent same-session save: %v", iteration, err)
+			}
+		}
+
+		loaded, err := New(dir).LoadSession("shared")
+		if err != nil {
+			t.Fatalf("iteration %d load: %v", iteration, err)
+		}
+		marker := loaded.Windows[0].Name
+		for _, pane := range loaded.Windows[0].Panes {
+			if pane.Scrollback == nil || !strings.Contains(pane.Scrollback.Content, marker) {
+				t.Fatalf("iteration %d mixed snapshot %s: %+v", iteration, marker, loaded)
+			}
+		}
+	}
+}
+
+func concurrentSnapshot(name, marker string, iteration int) snapshot.SessionSnapshot {
+	panes := make([]snapshot.Pane, 12)
+	for index := range panes {
+		panes[index] = snapshot.Pane{
+			Index:       index,
+			CurrentPath: "/tmp",
+			CurrentCmd:  "zsh",
+			RestoreCmd:  "",
+			Scrollback: &snapshot.ScrollbackRef{
+				Ref:     "",
+				Lines:   0,
+				Bytes:   0,
+				Content: strings.Repeat(marker, 1024),
+			},
+			IsActive: index == 0,
+			Meta:     nil,
+		}
+	}
+
+	return snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: name,
+		CapturedAt:  time.Unix(int64(iteration+1), 0),
+		CurrentWin:  0,
+		CurrentPane: 0,
+		Windows: []snapshot.Window{{
+			Index:      0,
+			Name:       marker,
+			Layout:     "",
+			IsActive:   true,
+			ActivePane: 0,
+			Panes:      panes,
+		}},
+	}
+}
 
 func sampleSnapshot(name string, captured time.Time) snapshot.SessionSnapshot {
 	return snapshot.SessionSnapshot{
@@ -299,6 +410,16 @@ func TestScrollbackPersistAndHydrate(t *testing.T) {
 
 	if sb.Lines != 3 {
 		t.Fatalf("expected 3 scrollback lines, got %d", sb.Lines)
+	}
+
+	metadata, err := s.LoadSessionMetadata("logs")
+	if err != nil {
+		t.Fatalf("load metadata: %v", err)
+	}
+	metadataScrollback := metadata.Windows[0].Panes[0].Scrollback
+	if metadataScrollback == nil || metadataScrollback.Ref == "" ||
+		metadataScrollback.Content != "" {
+		t.Fatalf("metadata load hydrated scrollback content: %+v", metadataScrollback)
 	}
 }
 

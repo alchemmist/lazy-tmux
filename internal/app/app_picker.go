@@ -18,6 +18,8 @@ import (
 
 var errNoSavedSessions = errors.New("no saved sessions found")
 
+const quickStatusWorkerLimit = 4
+
 func (a *App) pickerRecords(opts PickerSortOptions) ([]snapshot.Record, error) {
 	records, err := a.store.ListRecords()
 	if err != nil {
@@ -65,9 +67,10 @@ func (a *App) pickerSessions(opts PickerSortOptions) ([]picker.Session, error) {
 	}
 
 	sessions := make([]picker.Session, 0, len(records))
+	statusRegistry := a.integrations.Scope()
 
 	for _, rec := range records {
-		snap, err := a.store.LoadSession(rec.SessionName)
+		snap, err := a.pickerSnapshot(rec)
 		if err != nil {
 			log.Printf("picker: skip session %s: %v", rec.SessionName, err)
 
@@ -83,7 +86,7 @@ func (a *App) pickerSessions(opts PickerSortOptions) ([]picker.Session, error) {
 		}
 
 		if restored {
-			session.Statuses = a.windowStatuses(snap.Windows)
+			session.Statuses = windowStatuses(statusRegistry, snap.Windows)
 		}
 
 		sessions = append(sessions, session)
@@ -92,12 +95,64 @@ func (a *App) pickerSessions(opts PickerSortOptions) ([]picker.Session, error) {
 	return sessions, nil
 }
 
-func (a *App) windowStatuses(windows []snapshot.Window) map[int]picker.WindowStatus {
+func (a *App) pickerSnapshot(record snapshot.Record) (snapshot.SessionSnapshot, error) {
+	a.pickerCacheMu.Lock()
+	cached, ok := a.pickerCache[record.SessionName]
+	if ok && cached.file == record.File && cached.capturedAt.Equal(record.CapturedAt) {
+		a.pickerCacheMu.Unlock()
+
+		return cached.snapshot, nil
+	}
+	key := pickerCacheKey{
+		sessionName: record.SessionName,
+		file:        record.File,
+		capturedAt:  record.CapturedAt,
+	}
+	if load, loading := a.pickerLoads[key]; loading {
+		a.pickerCacheMu.Unlock()
+		<-load.done
+
+		return load.snapshot, load.err
+	}
+	load := &pickerSnapshotLoad{
+		done:     make(chan struct{}),
+		snapshot: snapshot.SessionSnapshot{},
+		err:      nil,
+	}
+	a.pickerLoads[key] = load
+	a.pickerCacheMisses++
+	a.pickerCacheMu.Unlock()
+
+	snap, err := a.store.LoadSessionMetadata(record.SessionName)
+	if err != nil {
+		err = fmt.Errorf("load picker snapshot: %w", err)
+	}
+	a.pickerCacheMu.Lock()
+	if err == nil {
+		a.pickerCache[record.SessionName] = cachedPickerSnapshot{
+			capturedAt: record.CapturedAt,
+			file:       record.File,
+			snapshot:   snap,
+		}
+	}
+	load.snapshot = snap
+	load.err = err
+	delete(a.pickerLoads, key)
+	close(load.done)
+	a.pickerCacheMu.Unlock()
+
+	return snap, err
+}
+
+func windowStatuses(
+	registry *integration.Registry,
+	windows []snapshot.Window,
+) map[int]picker.WindowStatus {
 	statuses := make(map[int]picker.WindowStatus)
 
 	for _, window := range windows {
 		for paneIdx := range window.Panes {
-			status, ok := a.integrations.Status(window.Panes[paneIdx])
+			status, ok := registry.Status(window.Panes[paneIdx])
 			if !ok {
 				continue
 			}
@@ -310,9 +365,17 @@ func (a *App) quickPickerSessions() ([]picker.QuickSession, error) {
 
 func (a *App) quickWorkingSessions(sessions []picker.QuickSession) map[string]bool {
 	working := make(map[string]bool)
-	for _, session := range sessions {
-		if a.sessionHasWorkingCodex(session.Name, session.Restored) {
-			working[session.Name] = true
+	registry := a.integrations.Scope()
+	statuses := parallelMap(
+		sessions,
+		quickStatusWorkerLimit,
+		func(session picker.QuickSession) bool {
+			return a.sessionHasWorkingCodex(registry, session.Name, session.Restored)
+		},
+	)
+	for index, isWorking := range statuses {
+		if isWorking {
+			working[sessions[index].Name] = true
 		}
 	}
 
@@ -337,19 +400,23 @@ func sortQuickSessionRecords(records []snapshot.Record, live map[string]struct{}
 	})
 }
 
-func (a *App) sessionHasWorkingCodex(session string, restored bool) bool {
+func (a *App) sessionHasWorkingCodex(
+	registry *integration.Registry,
+	session string,
+	restored bool,
+) bool {
 	if !restored {
 		return false
 	}
 
-	snap, err := a.store.LoadSession(session)
+	snap, err := a.store.LoadSessionMetadata(session)
 	if err != nil {
 		return false
 	}
 
 	for windowIndex := range snap.Windows {
 		for paneIndex := range snap.Windows[windowIndex].Panes {
-			status, ok := a.integrations.StatusFor(
+			status, ok := registry.StatusFor(
 				"codex",
 				snap.Windows[windowIndex].Panes[paneIndex],
 			)

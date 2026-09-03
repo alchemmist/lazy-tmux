@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -689,4 +690,90 @@ func TestMergeLastAttached(t *testing.T) {
 	}
 
 	mergeLastAttached(records, nil)
+}
+
+func TestPickerSnapshotCacheReusesAndInvalidatesMetadata(t *testing.T) {
+	t.Parallel()
+
+	a, dir := newTestApp(t)
+	first := snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: "cached",
+		CapturedAt:  time.Unix(1, 0),
+		Windows:     []snapshot.Window{{Index: 0, Name: "first"}},
+	}
+	if err := a.store.SaveSession(first); err != nil {
+		t.Fatalf("save first: %v", err)
+	}
+	records, err := a.store.ListRecords()
+	if err != nil {
+		t.Fatalf("list first records: %v", err)
+	}
+	if _, err = a.pickerSnapshot(records[0]); err != nil {
+		t.Fatalf("prime cache: %v", err)
+	}
+	if err = os.Remove(filepath.Join(dir, "sessions", "cached.json")); err != nil {
+		t.Fatalf("remove cached fixture: %v", err)
+	}
+	if _, err = a.pickerSnapshot(records[0]); err != nil {
+		t.Fatalf("unchanged record was reloaded: %v", err)
+	}
+
+	second := first
+	second.CapturedAt = time.Unix(2, 0)
+	second.Windows = []snapshot.Window{{Index: 0, Name: "second"}}
+	if err = a.store.SaveSession(second); err != nil {
+		t.Fatalf("save second: %v", err)
+	}
+	records, err = a.store.ListRecords()
+	if err != nil {
+		t.Fatalf("list second records: %v", err)
+	}
+	loaded, err := a.pickerSnapshot(records[0])
+	if err != nil {
+		t.Fatalf("reload changed record: %v", err)
+	}
+	if loaded.Windows[0].Name != "second" {
+		t.Fatalf("stale cached snapshot: %+v", loaded.Windows)
+	}
+}
+
+func TestPickerSnapshotCoalescesConcurrentCacheMisses(t *testing.T) {
+	t.Parallel()
+
+	a, _ := newTestApp(t)
+	if err := a.store.SaveSession(snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: "shared",
+		CapturedAt:  time.Unix(1, 0),
+		Windows:     []snapshot.Window{{Index: 0, Name: "window"}},
+	}); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+	records, err := a.store.ListRecords()
+	if err != nil {
+		t.Fatalf("list records: %v", err)
+	}
+
+	start := make(chan struct{})
+	errs := make(chan error, 32)
+	var group sync.WaitGroup
+	for range 32 {
+		group.Go(func() {
+			<-start
+			_, loadErr := a.pickerSnapshot(records[0])
+			errs <- loadErr
+		})
+	}
+	close(start)
+	group.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("load snapshot: %v", err)
+		}
+	}
+	if a.pickerCacheMisses != 1 {
+		t.Fatalf("cache misses = %d, want 1", a.pickerCacheMisses)
+	}
 }

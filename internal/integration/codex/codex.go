@@ -3,20 +3,60 @@ package codex
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
+	"github.com/alchemmist/lazy-tmux/internal/integration"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
 const metaSessionID = "session_id"
 
 type Integration struct {
-	home string
+	home       string
+	index      *sessionIndex
+	validation *sync.Once
 }
 
-func New(home string) *Integration { return &Integration{home: home} }
+type sessionIndex struct {
+	indexMu          sync.Mutex
+	indexed          bool
+	indexBuilds      int
+	validationChecks int
+	sessionPaths     map[string]string
+	latestByCWD      map[string]sessionCandidate
+	fileStates       map[string]fileState
+	dirStates        map[string]int64
+}
+
+type fileState struct {
+	modTime int64
+	size    int64
+}
+
+func New(home string) *Integration {
+	return &Integration{
+		home: home,
+		index: &sessionIndex{
+			indexMu:          sync.Mutex{},
+			indexed:          false,
+			indexBuilds:      0,
+			validationChecks: 0,
+			sessionPaths:     make(map[string]string),
+			latestByCWD:      make(map[string]sessionCandidate),
+			fileStates:       make(map[string]fileState),
+			dirStates:        make(map[string]int64),
+		},
+		validation: nil,
+	}
+}
+
+func (i *Integration) Scope() integration.Integration {
+	return &Integration{home: i.home, index: i.index, validation: &sync.Once{}}
+}
 
 func (i *Integration) Name() string { return "codex" }
 
@@ -74,41 +114,121 @@ type sessionMetaLine struct {
 
 type sessionCandidate struct {
 	id      string
+	cwd     string
+	path    string
 	modTime int64
 }
 
 func (i *Integration) latestSessionID(cwd string) (string, bool) {
 	cwd = strings.TrimSpace(cwd)
-	root := filepath.Join(i.home, "sessions")
 	if cwd == "" || strings.TrimSpace(i.home) == "" {
 		return "", false
 	}
+	i.ensureIndex("")
 
-	var newest sessionCandidate
-	found := false
+	i.index.indexMu.Lock()
+	defer i.index.indexMu.Unlock()
+	candidate, found := i.index.latestByCWD[cwd]
+
+	return candidate.id, found
+}
+
+func (i *Integration) sessionPath(sessionID string) (string, bool) {
+	i.ensureIndex(sessionID)
+
+	i.index.indexMu.Lock()
+	defer i.index.indexMu.Unlock()
+	path, ok := i.index.sessionPaths[sessionID]
+
+	return path, ok
+}
+
+func (i *Integration) ensureIndex(requiredID string) {
+	if i.validation != nil {
+		i.validation.Do(func() { i.ensureIndexFresh(requiredID) })
+
+		return
+	}
+	i.ensureIndexFresh(requiredID)
+}
+
+func (i *Integration) ensureIndexFresh(requiredID string) {
+	i.index.indexMu.Lock()
+	defer i.index.indexMu.Unlock()
+	i.index.validationChecks++
+	if i.index.indexed && !i.indexStale() {
+		if requiredID == "" || i.index.sessionPaths[requiredID] != "" {
+			return
+		}
+	}
+
+	root := filepath.Join(i.home, "sessions")
+	paths := make(map[string]string)
+	latest := make(map[string]sessionCandidate)
+	files := make(map[string]fileState)
+	dirs := make(map[string]int64)
 	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".jsonl") {
+		if entry.IsDir() {
+			info, infoErr := entry.Info()
+			if infoErr == nil {
+				dirs[path] = info.ModTime().UnixNano()
+			}
+
+			return nil
+		}
+		if !strings.HasSuffix(entry.Name(), ".jsonl") {
 			return nil
 		}
 
-		candidate, ok := readCandidate(path, cwd)
-		if !ok || (found && candidate.modTime <= newest.modTime) {
+		info, infoErr := entry.Info()
+		if infoErr == nil {
+			files[path] = fileState{modTime: info.ModTime().UnixNano(), size: info.Size()}
+		}
+		candidate, ok := readCandidate(path, "")
+		if !ok {
 			return nil
 		}
-
-		newest = candidate
-		found = true
+		relative, relErr := filepath.Rel(i.home, path)
+		if relErr != nil {
+			return fmt.Errorf("make rollout path relative: %w", relErr)
+		}
+		candidate.path = filepath.ToSlash(relative)
+		paths[candidate.id] = candidate.path
+		if previous, exists := latest[candidate.cwd]; !exists ||
+			candidate.modTime > previous.modTime {
+			latest[candidate.cwd] = candidate
+		}
 
 		return nil
 	})
-	if err != nil || !found {
-		return "", false
+	if err == nil {
+		i.index.sessionPaths = paths
+		i.index.latestByCWD = latest
+		i.index.fileStates = files
+		i.index.dirStates = dirs
+		i.index.indexed = true
+		i.index.indexBuilds++
+	}
+}
+
+func (i *Integration) indexStale() bool {
+	for path, state := range i.index.fileStates {
+		info, err := os.Stat(path)
+		if err != nil || info.ModTime().UnixNano() != state.modTime || info.Size() != state.size {
+			return true
+		}
+	}
+	for path, modTime := range i.index.dirStates {
+		info, err := os.Stat(path)
+		if err != nil || info.ModTime().UnixNano() != modTime {
+			return true
+		}
 	}
 
-	return newest.id, true
+	return false
 }
 
 func readCandidate(path, cwd string) (sessionCandidate, bool) {
@@ -129,11 +249,16 @@ func readCandidate(path, cwd string) (sessionCandidate, bool) {
 		return sessionCandidate{}, false
 	}
 	if meta.Type != "session_meta" || strings.TrimSpace(meta.Payload.ID) == "" ||
-		meta.Payload.CWD != cwd {
+		(cwd != "" && meta.Payload.CWD != cwd) {
 		return sessionCandidate{}, false
 	}
 
-	return sessionCandidate{id: meta.Payload.ID, modTime: info.ModTime().UnixNano()}, true
+	return sessionCandidate{
+		id:      meta.Payload.ID,
+		cwd:     meta.Payload.CWD,
+		path:    path,
+		modTime: info.ModTime().UnixNano(),
+	}, true
 }
 
 func executableName(cmd string) string {

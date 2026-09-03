@@ -1,8 +1,10 @@
 package claude
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -46,6 +48,93 @@ func TestCaptureReturnsNewestSession(t *testing.T) {
 
 	if meta["session_id"] != "new-session" {
 		t.Fatalf("expected newest session, got %q", meta["session_id"])
+	}
+}
+
+func TestCaptureInvalidatesIndexWhenExistingTranscriptChanges(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	cwd := "/Users/me/code/proj"
+	base := time.Unix(100, 0)
+	writeTranscript(t, home, cwd, "old", base)
+	writeTranscript(t, home, cwd, "new", base.Add(time.Hour))
+	integration := New(home, "")
+	pane := snapshot.Pane{CurrentPath: cwd, CurrentCmd: "claude"}
+
+	meta, err := integration.Capture(pane)
+	if err != nil || meta["session_id"] != "new" {
+		t.Fatalf("initial capture: meta=%v err=%v", meta, err)
+	}
+	oldPath := filepath.Join(home, "projects", EncodeProjectDir(cwd), "old"+transcriptExt)
+	if err = os.Chtimes(oldPath, base.Add(2*time.Hour), base.Add(2*time.Hour)); err != nil {
+		t.Fatalf("update old transcript: %v", err)
+	}
+	meta, err = integration.Capture(pane)
+	if err != nil || meta["session_id"] != "old" {
+		t.Fatalf("capture after update: meta=%v err=%v", meta, err)
+	}
+}
+
+func TestCaptureConcurrentReadersBuildOneProjectIndex(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	cwd := "/Users/me/code/shared"
+	writeTranscript(t, home, cwd, "session", time.Now())
+	integration := New(home, "")
+
+	errs := make(chan string, 32)
+	var group sync.WaitGroup
+	for range 32 {
+		group.Go(func() {
+			meta, err := integration.Capture(snapshot.Pane{CurrentPath: cwd, CurrentCmd: "claude"})
+			if err != nil || meta["session_id"] != "session" {
+				errs <- fmt.Sprintf("meta=%v err=%v", meta, err)
+			}
+		})
+	}
+	group.Wait()
+	close(errs)
+	for result := range errs {
+		t.Fatal(result)
+	}
+	if integration.index.indexBuilds != 1 {
+		t.Fatalf("project directory scanned %d times, want 1", integration.index.indexBuilds)
+	}
+}
+
+func TestScopedCaptureValidatesProjectOnce(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	cwd := "/workspace"
+	writeTranscript(t, home, cwd, "session", time.Now())
+	base := New(home, "")
+	pane := snapshot.Pane{CurrentPath: cwd, CurrentCmd: "claude"}
+
+	scoped, ok := base.Scope().(*Integration)
+	if !ok {
+		t.Fatal("Claude scope has unexpected type")
+	}
+	for range 20 {
+		if _, err := scoped.Capture(pane); err != nil {
+			t.Fatalf("scoped capture: %v", err)
+		}
+	}
+	if base.index.validationChecks != 1 {
+		t.Fatalf("scope validation checks = %d, want 1", base.index.validationChecks)
+	}
+
+	next, ok := base.Scope().(*Integration)
+	if !ok {
+		t.Fatal("next Claude scope has unexpected type")
+	}
+	if _, err := next.Capture(pane); err != nil {
+		t.Fatalf("next scope capture: %v", err)
+	}
+	if base.index.validationChecks != 2 {
+		t.Fatalf("next scope validation checks = %d, want 2", base.index.validationChecks)
 	}
 }
 

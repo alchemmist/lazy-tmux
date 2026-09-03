@@ -1,9 +1,11 @@
 package codex
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -56,6 +58,86 @@ func TestCaptureReturnsNewestMatchingSession(t *testing.T) {
 	meta, err := New(home).Capture(snapshot.Pane{CurrentPath: cwd, CurrentCmd: "codex"})
 	if err != nil || meta[metaSessionID] != "new" {
 		t.Fatalf("Capture() = %v, %v; want newest matching session", meta, err)
+	}
+}
+
+func TestCaptureInvalidatesIndexWhenExistingRolloutChanges(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	cwd := "/workspace"
+	base := time.Unix(100, 0)
+	oldPath := writeRollout(t, home, "2026/01/03", "old", cwd, base)
+	writeRollout(t, home, "2026/01/03", "new", cwd, base.Add(time.Hour))
+	integration := New(home)
+	pane := snapshot.Pane{CurrentPath: cwd, CurrentCmd: "codex"}
+
+	meta, err := integration.Capture(pane)
+	if err != nil || meta["session_id"] != "new" {
+		t.Fatalf("initial capture: meta=%v err=%v", meta, err)
+	}
+	if err = os.Chtimes(oldPath, base.Add(2*time.Hour), base.Add(2*time.Hour)); err != nil {
+		t.Fatalf("update old rollout: %v", err)
+	}
+	meta, err = integration.Capture(pane)
+	if err != nil || meta["session_id"] != "old" {
+		t.Fatalf("capture after update: meta=%v err=%v", meta, err)
+	}
+}
+
+func TestCaptureInvalidatesIndexWhenNewRolloutAppears(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	cwd := "/workspace"
+	base := time.Unix(100, 0)
+	writeRollout(t, home, "2026/01/03", "old", cwd, base)
+	integration := New(home)
+	pane := snapshot.Pane{CurrentPath: cwd, CurrentCmd: "codex"}
+
+	meta, err := integration.Capture(pane)
+	if err != nil || meta["session_id"] != "old" {
+		t.Fatalf("initial capture: meta=%v err=%v", meta, err)
+	}
+	writeRollout(t, home, "2026/01/03", "new", cwd, base.Add(time.Hour))
+	meta, err = integration.Capture(pane)
+	if err != nil || meta["session_id"] != "new" {
+		t.Fatalf("capture after new rollout: meta=%v err=%v", meta, err)
+	}
+}
+
+func TestCaptureInvalidatesIndexWhenPartialRolloutBecomesReadable(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	cwd := "/workspace"
+	base := time.Unix(100, 0)
+	writeRollout(t, home, "2026/01/03", "old", cwd, base)
+	partialPath := filepath.Join(home, "sessions", "2026/01/03", "rollout-new.jsonl")
+	if err := os.WriteFile(partialPath, []byte("{"), 0o644); err != nil {
+		t.Fatalf("write partial rollout: %v", err)
+	}
+	if err := os.Chtimes(partialPath, base.Add(time.Hour), base.Add(time.Hour)); err != nil {
+		t.Fatalf("set partial rollout time: %v", err)
+	}
+	integration := New(home)
+	pane := snapshot.Pane{CurrentPath: cwd, CurrentCmd: "codex"}
+
+	meta, err := integration.Capture(pane)
+	if err != nil || meta["session_id"] != "old" {
+		t.Fatalf("initial capture: meta=%v err=%v", meta, err)
+	}
+	content := `{"type":"session_meta","payload":{"id":"new","cwd":"/workspace"}}` + "\n"
+	if err = os.WriteFile(partialPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("complete rollout: %v", err)
+	}
+	if err = os.Chtimes(partialPath, base.Add(2*time.Hour), base.Add(2*time.Hour)); err != nil {
+		t.Fatalf("update rollout time: %v", err)
+	}
+
+	meta, err = integration.Capture(pane)
+	if err != nil || meta["session_id"] != "new" {
+		t.Fatalf("capture after completing rollout: meta=%v err=%v", meta, err)
 	}
 }
 
@@ -133,6 +215,77 @@ func TestStatusFromRolloutLifecycle(t *testing.T) {
 				t.Fatalf("Status() = %v, %v; want %v", got, ok, tc.want)
 			}
 		})
+	}
+}
+
+func TestStatusConcurrentReadersShareSessionPath(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	path := writeRollout(t, home, "2026/01/03", "shared", "/workspace", time.Now())
+	appendRolloutLine(t, path, `{"type":"event_msg","payload":{"type":"task_started"}}`)
+	codexIntegration := New(home)
+	pane := snapshot.Pane{
+		Index:       0,
+		CurrentPath: "/workspace",
+		CurrentCmd:  "codex",
+		RestoreCmd:  "",
+		Scrollback:  nil,
+		IsActive:    true,
+		Meta:        map[string]string{snapshot.CodexSessionIDMetaKey: "shared"},
+	}
+
+	errs := make(chan string, 32)
+	var group sync.WaitGroup
+	for range 32 {
+		group.Go(func() {
+			status, ok := codexIntegration.Status(pane)
+			if !ok || status != integration.StatusWorking {
+				errs <- fmt.Sprintf("status=%v ok=%v", status, ok)
+			}
+		})
+	}
+	group.Wait()
+	close(errs)
+	for result := range errs {
+		t.Fatal(result)
+	}
+	if codexIntegration.index.indexBuilds != 1 {
+		t.Fatalf("rollout tree scanned %d times, want 1", codexIntegration.index.indexBuilds)
+	}
+}
+
+func TestScopedCaptureValidatesRolloutTreeOnce(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	cwd := "/workspace"
+	writeRollout(t, home, "2026/01/03", "session", cwd, time.Now())
+	base := New(home)
+	pane := snapshot.Pane{CurrentPath: cwd, CurrentCmd: "codex"}
+
+	scoped, ok := base.Scope().(*Integration)
+	if !ok {
+		t.Fatal("Codex scope has unexpected type")
+	}
+	for range 20 {
+		if _, err := scoped.Capture(pane); err != nil {
+			t.Fatalf("scoped capture: %v", err)
+		}
+	}
+	if base.index.validationChecks != 1 {
+		t.Fatalf("scope validation checks = %d, want 1", base.index.validationChecks)
+	}
+
+	next, ok := base.Scope().(*Integration)
+	if !ok {
+		t.Fatal("next Codex scope has unexpected type")
+	}
+	if _, err := next.Capture(pane); err != nil {
+		t.Fatalf("next scope capture: %v", err)
+	}
+	if base.index.validationChecks != 2 {
+		t.Fatalf("next scope validation checks = %d, want 2", base.index.validationChecks)
 	}
 }
 
