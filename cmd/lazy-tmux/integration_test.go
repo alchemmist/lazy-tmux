@@ -2,14 +2,57 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
+
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
+func TestConcurrentSaveAllPreservesEverySession(t *testing.T) {
+	testutil.IsolatedTmux(t)
+
+	dir := t.TempDir()
+	const sessionCount = 8
+	for index := range sessionCount {
+		name := fmt.Sprintf("concurrent-%d", index)
+		testutil.Tmux(t, "new-session", "-d", "-s", name)
+		testutil.Tmux(t, "new-window", "-d", "-t", "="+name+":", "-n", "extra")
+	}
+
+	type result struct {
+		code   int
+		stderr string
+	}
+	results := make(chan result, 2)
+	var group sync.WaitGroup
+	for range 2 {
+		group.Go(func() {
+			code, _, stderr := run(t, "save", "--all", "--data-dir", dir)
+			results <- result{code: code, stderr: stderr}
+		})
+	}
+	group.Wait()
+	close(results)
+	for result := range results {
+		if result.code != 0 {
+			t.Fatalf("concurrent save --all: exit %d stderr=%q", result.code, result.stderr)
+		}
+	}
+
+	for index := range sessionCount {
+		name := fmt.Sprintf("concurrent-%d", index)
+		snap := readSnapshot(t, dir, name)
+		if len(snap.Windows) != 2 {
+			t.Fatalf("%s has %d windows, want 2", name, len(snap.Windows))
+		}
+	}
+}
 
 func readSnapshot(t *testing.T, dir, name string) snapshot.SessionSnapshot {
 	t.Helper()

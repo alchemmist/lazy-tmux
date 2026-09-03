@@ -76,6 +76,33 @@ func TestRestoreToleratesBaseIndexMismatch(
 }
 
 //nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
+func TestCaptureSessionCollectsAllWindowsAndPanes(t *testing.T) {
+	testutil.IsolatedTmux(t)
+
+	const name = "capture-many"
+	testutil.Tmux(t, "new-session", "-d", "-s", name, "-n", "one")
+	testutil.Tmux(t, "split-window", "-d", "-t", "="+name+":0", "-c", "/tmp")
+	testutil.Tmux(t, "new-window", "-d", "-t", "="+name+":2", "-n", "two", "-c", "/")
+	testutil.Tmux(t, "set-option", "-p", "-t", "="+name+":2.0", "@codex_thread_id", "thread-2")
+	testutil.Tmux(t, "select-window", "-t", "="+name+":2")
+
+	snap, err := tmux.NewClient("tmux").CaptureSession(name)
+	if err != nil {
+		t.Fatalf("capture session: %v", err)
+	}
+	if len(snap.Windows) != 2 || len(snap.Windows[0].Panes) != 2 ||
+		len(snap.Windows[1].Panes) != 1 {
+		t.Fatalf("captured hierarchy: %+v", snap.Windows)
+	}
+	if snap.CurrentWin != 2 || snap.Windows[1].Name != "two" {
+		t.Fatalf("captured focus/windows: %+v", snap)
+	}
+	if got := snap.Windows[1].Panes[0].Meta[snapshot.CodexSessionIDMetaKey]; got != "thread-2" {
+		t.Fatalf("captured Codex thread = %q", got)
+	}
+}
+
+//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestRestoreToleratesPaneBaseIndexMismatch(
 	t *testing.T,
 ) {

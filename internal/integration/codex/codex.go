@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
@@ -13,10 +14,18 @@ import (
 const metaSessionID = "session_id"
 
 type Integration struct {
-	home string
+	home         string
+	pathsMu      sync.RWMutex
+	sessionPaths map[string]string
 }
 
-func New(home string) *Integration { return &Integration{home: home} }
+func New(home string) *Integration {
+	return &Integration{
+		home:         home,
+		pathsMu:      sync.RWMutex{},
+		sessionPaths: make(map[string]string),
+	}
+}
 
 func (i *Integration) Name() string { return "codex" }
 

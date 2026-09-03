@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
@@ -33,12 +34,19 @@ const (
 )
 
 type Store struct {
-	baseDir string
-	mu      sync.Mutex
+	baseDir     string
+	indexMu     sync.Mutex
+	sessionsMu  sync.Mutex
+	sessionLock map[string]*sync.Mutex
 }
 
 func New(baseDir string) *Store {
-	return &Store{baseDir: baseDir}
+	return &Store{
+		baseDir:     baseDir,
+		indexMu:     sync.Mutex{},
+		sessionsMu:  sync.Mutex{},
+		sessionLock: make(map[string]*sync.Mutex),
+	}
 }
 
 func DefaultDataDir() string {
@@ -63,8 +71,8 @@ func (s *Store) SaveSession(sessionSnapshot snapshot.SessionSnapshot) error {
 		sessionSnapshot.CapturedAt = time.Now().UTC()
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock := s.lockSession(sessionSnapshot.SessionName)
+	defer unlock()
 
 	err := s.ensureLayout()
 	if err != nil {
@@ -99,7 +107,7 @@ func (s *Store) SaveSession(sessionSnapshot snapshot.SessionSnapshot) error {
 		return fmt.Errorf("rename tmp file: %w", err)
 	}
 
-	return s.updateIndexUnlocked(sessionSnapshot, path)
+	return s.updateIndex(sessionSnapshot, path)
 }
 
 func (s *Store) DeleteSession(name string) error {
@@ -108,8 +116,8 @@ func (s *Store) DeleteSession(name string) error {
 		return errEmptySessionName
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock := s.lockSession(name)
+	defer unlock()
 
 	path := s.sessionPath(name)
 
@@ -136,44 +144,28 @@ func (s *Store) DeleteSession(name string) error {
 		return fmt.Errorf("remove scrollback dir: %w", err)
 	}
 
-	idx, err := s.loadIndexUnlocked()
-	if err != nil {
-		return err
-	}
+	return s.withIndexLock(func() error {
+		idx, err := s.loadIndexUnlocked()
+		if err != nil {
+			return err
+		}
 
-	if idx.Sessions != nil {
-		delete(idx.Sessions, name)
-	}
+		if idx.Sessions != nil {
+			delete(idx.Sessions, name)
+		}
 
-	idx.Updated = time.Now().UTC()
+		idx.Updated = time.Now().UTC()
 
-	return writeJSONAtomic(s.indexPath(), idx)
+		return writeJSONAtomic(s.indexPath(), idx)
+	})
 }
 
 func (s *Store) LoadSession(name string) (snapshot.SessionSnapshot, error) {
-	var out snapshot.SessionSnapshot
+	return s.loadSession(name, true)
+}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	path := s.sessionPath(name)
-
-	b, err := os.ReadFile(path) // #nosec G304 -- sessionPath sanitizes the name under the data dir
-	if err != nil {
-		return out, fmt.Errorf("read session file: %w", err)
-	}
-
-	err = json.Unmarshal(b, &out)
-	if err != nil {
-		return out, fmt.Errorf("unmarshal session: %w", err)
-	}
-
-	err = s.hydrateScrollback(&out)
-	if err != nil {
-		return out, err
-	}
-
-	return out, nil
+func (s *Store) LoadSessionMetadata(name string) (snapshot.SessionSnapshot, error) {
+	return s.loadSession(name, false)
 }
 
 func (s *Store) SessionPath(name string) (string, error) {
@@ -191,8 +183,8 @@ func (s *Store) SessionExists(name string) (bool, error) {
 		return false, errEmptySessionName
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	unlock := s.lockSession(name)
+	defer unlock()
 
 	path := s.sessionPath(name)
 
@@ -209,9 +201,6 @@ func (s *Store) SessionExists(name string) (bool, error) {
 }
 
 func (s *Store) ListRecords() ([]snapshot.Record, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	idx, err := s.loadIndexUnlocked()
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -282,9 +271,6 @@ func (s *Store) IndexEntryExists(name string) (bool, error) {
 		return false, errEmptySessionName
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	idx, err := s.loadIndexUnlocked()
 	if err != nil {
 		return false, err
@@ -305,48 +291,120 @@ func (s *Store) MarkSessionAccessed(name string, accessTime time.Time) error {
 		accessTime = time.Now().UTC()
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	return s.withIndexLock(func() error {
+		idx, err := s.loadIndexUnlocked()
+		if err != nil {
+			return err
+		}
 
-	idx, err := s.loadIndexUnlocked()
-	if err != nil {
-		return err
-	}
+		rec, ok := idx.Sessions[name]
+		if !ok {
+			return os.ErrNotExist
+		}
 
-	rec, ok := idx.Sessions[name]
-	if !ok {
-		return os.ErrNotExist
-	}
+		rec.LastAccessed = accessTime.UTC()
+		idx.Sessions[name] = rec
+		idx.Updated = time.Now().UTC()
 
-	rec.LastAccessed = accessTime.UTC()
-	idx.Sessions[name] = rec
-	idx.Updated = time.Now().UTC()
-
-	return writeJSONAtomic(s.indexPath(), idx)
+		return writeJSONAtomic(s.indexPath(), idx)
+	})
 }
 
-func (s *Store) updateIndexUnlocked(sessionSnapshot snapshot.SessionSnapshot, path string) error {
-	idx, err := s.loadIndexUnlocked()
+func (s *Store) lockSession(name string) func() {
+	s.sessionsMu.Lock()
+	lock, ok := s.sessionLock[name]
+	if !ok {
+		lock = &sync.Mutex{}
+		s.sessionLock[name] = lock
+	}
+	s.sessionsMu.Unlock()
+
+	lock.Lock()
+
+	return lock.Unlock
+}
+
+func (s *Store) withIndexLock(run func() error) error {
+	s.indexMu.Lock()
+	defer s.indexMu.Unlock()
+
+	err := os.MkdirAll(s.baseDir, defaultDirPerm)
 	if err != nil {
-		return err
+		return fmt.Errorf("create data dir: %w", err)
 	}
 
-	panes := 0
-	for _, w := range sessionSnapshot.Windows {
-		panes += len(w.Panes)
+	lockPath := filepath.Join(s.baseDir, ".index.lock")
+	file, err := os.OpenFile( // #nosec G304 -- fixed lock name under the configured data directory
+		lockPath,
+		os.O_CREATE|os.O_RDWR,
+		0o600,
+	)
+	if err != nil {
+		return fmt.Errorf("open index lock: %w", err)
+	}
+	defer func() { _ = file.Close() }()
+
+	err = syscall.Flock(int(file.Fd()), syscall.LOCK_EX)
+	if err != nil {
+		return fmt.Errorf("lock index: %w", err)
+	}
+	defer func() { _ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) }()
+
+	return run()
+}
+
+func (s *Store) loadSession(name string, hydrate bool) (snapshot.SessionSnapshot, error) {
+	var out snapshot.SessionSnapshot
+
+	unlock := s.lockSession(name)
+	defer unlock()
+
+	path := s.sessionPath(name)
+
+	b, err := os.ReadFile(path) // #nosec G304 -- sessionPath sanitizes the name under the data dir
+	if err != nil {
+		return out, fmt.Errorf("read session file: %w", err)
 	}
 
-	idx.Sessions[sessionSnapshot.SessionName] = snapshot.Record{
-		SessionName:  sessionSnapshot.SessionName,
-		File:         path,
-		CapturedAt:   sessionSnapshot.CapturedAt.UTC(),
-		LastAccessed: idx.Sessions[sessionSnapshot.SessionName].LastAccessed,
-		Windows:      len(sessionSnapshot.Windows),
-		Panes:        panes,
+	err = json.Unmarshal(b, &out)
+	if err != nil {
+		return out, fmt.Errorf("unmarshal session: %w", err)
 	}
-	idx.Updated = time.Now().UTC()
 
-	return writeJSONAtomic(s.indexPath(), idx)
+	if hydrate {
+		err = s.hydrateScrollback(&out)
+		if err != nil {
+			return out, err
+		}
+	}
+
+	return out, nil
+}
+
+func (s *Store) updateIndex(sessionSnapshot snapshot.SessionSnapshot, path string) error {
+	return s.withIndexLock(func() error {
+		idx, err := s.loadIndexUnlocked()
+		if err != nil {
+			return err
+		}
+
+		panes := 0
+		for _, w := range sessionSnapshot.Windows {
+			panes += len(w.Panes)
+		}
+
+		idx.Sessions[sessionSnapshot.SessionName] = snapshot.Record{
+			SessionName:  sessionSnapshot.SessionName,
+			File:         path,
+			CapturedAt:   sessionSnapshot.CapturedAt.UTC(),
+			LastAccessed: idx.Sessions[sessionSnapshot.SessionName].LastAccessed,
+			Windows:      len(sessionSnapshot.Windows),
+			Panes:        panes,
+		}
+		idx.Updated = time.Now().UTC()
+
+		return writeJSONAtomic(s.indexPath(), idx)
+	})
 }
 
 func (s *Store) ensureLayout() error {

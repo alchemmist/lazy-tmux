@@ -1,13 +1,50 @@
 package store
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
+
+func TestConcurrentStoreInstancesPreserveEveryIndexEntry(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	stores := []*Store{New(dir), New(dir)}
+	const sessionCount = 40
+
+	errs := make(chan error, sessionCount)
+	var group sync.WaitGroup
+	for index := range sessionCount {
+		group.Go(func() {
+			name := fmt.Sprintf("session-%02d", index)
+			errs <- stores[index%len(stores)].SaveSession(snapshot.SessionSnapshot{
+				Version:     snapshot.FormatVersion,
+				SessionName: name,
+			})
+		})
+	}
+	group.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("concurrent save: %v", err)
+		}
+	}
+
+	records, err := New(dir).ListRecords()
+	if err != nil {
+		t.Fatalf("list records: %v", err)
+	}
+	if len(records) != sessionCount {
+		t.Fatalf("index has %d sessions, want %d", len(records), sessionCount)
+	}
+}
 
 func sampleSnapshot(name string, captured time.Time) snapshot.SessionSnapshot {
 	return snapshot.SessionSnapshot{
@@ -299,6 +336,16 @@ func TestScrollbackPersistAndHydrate(t *testing.T) {
 
 	if sb.Lines != 3 {
 		t.Fatalf("expected 3 scrollback lines, got %d", sb.Lines)
+	}
+
+	metadata, err := s.LoadSessionMetadata("logs")
+	if err != nil {
+		t.Fatalf("load metadata: %v", err)
+	}
+	metadataScrollback := metadata.Windows[0].Panes[0].Scrollback
+	if metadataScrollback == nil || metadataScrollback.Ref == "" ||
+		metadataScrollback.Content != "" {
+		t.Fatalf("metadata load hydrated scrollback content: %+v", metadataScrollback)
 	}
 }
 

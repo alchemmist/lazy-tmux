@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/config"
@@ -17,6 +18,8 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/store"
 	"github.com/alchemmist/lazy-tmux/internal/tmux"
 )
+
+const saveAllWorkerLimit = 4
 
 var (
 	errSessionNameEmpty    = errors.New("session name is empty")
@@ -120,8 +123,25 @@ func (a *App) SaveAll() (int, error) {
 		return 0, fmt.Errorf("list sessions: %w", err)
 	}
 
-	for _, name := range sessions {
-		err := a.SaveSession(name)
+	errs := make([]error, len(sessions))
+	jobs := make(chan int)
+	workers := min(saveAllWorkerLimit, len(sessions))
+
+	var group sync.WaitGroup
+	for range workers {
+		group.Go(func() {
+			for index := range jobs {
+				errs[index] = a.SaveSession(sessions[index])
+			}
+		})
+	}
+	for index := range sessions {
+		jobs <- index
+	}
+	close(jobs)
+	group.Wait()
+
+	for _, err := range errs {
 		if err != nil {
 			return 0, err
 		}

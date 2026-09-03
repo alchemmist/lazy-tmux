@@ -406,42 +406,34 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 		return snapshot.SessionSnapshot{}, ErrSessionNotFound
 	}
 
-	wOut, err := client.Output(
-		"list-windows",
+	paneOutput, err := client.Output(
+		"list-panes",
+		"-s",
 		"-t",
 		sessionTarget(name),
 		"-F",
-		"#{window_index}"+fieldSep+"#{window_layout}"+fieldSep+"#{window_active}"+fieldSep+"#{window_name}",
+		"#{window_index}"+fieldSep+
+			"#{window_layout}"+fieldSep+
+			"#{window_active}"+fieldSep+
+			"#{window_name}"+fieldSep+
+			"#{pane_index}"+fieldSep+
+			"#{pane_active}"+fieldSep+
+			"#{pane_pid}"+fieldSep+
+			"#{pane_tty}"+fieldSep+
+			"#{pane_current_command}"+fieldSep+
+			"#{pane_current_path}"+fieldSep+
+			"#{@codex_thread_id}",
 	)
 	if err != nil {
 		return snapshot.SessionSnapshot{}, err
 	}
 
-	windows := make([]snapshot.Window, 0)
-
-	for _, line := range splitLines(wOut) {
-		parts := splitFieldsN(line, windowLineFields)
-		if len(parts) != windowLineFields {
-			continue
-		}
-
-		idx, _ := strconv.Atoi(parts[0])
-		window := snapshot.Window{
-			Index:      idx,
-			Layout:     parts[1],
-			IsActive:   parts[2] == "1",
-			Name:       parts[3],
-			ActivePane: 0,
-			Panes:      nil,
-		}
-
-		err = client.capturePanes(name, &window)
-		if err != nil {
-			return snapshot.SessionSnapshot{}, err
-		}
-
-		windows = append(windows, window)
+	processes, err := loadProcessSnapshot()
+	if err != nil {
+		return snapshot.SessionSnapshot{}, err
 	}
+
+	windows := parseCapturedPanes(paneOutput, processes)
 
 	sort.Slice(windows, func(i, j int) bool { return windows[i].Index < windows[j].Index })
 
@@ -455,6 +447,80 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 		CurrentPane: currentPane,
 		Windows:     windows,
 	}, nil
+}
+
+func parseCapturedPanes(output string, processes processSnapshot) []snapshot.Window {
+	byIndex := make(map[int]*snapshot.Window)
+	for _, line := range splitLines(output) {
+		parts := splitFieldsN(line, capturePaneLineFields)
+		if len(parts) != capturePaneLineFields {
+			continue
+		}
+
+		windowIndex, _ := strconv.Atoi(parts[0])
+		window, ok := byIndex[windowIndex]
+		if !ok {
+			window = &snapshot.Window{
+				Index:      windowIndex,
+				Name:       parts[3],
+				Layout:     parts[1],
+				IsActive:   parts[2] == "1",
+				ActivePane: 0,
+				Panes:      nil,
+			}
+			byIndex[windowIndex] = window
+		}
+
+		paneIndex, _ := strconv.Atoi(parts[4])
+		panePID, _ := strconv.Atoi(strings.TrimSpace(parts[6]))
+		restoreCmd := processes.foregroundCommand(panePID)
+		pane := snapshot.Pane{
+			Index:       paneIndex,
+			CurrentPath: parts[9],
+			CurrentCmd:  parts[8],
+			RestoreCmd:  strings.TrimSpace(restoreCmd),
+			Scrollback:  nil,
+			IsActive:    parts[5] == "1",
+			Meta:        codexSessionMeta(parts[10]),
+		}
+		if pane.IsActive {
+			window.ActivePane = pane.Index
+		}
+		window.Panes = append(window.Panes, pane)
+	}
+
+	windows := make([]snapshot.Window, 0, len(byIndex))
+	for _, window := range byIndex {
+		sort.Slice(window.Panes, func(i, j int) bool {
+			return window.Panes[i].Index < window.Panes[j].Index
+		})
+		windows = append(windows, *window)
+	}
+	sort.Slice(windows, func(i, j int) bool { return windows[i].Index < windows[j].Index })
+
+	return windows
+}
+
+func loadProcessSnapshot() (processSnapshot, error) {
+	cmd := exec.CommandContext( // #nosec G204 -- fixed ps binary and format flags
+		context.Background(),
+		"ps",
+		"-ax",
+		"-o",
+		"pid=",
+		"-o",
+		"ppid=",
+		"-o",
+		"stat=",
+		"-o",
+		"command=",
+	)
+	out, err := cmd.Output()
+	if err != nil {
+		return processSnapshot{}, fmt.Errorf("get process list: %w", err)
+	}
+
+	return newProcessSnapshot(splitLines(string(out))), nil
 }
 
 func currentWindowPane(windows []snapshot.Window) (int, int) {
@@ -688,8 +754,7 @@ func (client *Client) selectRestoredFocus(
 		"select-window",
 		"-t",
 		sessionWindowTarget(sessionSnapshot.SessionName, win),
-	)
-	_, _ = client.Output(
+		";",
 		"select-pane",
 		"-t",
 		sessionPaneTarget(sessionSnapshot.SessionName, win, pane),
@@ -722,54 +787,6 @@ func (client *Client) restoreFirstWindow(sessionName string, first snapshot.Wind
 	}
 
 	return client.populateWindow(sessionName, first, first.Index)
-}
-
-func (client *Client) capturePanes(name string, window *snapshot.Window) error {
-	pOut, err := client.Output("list-panes", "-t", sessionWindowTarget(name, window.Index), "-F",
-		"#{pane_index}"+fieldSep+
-			"#{pane_active}"+fieldSep+
-			"#{pane_pid}"+fieldSep+
-			"#{pane_tty}"+fieldSep+
-			"#{pane_current_command}"+fieldSep+
-			"#{pane_current_path}"+fieldSep+
-			"#{@codex_thread_id}",
-	)
-	if err != nil {
-		return err
-	}
-
-	for _, pLine := range splitLines(pOut) {
-		parts := splitFieldsN(pLine, paneLineFields)
-		if len(parts) != paneLineFields {
-			continue
-		}
-
-		pIdx, _ := strconv.Atoi(parts[0])
-		panePID, _ := strconv.Atoi(strings.TrimSpace(parts[2]))
-		restoreCmd, _ := client.foregroundCommand(parts[3], panePID)
-
-		pane := snapshot.Pane{
-			Index:       pIdx,
-			IsActive:    parts[1] == "1",
-			CurrentCmd:  parts[4],
-			CurrentPath: parts[5],
-			RestoreCmd:  strings.TrimSpace(restoreCmd),
-			Scrollback:  nil,
-			Meta:        codexSessionMeta(parts[6]),
-		}
-		if pane.IsActive {
-			window.ActivePane = pane.Index
-		}
-
-		window.Panes = append(window.Panes, pane)
-	}
-
-	sort.Slice(
-		window.Panes,
-		func(i, j int) bool { return window.Panes[i].Index < window.Panes[j].Index },
-	)
-
-	return nil
 }
 
 func codexSessionMeta(sessionID string) map[string]string {
@@ -1130,88 +1147,27 @@ func writePaneTTY(path, content string) error {
 	return nil
 }
 
-func (client *Client) foregroundCommand(paneTTY string, panePID int) (string, error) {
-	tty := strings.TrimSpace(paneTTY)
-	if tty == "" {
-		return "", nil
-	}
-
-	candidates := []string{tty}
-	if b, ok := strings.CutPrefix(tty, "/dev/"); ok {
-		candidates = append(candidates, b)
-	}
-
-	if b := filepath.Base(tty); b != tty {
-		candidates = append(candidates, b)
-	}
-
-	var out []byte
-
-	var err error
-
-	for _, t := range candidates {
-		cmd := exec.CommandContext( // #nosec G204 -- fixed "ps" binary, variable args are pids/format flags
-			context.Background(),
-			"ps",
-			"-t",
-			t,
-			"-o",
-			"pid=",
-			"-o",
-			"ppid=",
-			"-o",
-			"stat=",
-			"-o",
-			"command=",
-		)
-
-		out, err = cmd.Output()
-		if err == nil {
-			break
-		}
-	}
-
-	if err != nil {
-		return "", fmt.Errorf("get output: %w", err)
-	}
-
-	command := pickForegroundCommand(splitLines(string(out)), panePID)
-	if command != "" {
-		return command, nil
-	}
-
-	// Some terminal wrappers give the child process a different tty from the
-	// shell tmux reports for the pane. Fall back to the process tree so tools
-	// such as Codex are still detected instead of being saved as zsh.
-	return client.fallbackForegroundCommand(panePID)
-}
-
-func (client *Client) fallbackForegroundCommand(panePID int) (string, error) {
-	cmd := exec.CommandContext( // #nosec G204 -- fixed "ps" binary and numeric pane PID
-		context.Background(),
-		"ps",
-		"-ax",
-		"-o",
-		"pid=",
-		"-o",
-		"ppid=",
-		"-o",
-		"stat=",
-		"-o",
-		"command=",
-	)
-	allOut, err := cmd.Output()
-	if err != nil {
-		return "", fmt.Errorf("get process list: %w", err)
-	}
-
-	return pickForegroundCommand(
-		processTreeLines(splitLines(string(allOut)), panePID),
-		panePID,
-	), nil
-}
-
 func processTreeLines(lines []string, rootPID int) []string {
+	snapshot := newProcessSnapshot(lines)
+	processes := snapshot.descendants(rootPID)
+
+	tree := make([]string, 0, len(processes))
+	for _, process := range processes {
+		tree = append(
+			tree,
+			fmt.Sprintf("%d %d %s %s", process.pid, process.ppid, process.stat, process.cmd),
+		)
+	}
+
+	return tree
+}
+
+type processSnapshot struct {
+	processes map[int]psProcess
+	children  map[int][]int
+}
+
+func newProcessSnapshot(lines []string) processSnapshot {
 	processes := make(map[int]psProcess)
 	for _, line := range lines {
 		pid, ppid, stat, command, ok := parsePSLine(line)
@@ -1224,13 +1180,42 @@ func processTreeLines(lines []string, rootPID int) []string {
 	for _, process := range processes {
 		children[process.ppid] = append(children[process.ppid], process.pid)
 	}
+	for parent := range children {
+		sort.Ints(children[parent])
+	}
 
+	return processSnapshot{processes: processes, children: children}
+}
+
+func (snapshot processSnapshot) foregroundCommand(rootPID int) string {
+	processes := snapshot.descendants(rootPID)
+	nonShell := make([]psProcess, 0, len(processes))
+	var shells []psProcess
+	for _, process := range processes {
+		if isShellCommand(process.cmd) {
+			if strings.Contains(process.stat, "+") {
+				shells = append(shells, process)
+			}
+
+			continue
+		}
+
+		nonShell = append(nonShell, process)
+	}
+	if command := pickFromCandidates(nonShell); command != "" {
+		return command
+	}
+
+	return pickFromCandidates(shells)
+}
+
+func (snapshot processSnapshot) descendants(rootPID int) []psProcess {
 	seen := map[int]bool{rootPID: true}
 	queue := []int{rootPID}
 	for len(queue) > 0 {
 		parent := queue[0]
 		queue = queue[1:]
-		for _, child := range children[parent] {
+		for _, child := range snapshot.children[parent] {
 			if seen[child] {
 				continue
 			}
@@ -1239,22 +1224,24 @@ func processTreeLines(lines []string, rootPID int) []string {
 		}
 	}
 
-	tree := make([]string, 0, len(seen)-1)
+	result := make([]psProcess, 0, len(seen)-1)
+	pids := make([]int, 0, len(seen)-1)
 	for pid := range seen {
 		if pid == rootPID {
 			continue
 		}
-		process, ok := processes[pid]
+		pids = append(pids, pid)
+	}
+	sort.Ints(pids)
+	for _, pid := range pids {
+		process, ok := snapshot.processes[pid]
 		if !ok {
 			continue
 		}
-		tree = append(
-			tree,
-			fmt.Sprintf("%d %d %s %s", process.pid, process.ppid, process.stat, process.cmd),
-		)
+		result = append(result, process)
 	}
 
-	return tree
+	return result
 }
 
 type psProcess struct {
@@ -1352,11 +1339,10 @@ func pickFromCandidates(allProcesses []psProcess) string {
 }
 
 const (
-	windowLineFields   = 4
-	paneLineFields     = 7
-	livePaneLineFields = 3
-	paneCommandFields  = 3
-	psLineFields       = 4
+	livePaneLineFields    = 3
+	capturePaneLineFields = 11
+	paneCommandFields     = 3
+	psLineFields          = 4
 )
 
 func parsePSLine(line string) (int, int, string, string, bool) {

@@ -1,9 +1,11 @@
 package codex
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -133,6 +135,40 @@ func TestStatusFromRolloutLifecycle(t *testing.T) {
 				t.Fatalf("Status() = %v, %v; want %v", got, ok, tc.want)
 			}
 		})
+	}
+}
+
+func TestStatusConcurrentReadersShareSessionPath(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	path := writeRollout(t, home, "2026/01/03", "shared", "/workspace", time.Now())
+	appendRolloutLine(t, path, `{"type":"event_msg","payload":{"type":"task_started"}}`)
+	codexIntegration := New(home)
+	pane := snapshot.Pane{
+		Index:       0,
+		CurrentPath: "/workspace",
+		CurrentCmd:  "codex",
+		RestoreCmd:  "",
+		Scrollback:  nil,
+		IsActive:    true,
+		Meta:        map[string]string{snapshot.CodexSessionIDMetaKey: "shared"},
+	}
+
+	errs := make(chan string, 32)
+	var group sync.WaitGroup
+	for range 32 {
+		group.Go(func() {
+			status, ok := codexIntegration.Status(pane)
+			if !ok || status != integration.StatusWorking {
+				errs <- fmt.Sprintf("status=%v ok=%v", status, ok)
+			}
+		})
+	}
+	group.Wait()
+	close(errs)
+	for result := range errs {
+		t.Fatal(result)
 	}
 }
 

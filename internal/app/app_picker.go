@@ -8,6 +8,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/config"
@@ -17,6 +18,8 @@ import (
 )
 
 var errNoSavedSessions = errors.New("no saved sessions found")
+
+const quickStatusWorkerLimit = 4
 
 func (a *App) pickerRecords(opts PickerSortOptions) ([]snapshot.Record, error) {
 	records, err := a.store.ListRecords()
@@ -67,7 +70,7 @@ func (a *App) pickerSessions(opts PickerSortOptions) ([]picker.Session, error) {
 	sessions := make([]picker.Session, 0, len(records))
 
 	for _, rec := range records {
-		snap, err := a.store.LoadSession(rec.SessionName)
+		snap, err := a.store.LoadSessionMetadata(rec.SessionName)
 		if err != nil {
 			log.Printf("picker: skip session %s: %v", rec.SessionName, err)
 
@@ -310,10 +313,28 @@ func (a *App) quickPickerSessions() ([]picker.QuickSession, error) {
 
 func (a *App) quickWorkingSessions(sessions []picker.QuickSession) map[string]bool {
 	working := make(map[string]bool)
+	jobs := make(chan picker.QuickSession)
+	results := make(chan string, len(sessions))
+	workers := min(quickStatusWorkerLimit, len(sessions))
+
+	var group sync.WaitGroup
+	for range workers {
+		group.Go(func() {
+			for session := range jobs {
+				if a.sessionHasWorkingCodex(session.Name, session.Restored) {
+					results <- session.Name
+				}
+			}
+		})
+	}
 	for _, session := range sessions {
-		if a.sessionHasWorkingCodex(session.Name, session.Restored) {
-			working[session.Name] = true
-		}
+		jobs <- session
+	}
+	close(jobs)
+	group.Wait()
+	close(results)
+	for name := range results {
+		working[name] = true
 	}
 
 	return working
@@ -342,7 +363,7 @@ func (a *App) sessionHasWorkingCodex(session string, restored bool) bool {
 		return false
 	}
 
-	snap, err := a.store.LoadSession(session)
+	snap, err := a.store.LoadSessionMetadata(session)
 	if err != nil {
 		return false
 	}
