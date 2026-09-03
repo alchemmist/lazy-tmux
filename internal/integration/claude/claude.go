@@ -1,6 +1,8 @@
 package claude
 
 import (
+	"fmt"
+	"hash/fnv"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,8 +25,8 @@ type Integration struct {
 }
 
 type projectCache struct {
-	dirModTime int64
-	sessionID  string
+	fingerprint uint64
+	sessionID   string
 }
 
 func New(home, statusDir string) *Integration {
@@ -79,17 +81,8 @@ func (i *Integration) latestSessionID(cwd string) (string, bool) {
 	}
 
 	dir := filepath.Join(i.home, "projects", EncodeProjectDir(cwd))
-	info, err := os.Stat(dir)
-	if err != nil {
-		return "", false
-	}
-	dirModTime := info.ModTime().UnixNano()
-
 	i.indexMu.Lock()
 	defer i.indexMu.Unlock()
-	if cached, ok := i.projectIndex[cwd]; ok && cached.dirModTime == dirModTime {
-		return cached.sessionID, cached.sessionID != ""
-	}
 
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -101,6 +94,7 @@ func (i *Integration) latestSessionID(cwd string) (string, bool) {
 		newestTime int64
 		found      bool
 	)
+	hash := fnv.New64a()
 
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), transcriptExt) {
@@ -111,6 +105,13 @@ func (i *Integration) latestSessionID(cwd string) (string, bool) {
 		if err != nil {
 			continue
 		}
+		_, _ = fmt.Fprintf(
+			hash,
+			"%s\x00%d\x00%d\x00",
+			entry.Name(),
+			info.Size(),
+			info.ModTime().UnixNano(),
+		)
 
 		if mod := info.ModTime().UnixNano(); !found || mod > newestTime {
 			newestTime = mod
@@ -118,8 +119,12 @@ func (i *Integration) latestSessionID(cwd string) (string, bool) {
 			found = true
 		}
 	}
+	fingerprint := hash.Sum64()
+	if cached, ok := i.projectIndex[cwd]; ok && cached.fingerprint == fingerprint {
+		return cached.sessionID, cached.sessionID != ""
+	}
 
-	i.projectIndex[cwd] = projectCache{dirModTime: dirModTime, sessionID: newestID}
+	i.projectIndex[cwd] = projectCache{fingerprint: fingerprint, sessionID: newestID}
 	i.indexBuilds++
 
 	return newestID, found

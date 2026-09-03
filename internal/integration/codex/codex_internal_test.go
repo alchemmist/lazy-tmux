@@ -61,6 +61,30 @@ func TestCaptureReturnsNewestMatchingSession(t *testing.T) {
 	}
 }
 
+func TestCaptureInvalidatesIndexWhenExistingRolloutChanges(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	cwd := "/workspace"
+	base := time.Unix(100, 0)
+	oldPath := writeRollout(t, home, "2026/01/03", "old", cwd, base)
+	writeRollout(t, home, "2026/01/03", "new", cwd, base.Add(time.Hour))
+	integration := New(home)
+	pane := snapshot.Pane{CurrentPath: cwd, CurrentCmd: "codex"}
+
+	meta, err := integration.Capture(pane)
+	if err != nil || meta["session_id"] != "new" {
+		t.Fatalf("initial capture: meta=%v err=%v", meta, err)
+	}
+	if err = os.Chtimes(oldPath, base.Add(2*time.Hour), base.Add(2*time.Hour)); err != nil {
+		t.Fatalf("update old rollout: %v", err)
+	}
+	meta, err = integration.Capture(pane)
+	if err != nil || meta["session_id"] != "old" {
+		t.Fatalf("capture after update: meta=%v err=%v", meta, err)
+	}
+}
+
 func TestCapturePrefersActivePaneSession(t *testing.T) {
 	t.Parallel()
 

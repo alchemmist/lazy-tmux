@@ -21,6 +21,13 @@ type Integration struct {
 	indexBuilds  int
 	sessionPaths map[string]string
 	latestByCWD  map[string]sessionCandidate
+	fileStates   map[string]fileState
+	dirStates    map[string]int64
+}
+
+type fileState struct {
+	modTime int64
+	size    int64
 }
 
 func New(home string) *Integration {
@@ -31,6 +38,8 @@ func New(home string) *Integration {
 		indexBuilds:  0,
 		sessionPaths: make(map[string]string),
 		latestByCWD:  make(map[string]sessionCandidate),
+		fileStates:   make(map[string]fileState),
+		dirStates:    make(map[string]int64),
 	}
 }
 
@@ -122,7 +131,7 @@ func (i *Integration) sessionPath(sessionID string) (string, bool) {
 func (i *Integration) ensureIndex(requiredID string) {
 	i.indexMu.Lock()
 	defer i.indexMu.Unlock()
-	if i.indexed {
+	if i.indexed && !i.indexStale() {
 		if requiredID == "" || i.sessionPaths[requiredID] != "" {
 			return
 		}
@@ -131,11 +140,21 @@ func (i *Integration) ensureIndex(requiredID string) {
 	root := filepath.Join(i.home, "sessions")
 	paths := make(map[string]string)
 	latest := make(map[string]sessionCandidate)
+	files := make(map[string]fileState)
+	dirs := make(map[string]int64)
 	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".jsonl") {
+		if entry.IsDir() {
+			info, infoErr := entry.Info()
+			if infoErr == nil {
+				dirs[path] = info.ModTime().UnixNano()
+			}
+
+			return nil
+		}
+		if !strings.HasSuffix(entry.Name(), ".jsonl") {
 			return nil
 		}
 
@@ -149,6 +168,10 @@ func (i *Integration) ensureIndex(requiredID string) {
 		}
 		candidate.path = filepath.ToSlash(relative)
 		paths[candidate.id] = candidate.path
+		info, infoErr := entry.Info()
+		if infoErr == nil {
+			files[path] = fileState{modTime: info.ModTime().UnixNano(), size: info.Size()}
+		}
 		if previous, exists := latest[candidate.cwd]; !exists ||
 			candidate.modTime > previous.modTime {
 			latest[candidate.cwd] = candidate
@@ -159,9 +182,28 @@ func (i *Integration) ensureIndex(requiredID string) {
 	if err == nil {
 		i.sessionPaths = paths
 		i.latestByCWD = latest
+		i.fileStates = files
+		i.dirStates = dirs
 		i.indexed = true
 		i.indexBuilds++
 	}
+}
+
+func (i *Integration) indexStale() bool {
+	for path, state := range i.fileStates {
+		info, err := os.Stat(path)
+		if err != nil || info.ModTime().UnixNano() != state.modTime || info.Size() != state.size {
+			return true
+		}
+	}
+	for path, modTime := range i.dirStates {
+		info, err := os.Stat(path)
+		if err != nil || info.ModTime().UnixNano() != modTime {
+			return true
+		}
+	}
+
+	return false
 }
 
 func readCandidate(path, cwd string) (sessionCandidate, bool) {

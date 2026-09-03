@@ -51,6 +51,31 @@ func TestCaptureReturnsNewestSession(t *testing.T) {
 	}
 }
 
+func TestCaptureInvalidatesIndexWhenExistingTranscriptChanges(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	cwd := "/Users/me/code/proj"
+	base := time.Unix(100, 0)
+	writeTranscript(t, home, cwd, "old", base)
+	writeTranscript(t, home, cwd, "new", base.Add(time.Hour))
+	integration := New(home, "")
+	pane := snapshot.Pane{CurrentPath: cwd, CurrentCmd: "claude"}
+
+	meta, err := integration.Capture(pane)
+	if err != nil || meta["session_id"] != "new" {
+		t.Fatalf("initial capture: meta=%v err=%v", meta, err)
+	}
+	oldPath := filepath.Join(home, "projects", EncodeProjectDir(cwd), "old"+transcriptExt)
+	if err = os.Chtimes(oldPath, base.Add(2*time.Hour), base.Add(2*time.Hour)); err != nil {
+		t.Fatalf("update old transcript: %v", err)
+	}
+	meta, err = integration.Capture(pane)
+	if err != nil || meta["session_id"] != "old" {
+		t.Fatalf("capture after update: meta=%v err=%v", meta, err)
+	}
+}
+
 func TestCaptureConcurrentReadersBuildOneProjectIndex(t *testing.T) {
 	t.Parallel()
 
