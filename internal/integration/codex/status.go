@@ -3,9 +3,7 @@ package codex
 import (
 	"bytes"
 	"encoding/json"
-	"io/fs"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/alchemmist/lazy-tmux/internal/integration"
@@ -56,38 +54,14 @@ func (i *Integration) sessionFile(pane snapshot.Pane) (*os.Root, string, bool) {
 	if err != nil {
 		return nil, "", false
 	}
-	if path, ok := i.cachedSessionPath(sessionID); ok {
-		return root, path, true
-	}
-
-	pattern := filepath.ToSlash(filepath.Join("sessions", "*", "*", "*", "*"+sessionID+".jsonl"))
-	matches, err := fs.Glob(root.FS(), pattern)
-	if err != nil || len(matches) == 0 {
+	path, ok := i.sessionPath(sessionID)
+	if !ok {
 		_ = root.Close()
 
 		return nil, "", false
 	}
 
-	path := matches[len(matches)-1]
-	i.cacheSessionPath(sessionID, path)
-
 	return root, path, true
-}
-
-func (i *Integration) cachedSessionPath(sessionID string) (string, bool) {
-	i.pathsMu.RLock()
-	defer i.pathsMu.RUnlock()
-
-	path, ok := i.sessionPaths[sessionID]
-
-	return path, ok
-}
-
-func (i *Integration) cacheSessionPath(sessionID, path string) {
-	i.pathsMu.Lock()
-	defer i.pathsMu.Unlock()
-
-	i.sessionPaths[sessionID] = path
 }
 
 func latestRolloutStatus(file *os.File, size int64) (integration.Status, bool) {

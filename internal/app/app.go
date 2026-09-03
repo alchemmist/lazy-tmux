@@ -71,11 +71,19 @@ type tmuxClient interface {
 }
 
 type App struct {
-	cfg          config.Config
-	store        *store.Store
-	tmux         tmuxClient
-	integrations *integration.Registry
-	saveAllFn    func() error
+	cfg           config.Config
+	store         *store.Store
+	tmux          tmuxClient
+	integrations  *integration.Registry
+	saveAllFn     func() error
+	pickerCacheMu sync.Mutex
+	pickerCache   map[string]cachedPickerSnapshot
+}
+
+type cachedPickerSnapshot struct {
+	capturedAt time.Time
+	file       string
+	snapshot   snapshot.SessionSnapshot
 }
 
 func New(cfg config.Config) *App {
@@ -88,10 +96,12 @@ func New(cfg config.Config) *App {
 	client.SetRestoreResolver(registry)
 
 	return &App{
-		cfg:          cfg,
-		store:        store.New(cfg.DataDir),
-		tmux:         client,
-		integrations: registry,
+		cfg:           cfg,
+		store:         store.New(cfg.DataDir),
+		tmux:          client,
+		integrations:  registry,
+		pickerCacheMu: sync.Mutex{},
+		pickerCache:   make(map[string]cachedPickerSnapshot),
 	}
 }
 
@@ -123,24 +133,7 @@ func (a *App) SaveAll() (int, error) {
 		return 0, fmt.Errorf("list sessions: %w", err)
 	}
 
-	errs := make([]error, len(sessions))
-	jobs := make(chan int)
-	workers := min(saveAllWorkerLimit, len(sessions))
-
-	var group sync.WaitGroup
-	for range workers {
-		group.Go(func() {
-			for index := range jobs {
-				errs[index] = a.SaveSession(sessions[index])
-			}
-		})
-	}
-	for index := range sessions {
-		jobs <- index
-	}
-	close(jobs)
-	group.Wait()
-
+	errs := parallelMap(sessions, saveAllWorkerLimit, a.SaveSession)
 	for _, err := range errs {
 		if err != nil {
 			return 0, err

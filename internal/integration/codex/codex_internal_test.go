@@ -170,6 +170,9 @@ func TestStatusConcurrentReadersShareSessionPath(t *testing.T) {
 	for result := range errs {
 		t.Fatal(result)
 	}
+	if codexIntegration.indexBuilds != 1 {
+		t.Fatalf("rollout tree scanned %d times, want 1", codexIntegration.indexBuilds)
+	}
 }
 
 func TestStatusUsesLatestLifecycleEvent(t *testing.T) {

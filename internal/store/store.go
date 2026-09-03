@@ -71,10 +71,13 @@ func (s *Store) SaveSession(sessionSnapshot snapshot.SessionSnapshot) error {
 		sessionSnapshot.CapturedAt = time.Now().UTC()
 	}
 
-	unlock := s.lockSession(sessionSnapshot.SessionName)
+	unlock, err := s.lockSessionMutation(sessionSnapshot.SessionName)
+	if err != nil {
+		return err
+	}
 	defer unlock()
 
-	err := s.ensureLayout()
+	err = s.ensureLayout()
 	if err != nil {
 		return err
 	}
@@ -116,12 +119,15 @@ func (s *Store) DeleteSession(name string) error {
 		return errEmptySessionName
 	}
 
-	unlock := s.lockSession(name)
+	unlock, err := s.lockSessionMutation(name)
+	if err != nil {
+		return err
+	}
 	defer unlock()
 
 	path := s.sessionPath(name)
 
-	err := os.Remove(path)
+	err = os.Remove(path)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("remove session file: %w", err)
 	}
@@ -324,6 +330,48 @@ func (s *Store) lockSession(name string) func() {
 	return lock.Unlock
 }
 
+func (s *Store) lockSessionMutation(name string) (func(), error) {
+	unlockLocal := s.lockSession(name)
+
+	safeName, err := safeScrollbackSessionName(name)
+	if err != nil {
+		unlockLocal()
+
+		return nil, err
+	}
+	lockDir := filepath.Join(s.baseDir, ".session-locks")
+	err = os.MkdirAll(lockDir, 0o700)
+	if err != nil {
+		unlockLocal()
+
+		return nil, fmt.Errorf("create session lock dir: %w", err)
+	}
+	lockPath := filepath.Join(lockDir, safeName+".lock")
+	file, err := os.OpenFile( // #nosec G304 -- sanitized lock name under configured data directory
+		lockPath,
+		os.O_CREATE|os.O_RDWR,
+		0o600,
+	)
+	if err != nil {
+		unlockLocal()
+
+		return nil, fmt.Errorf("open session lock: %w", err)
+	}
+	err = syscall.Flock(int(file.Fd()), syscall.LOCK_EX)
+	if err != nil {
+		_ = file.Close()
+		unlockLocal()
+
+		return nil, fmt.Errorf("lock session: %w", err)
+	}
+
+	return func() {
+		_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
+		_ = file.Close()
+		unlockLocal()
+	}, nil
+}
+
 func (s *Store) withIndexLock(run func() error) error {
 	s.indexMu.Lock()
 	defer s.indexMu.Unlock()
@@ -356,7 +404,10 @@ func (s *Store) withIndexLock(run func() error) error {
 func (s *Store) loadSession(name string, hydrate bool) (snapshot.SessionSnapshot, error) {
 	var out snapshot.SessionSnapshot
 
-	unlock := s.lockSession(name)
+	unlock, err := s.lockSessionMutation(name)
+	if err != nil {
+		return out, err
+	}
 	defer unlock()
 
 	path := s.sessionPath(name)

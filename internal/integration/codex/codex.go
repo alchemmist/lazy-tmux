@@ -3,6 +3,7 @@ package codex
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,15 +16,21 @@ const metaSessionID = "session_id"
 
 type Integration struct {
 	home         string
-	pathsMu      sync.RWMutex
+	indexMu      sync.Mutex
+	indexed      bool
+	indexBuilds  int
 	sessionPaths map[string]string
+	latestByCWD  map[string]sessionCandidate
 }
 
 func New(home string) *Integration {
 	return &Integration{
 		home:         home,
-		pathsMu:      sync.RWMutex{},
+		indexMu:      sync.Mutex{},
+		indexed:      false,
+		indexBuilds:  0,
 		sessionPaths: make(map[string]string),
+		latestByCWD:  make(map[string]sessionCandidate),
 	}
 }
 
@@ -83,18 +90,47 @@ type sessionMetaLine struct {
 
 type sessionCandidate struct {
 	id      string
+	cwd     string
+	path    string
 	modTime int64
 }
 
 func (i *Integration) latestSessionID(cwd string) (string, bool) {
 	cwd = strings.TrimSpace(cwd)
-	root := filepath.Join(i.home, "sessions")
 	if cwd == "" || strings.TrimSpace(i.home) == "" {
 		return "", false
 	}
+	i.ensureIndex("")
 
-	var newest sessionCandidate
-	found := false
+	i.indexMu.Lock()
+	defer i.indexMu.Unlock()
+	candidate, found := i.latestByCWD[cwd]
+
+	return candidate.id, found
+}
+
+func (i *Integration) sessionPath(sessionID string) (string, bool) {
+	i.ensureIndex(sessionID)
+
+	i.indexMu.Lock()
+	defer i.indexMu.Unlock()
+	path, ok := i.sessionPaths[sessionID]
+
+	return path, ok
+}
+
+func (i *Integration) ensureIndex(requiredID string) {
+	i.indexMu.Lock()
+	defer i.indexMu.Unlock()
+	if i.indexed {
+		if requiredID == "" || i.sessionPaths[requiredID] != "" {
+			return
+		}
+	}
+
+	root := filepath.Join(i.home, "sessions")
+	paths := make(map[string]string)
+	latest := make(map[string]sessionCandidate)
 	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -103,21 +139,29 @@ func (i *Integration) latestSessionID(cwd string) (string, bool) {
 			return nil
 		}
 
-		candidate, ok := readCandidate(path, cwd)
-		if !ok || (found && candidate.modTime <= newest.modTime) {
+		candidate, ok := readCandidate(path, "")
+		if !ok {
 			return nil
 		}
-
-		newest = candidate
-		found = true
+		relative, relErr := filepath.Rel(i.home, path)
+		if relErr != nil {
+			return fmt.Errorf("make rollout path relative: %w", relErr)
+		}
+		candidate.path = filepath.ToSlash(relative)
+		paths[candidate.id] = candidate.path
+		if previous, exists := latest[candidate.cwd]; !exists ||
+			candidate.modTime > previous.modTime {
+			latest[candidate.cwd] = candidate
+		}
 
 		return nil
 	})
-	if err != nil || !found {
-		return "", false
+	if err == nil {
+		i.sessionPaths = paths
+		i.latestByCWD = latest
+		i.indexed = true
+		i.indexBuilds++
 	}
-
-	return newest.id, true
 }
 
 func readCandidate(path, cwd string) (sessionCandidate, bool) {
@@ -138,11 +182,16 @@ func readCandidate(path, cwd string) (sessionCandidate, bool) {
 		return sessionCandidate{}, false
 	}
 	if meta.Type != "session_meta" || strings.TrimSpace(meta.Payload.ID) == "" ||
-		meta.Payload.CWD != cwd {
+		(cwd != "" && meta.Payload.CWD != cwd) {
 		return sessionCandidate{}, false
 	}
 
-	return sessionCandidate{id: meta.Payload.ID, modTime: info.ModTime().UnixNano()}, true
+	return sessionCandidate{
+		id:      meta.Payload.ID,
+		cwd:     meta.Payload.CWD,
+		path:    path,
+		modTime: info.ModTime().UnixNano(),
+	}, true
 }
 
 func executableName(cmd string) string {

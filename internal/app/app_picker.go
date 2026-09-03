@@ -8,7 +8,6 @@ import (
 	"os"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/config"
@@ -70,7 +69,7 @@ func (a *App) pickerSessions(opts PickerSortOptions) ([]picker.Session, error) {
 	sessions := make([]picker.Session, 0, len(records))
 
 	for _, rec := range records {
-		snap, err := a.store.LoadSessionMetadata(rec.SessionName)
+		snap, err := a.pickerSnapshot(rec)
 		if err != nil {
 			log.Printf("picker: skip session %s: %v", rec.SessionName, err)
 
@@ -93,6 +92,29 @@ func (a *App) pickerSessions(opts PickerSortOptions) ([]picker.Session, error) {
 	}
 
 	return sessions, nil
+}
+
+func (a *App) pickerSnapshot(record snapshot.Record) (snapshot.SessionSnapshot, error) {
+	a.pickerCacheMu.Lock()
+	cached, ok := a.pickerCache[record.SessionName]
+	a.pickerCacheMu.Unlock()
+	if ok && cached.file == record.File && cached.capturedAt.Equal(record.CapturedAt) {
+		return cached.snapshot, nil
+	}
+
+	snap, err := a.store.LoadSessionMetadata(record.SessionName)
+	if err != nil {
+		return snapshot.SessionSnapshot{}, fmt.Errorf("load picker snapshot: %w", err)
+	}
+	a.pickerCacheMu.Lock()
+	a.pickerCache[record.SessionName] = cachedPickerSnapshot{
+		capturedAt: record.CapturedAt,
+		file:       record.File,
+		snapshot:   snap,
+	}
+	a.pickerCacheMu.Unlock()
+
+	return snap, nil
 }
 
 func (a *App) windowStatuses(windows []snapshot.Window) map[int]picker.WindowStatus {
@@ -313,28 +335,17 @@ func (a *App) quickPickerSessions() ([]picker.QuickSession, error) {
 
 func (a *App) quickWorkingSessions(sessions []picker.QuickSession) map[string]bool {
 	working := make(map[string]bool)
-	jobs := make(chan picker.QuickSession)
-	results := make(chan string, len(sessions))
-	workers := min(quickStatusWorkerLimit, len(sessions))
-
-	var group sync.WaitGroup
-	for range workers {
-		group.Go(func() {
-			for session := range jobs {
-				if a.sessionHasWorkingCodex(session.Name, session.Restored) {
-					results <- session.Name
-				}
-			}
-		})
-	}
-	for _, session := range sessions {
-		jobs <- session
-	}
-	close(jobs)
-	group.Wait()
-	close(results)
-	for name := range results {
-		working[name] = true
+	statuses := parallelMap(
+		sessions,
+		quickStatusWorkerLimit,
+		func(session picker.QuickSession) bool {
+			return a.sessionHasWorkingCodex(session.Name, session.Restored)
+		},
+	)
+	for index, isWorking := range statuses {
+		if isWorking {
+			working[sessions[index].Name] = true
+		}
 	}
 
 	return working

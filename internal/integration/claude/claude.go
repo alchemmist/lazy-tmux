@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
@@ -14,12 +15,26 @@ const (
 )
 
 type Integration struct {
-	home      string
-	statusDir string
+	home         string
+	statusDir    string
+	indexMu      sync.Mutex
+	projectIndex map[string]projectCache
+	indexBuilds  int
+}
+
+type projectCache struct {
+	dirModTime int64
+	sessionID  string
 }
 
 func New(home, statusDir string) *Integration {
-	return &Integration{home: home, statusDir: statusDir}
+	return &Integration{
+		home:         home,
+		statusDir:    statusDir,
+		indexMu:      sync.Mutex{},
+		projectIndex: make(map[string]projectCache),
+		indexBuilds:  0,
+	}
 }
 
 func (i *Integration) Name() string { return "claude" }
@@ -64,6 +79,17 @@ func (i *Integration) latestSessionID(cwd string) (string, bool) {
 	}
 
 	dir := filepath.Join(i.home, "projects", EncodeProjectDir(cwd))
+	info, err := os.Stat(dir)
+	if err != nil {
+		return "", false
+	}
+	dirModTime := info.ModTime().UnixNano()
+
+	i.indexMu.Lock()
+	defer i.indexMu.Unlock()
+	if cached, ok := i.projectIndex[cwd]; ok && cached.dirModTime == dirModTime {
+		return cached.sessionID, cached.sessionID != ""
+	}
 
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -92,6 +118,9 @@ func (i *Integration) latestSessionID(cwd string) (string, bool) {
 			found = true
 		}
 	}
+
+	i.projectIndex[cwd] = projectCache{dirModTime: dirModTime, sessionID: newestID}
+	i.indexBuilds++
 
 	return newestID, found
 }

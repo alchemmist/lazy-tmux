@@ -690,3 +690,49 @@ func TestMergeLastAttached(t *testing.T) {
 
 	mergeLastAttached(records, nil)
 }
+
+func TestPickerSnapshotCacheReusesAndInvalidatesMetadata(t *testing.T) {
+	t.Parallel()
+
+	a, dir := newTestApp(t)
+	first := snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: "cached",
+		CapturedAt:  time.Unix(1, 0),
+		Windows:     []snapshot.Window{{Index: 0, Name: "first"}},
+	}
+	if err := a.store.SaveSession(first); err != nil {
+		t.Fatalf("save first: %v", err)
+	}
+	records, err := a.store.ListRecords()
+	if err != nil {
+		t.Fatalf("list first records: %v", err)
+	}
+	if _, err = a.pickerSnapshot(records[0]); err != nil {
+		t.Fatalf("prime cache: %v", err)
+	}
+	if err = os.Remove(filepath.Join(dir, "sessions", "cached.json")); err != nil {
+		t.Fatalf("remove cached fixture: %v", err)
+	}
+	if _, err = a.pickerSnapshot(records[0]); err != nil {
+		t.Fatalf("unchanged record was reloaded: %v", err)
+	}
+
+	second := first
+	second.CapturedAt = time.Unix(2, 0)
+	second.Windows = []snapshot.Window{{Index: 0, Name: "second"}}
+	if err = a.store.SaveSession(second); err != nil {
+		t.Fatalf("save second: %v", err)
+	}
+	records, err = a.store.ListRecords()
+	if err != nil {
+		t.Fatalf("list second records: %v", err)
+	}
+	loaded, err := a.pickerSnapshot(records[0])
+	if err != nil {
+		t.Fatalf("reload changed record: %v", err)
+	}
+	if loaded.Windows[0].Name != "second" {
+		t.Fatalf("stale cached snapshot: %+v", loaded.Windows)
+	}
+}

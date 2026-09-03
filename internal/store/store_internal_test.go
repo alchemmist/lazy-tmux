@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -43,6 +44,79 @@ func TestConcurrentStoreInstancesPreserveEveryIndexEntry(t *testing.T) {
 	}
 	if len(records) != sessionCount {
 		t.Fatalf("index has %d sessions, want %d", len(records), sessionCount)
+	}
+}
+
+func TestConcurrentStoreInstancesKeepOneSessionConsistent(t *testing.T) {
+	t.Parallel()
+
+	for iteration := range 20 {
+		dir := t.TempDir()
+		stores := []*Store{New(dir), New(dir)}
+		snapshots := []snapshot.SessionSnapshot{
+			concurrentSnapshot("shared", "alpha", iteration),
+			concurrentSnapshot("shared", "bravo", iteration),
+		}
+
+		errs := make(chan error, len(stores))
+		var group sync.WaitGroup
+		for index := range stores {
+			group.Go(func() { errs <- stores[index].SaveSession(snapshots[index]) })
+		}
+		group.Wait()
+		close(errs)
+		for err := range errs {
+			if err != nil {
+				t.Fatalf("iteration %d concurrent same-session save: %v", iteration, err)
+			}
+		}
+
+		loaded, err := New(dir).LoadSession("shared")
+		if err != nil {
+			t.Fatalf("iteration %d load: %v", iteration, err)
+		}
+		marker := loaded.Windows[0].Name
+		for _, pane := range loaded.Windows[0].Panes {
+			if pane.Scrollback == nil || !strings.Contains(pane.Scrollback.Content, marker) {
+				t.Fatalf("iteration %d mixed snapshot %s: %+v", iteration, marker, loaded)
+			}
+		}
+	}
+}
+
+func concurrentSnapshot(name, marker string, iteration int) snapshot.SessionSnapshot {
+	panes := make([]snapshot.Pane, 12)
+	for index := range panes {
+		panes[index] = snapshot.Pane{
+			Index:       index,
+			CurrentPath: "/tmp",
+			CurrentCmd:  "zsh",
+			RestoreCmd:  "",
+			Scrollback: &snapshot.ScrollbackRef{
+				Ref:     "",
+				Lines:   0,
+				Bytes:   0,
+				Content: strings.Repeat(marker, 1024),
+			},
+			IsActive: index == 0,
+			Meta:     nil,
+		}
+	}
+
+	return snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: name,
+		CapturedAt:  time.Unix(int64(iteration+1), 0),
+		CurrentWin:  0,
+		CurrentPane: 0,
+		Windows: []snapshot.Window{{
+			Index:      0,
+			Name:       marker,
+			Layout:     "",
+			IsActive:   true,
+			ActivePane: 0,
+			Panes:      panes,
+		}},
 	}
 }
 

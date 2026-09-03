@@ -1,8 +1,10 @@
 package claude
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -46,6 +48,34 @@ func TestCaptureReturnsNewestSession(t *testing.T) {
 
 	if meta["session_id"] != "new-session" {
 		t.Fatalf("expected newest session, got %q", meta["session_id"])
+	}
+}
+
+func TestCaptureConcurrentReadersBuildOneProjectIndex(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	cwd := "/Users/me/code/shared"
+	writeTranscript(t, home, cwd, "session", time.Now())
+	integration := New(home, "")
+
+	errs := make(chan string, 32)
+	var group sync.WaitGroup
+	for range 32 {
+		group.Go(func() {
+			meta, err := integration.Capture(snapshot.Pane{CurrentPath: cwd, CurrentCmd: "claude"})
+			if err != nil || meta["session_id"] != "session" {
+				errs <- fmt.Sprintf("meta=%v err=%v", meta, err)
+			}
+		})
+	}
+	group.Wait()
+	close(errs)
+	for result := range errs {
+		t.Fatal(result)
+	}
+	if integration.indexBuilds != 1 {
+		t.Fatalf("project directory scanned %d times, want 1", integration.indexBuilds)
 	}
 }
 
