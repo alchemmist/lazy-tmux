@@ -106,6 +106,41 @@ func TestCaptureInvalidatesIndexWhenNewRolloutAppears(t *testing.T) {
 	}
 }
 
+func TestCaptureInvalidatesIndexWhenPartialRolloutBecomesReadable(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	cwd := "/workspace"
+	base := time.Unix(100, 0)
+	writeRollout(t, home, "2026/01/03", "old", cwd, base)
+	partialPath := filepath.Join(home, "sessions", "2026/01/03", "rollout-new.jsonl")
+	if err := os.WriteFile(partialPath, []byte("{"), 0o644); err != nil {
+		t.Fatalf("write partial rollout: %v", err)
+	}
+	if err := os.Chtimes(partialPath, base.Add(time.Hour), base.Add(time.Hour)); err != nil {
+		t.Fatalf("set partial rollout time: %v", err)
+	}
+	integration := New(home)
+	pane := snapshot.Pane{CurrentPath: cwd, CurrentCmd: "codex"}
+
+	meta, err := integration.Capture(pane)
+	if err != nil || meta["session_id"] != "old" {
+		t.Fatalf("initial capture: meta=%v err=%v", meta, err)
+	}
+	content := `{"type":"session_meta","payload":{"id":"new","cwd":"/workspace"}}` + "\n"
+	if err = os.WriteFile(partialPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("complete rollout: %v", err)
+	}
+	if err = os.Chtimes(partialPath, base.Add(2*time.Hour), base.Add(2*time.Hour)); err != nil {
+		t.Fatalf("update rollout time: %v", err)
+	}
+
+	meta, err = integration.Capture(pane)
+	if err != nil || meta["session_id"] != "new" {
+		t.Fatalf("capture after completing rollout: meta=%v err=%v", meta, err)
+	}
+}
+
 func TestCapturePrefersActivePaneSession(t *testing.T) {
 	t.Parallel()
 

@@ -183,6 +183,10 @@ func (i *Integration) ensureIndexFresh(requiredID string) {
 			return nil
 		}
 
+		info, infoErr := entry.Info()
+		if infoErr == nil {
+			files[path] = fileState{modTime: info.ModTime().UnixNano(), size: info.Size()}
+		}
 		candidate, ok := readCandidate(path, "")
 		if !ok {
 			return nil
@@ -193,10 +197,6 @@ func (i *Integration) ensureIndexFresh(requiredID string) {
 		}
 		candidate.path = filepath.ToSlash(relative)
 		paths[candidate.id] = candidate.path
-		info, infoErr := entry.Info()
-		if infoErr == nil {
-			files[path] = fileState{modTime: info.ModTime().UnixNano(), size: info.Size()}
-		}
 		if previous, exists := latest[candidate.cwd]; !exists ||
 			candidate.modTime > previous.modTime {
 			latest[candidate.cwd] = candidate
