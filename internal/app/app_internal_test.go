@@ -36,11 +36,12 @@ type quickRecordingTmux struct {
 
 	sessions []string
 	current  string
+	attached map[string]time.Time
 }
 
 func (r *quickRecordingTmux) ListSessions() ([]string, error)            { return r.sessions, nil }
 func (r *quickRecordingTmux) CurrentSession() (string, error)            { return r.current, nil }
-func (r *quickRecordingTmux) SessionsLastAttached() map[string]time.Time { return nil }
+func (r *quickRecordingTmux) SessionsLastAttached() map[string]time.Time { return r.attached }
 
 type workingCodexIntegration struct{}
 
@@ -171,6 +172,7 @@ func TestQuickPickerSessionsIncludesLiveWithoutSnapshot(t *testing.T) {
 		recordingTmux: recordingTmux{},
 		sessions:      []string{"live-only"},
 		current:       "live-only",
+		attached:      nil,
 	}
 
 	sessions, err := a.quickPickerSessions()
@@ -209,6 +211,10 @@ func TestQuickPickerSessionsHaveStableNameOrder(t *testing.T) {
 		recordingTmux: recordingTmux{},
 		sessions:      []string{"delta", "bravo"},
 		current:       "delta",
+		attached: map[string]time.Time{
+			"bravo": time.Now(),
+			"delta": time.Now().Add(time.Hour),
+		},
 	}
 
 	sessions, err := a.quickPickerSessions()
@@ -219,7 +225,7 @@ func TestQuickPickerSessionsHaveStableNameOrder(t *testing.T) {
 	for _, session := range sessions {
 		names = append(names, session.Name)
 	}
-	if !slices.Equal(names, []string{"bravo", "delta", "alpha", "charlie"}) {
+	if !slices.Equal(names, []string{"delta", "bravo", "charlie", "alpha"}) {
 		t.Fatalf("session order = %v", names)
 	}
 }
@@ -236,6 +242,27 @@ func TestOpenQuickSessionSwitchesLiveSessionWithoutSnapshot(t *testing.T) {
 	}
 	if fake.switched != "live-only" {
 		t.Fatalf("switched = %q, want live-only", fake.switched)
+	}
+}
+
+func TestOpenQuickSessionUpdatesLastUsed(t *testing.T) {
+	t.Parallel()
+
+	a, _ := newTestApp(t)
+	if err := a.store.SaveSession(snapshot.SessionSnapshot{SessionName: "live"}); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+	a.tmux = &recordingTmux{inside: true, exists: true}
+
+	if err := a.OpenQuickSession("live"); err != nil {
+		t.Fatalf("open quick session: %v", err)
+	}
+	records, err := a.store.ListRecords()
+	if err != nil {
+		t.Fatalf("list records: %v", err)
+	}
+	if len(records) != 1 || records[0].LastAccessed.IsZero() {
+		t.Fatalf("last-used timestamp was not updated: %+v", records)
 	}
 }
 
@@ -273,6 +300,7 @@ func TestQuickPickerSessionMarksWorkingCodex(t *testing.T) {
 		recordingTmux: recordingTmux{},
 		sessions:      []string{"working"},
 		current:       "working",
+		attached:      nil,
 	}
 
 	sessions, err := a.quickPickerSessions()

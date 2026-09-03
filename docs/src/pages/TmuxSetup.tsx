@@ -44,9 +44,9 @@ export function TmuxSetup() {
         <p>
           The sessions-only picker reads the compact session index and skips window snapshots and
           integration status checks. It starts on the current session, wraps at both ends, and is
-          designed for a narrow popup on the left edge. Live sessions stay in a stable alphabetical
-          group above a stable alphabetical group of sleeping sessions; activity and recent use
-          never reshuffle either group. Popup bindings require tmux 3.2 or newer:
+          designed for a narrow popup on the left edge. Live sessions stay grouped above sleeping
+          sessions. Within each group, recently used sessions appear first, like an operating
+          system Alt-Tab switcher. Popup bindings require tmux 3.2 or newer:
         </p>
         <CodeBlock>{`bind-key -n C-j display-popup -B -x 0 -y 0 -w 32 -h 100% -E 'lazy-tmux picker --sessions-only'
 bind-key -n C-k display-popup -B -x 0 -y 0 -w 32 -h 100% -E 'lazy-tmux picker --sessions-only'`}</CodeBlock>

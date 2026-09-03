@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -266,6 +267,8 @@ func (a *App) quickPickerSessions() ([]picker.QuickSession, error) {
 		return nil, fmt.Errorf("list sessions: %w", err)
 	}
 
+	attached := a.tmux.SessionsLastAttached()
+	mergeLastAttached(records, attached)
 	byName := make(map[string]struct{}, len(records)+len(liveSessions))
 	live := make(map[string]struct{}, len(liveSessions))
 	for index := range records {
@@ -281,21 +284,13 @@ func (a *App) quickPickerSessions() ([]picker.QuickSession, error) {
 			SessionName:  name,
 			File:         "",
 			CapturedAt:   time.Time{},
-			LastAccessed: time.Time{},
+			LastAccessed: attached[name],
 			Windows:      0,
 			Panes:        0,
 		})
 		byName[name] = struct{}{}
 	}
-	sort.Slice(records, func(indexI, indexJ int) bool {
-		_, liveI := live[records[indexI].SessionName]
-		_, liveJ := live[records[indexJ].SessionName]
-		if liveI != liveJ {
-			return liveI
-		}
-
-		return records[indexI].SessionName < records[indexJ].SessionName
-	})
+	sortQuickSessionRecords(records, live)
 
 	current, _ := a.tmux.CurrentSession()
 	sessions := make([]picker.QuickSession, 0, len(records))
@@ -310,6 +305,24 @@ func (a *App) quickPickerSessions() ([]picker.QuickSession, error) {
 	}
 
 	return sessions, nil
+}
+
+func sortQuickSessionRecords(records []snapshot.Record, live map[string]struct{}) {
+	sort.Slice(records, func(indexI, indexJ int) bool {
+		_, liveI := live[records[indexI].SessionName]
+		_, liveJ := live[records[indexJ].SessionName]
+		if liveI != liveJ {
+			return liveI
+		}
+		if !records[indexI].LastAccessed.Equal(records[indexJ].LastAccessed) {
+			return records[indexI].LastAccessed.After(records[indexJ].LastAccessed)
+		}
+		if !records[indexI].CapturedAt.Equal(records[indexJ].CapturedAt) {
+			return records[indexI].CapturedAt.After(records[indexJ].CapturedAt)
+		}
+
+		return records[indexI].SessionName < records[indexJ].SessionName
+	})
 }
 
 func (a *App) sessionHasWorkingCodex(session string, restored bool) bool {
@@ -340,7 +353,17 @@ func (a *App) sessionHasWorkingCodex(session string, restored bool) bool {
 func (a *App) OpenQuickSession(session string) error {
 	target := PickerTarget{SessionName: session}
 	if a.tmux.SessionExists(strings.TrimSpace(session)) {
-		return a.handoffToTarget(target, true, false)
+		err := a.handoffToTarget(target, true, false)
+		if err != nil {
+			return err
+		}
+
+		err = a.store.MarkSessionAccessed(session, time.Now().UTC())
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("mark session accessed: %w", err)
+		}
+
+		return nil
 	}
 
 	return a.RestoreTargetInteractive(target)
