@@ -307,8 +307,12 @@ func TestQuickPickerSessionMarksWorkingCodex(t *testing.T) {
 	if err != nil {
 		t.Fatalf("quick picker sessions: %v", err)
 	}
-	if len(sessions) != 1 || !sessions[0].Working {
-		t.Fatalf("working Codex session was not marked: %+v", sessions)
+	if len(sessions) != 1 || sessions[0].Working {
+		t.Fatalf("Codex status blocked the initial session list: %+v", sessions)
+	}
+	working := a.quickWorkingSessions(sessions)
+	if !working["working"] {
+		t.Fatalf("working Codex session was not detected: %+v", working)
 	}
 }
 

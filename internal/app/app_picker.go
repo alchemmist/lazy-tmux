@@ -248,6 +248,7 @@ func (a *App) SelectQuickSessionWithTUI() (string, error) {
 		sessions,
 		a.cfg.Theme,
 		a.cfg.SessionPicker.NavigationModifiers,
+		func() map[string]bool { return a.quickWorkingSessions(sessions) },
 	)
 	if err != nil {
 		return "", fmt.Errorf("choose quick session: %w", err)
@@ -300,11 +301,22 @@ func (a *App) quickPickerSessions() ([]picker.QuickSession, error) {
 			Name:     record.SessionName,
 			Restored: restored,
 			Current:  record.SessionName == current,
-			Working:  a.sessionHasWorkingCodex(record.SessionName, restored),
+			Working:  false,
 		})
 	}
 
 	return sessions, nil
+}
+
+func (a *App) quickWorkingSessions(sessions []picker.QuickSession) map[string]bool {
+	working := make(map[string]bool)
+	for _, session := range sessions {
+		if a.sessionHasWorkingCodex(session.Name, session.Restored) {
+			working[session.Name] = true
+		}
+	}
+
+	return working
 }
 
 func sortQuickSessionRecords(records []snapshot.Record, live map[string]struct{}) {

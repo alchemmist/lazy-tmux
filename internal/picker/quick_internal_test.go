@@ -148,6 +148,36 @@ func TestQuickPickerAnimatesWorkingSession(t *testing.T) {
 	}
 }
 
+func TestQuickPickerLoadsWorkingStatusesAfterInitialization(t *testing.T) {
+	t.Parallel()
+
+	loadCalls := 0
+	loader := func() map[string]bool {
+		loadCalls++
+
+		return map[string]bool{"bravo": true}
+	}
+	model := newQuickPickerModel([]QuickSession{
+		{Name: "alpha", Restored: true, Current: false, Working: false},
+		{Name: "bravo", Restored: true, Current: true, Working: false},
+	}, themeDark, []string{"control"}, loader)
+	if loadCalls != 0 {
+		t.Fatal("status loader ran before the picker initialized")
+	}
+	if model.cursor != 1 {
+		t.Fatalf("cursor = %d, want 1", model.cursor)
+	}
+
+	msg := loadQuickStatuses(loader)()
+	model = updateQuick(t, model, msg)
+	if loadCalls != 1 || !model.visible[1].Working {
+		t.Fatalf("working status was not applied: calls=%d visible=%+v", loadCalls, model.visible)
+	}
+	if model.cursor != 1 {
+		t.Fatalf("async status update moved cursor to %d", model.cursor)
+	}
+}
+
 func TestQuickPickerFiltersAndSelectsSessions(t *testing.T) {
 	t.Parallel()
 

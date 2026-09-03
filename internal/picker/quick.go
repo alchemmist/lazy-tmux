@@ -24,14 +24,18 @@ type quickPickerModel struct {
 	cancelled           bool
 	spinnerFrame        int
 	navigationModifiers map[string]struct{}
+	loadWorking         func() map[string]bool
 }
 
 const quickChromeRows = 3
+
+type quickStatusesLoadedMsg map[string]bool
 
 func newQuickPickerModel(
 	sessions []QuickSession,
 	themeName string,
 	navigationModifiers []string,
+	workingLoaders ...func() map[string]bool,
 ) quickPickerModel {
 	if themeName != themeLight {
 		themeName = themeDark
@@ -45,6 +49,10 @@ func newQuickPickerModel(
 	inputStyles.Blurred.Prompt = theme.prompt
 	input.SetStyles(inputStyles)
 	input.Focus()
+	var loadWorking func() map[string]bool
+	if len(workingLoaders) > 0 {
+		loadWorking = workingLoaders[0]
+	}
 
 	model := quickPickerModel{
 		sessions:            sessions,
@@ -58,6 +66,7 @@ func newQuickPickerModel(
 		cancelled:           false,
 		spinnerFrame:        0,
 		navigationModifiers: modifierSet(navigationModifiers),
+		loadWorking:         loadWorking,
 	}
 	model = model.filtered(true)
 
@@ -66,6 +75,9 @@ func newQuickPickerModel(
 
 func (m quickPickerModel) Init() tea.Cmd {
 	cmds := []tea.Cmd{textinput.Blink}
+	if m.loadWorking != nil {
+		cmds = append(cmds, loadQuickStatuses(m.loadWorking))
+	}
 	if m.hasWorkingSession() {
 		cmds = append(cmds, scheduleSpinner())
 	}
@@ -84,6 +96,13 @@ func (m quickPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			return m, scheduleSpinner()
 		}
+	case quickStatusesLoadedMsg:
+		m = m.withWorkingStatuses(msg)
+		if m.hasWorkingSession() {
+			return m, scheduleSpinner()
+		}
+
+		return m, nil
 	case tea.KeyPressMsg:
 		if delta, ok := m.navigationDelta(msg); ok {
 			m = m.moved(delta)
@@ -113,6 +132,10 @@ func (m quickPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, cmd
+}
+
+func loadQuickStatuses(loader func() map[string]bool) tea.Cmd {
+	return func() tea.Msg { return quickStatusesLoadedMsg(loader()) }
 }
 
 func (m quickPickerModel) View() tea.View {
@@ -152,6 +175,17 @@ func (m quickPickerModel) View() tea.View {
 	view.AltScreen = true
 
 	return view
+}
+
+func (m quickPickerModel) withWorkingStatuses(statuses map[string]bool) quickPickerModel {
+	for index := range m.sessions {
+		m.sessions[index].Working = statuses[m.sessions[index].Name]
+	}
+	for index := range m.visible {
+		m.visible[index].Working = statuses[m.visible[index].Name]
+	}
+
+	return m
 }
 
 func (m quickPickerModel) navigationDelta(msg tea.KeyPressMsg) (int, bool) {
@@ -307,12 +341,18 @@ func ChooseQuickSession(
 	sessions []QuickSession,
 	themeName string,
 	navigationModifiers []string,
+	loadWorking func() map[string]bool,
 ) (string, error) {
 	if tuiDisabled() {
 		return "", errTUIDisabled
 	}
 
-	runner := newQuickPickerRunner(newQuickPickerModel(sessions, themeName, navigationModifiers))
+	runner := newQuickPickerRunner(newQuickPickerModel(
+		sessions,
+		themeName,
+		navigationModifiers,
+		loadWorking,
+	))
 	finalModel, err := runner.Run()
 	if err != nil {
 		return "", fmt.Errorf("run quick picker: %w", err)
