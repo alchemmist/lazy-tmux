@@ -38,6 +38,20 @@ func TestQuickPickerStartsOnCurrentSession(t *testing.T) {
 	}
 }
 
+func TestQuickPickerCanStartOnNextSession(t *testing.T) {
+	t.Parallel()
+
+	model := newQuickPickerModel([]QuickSession{
+		{Name: "alpha", Restored: true, Current: true, Working: false},
+		{Name: "bravo", Restored: true, Current: false, Working: false},
+	}, themeDark, []string{"command"})
+	model = model.moved(1)
+
+	if model.cursor != 1 {
+		t.Fatalf("cursor = %d, want 1", model.cursor)
+	}
+}
+
 func TestQuickPickerNavigationWraps(t *testing.T) {
 	t.Parallel()
 
@@ -100,6 +114,25 @@ func TestQuickPickerSupportsBothNavigationModifiers(t *testing.T) {
 	if hints := model.helpHints(); !strings.Contains(hints, "⌘j/⌘k") ||
 		!strings.Contains(hints, "^j/^k") {
 		t.Fatalf("help hints do not show both modifiers: %q", hints)
+	}
+}
+
+func TestQuickPickerSupportsTmuxCommandUserKeys(t *testing.T) {
+	t.Parallel()
+
+	model := newQuickPickerModel([]QuickSession{
+		{Name: "alpha", Restored: true, Current: true, Working: false},
+		{Name: "bravo", Restored: true, Current: false, Working: false},
+	}, themeDark, []string{"command"})
+
+	model = updateQuick(t, model, tea.KeyPressMsg{Code: tea.KeyF11})
+	if model.cursor != 1 {
+		t.Fatalf("tmux User2 cursor = %d, want 1", model.cursor)
+	}
+
+	model = updateQuick(t, model, tea.KeyPressMsg{Code: tea.KeyF12})
+	if model.cursor != 0 {
+		t.Fatalf("tmux User3 cursor = %d, want 0", model.cursor)
 	}
 }
 

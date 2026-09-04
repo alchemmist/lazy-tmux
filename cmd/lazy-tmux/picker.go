@@ -17,6 +17,7 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 	fzfEngine := flags.Bool("fzf-engine", false, "use fzf engine instead of built-in TUI")
 	windows := flags.Bool("windows", false, "fzf engine: pick a window instead of a session")
 	sessionsOnly := flags.Bool("sessions-only", false, "open the fast sessions-only TUI")
+	startNext := flags.Bool("start-next", false, "start on the next session")
 	sessionSort := flags.String("session-sort", "", "session sort keys: field[:asc|desc],...")
 	windowSort := flags.String("window-sort", "", "window sort keys: field[:asc|desc],...")
 	dataDir := flags.String("data-dir", "", "snapshot directory")
@@ -40,7 +41,7 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	err = validatePickerEngineFlags(*fzfEngine, *windows, *sessionsOnly)
+	err = validatePickerEngineFlags(*fzfEngine, *windows, *sessionsOnly, *startNext)
 	if err != nil {
 		writeErr(stderr, err)
 
@@ -67,12 +68,12 @@ func runPicker(args []string, stdout, stderr io.Writer) int {
 
 	tmuxApp := app.New(cfg)
 
-	return runConfiguredPicker(tmuxApp, *fzfEngine, *windows, *sessionsOnly, sortOpts, stderr)
+	return runPickerMode(tmuxApp, *fzfEngine, *windows, *sessionsOnly, *startNext, sortOpts, stderr)
 }
 
-func runConfiguredPicker(
+func runPickerMode(
 	tmuxApp *app.App,
-	fzfEngine, windows, sessionsOnly bool,
+	fzfEngine, windows, sessionsOnly, startNext bool,
 	sortOpts app.PickerSortOptions,
 	stderr io.Writer,
 ) int {
@@ -80,18 +81,26 @@ func runConfiguredPicker(
 		return runFZFPicker(tmuxApp, windows, sortOpts, stderr)
 	}
 	if sessionsOnly {
-		return runQuickSessionPicker(tmuxApp, stderr)
+		initialOffset := 0
+		if startNext {
+			initialOffset = 1
+		}
+
+		return runQuickSessionPicker(tmuxApp, initialOffset, stderr)
 	}
 
 	return runTUIPicker(tmuxApp, sortOpts, stderr)
 }
 
-func validatePickerEngineFlags(fzfEngine, windows, sessionsOnly bool) error {
+func validatePickerEngineFlags(fzfEngine, windows, sessionsOnly, startNext bool) error {
 	if windows && !fzfEngine {
 		return errWindowsRequiresFzf
 	}
 	if sessionsOnly && fzfEngine {
 		return errSessionsOnlyRequiresTUI
+	}
+	if startNext && !sessionsOnly {
+		return errStartNextRequiresTUI
 	}
 
 	return nil
@@ -99,9 +108,10 @@ func validatePickerEngineFlags(fzfEngine, windows, sessionsOnly bool) error {
 
 func runQuickSessionPicker(
 	tmuxApp *app.App,
+	initialOffset int,
 	stderr io.Writer,
 ) int {
-	session, err := tmuxApp.SelectQuickSessionWithTUI()
+	session, err := tmuxApp.SelectQuickSessionWithTUI(initialOffset)
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("select session: %w", err))
 
@@ -189,6 +199,7 @@ Flags:
   -windows          fzf engine: pick a window instead of a session
   -restore-timeout  max wait for restored pane commands to start (0 disables)
   -sessions-only    open the fast sessions-only TUI
+  -start-next       start the sessions-only picker on the next session
   -session-sort     session sort keys: field[:asc|desc],...
   -window-sort      window sort keys: field[:asc|desc],...
   -tmux-bin         tmux binary

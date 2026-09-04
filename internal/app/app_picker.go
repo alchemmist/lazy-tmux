@@ -293,7 +293,7 @@ func (a *App) SelectWithTUI() (string, error) {
 	return target.SessionName, nil
 }
 
-func (a *App) SelectQuickSessionWithTUI() (string, error) {
+func (a *App) SelectQuickSessionWithTUI(initialOffset int) (string, error) {
 	sessions, err := a.quickPickerSessions()
 	if err != nil {
 		return "", err
@@ -303,6 +303,7 @@ func (a *App) SelectQuickSessionWithTUI() (string, error) {
 		sessions,
 		a.cfg.Theme,
 		a.cfg.SessionPicker.NavigationModifiers,
+		initialOffset,
 		func() map[string]bool { return a.quickWorkingSessions(sessions) },
 	)
 	if err != nil {

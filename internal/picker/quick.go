@@ -202,11 +202,11 @@ func (m quickPickerModel) navigationDelta(msg tea.KeyPressMsg) (int, bool) {
 		_, ok := m.navigationModifiers["control"]
 
 		return -1, ok
-	case "super+j":
+	case "super+j", "f11":
 		_, ok := m.navigationModifiers["command"]
 
 		return 1, ok
-	case "super+k":
+	case "super+k", "f12":
 		_, ok := m.navigationModifiers["command"]
 
 		return -1, ok
@@ -359,18 +359,21 @@ func ChooseQuickSession(
 	sessions []QuickSession,
 	themeName string,
 	navigationModifiers []string,
+	initialOffset int,
 	loadWorking func() map[string]bool,
 ) (string, error) {
 	if tuiDisabled() {
 		return "", errTUIDisabled
 	}
 
-	runner := newQuickPickerRunner(newQuickPickerModel(
+	model := newQuickPickerModel(
 		sessions,
 		themeName,
 		navigationModifiers,
 		loadWorking,
-	))
+	)
+	model = model.moved(initialOffset)
+	runner := newQuickPickerRunner(model)
 	finalModel, err := runner.Run()
 	if err != nil {
 		return "", fmt.Errorf("run quick picker: %w", err)
