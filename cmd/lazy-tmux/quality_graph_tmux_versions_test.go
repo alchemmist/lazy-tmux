@@ -92,9 +92,13 @@ exit 1
 	}
 
 	eventPath := filepath.Join(temp, "event.json")
-	event := []byte(
-		`{"pull_request":{"number":42,"base":{"sha":"2222222222222222222222222222222222222222"}}}`,
-	)
+	event := []byte(`{
+  "pull_request": {
+    "number": 42,
+    "base": {"sha": "2222222222222222222222222222222222222222"},
+    "head": {"sha": "1111111111111111111111111111111111111111"}
+  }
+}`)
 	if err := os.WriteFile(eventPath, event, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +115,7 @@ exit 1
 		"GITHUB_EVENT_NAME=pull_request",
 		"GITHUB_EVENT_PATH="+eventPath,
 		"GITHUB_REPOSITORY=alchemmist/lazy-tmux",
-		"GITHUB_SHA=1111111111111111111111111111111111111111",
+		"GITHUB_SHA=3333333333333333333333333333333333333333",
 		"GITHUB_RUN_ID=7",
 		"GITHUB_RUN_ATTEMPT=2",
 		"QUALITY_GRAPH_REPORT_DIR="+temp,
@@ -171,5 +175,11 @@ func assertQualityGraphTmuxReport(
 		if !strings.Contains(summary, want) {
 			t.Fatalf("summary does not contain %q:\n%s", want, summary)
 		}
+	}
+
+	provenance, _ := report["provenance"].(map[string]any)
+	headSHA, _ := provenance["headSha"].(string)
+	if headSHA != "1111111111111111111111111111111111111111" {
+		t.Fatalf("head SHA = %q", headSHA)
 	}
 }

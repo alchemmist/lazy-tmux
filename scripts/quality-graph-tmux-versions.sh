@@ -59,6 +59,13 @@ else
 fi
 
 pull_request=$(jq -r '.pull_request.number // empty' "${GITHUB_EVENT_PATH:?}")
+head_sha=${GITHUB_SHA:?}
+if [[ -n $pull_request ]]; then
+    event_head_sha=$(jq -r '.pull_request.head.sha // empty' "$GITHUB_EVENT_PATH")
+    if [[ -n $event_head_sha ]]; then
+        head_sha=$event_head_sha
+    fi
+fi
 graph_digest=$(jq -r '.graphDigest' .quality-graph/manifest.json)
 
 jq -n \
@@ -69,7 +76,7 @@ jq -n \
     --rawfile summary "$SUMMARY" \
     --arg repository "${GITHUB_REPOSITORY:?}" \
     --arg pull_request "$pull_request" \
-    --arg head_sha "${GITHUB_SHA:?}" \
+    --arg head_sha "$head_sha" \
     --argjson workflow_run_id "${GITHUB_RUN_ID:?}" \
     --argjson run_attempt "${GITHUB_RUN_ATTEMPT:?}" \
     --arg graph_digest "$graph_digest" \
