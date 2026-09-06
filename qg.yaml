@@ -28,6 +28,14 @@ profiles:
       - name: Setup tools
         run: make setup-env
 
+  tmux:
+    runner: ubuntu-latest
+    setup:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: "false"
+          fetch-depth: "0"
+
   quality-graph:
     extends: default
     setup:
@@ -68,3 +76,11 @@ nodes:
     profile: go-tools
     needs: [workflow-graph]
     run: make integration-test
+
+  tmux-versions:
+    title: Tmux version test
+    profile: tmux
+    timeout-minutes: 60
+    run: ./scripts/quality-graph-tmux-versions.sh
+    results:
+      native: .cache/quality-graph/tmux-versions.json

@@ -36,7 +36,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 8619f3661d4bbf1caf3ab9984ce80f0a4f8ba074115da6d2405d965d23359ef0
+          graph-digest: 0e022964efbc07d608194e4ef89fd6e8e734fcb3eb21f39a042494ffedb5a0c6
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -81,7 +81,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 8619f3661d4bbf1caf3ab9984ce80f0a4f8ba074115da6d2405d965d23359ef0
+          graph-digest: 0e022964efbc07d608194e4ef89fd6e8e734fcb3eb21f39a042494ffedb5a0c6
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -130,7 +130,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 8619f3661d4bbf1caf3ab9984ce80f0a4f8ba074115da6d2405d965d23359ef0
+          graph-digest: 0e022964efbc07d608194e4ef89fd6e8e734fcb3eb21f39a042494ffedb5a0c6
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -179,7 +179,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 8619f3661d4bbf1caf3ab9984ce80f0a4f8ba074115da6d2405d965d23359ef0
+          graph-digest: 0e022964efbc07d608194e4ef89fd6e8e734fcb3eb21f39a042494ffedb5a0c6
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -228,7 +228,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 8619f3661d4bbf1caf3ab9984ce80f0a4f8ba074115da6d2405d965d23359ef0
+          graph-digest: 0e022964efbc07d608194e4ef89fd6e8e734fcb3eb21f39a042494ffedb5a0c6
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -277,7 +277,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 8619f3661d4bbf1caf3ab9984ce80f0a4f8ba074115da6d2405d965d23359ef0
+          graph-digest: 0e022964efbc07d608194e4ef89fd6e8e734fcb3eb21f39a042494ffedb5a0c6
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -297,3 +297,47 @@ jobs:
         run: exit "${EXIT_CODE:-2}"
     needs:
       - workflow-graph
+  tmux-versions:
+    name: Tmux version test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: 'false'
+          fetch-depth: '0'
+      - run: ./scripts/quality-graph-tmux-versions.sh
+        name: Run Tmux version test
+        id: quality-command
+        continue-on-error: true
+      - name: Collect Tmux version test result
+        id: quality-result
+        if: always()
+        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        with:
+          operation: collect
+          node-id: tmux-versions
+          title: Tmux version test
+          adapter: native
+          report-path: .cache/quality-graph/tmux-versions.json
+          command-outcome: ${{ steps.quality-command.outcome }}
+          graph-digest: 0e022964efbc07d608194e4ef89fd6e8e734fcb3eb21f39a042494ffedb5a0c6
+          approval-findings: 'true'
+          approval-files: 'false'
+          approval-node: 'false'
+      - name: Upload Tmux version test result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-result-tmux-versions-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/quality-graph/tmux-versions.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce Tmux version test result
+        if: always()
+        shell: bash
+        env:
+          EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
+        run: exit "${EXIT_CODE:-2}"
+    timeout-minutes: 60
