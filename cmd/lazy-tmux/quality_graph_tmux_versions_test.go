@@ -15,23 +15,61 @@ func TestQualityGraphTmuxVersionsResult(t *testing.T) {
 
 	cases := []struct {
 		name        string
-		baseHas36   string
+		headResults string
+		baseResults string
 		wantStatus  string
 		wantFailure string
+		wantMissing string
+		wantSummary []string
 	}{
-		{name: "known incompatibility", baseHas36: "0", wantStatus: "passed"},
-		{name: "lost version", baseHas36: "1", wantStatus: "failed", wantFailure: "quality"},
+		{
+			name:        "known incompatibility",
+			headResults: "  tmux 3.5      ✓\n  tmux 3.6      ✗",
+			baseResults: "  tmux 3.5      ✓\n  tmux 3.6      ✗",
+			wantStatus:  "passed",
+			wantSummary: []string{"| `3.5` | ✓ |", "| `3.6` | ✗ |"},
+		},
+		{
+			name:        "lost version",
+			headResults: "  tmux 3.5      ✓\n  tmux 3.6      ✗",
+			baseResults: "  tmux 3.5      ✓\n  tmux 3.6      ✓",
+			wantStatus:  "failed",
+			wantFailure: "quality",
+			wantMissing: "3.6\n",
+			wantSummary: []string{"| `3.5` | ✓ |", "| `3.6` | ✗ |"},
+		},
+		{
+			name:        "lexical version ordering",
+			headResults: "  tmux 3.10     ✓",
+			baseResults: "  tmux 3.9      ✓\n  tmux 3.10     ✓",
+			wantStatus:  "failed",
+			wantFailure: "quality",
+			wantMissing: "3.9\n",
+			wantSummary: []string{"| `3.10` | ✓ |"},
+		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			runQualityGraphTmuxVersionCase(t, tc.baseHas36, tc.wantStatus, tc.wantFailure)
+			runQualityGraphTmuxVersionCase(
+				t,
+				tc.headResults,
+				tc.baseResults,
+				tc.wantStatus,
+				tc.wantFailure,
+				tc.wantMissing,
+				tc.wantSummary,
+			)
 		})
 	}
 }
 
-func runQualityGraphTmuxVersionCase(t *testing.T, baseHas36, wantStatus, wantFailure string) {
+func runQualityGraphTmuxVersionCase(
+	t *testing.T,
+	headResults, baseResults, wantStatus, wantFailure, wantMissing string,
+	wantSummary []string,
+) {
 	t.Helper()
 
 	root, err := filepath.Abs(filepath.Join("..", ".."))
@@ -42,11 +80,11 @@ func runQualityGraphTmuxVersionCase(t *testing.T, baseHas36, wantStatus, wantFai
 	temp := t.TempDir()
 	fakeMake := filepath.Join(temp, "make")
 	makeBody := `#!/bin/sh
-status=✗
-if [ "${1:-}" = "-C" ] && [ "$FAKE_BASE_HAS_36" = "1" ]; then
-    status=✓
+results=$FAKE_HEAD_RESULTS
+if [ "${1:-}" = "-C" ]; then
+    results=$FAKE_BASE_RESULTS
 fi
-printf '  tmux 3.5      ✓\n  tmux 3.6      %s\n' "$status"
+printf '%s\n' "$results"
 exit 1
 `
 	if err := os.WriteFile(fakeMake, []byte(makeBody), 0o755); err != nil {
@@ -68,7 +106,8 @@ exit 1
 	cmd.Dir = root
 	cmd.Env = append(os.Environ(),
 		"PATH="+temp+":"+os.Getenv("PATH"),
-		"FAKE_BASE_HAS_36="+baseHas36,
+		"FAKE_HEAD_RESULTS="+headResults,
+		"FAKE_BASE_RESULTS="+baseResults,
 		"GITHUB_EVENT_NAME=pull_request",
 		"GITHUB_EVENT_PATH="+eventPath,
 		"GITHUB_REPOSITORY=alchemmist/lazy-tmux",
@@ -92,10 +131,23 @@ exit 1
 		filepath.Join(temp, "tmux-versions.json"),
 		wantStatus,
 		wantFailure,
+		wantSummary,
 	)
+
+	missing, err := os.ReadFile(filepath.Join(temp, "missing.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(missing) != wantMissing {
+		t.Fatalf("missing versions = %q, want %q", missing, wantMissing)
+	}
 }
 
-func assertQualityGraphTmuxReport(t *testing.T, path, wantStatus, wantFailure string) {
+func assertQualityGraphTmuxReport(
+	t *testing.T,
+	path, wantStatus, wantFailure string,
+	wantSummary []string,
+) {
 	t.Helper()
 
 	reportBytes, err := os.ReadFile(path)
@@ -115,8 +167,9 @@ func assertQualityGraphTmuxReport(t *testing.T, path, wantStatus, wantFailure st
 	}
 
 	summary, _ := report["summary"].(string)
-	if !strings.Contains(summary, "| `3.5` | ✓ |") ||
-		!strings.Contains(summary, "| `3.6` | ✗ |") {
-		t.Fatalf("summary does not contain the tmux table:\n%s", summary)
+	for _, want := range wantSummary {
+		if !strings.Contains(summary, want) {
+			t.Fatalf("summary does not contain %q:\n%s", want, summary)
+		}
 	}
 }

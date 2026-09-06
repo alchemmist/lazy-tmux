@@ -4,7 +4,7 @@ ENV PATH=/usr/local/go/bin:/go/bin:$PATH
 ENV ENABLE_INTEGRATION_TESTS=true
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends tmux fzf && \
+    apt-get install -y --no-install-recommends tmux fzf jq && \
     rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -s /bin/bash appuser && \

@@ -28,9 +28,9 @@ if [[ ${GITHUB_EVENT_NAME:-} == pull_request ]]; then
 
     make -C "$base_dir" test-sup-versions | tee "$BASE_RESULTS" || true
 
-    awk '$1 == "tmux" && $3 == "✓" { print $2 }' "$RESULTS" | sort -V >"$CACHE_DIR/head-supported.txt"
-    awk '$1 == "tmux" && $3 == "✓" { print $2 }' "$BASE_RESULTS" | sort -V >"$CACHE_DIR/base-supported.txt"
-    comm -23 "$CACHE_DIR/base-supported.txt" "$CACHE_DIR/head-supported.txt" >"$CACHE_DIR/missing.txt"
+    awk '$1 == "tmux" && $3 == "✓" { print $2 }' "$RESULTS" | LC_ALL=C sort -u >"$CACHE_DIR/head-supported.txt"
+    awk '$1 == "tmux" && $3 == "✓" { print $2 }' "$BASE_RESULTS" | LC_ALL=C sort -u >"$CACHE_DIR/base-supported.txt"
+    LC_ALL=C comm -23 "$CACHE_DIR/base-supported.txt" "$CACHE_DIR/head-supported.txt" >"$CACHE_DIR/missing.txt"
 
     {
         printf '| tmux version | Status |\n'
