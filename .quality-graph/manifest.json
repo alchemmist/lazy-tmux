@@ -5,7 +5,7 @@
       "admin"
     ]
   },
-  "graphDigest": "8619f3661d4bbf1caf3ab9984ce80f0a4f8ba074115da6d2405d965d23359ef0",
+  "graphDigest": "0e022964efbc07d608194e4ef89fd6e8e734fcb3eb21f39a042494ffedb5a0c6",
   "graphVersion": 0,
   "labels": {
     "enabled": false
@@ -165,6 +165,32 @@
         "run": "make integration-test"
       },
       "title": "Integration tests"
+    },
+    {
+      "env": {},
+      "id": "tmux-versions",
+      "needs": [],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "tmux",
+      "result": {
+        "adapter": "native",
+        "path": ".cache/quality-graph/tmux-versions.json"
+      },
+      "step": {
+        "run": "./scripts/quality-graph-tmux-versions.sh"
+      },
+      "timeoutMinutes": 60,
+      "title": "Tmux version test"
     }
   ],
   "profiles": {
@@ -248,6 +274,23 @@
         },
         {
           "uses": "astral-sh/setup-uv@v7"
+        }
+      ]
+    },
+    "tmux": {
+      "env": {},
+      "permissions": {
+        "contents": "read"
+      },
+      "runner": "ubuntu-latest",
+      "services": {},
+      "setup": [
+        {
+          "uses": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "with": {
+            "fetch-depth": "0",
+            "persist-credentials": "false"
+          }
         }
       ]
     }
