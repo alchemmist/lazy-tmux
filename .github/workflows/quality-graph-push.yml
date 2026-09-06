@@ -36,7 +36,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 0e022964efbc07d608194e4ef89fd6e8e734fcb3eb21f39a042494ffedb5a0c6
+          graph-digest: de7217a2debee71075d2b94d82e0e8e65188deb58b4c34636761be77796108ce
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -81,7 +81,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 0e022964efbc07d608194e4ef89fd6e8e734fcb3eb21f39a042494ffedb5a0c6
+          graph-digest: de7217a2debee71075d2b94d82e0e8e65188deb58b4c34636761be77796108ce
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -130,7 +130,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 0e022964efbc07d608194e4ef89fd6e8e734fcb3eb21f39a042494ffedb5a0c6
+          graph-digest: de7217a2debee71075d2b94d82e0e8e65188deb58b4c34636761be77796108ce
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -179,7 +179,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 0e022964efbc07d608194e4ef89fd6e8e734fcb3eb21f39a042494ffedb5a0c6
+          graph-digest: de7217a2debee71075d2b94d82e0e8e65188deb58b4c34636761be77796108ce
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -228,7 +228,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 0e022964efbc07d608194e4ef89fd6e8e734fcb3eb21f39a042494ffedb5a0c6
+          graph-digest: de7217a2debee71075d2b94d82e0e8e65188deb58b4c34636761be77796108ce
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -277,7 +277,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 0e022964efbc07d608194e4ef89fd6e8e734fcb3eb21f39a042494ffedb5a0c6
+          graph-digest: de7217a2debee71075d2b94d82e0e8e65188deb58b4c34636761be77796108ce
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -322,7 +322,7 @@ jobs:
           adapter: native
           report-path: .cache/quality-graph/tmux-versions.json
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 0e022964efbc07d608194e4ef89fd6e8e734fcb3eb21f39a042494ffedb5a0c6
+          graph-digest: de7217a2debee71075d2b94d82e0e8e65188deb58b4c34636761be77796108ce
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
