@@ -39,7 +39,7 @@ profiles:
   quality-graph:
     extends: default
     setup:
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v10.0.1
 
 nodes:
   workflow-graph:
