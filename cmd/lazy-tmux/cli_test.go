@@ -137,6 +137,18 @@ func TestCLIPickerSessionsOnlyRejectsFZF(t *testing.T) {
 	}
 }
 
+func TestCLIPickerStartNextRequiresSessionsOnly(t *testing.T) {
+	t.Parallel()
+
+	code, _, errOut := run(t, "picker", "--start-next")
+	if code != 1 {
+		t.Fatalf("expected exit 1, got %d", code)
+	}
+	if !strings.Contains(errOut, "start-next requires sessions-only mode") {
+		t.Fatalf("unexpected stderr: %q", errOut)
+	}
+}
+
 func TestCLICodexForkCreatesNamedWindowForFocusedSession(t *testing.T) {
 	tmuxBin := filepath.Join(t.TempDir(), "tmux")
 	logPath := filepath.Join(t.TempDir(), "tmux-args")
