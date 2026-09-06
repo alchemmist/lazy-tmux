@@ -5,7 +5,7 @@
       "admin"
     ]
   },
-  "graphDigest": "434ade0f6063934c44260558802575d82d54fcb224e0542258d1d2768c49766c",
+  "graphDigest": "85b47b6858cc29a283f6d23b4c8ac09d43d684773614693d2caf5788b16704f3",
   "graphVersion": 0,
   "labels": {
     "enabled": false
@@ -233,7 +233,7 @@
       "services": {},
       "setup": [
         {
-          "uses": "actions/checkout@v7",
+          "uses": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
           "with": {
             "fetch-depth": "0",
             "persist-credentials": "false"
