@@ -1,0 +1,86 @@
+---
+version: 0
+provider:
+  name: github
+  configuration:
+    runtime:
+      action: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+      publisher-action: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+
+profiles:
+  default:
+    runner: ubuntu-latest
+    setup:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: "false"
+
+  go:
+    extends: default
+    setup:
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+  go-tools:
+    extends: go
+    setup:
+      - name: Setup tools
+        run: make setup-env
+
+  tmux:
+    runner: ubuntu-latest
+    setup:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: "false"
+          fetch-depth: "0"
+
+  quality-graph:
+    extends: default
+    setup:
+      - uses: astral-sh/setup-uv@v7
+
+nodes:
+  workflow-graph:
+    title: Workflow graph validation
+    profile: quality-graph
+    run: uvx --from quality-graph-cli==0.1.8 --with quality-graph-github==0.1.8 qg validate
+
+  build:
+    title: Build
+    profile: go
+    needs: [workflow-graph]
+    run: make build
+
+  coverage:
+    title: Coverage
+    profile: go-tools
+    needs: [workflow-graph]
+    run: make test-cov
+
+  golangci-lint:
+    title: GolangCI-Lint
+    profile: go-tools
+    needs: [workflow-graph]
+    run: make golangci-lint
+
+  test:
+    title: Test
+    profile: go-tools
+    needs: [workflow-graph]
+    run: make test
+
+  integration:
+    title: Integration tests
+    profile: go-tools
+    needs: [workflow-graph]
+    run: make integration-test
+
+  tmux-versions:
+    title: Tmux version test
+    profile: tmux
+    timeout-minutes: 60
+    run: ./scripts/quality-graph-tmux-versions.sh
+    results:
+      native: .cache/quality-graph/tmux-versions.json

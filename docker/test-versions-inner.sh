@@ -14,7 +14,7 @@
 # `grep vtest`. That hid real failures (see issues #125 / #126): a version could
 # fail on a real multi-window, multi-pane, attached session yet still pass.
 #
-# Output contract (consumed by scripts/parse-output.sh and format-comment.sh):
+# Output contract (consumed by scripts/quality-graph-tmux-versions.sh):
 # exactly one "  tmux <version>  ✓" or "  tmux <version>  ✗" line per version on
 # stdout. Failure diagnostics go to stderr so they appear in the raw CI log
 # without polluting the parsed summary.
@@ -154,12 +154,16 @@ check_version() {
     check_roundtrip
 }
 
+failed=0
 for version in "$@"; do
     if check_version "$version"; then
         printf "  tmux %-7s  ✓\n" "$version"
     else
         printf "  tmux %-7s  ✗\n" "$version"
+        failed=1
     fi
     tmux kill-server 2>/dev/null || true
     rm -rf "$HOME/.local/share/lazy-tmux"
 done
+
+exit "$failed"

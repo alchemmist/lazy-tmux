@@ -19,6 +19,7 @@ var (
 		"--windows requires --fzf-engine (the TUI already lists windows)",
 	)
 	errSessionsOnlyRequiresTUI = errors.New("sessions-only mode requires the built-in TUI")
+	errStartNextRequiresTUI    = errors.New("start-next requires sessions-only mode")
 	errRequiresSession         = errors.New("requires --session")
 	errCodexSessionNotFound    = errors.New("codex session not found for pane")
 )
