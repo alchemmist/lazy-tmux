@@ -5,7 +5,7 @@
       "admin"
     ]
   },
-  "graphDigest": "c125fc63c788222ba344719e338e97d17d30c45f28cb6cf5bf65c1596fbff810",
+  "graphDigest": "8619f3661d4bbf1caf3ab9984ce80f0a4f8ba074115da6d2405d965d23359ef0",
   "graphVersion": 0,
   "labels": {
     "enabled": false
@@ -14,8 +14,34 @@
   "nodes": [
     {
       "env": {},
-      "id": "build",
+      "id": "workflow-graph",
       "needs": [],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "quality-graph",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "uvx --from quality-graph-cli==0.1.8 --with quality-graph-github==0.1.8 qg validate"
+      },
+      "title": "Workflow graph validation"
+    },
+    {
+      "env": {},
+      "id": "build",
+      "needs": [
+        "workflow-graph"
+      ],
       "policy": {
         "approvals": {
           "files": false,
@@ -39,7 +65,9 @@
     {
       "env": {},
       "id": "coverage",
-      "needs": [],
+      "needs": [
+        "workflow-graph"
+      ],
       "policy": {
         "approvals": {
           "files": false,
@@ -63,7 +91,9 @@
     {
       "env": {},
       "id": "golangci-lint",
-      "needs": [],
+      "needs": [
+        "workflow-graph"
+      ],
       "policy": {
         "approvals": {
           "files": false,
@@ -87,7 +117,9 @@
     {
       "env": {},
       "id": "test",
-      "needs": [],
+      "needs": [
+        "workflow-graph"
+      ],
       "policy": {
         "approvals": {
           "files": false,
@@ -111,7 +143,9 @@
     {
       "env": {},
       "id": "integration",
-      "needs": [],
+      "needs": [
+        "workflow-graph"
+      ],
       "policy": {
         "approvals": {
           "files": false,
@@ -195,6 +229,25 @@
         {
           "name": "Setup tools",
           "run": "make setup-env"
+        }
+      ]
+    },
+    "quality-graph": {
+      "env": {},
+      "permissions": {
+        "contents": "read"
+      },
+      "runner": "ubuntu-latest",
+      "services": {},
+      "setup": [
+        {
+          "uses": "actions/checkout@v7",
+          "with": {
+            "persist-credentials": "false"
+          }
+        },
+        {
+          "uses": "astral-sh/setup-uv@v7"
         }
       ]
     }

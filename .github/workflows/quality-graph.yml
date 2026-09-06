@@ -12,6 +12,49 @@ concurrency:
   group: quality-graph-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  workflow-graph:
+    name: Workflow graph validation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: 'false'
+      - uses: astral-sh/setup-uv@v7
+      - run: uvx --from quality-graph-cli==0.1.8 --with quality-graph-github==0.1.8 qg validate
+        name: Run Workflow graph validation
+        id: quality-command
+        continue-on-error: true
+      - name: Collect Workflow graph validation result
+        id: quality-result
+        if: always()
+        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        with:
+          operation: collect
+          node-id: workflow-graph
+          title: Workflow graph validation
+          adapter: exit-code
+          report-path: ''
+          command-outcome: ${{ steps.quality-command.outcome }}
+          graph-digest: 8619f3661d4bbf1caf3ab9984ce80f0a4f8ba074115da6d2405d965d23359ef0
+          approval-findings: 'true'
+          approval-files: 'false'
+          approval-node: 'false'
+      - name: Upload Workflow graph validation result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-result-workflow-graph-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/quality-graph/workflow-graph.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce Workflow graph validation result
+        if: always()
+        shell: bash
+        env:
+          EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
+        run: exit "${EXIT_CODE:-2}"
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -39,7 +82,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c125fc63c788222ba344719e338e97d17d30c45f28cb6cf5bf65c1596fbff810
+          graph-digest: 8619f3661d4bbf1caf3ab9984ce80f0a4f8ba074115da6d2405d965d23359ef0
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -57,6 +100,8 @@ jobs:
         env:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
+    needs:
+      - workflow-graph
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
@@ -86,7 +131,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c125fc63c788222ba344719e338e97d17d30c45f28cb6cf5bf65c1596fbff810
+          graph-digest: 8619f3661d4bbf1caf3ab9984ce80f0a4f8ba074115da6d2405d965d23359ef0
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -104,6 +149,8 @@ jobs:
         env:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
+    needs:
+      - workflow-graph
   golangci-lint:
     name: GolangCI-Lint
     runs-on: ubuntu-latest
@@ -133,7 +180,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c125fc63c788222ba344719e338e97d17d30c45f28cb6cf5bf65c1596fbff810
+          graph-digest: 8619f3661d4bbf1caf3ab9984ce80f0a4f8ba074115da6d2405d965d23359ef0
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -151,6 +198,8 @@ jobs:
         env:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
+    needs:
+      - workflow-graph
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -180,7 +229,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c125fc63c788222ba344719e338e97d17d30c45f28cb6cf5bf65c1596fbff810
+          graph-digest: 8619f3661d4bbf1caf3ab9984ce80f0a4f8ba074115da6d2405d965d23359ef0
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -198,6 +247,8 @@ jobs:
         env:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
+    needs:
+      - workflow-graph
   integration:
     name: Integration tests
     runs-on: ubuntu-latest
@@ -227,7 +278,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c125fc63c788222ba344719e338e97d17d30c45f28cb6cf5bf65c1596fbff810
+          graph-digest: 8619f3661d4bbf1caf3ab9984ce80f0a4f8ba074115da6d2405d965d23359ef0
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -245,3 +296,5 @@ jobs:
         env:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
+    needs:
+      - workflow-graph
