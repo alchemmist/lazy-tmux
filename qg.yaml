@@ -36,30 +36,45 @@ profiles:
           persist-credentials: "false"
           fetch-depth: "0"
 
+  quality-graph:
+    extends: default
+    setup:
+      - uses: astral-sh/setup-uv@v7
+
 nodes:
+  workflow-graph:
+    title: Workflow graph validation
+    profile: quality-graph
+    run: uvx --from quality-graph-cli==0.1.8 --with quality-graph-github==0.1.8 qg validate
+
   build:
     title: Build
     profile: go
+    needs: [workflow-graph]
     run: make build
 
   coverage:
     title: Coverage
     profile: go-tools
+    needs: [workflow-graph]
     run: make test-cov
 
   golangci-lint:
     title: GolangCI-Lint
     profile: go-tools
+    needs: [workflow-graph]
     run: make golangci-lint
 
   test:
     title: Test
     profile: go-tools
+    needs: [workflow-graph]
     run: make test
 
   integration:
     title: Integration tests
     profile: go-tools
+    needs: [workflow-graph]
     run: make integration-test
 
   tmux-versions:
