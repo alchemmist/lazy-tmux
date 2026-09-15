@@ -81,7 +81,12 @@ func (i *Integration) Capture(pane snapshot.Pane) (map[string]string, error) {
 		return map[string]string{}, nil
 	}
 
-	return map[string]string{metaSessionID: sessionID}, nil
+	meta := map[string]string{metaSessionID: sessionID}
+	if strings.TrimSpace(pane.Meta[snapshot.CodexSessionIDMetaKey]) == "" {
+		meta["session_id_source"] = "cwd"
+	}
+
+	return meta, nil
 }
 
 func (i *Integration) SessionID(pane snapshot.Pane) (string, bool) {

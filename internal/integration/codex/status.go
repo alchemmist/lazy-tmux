@@ -20,7 +20,7 @@ type rolloutEvent struct {
 }
 
 func (i *Integration) Status(pane snapshot.Pane) (integration.Status, bool) {
-	if !i.Matches(pane) {
+	if !i.Matches(pane) || pane.Meta["codex.session_id_source"] == "cwd" {
 		return integration.StatusUnknown, false
 	}
 
@@ -45,8 +45,8 @@ func (i *Integration) Status(pane snapshot.Pane) (integration.Status, bool) {
 }
 
 func (i *Integration) sessionFile(pane snapshot.Pane) (*os.Root, string, bool) {
-	sessionID, ok := i.SessionID(pane)
-	if !ok || strings.TrimSpace(i.home) == "" {
+	sessionID := strings.TrimSpace(pane.Meta[snapshot.CodexSessionIDMetaKey])
+	if sessionID == "" || strings.TrimSpace(i.home) == "" {
 		return nil, "", false
 	}
 

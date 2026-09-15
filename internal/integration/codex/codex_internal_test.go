@@ -351,3 +351,39 @@ func TestStatusRejectsNonCodexAndMissingSession(t *testing.T) {
 		t.Fatal("non-Codex pane should not have a status")
 	}
 }
+
+func TestStatusDoesNotShareWorkingSessionAcrossPanes(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	cwd := "/workspace"
+	path := writeRollout(t, home, "2026/01/03", "working", cwd, time.Now())
+	appendRolloutLine(t, path, `{"type":"event_msg","payload":{"type":"task_started"}}`)
+	registry := integration.NewRegistry(New(home))
+	panes := []snapshot.Pane{
+		{CurrentCmd: "codex", CurrentPath: cwd},
+		{
+			CurrentCmd:  "codex",
+			CurrentPath: cwd,
+			Meta:        map[string]string{snapshot.CodexSessionIDMetaKey: " "},
+		},
+		{
+			CurrentCmd:  "codex",
+			CurrentPath: cwd,
+			Meta:        map[string]string{snapshot.CodexSessionIDMetaKey: "working"},
+		},
+	}
+	for idx, pane := range panes {
+		snap := snapshot.SessionSnapshot{Windows: []snapshot.Window{{Panes: []snapshot.Pane{pane}}}}
+		registry.Enrich(&snap)
+		pane = snap.Windows[0].Panes[0]
+		status, ok := registry.Status(pane)
+		if idx < 2 {
+			if ok || status != integration.StatusUnknown {
+				t.Errorf("unbound pane %d inherited another pane's status: %v, %v", idx, status, ok)
+			}
+		} else if !ok || status != integration.StatusWorking {
+			t.Errorf("bound pane status = %v, %v; want working", status, ok)
+		}
+	}
+}
