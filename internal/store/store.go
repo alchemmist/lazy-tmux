@@ -421,6 +421,7 @@ func (s *Store) loadSession(name string, hydrate bool) (snapshot.SessionSnapshot
 	if err != nil {
 		return out, fmt.Errorf("unmarshal session: %w", err)
 	}
+	migrateAntexSnapshot(&out)
 
 	if hydrate {
 		err = s.hydrateScrollback(&out)

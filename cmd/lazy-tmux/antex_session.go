@@ -9,12 +9,12 @@ import (
 	"strings"
 
 	"github.com/alchemmist/lazy-tmux/internal/config"
-	"github.com/alchemmist/lazy-tmux/internal/integration/codex"
+	"github.com/alchemmist/lazy-tmux/internal/integration/antex"
 	"github.com/alchemmist/lazy-tmux/internal/tmux"
 )
 
-func runCodexSession(args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet(cmdCodexSession, flag.ContinueOnError)
+func runAntexSession(args []string, stdout, stderr io.Writer) int {
+	flags := flag.NewFlagSet(cmdAntexSession, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 
 	pane := flags.String("pane", os.Getenv("TMUX_PANE"), "target tmux pane")
@@ -23,7 +23,7 @@ func runCodexSession(args []string, stdout, stderr io.Writer) int {
 	err := flags.Parse(args)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
-			codexSessionHelp(stdout)
+			antexSessionHelp(stdout)
 
 			return 0
 		}
@@ -54,11 +54,11 @@ func runCodexSession(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	sessionID, ok := codex.New(config.ExpandHome(cfg.Integrations.Codex.Home)).SessionID(
+	sessionID, ok := antex.New(config.ExpandHome(cfg.Integrations.Antex.Home)).SessionID(
 		paneSnapshot,
 	)
 	if !ok {
-		writeErr(stderr, errCodexSessionNotFound)
+		writeErr(stderr, errAntexSessionNotFound)
 
 		return 1
 	}
@@ -68,10 +68,10 @@ func runCodexSession(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-func codexSessionHelp(writer io.Writer) {
-	_, _ = fmt.Fprint(writer, `Usage: lazy-tmux codex-session [flags]
+func antexSessionHelp(writer io.Writer) {
+	_, _ = fmt.Fprint(writer, `Usage: lazy-tmux antex-session [flags]
 
-Print the Codex session ID running in a tmux pane
+Print the Antex session ID running in a tmux pane
 
 Flags:
   -pane         target tmux pane (defaults to $TMUX_PANE or the active pane)

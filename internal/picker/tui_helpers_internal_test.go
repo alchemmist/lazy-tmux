@@ -30,7 +30,7 @@ func TestFuzzyScorePrioritizesStrongMatches(t *testing.T) {
 	exact, _ := fuzzyScore("ci", "ci")
 	prefix, _ := fuzzyScore("ci", "ci-tools")
 	substring, _ := fuzzyScore("ci", "my-ci-tools")
-	subsequence, _ := fuzzyScore("ci", "codex integration")
+	subsequence, _ := fuzzyScore("ci", "command integration")
 
 	if exact <= prefix || prefix <= substring || substring <= subsequence {
 		t.Fatalf(
@@ -42,7 +42,7 @@ func TestFuzzyScorePrioritizesStrongMatches(t *testing.T) {
 		)
 	}
 
-	if _, ok := fuzzyScore("codxe", "codex"); !ok {
+	if _, ok := fuzzyScore("antxe", "antex"); !ok {
 		t.Fatal("expected a transposition typo to match")
 	}
 }

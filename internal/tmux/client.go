@@ -422,7 +422,7 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 			"#{pane_tty}"+fieldSep+
 			"#{pane_current_command}"+fieldSep+
 			"#{pane_current_path}"+fieldSep+
-			"#{@codex_thread_id}",
+			"#{@antex_thread_id}",
 	)
 	if err != nil {
 		return snapshot.SessionSnapshot{}, err
@@ -481,7 +481,7 @@ func parseCapturedPanes(output string, processes processSnapshot) []snapshot.Win
 			RestoreCmd:  strings.TrimSpace(restoreCmd),
 			Scrollback:  nil,
 			IsActive:    parts[5] == "1",
-			Meta:        codexSessionMeta(parts[10]),
+			Meta:        antexSessionMeta(parts[10]),
 		}
 		if pane.IsActive {
 			window.ActivePane = pane.Index
@@ -701,7 +701,7 @@ func (client *Client) CapturePane(target string) (snapshot.Pane, error) {
 		args,
 		"#{pane_current_command}"+fieldSep+
 			"#{pane_current_path}"+fieldSep+
-			"#{@codex_thread_id}",
+			"#{@antex_thread_id}",
 	)
 
 	out, err := client.Output(args...)
@@ -724,7 +724,7 @@ func (client *Client) CapturePane(target string) (snapshot.Pane, error) {
 		RestoreCmd:  "",
 		Scrollback:  nil,
 		IsActive:    true,
-		Meta:        codexSessionMeta(parts[2]),
+		Meta:        antexSessionMeta(parts[2]),
 	}, nil
 }
 
@@ -789,13 +789,13 @@ func (client *Client) restoreFirstWindow(sessionName string, first snapshot.Wind
 	return client.populateWindow(sessionName, first, first.Index)
 }
 
-func codexSessionMeta(sessionID string) map[string]string {
+func antexSessionMeta(sessionID string) map[string]string {
 	sessionID = strings.TrimSpace(sessionID)
 	if sessionID == "" {
 		return nil
 	}
 
-	return map[string]string{snapshot.CodexSessionIDMetaKey: sessionID}
+	return map[string]string{snapshot.AntexSessionIDMetaKey: sessionID}
 }
 
 func (client *Client) populateWindow(

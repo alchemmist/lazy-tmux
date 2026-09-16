@@ -21,7 +21,7 @@ var (
 	errSessionsOnlyRequiresTUI = errors.New("sessions-only mode requires the built-in TUI")
 	errStartNextRequiresTUI    = errors.New("start-next requires sessions-only mode")
 	errRequiresSession         = errors.New("requires --session")
-	errCodexSessionNotFound    = errors.New("codex session not found for pane")
+	errAntexSessionNotFound    = errors.New("antex session not found for pane")
 )
 
 //nolint:gochecknoglobals // test seam: CLI tests stub process exit
@@ -42,8 +42,8 @@ const (
 	cmdConfig       = "config"
 	cmdHook         = "hook"
 	cmdClaudeHooks  = "claude-hooks"
-	cmdCodexSession = "codex-session"
-	cmdCodexFork    = "codex-fork"
+	cmdAntexSession = "antex-session"
+	cmdAntexFork    = "antex-fork"
 )
 
 const flagHelp = "--help"
@@ -66,8 +66,8 @@ func commands() map[string]func(args []string, stdout, stderr io.Writer) int {
 		cmdConfig:       runConfig,
 		cmdHook:         runHook,
 		cmdClaudeHooks:  runClaudeHooks,
-		cmdCodexSession: runCodexSession,
-		cmdCodexFork:    runCodexFork,
+		cmdAntexSession: runAntexSession,
+		cmdAntexFork:    runAntexFork,
 	}
 }
 
@@ -87,8 +87,8 @@ func helpFuncs() map[string]func(io.Writer) {
 		cmdConfig:       configHelp,
 		cmdHook:         hookHelp,
 		cmdClaudeHooks:  claudeHooksHelp,
-		cmdCodexSession: codexSessionHelp,
-		cmdCodexFork:    codexForkHelp,
+		cmdAntexSession: antexSessionHelp,
+		cmdAntexFork:    antexForkHelp,
 	}
 }
 
@@ -171,8 +171,8 @@ Commands:
   list       List saved sessions
   setup      Print config keybinds for tmux
   config     Generate (gen) or show the config file
-  codex-session  Print the Codex session ID running in a tmux pane
-  codex-fork     Fork the Codex session running in a tmux pane
+  antex-session  Print the Antex session ID running in a tmux pane
+  antex-fork     Fork the Antex session running in a tmux pane
   claude-hooks  Install or remove Claude Code status hooks
   hook       Internal hook entrypoints (used by Claude Code)
   version    Print the version

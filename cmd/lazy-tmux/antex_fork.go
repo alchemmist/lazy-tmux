@@ -9,24 +9,25 @@ import (
 	"strings"
 
 	"github.com/alchemmist/lazy-tmux/internal/config"
-	"github.com/alchemmist/lazy-tmux/internal/integration/codex"
+	"github.com/alchemmist/lazy-tmux/internal/integration/antex"
+	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 	"github.com/alchemmist/lazy-tmux/internal/tmux"
 )
 
-const codexForkIDLength = 8
+const antexForkIDLength = 8
 
-func runCodexFork(args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet(cmdCodexFork, flag.ContinueOnError)
+func runAntexFork(args []string, stdout, stderr io.Writer) int {
+	flags := flag.NewFlagSet(cmdAntexFork, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 
 	pane := flags.String("pane", os.Getenv("TMUX_PANE"), "target tmux pane")
 	tmuxBin := flags.String("tmux-bin", "", "tmux binary")
-	codexBin := flags.String("codex-bin", "codex", "Codex binary")
+	antexBin := flags.String("antex-bin", "antex", "Antex binary")
 
 	err := flags.Parse(args)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
-			codexForkHelp(stdout)
+			antexForkHelp(stdout)
 
 			return 0
 		}
@@ -50,10 +51,10 @@ func runCodexFork(args []string, stdout, stderr io.Writer) int {
 	}
 
 	client := tmux.NewClient(config.ExpandHome(cfg.TmuxBin))
-	err = createCodexForkWindow(
+	err = createAntexForkWindow(
 		client,
-		config.ExpandHome(cfg.Integrations.Codex.Home),
-		config.ExpandHome(*codexBin),
+		config.ExpandHome(cfg.Integrations.Antex.Home),
+		config.ExpandHome(*antexBin),
 		strings.TrimSpace(*pane),
 	)
 	if err != nil {
@@ -65,20 +66,20 @@ func runCodexFork(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-func createCodexForkWindow(client *tmux.Client, codexHome, codexBin, pane string) error {
+func createAntexForkWindow(client *tmux.Client, antexHome, antexBin, pane string) error {
 	paneSnapshot, err := client.CapturePane(pane)
 	if err != nil {
 		return fmt.Errorf("capture pane: %w", err)
 	}
 
-	sessionID, ok := codex.New(codexHome).SessionID(paneSnapshot)
-	if !ok {
-		return errCodexSessionNotFound
+	sessionID := strings.TrimSpace(paneSnapshot.Meta[snapshot.AntexSessionIDMetaKey])
+	if !antex.New(antexHome).Matches(paneSnapshot) || sessionID == "" {
+		return errAntexSessionNotFound
 	}
 
-	windowName := "fork-" + sessionID[:min(codexForkIDLength, len(sessionID))]
+	windowName := "fork-" + sessionID[:min(antexForkIDLength, len(sessionID))]
 	command := strings.Join([]string{
-		shellQuote(codexBin),
+		shellQuote(antexBin),
 		"fork",
 		shellQuote(sessionID),
 	}, " ")
@@ -101,14 +102,14 @@ func shellQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }
 
-func codexForkHelp(writer io.Writer) {
-	_, _ = fmt.Fprint(writer, `Usage: lazy-tmux codex-fork [flags]
+func antexForkHelp(writer io.Writer) {
+	_, _ = fmt.Fprint(writer, `Usage: lazy-tmux antex-fork [flags]
 
-Fork the Codex session running in a tmux pane into a named window
+Fork the Antex session running in a tmux pane into a named window
 
 Flags:
   -pane         target tmux pane (defaults to $TMUX_PANE or the active pane)
   -tmux-bin     tmux binary
-  -codex-bin    Codex binary
+  -antex-bin    Antex binary
 `)
 }

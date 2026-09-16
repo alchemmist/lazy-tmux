@@ -1154,7 +1154,7 @@ func TestFilteredTreeRowsRanksExactWindowFirst(t *testing.T) {
 	t.Parallel()
 
 	sessions := []Session{
-		makeSession("arcadia-turbo", true, "codex", "code"),
+		makeSession("arcadia-turbo", true, "antex", "code"),
 		makeSession("arcadia", true, "pilot", "code"),
 		makeSession("monori", true, "CI"),
 	}
@@ -1174,10 +1174,10 @@ func TestFilteredTreeRowsRanksExactWindowFirst(t *testing.T) {
 func TestFilteredTreeRowsRanksMatchingWindowWithinSession(t *testing.T) {
 	t.Parallel()
 
-	sessions := []Session{makeSession("project", true, "shell", "codex", "code")}
-	rows := filteredTreeRows(sessions, "codex", DefaultSortOptions().Window, 0)
+	sessions := []Session{makeSession("project", true, "shell", "antex", "code")}
+	rows := filteredTreeRows(sessions, "antex", DefaultSortOptions().Window, 0)
 
-	if len(rows) < 2 || rows[1].windowName != "codex" {
+	if len(rows) < 2 || rows[1].windowName != "antex" {
 		t.Fatalf("expected exact matching window first, got %+v", rows)
 	}
 }

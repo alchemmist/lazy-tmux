@@ -556,11 +556,11 @@ func TestPickForegroundCommandFromProcessTree(t *testing.T) {
 
 	lines := []string{
 		"100 1 Ss zsh",
-		"200 100 S codex",
+		"200 100 S antex",
 	}
 
-	if got := pickForegroundCommand(lines, 100); got != "codex" {
-		t.Fatalf("expected child codex, got %q", got)
+	if got := pickForegroundCommand(lines, 100); got != "antex" {
+		t.Fatalf("expected child antex, got %q", got)
 	}
 }
 
@@ -571,14 +571,14 @@ func TestProcessSnapshotResolvesIndependentPaneTrees(t *testing.T) {
 		"100 1 Ss zsh",
 		"101 100 S+ nvim main.go",
 		"200 1 Ss zsh",
-		"201 200 S+ codex",
+		"201 200 S+ antex",
 		"300 1 S unrelated",
 	})
 
 	if got := snapshot.foregroundCommand(100); got != "nvim main.go" {
 		t.Fatalf("pane 100 foreground = %q", got)
 	}
-	if got := snapshot.foregroundCommand(200); got != "codex" {
+	if got := snapshot.foregroundCommand(200); got != "antex" {
 		t.Fatalf("pane 200 foreground = %q", got)
 	}
 }
@@ -608,13 +608,13 @@ func TestProcessTreeLinesExcludesUnrelatedProcesses(t *testing.T) {
 
 	lines := []string{
 		"100 1 Ss zsh",
-		"200 100 S+ codex",
+		"200 100 S+ antex",
 		"300 1 S+ unrelated",
 	}
 
 	tree := processTreeLines(lines, 100)
-	if got := pickForegroundCommand(tree, 100); got != "codex" {
-		t.Fatalf("expected codex from pane tree, got %q", got)
+	if got := pickForegroundCommand(tree, 100); got != "antex" {
+		t.Fatalf("expected antex from pane tree, got %q", got)
 	}
 	if len(tree) != 1 {
 		t.Fatalf("expected one descendant, got %v", tree)
@@ -635,7 +635,7 @@ func (r *argsRunner) runCommand(args ...string) commandResult {
 func TestCapturePane(t *testing.T) {
 	t.Parallel()
 
-	runner := &argsRunner{out: "codex|/workspace|thread-id\n"}
+	runner := &argsRunner{out: "antex|/workspace|thread-id\n"}
 	client := NewClientWithRunner("tmux", runner)
 
 	got, err := client.CapturePane("%7")
@@ -645,12 +645,12 @@ func TestCapturePane(t *testing.T) {
 	want := snapshot.Pane{
 		Index:       0,
 		CurrentPath: "/workspace",
-		CurrentCmd:  "codex",
+		CurrentCmd:  "antex",
 		RestoreCmd:  "",
 		Scrollback:  nil,
 		IsActive:    true,
 		Meta: map[string]string{
-			snapshot.CodexSessionIDMetaKey: "thread-id",
+			snapshot.AntexSessionIDMetaKey: "thread-id",
 		},
 	}
 	if !reflect.DeepEqual(got, want) {
@@ -663,7 +663,7 @@ func TestCapturePane(t *testing.T) {
 		"-p",
 		"-t",
 		"%7",
-		"#{pane_current_command}|#{pane_current_path}|#{@codex_thread_id}",
+		"#{pane_current_command}|#{pane_current_path}|#{@antex_thread_id}",
 	}
 	if len(runner.calls) != 1 || !slices.Equal(runner.calls[0], wantArgs) {
 		t.Fatalf("CapturePane args = %q; want %q", runner.calls, wantArgs)

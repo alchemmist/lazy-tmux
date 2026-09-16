@@ -73,8 +73,8 @@ enabled = true
 # leading ~ is expanded.
 home = "~/.claude"
 
-# Codex CLI: restore a `codex` pane as `codex resume <session-id>`.
-[integrations.codex]
+# Antex CLI: restore a `antex` pane as `antex resume <session-id>`.
+[integrations.antex]
 enabled = true
-# Codex data directory containing sessions/YYYY/MM/DD/rollout-*.jsonl files.
-home = "~/.codex"
+# Antex data directory containing sessions/YYYY/MM/DD/rollout-*.jsonl files.
+home = "~/.antex"

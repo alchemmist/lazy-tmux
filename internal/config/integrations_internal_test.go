@@ -15,8 +15,8 @@ func TestIntegrationsDefaults(t *testing.T) {
 	if !cfg.Integrations.Enabled || !cfg.Integrations.Claude.Enabled {
 		t.Fatal("integrations should default to enabled")
 	}
-	if !cfg.Integrations.Codex.Enabled || cfg.Integrations.Codex.Home != "~/.codex" {
-		t.Fatalf("unexpected default codex integration: %+v", cfg.Integrations.Codex)
+	if !cfg.Integrations.Antex.Enabled || cfg.Integrations.Antex.Home != "~/.antex" {
+		t.Fatalf("unexpected default antex integration: %+v", cfg.Integrations.Antex)
 	}
 
 	if cfg.Integrations.Claude.Home != "~/.claude" {
@@ -82,7 +82,7 @@ func TestRenderIncludesIntegrations(t *testing.T) {
 
 	for _, want := range []string{
 		"[integrations]", "[integrations.claude]", "home    = \"~/.claude\"",
-		"[integrations.codex]", "home    = \"~/.codex\"",
+		"[integrations.antex]", "home    = \"~/.antex\"",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("rendered config missing %q:\n%s", want, out)

@@ -1,4 +1,4 @@
-package codex
+package antex
 
 import (
 	"bufio"
@@ -58,7 +58,7 @@ func (i *Integration) Scope() integration.Integration {
 	return &Integration{home: i.home, index: i.index, validation: &sync.Once{}}
 }
 
-func (i *Integration) Name() string { return "codex" }
+func (i *Integration) Name() string { return "antex" }
 
 func (i *Integration) Matches(pane snapshot.Pane) bool {
 	for _, cmd := range []string{pane.RestoreCmd, pane.CurrentCmd} {
@@ -67,7 +67,7 @@ func (i *Integration) Matches(pane snapshot.Pane) bool {
 			continue
 		}
 
-		if executableName(cmd) == "codex" || strings.Contains(strings.ToLower(cmd), "codex") {
+		if executableName(cmd) == "antex" || strings.Contains(strings.ToLower(cmd), "antex") {
 			return true
 		}
 	}
@@ -82,7 +82,7 @@ func (i *Integration) Capture(pane snapshot.Pane) (map[string]string, error) {
 	}
 
 	meta := map[string]string{metaSessionID: sessionID}
-	if strings.TrimSpace(pane.Meta[snapshot.CodexSessionIDMetaKey]) == "" {
+	if strings.TrimSpace(pane.Meta[snapshot.AntexSessionIDMetaKey]) == "" {
 		meta["session_id_source"] = "cwd"
 	}
 
@@ -93,7 +93,7 @@ func (i *Integration) SessionID(pane snapshot.Pane) (string, bool) {
 	if !i.Matches(pane) {
 		return "", false
 	}
-	if sessionID := strings.TrimSpace(pane.Meta[snapshot.CodexSessionIDMetaKey]); sessionID != "" {
+	if sessionID := strings.TrimSpace(pane.Meta[snapshot.AntexSessionIDMetaKey]); sessionID != "" {
 		return sessionID, true
 	}
 
@@ -106,7 +106,7 @@ func (i *Integration) RestoreCommand(_ snapshot.Pane, meta map[string]string) st
 		return ""
 	}
 
-	return "codex resume " + id
+	return "antex resume " + id
 }
 
 type sessionMetaLine struct {
@@ -242,7 +242,7 @@ func readCandidate(path, cwd string) (sessionCandidate, bool) {
 		return sessionCandidate{}, false
 	}
 
-	file, err := os.Open(path) // #nosec G304 -- path is discovered below the configured Codex home
+	file, err := os.Open(path) // #nosec G304 -- path is discovered below the configured Antex home
 	if err != nil {
 		return sessionCandidate{}, false
 	}

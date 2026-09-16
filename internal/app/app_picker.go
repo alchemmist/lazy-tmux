@@ -371,7 +371,7 @@ func (a *App) quickWorkingSessions(sessions []picker.QuickSession) map[string]bo
 		sessions,
 		quickStatusWorkerLimit,
 		func(session picker.QuickSession) bool {
-			return a.sessionHasWorkingCodex(registry, session.Name, session.Restored)
+			return a.sessionHasWorkingAntex(registry, session.Name, session.Restored)
 		},
 	)
 	for index, isWorking := range statuses {
@@ -401,7 +401,7 @@ func sortQuickSessionRecords(records []snapshot.Record, live map[string]struct{}
 	})
 }
 
-func (a *App) sessionHasWorkingCodex(
+func (a *App) sessionHasWorkingAntex(
 	registry *integration.Registry,
 	session string,
 	restored bool,
@@ -418,7 +418,7 @@ func (a *App) sessionHasWorkingCodex(
 	for windowIndex := range snap.Windows {
 		for paneIndex := range snap.Windows[windowIndex].Panes {
 			status, ok := registry.StatusFor(
-				"codex",
+				"antex",
 				snap.Windows[windowIndex].Panes[paneIndex],
 			)
 			if ok && status == integration.StatusWorking {

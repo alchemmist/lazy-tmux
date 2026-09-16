@@ -86,7 +86,7 @@ func TestCaptureSessionCollectsAllWindowsAndPanes(t *testing.T) {
 	testutil.Tmux(t, "new-session", "-d", "-s", name, "-n", "one")
 	testutil.Tmux(t, "split-window", "-d", "-t", "="+name+":0", "-c", "/tmp")
 	testutil.Tmux(t, "new-window", "-d", "-t", "="+name+":2", "-n", "two", "-c", "/")
-	testutil.Tmux(t, "set-option", "-p", "-t", "="+name+":2.0", "@codex_thread_id", "thread-2")
+	testutil.Tmux(t, "set-option", "-p", "-t", "="+name+":2.0", "@antex_thread_id", "thread-2")
 	testutil.Tmux(t, "select-window", "-t", "="+name+":2")
 
 	snap, err := tmux.NewClient("tmux").CaptureSession(name)
@@ -100,8 +100,8 @@ func TestCaptureSessionCollectsAllWindowsAndPanes(t *testing.T) {
 	if snap.CurrentWin != 2 || snap.Windows[1].Name != "two" {
 		t.Fatalf("captured focus/windows: %+v", snap)
 	}
-	if got := snap.Windows[1].Panes[0].Meta[snapshot.CodexSessionIDMetaKey]; got != "thread-2" {
-		t.Fatalf("captured Codex thread = %q", got)
+	if got := snap.Windows[1].Panes[0].Meta[snapshot.AntexSessionIDMetaKey]; got != "thread-2" {
+		t.Fatalf("captured Antex thread = %q", got)
 	}
 }
 

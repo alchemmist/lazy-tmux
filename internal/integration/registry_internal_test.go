@@ -168,14 +168,14 @@ func TestRegistryStatusFor(t *testing.T) {
 			status:          StatusIdle,
 		},
 		fakeStatusIntegration{
-			fakeIntegration: fakeIntegration{name: "codex", matchCmd: "agent"},
+			fakeIntegration: fakeIntegration{name: "antex", matchCmd: "agent"},
 			status:          StatusWorking,
 		},
 	)
 
-	got, ok := reg.StatusFor("codex", snapshot.Pane{CurrentCmd: "agent"})
+	got, ok := reg.StatusFor("antex", snapshot.Pane{CurrentCmd: "agent"})
 	if !ok || got != StatusWorking {
-		t.Fatalf("expected Codex working status, got %v ok=%v", got, ok)
+		t.Fatalf("expected Antex working status, got %v ok=%v", got, ok)
 	}
 	if _, ok := reg.StatusFor("other", snapshot.Pane{CurrentCmd: "agent"}); ok {
 		t.Fatal("unknown integration should have no status")

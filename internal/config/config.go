@@ -49,7 +49,7 @@ type ScrollbackConfig struct {
 type IntegrationsConfig struct {
 	Enabled bool
 	Claude  ClaudeIntegrationConfig
-	Codex   CodexIntegrationConfig
+	Antex   AntexIntegrationConfig
 }
 
 type ClaudeIntegrationConfig struct {
@@ -57,7 +57,7 @@ type ClaudeIntegrationConfig struct {
 	Home    string
 }
 
-type CodexIntegrationConfig struct {
+type AntexIntegrationConfig struct {
 	Enabled bool
 	Home    string
 }
@@ -71,7 +71,7 @@ const (
 	defaultSaveInterval   = 5 * time.Minute
 	defaultRestoreTimeout = 5 * time.Second
 	defaultClaudeHome     = "~/.claude"
-	defaultCodexHome      = "~/.codex"
+	defaultAntexHome      = "~/.antex"
 	DefaultTheme          = "dark"
 	ModifierCommand       = "command"
 	ModifierControl       = "control"
@@ -96,9 +96,9 @@ func Default() Config {
 				Enabled: true,
 				Home:    defaultClaudeHome,
 			},
-			Codex: CodexIntegrationConfig{
+			Antex: AntexIntegrationConfig{
 				Enabled: true,
-				Home:    defaultCodexHome,
+				Home:    defaultAntexHome,
 			},
 		},
 		SessionPicker: SessionPickerConfig{
@@ -247,7 +247,7 @@ type fileScrollbackConf struct {
 type fileIntegrationsConf struct {
 	Enabled *bool                  `toml:"enabled"`
 	Claude  *fileClaudeIntegration `toml:"claude"`
-	Codex   *fileCodexIntegration  `toml:"codex"`
+	Antex   *fileAntexIntegration  `toml:"antex"`
 }
 
 type fileClaudeIntegration struct {
@@ -255,7 +255,7 @@ type fileClaudeIntegration struct {
 	Home    *string `toml:"home"`
 }
 
-type fileCodexIntegration struct {
+type fileAntexIntegration struct {
 	Enabled *bool   `toml:"enabled"`
 	Home    *string `toml:"home"`
 }
@@ -395,13 +395,13 @@ func (ic IntegrationsConfig) withFile(file fileIntegrationsConf) IntegrationsCon
 		}
 	}
 
-	if file.Codex != nil {
-		if file.Codex.Enabled != nil {
-			ic.Codex.Enabled = *file.Codex.Enabled
+	if file.Antex != nil {
+		if file.Antex.Enabled != nil {
+			ic.Antex.Enabled = *file.Antex.Enabled
 		}
 
-		if file.Codex.Home != nil {
-			ic.Codex.Home = ExpandHome(*file.Codex.Home)
+		if file.Antex.Home != nil {
+			ic.Antex.Home = ExpandHome(*file.Antex.Home)
 		}
 	}
 

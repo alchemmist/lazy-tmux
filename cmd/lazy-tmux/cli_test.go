@@ -100,7 +100,7 @@ func TestCLIPerCommandHelp(t *testing.T) {
 
 	for _, cmd := range []string{
 		"save", "restore", "picker", "bootstrap", "daemon",
-		"list", "setup", "wakeup", "sleep", "forget", "codex-session", "codex-fork",
+		"list", "setup", "wakeup", "sleep", "forget", "antex-session", "antex-fork",
 	} {
 		code, out, _ := run(t, "help", cmd)
 		if code != 0 {
@@ -149,12 +149,12 @@ func TestCLIPickerStartNextRequiresSessionsOnly(t *testing.T) {
 	}
 }
 
-func TestCLICodexForkCreatesNamedWindowForFocusedSession(t *testing.T) {
+func TestCLIAntexForkCreatesNamedWindowForFocusedSession(t *testing.T) {
 	tmuxBin := filepath.Join(t.TempDir(), "tmux")
 	logPath := filepath.Join(t.TempDir(), "tmux-args")
 	script := `#!/bin/sh
 if [ "$1" = "display-message" ]; then
-  printf '%s\n' 'codex|/work tree|019fc30a-6732-7c63-9732-c76949907c98'
+  printf '%s\n' 'antex|/work tree|019fc30a-6732-7c63-9732-c76949907c98'
   exit 0
 fi
 printf '%s\n' "$@" > "$LAZY_TMUX_TEST_LOG"
@@ -166,13 +166,13 @@ printf '%s\n' "$@" > "$LAZY_TMUX_TEST_LOG"
 
 	code, _, errOut := run(
 		t,
-		"codex-fork",
+		"antex-fork",
 		"--pane",
 		"%7",
 		"--tmux-bin",
 		tmuxBin,
-		"--codex-bin",
-		"/custom/codex",
+		"--antex-bin",
+		"/custom/antex",
 	)
 	if code != 0 {
 		t.Fatalf("expected exit 0, got %d: %s", code, errOut)
@@ -188,7 +188,7 @@ printf '%s\n' "$@" > "$LAZY_TMUX_TEST_LOG"
 		"fork-019fc30a",
 		"-c",
 		"/work tree",
-		"'/custom/codex' fork '019fc30a-6732-7c63-9732-c76949907c98'",
+		"'/custom/antex' fork '019fc30a-6732-7c63-9732-c76949907c98'",
 		"",
 	}, "\n")
 	if string(args) != want {
