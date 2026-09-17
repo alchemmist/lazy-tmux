@@ -12,8 +12,8 @@ import (
 
 	"github.com/alchemmist/lazy-tmux/internal/config"
 	"github.com/alchemmist/lazy-tmux/internal/integration"
-	"github.com/alchemmist/lazy-tmux/internal/integration/claude"
 	"github.com/alchemmist/lazy-tmux/internal/integration/antex"
+	"github.com/alchemmist/lazy-tmux/internal/integration/claude"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 	"github.com/alchemmist/lazy-tmux/internal/store"
 	"github.com/alchemmist/lazy-tmux/internal/tmux"
