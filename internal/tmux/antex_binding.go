@@ -65,13 +65,13 @@ func validatedAntexMeta(
 func (processes processSnapshot) ownsAntexPane(ownerPID, panePID int) bool {
 	seen := make(map[int]bool)
 	for pid := ownerPID; pid > 0 && !seen[pid]; {
-		if pid == panePID {
-			return true
-		}
 		seen[pid] = true
 		process, exists := processes.processes[pid]
 		if !exists || (pid != ownerPID && executableName(process.cmd) == antexCommand) {
 			return false
+		}
+		if pid == panePID {
+			return true
 		}
 		pid = process.ppid
 	}

@@ -45,6 +45,7 @@ func TestAntexBindingOwnership(t *testing.T) {
 		{"dead owner", func(*antexBinding) {}, []string{"10 1 Ss zsh"}, false},
 		{"different process", func(*antexBinding) {}, []string{"10 1 Ss zsh", "20 10 S+ vim"}, false},
 		{"nested agent", func(*antexBinding) {}, []string{"10 1 Ss zsh", "15 10 S+ antex", "20 15 S antex"}, false},
+		{"nested direct pane", func(*antexBinding) {}, []string{"10 1 S+ antex", "20 10 S+ antex"}, false},
 		{"unrelated process", func(*antexBinding) {}, []string{"10 1 Ss zsh", "20 1 S+ antex"}, false},
 		{"suspended process", func(*antexBinding) {}, []string{"10 1 Ss zsh", "20 10 T antex"}, false},
 	} {
