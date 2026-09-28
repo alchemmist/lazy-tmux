@@ -83,7 +83,7 @@ func processStartTime(pid int) string {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "ps", "-ax", "-o", "pid=", "-o", "lstart=")
-	cmd.Env = append(os.Environ(), "LC_ALL=C")
+	cmd.Env = append(os.Environ(), "LC_ALL=C", "TZ=UTC")
 	output, err := cmd.Output()
 	if err != nil {
 		return ""

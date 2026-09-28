@@ -5,6 +5,7 @@ import (
 	"errors"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
@@ -16,7 +17,7 @@ var errUnverifiedSession = errors.New(
 func (i *Integration) RestoreDecision(_ snapshot.Pane, meta map[string]string) (string, error) {
 	sessionID := meta[metaSessionID]
 	if meta["session_id_source"] != bindingSource || !validSessionID(sessionID) ||
-		!filepath.IsAbs(meta["home"]) {
+		!filepath.IsAbs(meta["home"]) || strings.IndexFunc(meta["home"], unicode.IsControl) >= 0 {
 		return "", errUnverifiedSession
 	}
 	var argv []string
@@ -27,7 +28,7 @@ func (i *Integration) RestoreDecision(_ snapshot.Pane, meta map[string]string) (
 	quoted := make([]string, 0, len(argv)+2)
 	quoted = append(quoted, "env", quote("ANTEX_HOME="+meta["home"]))
 	for _, arg := range argv {
-		if strings.ContainsRune(arg, '\x00') || strings.ContainsAny(arg, "\r\n") {
+		if strings.IndexFunc(arg, unicode.IsControl) >= 0 {
 			return "", errUnverifiedSession
 		}
 		quoted = append(quoted, quote(arg))
