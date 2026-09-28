@@ -88,6 +88,10 @@ func (s *Store) SaveSession(sessionSnapshot snapshot.SessionSnapshot) error {
 	}
 
 	path := s.sessionPath(sessionSnapshot.SessionName)
+	err = backupLegacyAntex(path)
+	if err != nil {
+		return err
+	}
 
 	jsonTmp, err := writeJSONTemp(path, sessionSnapshot, defaultFilePerm)
 	if err != nil {

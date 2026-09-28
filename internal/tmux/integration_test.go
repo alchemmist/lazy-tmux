@@ -100,8 +100,8 @@ func TestCaptureSessionCollectsAllWindowsAndPanes(t *testing.T) {
 	if snap.CurrentWin != 2 || snap.Windows[1].Name != "two" {
 		t.Fatalf("captured focus/windows: %+v", snap)
 	}
-	if got := snap.Windows[1].Panes[0].Meta[snapshot.AntexSessionIDMetaKey]; got != "thread-2" {
-		t.Fatalf("captured Antex thread = %q", got)
+	if got := snap.Windows[1].Panes[0].Meta[snapshot.AntexSessionIDMetaKey]; got != "" {
+		t.Fatalf("unowned legacy Antex thread should not be trusted: %q", got)
 	}
 }
 

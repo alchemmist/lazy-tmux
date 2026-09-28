@@ -45,102 +45,6 @@ func appendRolloutLine(t *testing.T, path, line string) {
 	}
 }
 
-func TestCaptureReturnsNewestMatchingSession(t *testing.T) {
-	t.Parallel()
-
-	home := t.TempDir()
-	cwd := "/Users/me/code/proj"
-	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	writeRollout(t, home, "2026/01/01", "old", cwd, base)
-	writeRollout(t, home, "2026/01/02", "other-cwd", "/tmp", base.Add(2*time.Hour))
-	writeRollout(t, home, "2026/01/03", "new", cwd, base.Add(time.Hour))
-
-	meta, err := New(home).Capture(snapshot.Pane{CurrentPath: cwd, CurrentCmd: "antex"})
-	if err != nil || meta[metaSessionID] != "new" {
-		t.Fatalf("Capture() = %v, %v; want newest matching session", meta, err)
-	}
-}
-
-func TestCaptureInvalidatesIndexWhenExistingRolloutChanges(t *testing.T) {
-	t.Parallel()
-
-	home := t.TempDir()
-	cwd := "/workspace"
-	base := time.Unix(100, 0)
-	oldPath := writeRollout(t, home, "2026/01/03", "old", cwd, base)
-	writeRollout(t, home, "2026/01/03", "new", cwd, base.Add(time.Hour))
-	integration := New(home)
-	pane := snapshot.Pane{CurrentPath: cwd, CurrentCmd: "antex"}
-
-	meta, err := integration.Capture(pane)
-	if err != nil || meta["session_id"] != "new" {
-		t.Fatalf("initial capture: meta=%v err=%v", meta, err)
-	}
-	if err = os.Chtimes(oldPath, base.Add(2*time.Hour), base.Add(2*time.Hour)); err != nil {
-		t.Fatalf("update old rollout: %v", err)
-	}
-	meta, err = integration.Capture(pane)
-	if err != nil || meta["session_id"] != "old" {
-		t.Fatalf("capture after update: meta=%v err=%v", meta, err)
-	}
-}
-
-func TestCaptureInvalidatesIndexWhenNewRolloutAppears(t *testing.T) {
-	t.Parallel()
-
-	home := t.TempDir()
-	cwd := "/workspace"
-	base := time.Unix(100, 0)
-	writeRollout(t, home, "2026/01/03", "old", cwd, base)
-	integration := New(home)
-	pane := snapshot.Pane{CurrentPath: cwd, CurrentCmd: "antex"}
-
-	meta, err := integration.Capture(pane)
-	if err != nil || meta["session_id"] != "old" {
-		t.Fatalf("initial capture: meta=%v err=%v", meta, err)
-	}
-	writeRollout(t, home, "2026/01/03", "new", cwd, base.Add(time.Hour))
-	meta, err = integration.Capture(pane)
-	if err != nil || meta["session_id"] != "new" {
-		t.Fatalf("capture after new rollout: meta=%v err=%v", meta, err)
-	}
-}
-
-func TestCaptureInvalidatesIndexWhenPartialRolloutBecomesReadable(t *testing.T) {
-	t.Parallel()
-
-	home := t.TempDir()
-	cwd := "/workspace"
-	base := time.Unix(100, 0)
-	writeRollout(t, home, "2026/01/03", "old", cwd, base)
-	partialPath := filepath.Join(home, "sessions", "2026/01/03", "rollout-new.jsonl")
-	if err := os.WriteFile(partialPath, []byte("{"), 0o644); err != nil {
-		t.Fatalf("write partial rollout: %v", err)
-	}
-	if err := os.Chtimes(partialPath, base.Add(time.Hour), base.Add(time.Hour)); err != nil {
-		t.Fatalf("set partial rollout time: %v", err)
-	}
-	integration := New(home)
-	pane := snapshot.Pane{CurrentPath: cwd, CurrentCmd: "antex"}
-
-	meta, err := integration.Capture(pane)
-	if err != nil || meta["session_id"] != "old" {
-		t.Fatalf("initial capture: meta=%v err=%v", meta, err)
-	}
-	content := `{"type":"session_meta","payload":{"id":"new","cwd":"/workspace"}}` + "\n"
-	if err = os.WriteFile(partialPath, []byte(content), 0o644); err != nil {
-		t.Fatalf("complete rollout: %v", err)
-	}
-	if err = os.Chtimes(partialPath, base.Add(2*time.Hour), base.Add(2*time.Hour)); err != nil {
-		t.Fatalf("update rollout time: %v", err)
-	}
-
-	meta, err = integration.Capture(pane)
-	if err != nil || meta["session_id"] != "new" {
-		t.Fatalf("capture after completing rollout: meta=%v err=%v", meta, err)
-	}
-}
-
 func TestCapturePrefersActivePaneSession(t *testing.T) {
 	t.Parallel()
 
@@ -152,7 +56,7 @@ func TestCapturePrefersActivePaneSession(t *testing.T) {
 		CurrentPath: cwd,
 		CurrentCmd:  "antex",
 		Meta: map[string]string{
-			snapshot.AntexSessionIDMetaKey: "active",
+			"antex.session_id_source": "binding-v1", snapshot.AntexSessionIDMetaKey: "active",
 		},
 	})
 	if err != nil || meta[metaSessionID] != "active" {
@@ -174,8 +78,8 @@ func TestMatchesAndRestore(t *testing.T) {
 	if got := i.RestoreCommand(
 		snapshot.Pane{},
 		map[string]string{metaSessionID: "abc"},
-	); got != "antex resume abc" {
-		t.Fatalf("unexpected restore command %q", got)
+	); got != "" {
+		t.Fatalf("unverified metadata must not produce a restore command: %q", got)
 	}
 }
 
@@ -209,7 +113,10 @@ func TestStatusFromRolloutLifecycle(t *testing.T) {
 
 			got, ok := New(home).Status(snapshot.Pane{
 				CurrentCmd: "antex",
-				Meta:       map[string]string{snapshot.AntexSessionIDMetaKey: tc.name},
+				Meta: map[string]string{
+					"antex.session_id_source":      "binding-v1",
+					snapshot.AntexSessionIDMetaKey: tc.name,
+				},
 			})
 			if !ok || got != tc.want {
 				t.Fatalf("Status() = %v, %v; want %v", got, ok, tc.want)
@@ -232,7 +139,10 @@ func TestStatusConcurrentReadersShareSessionPath(t *testing.T) {
 		RestoreCmd:  "",
 		Scrollback:  nil,
 		IsActive:    true,
-		Meta:        map[string]string{snapshot.AntexSessionIDMetaKey: "shared"},
+		Meta: map[string]string{
+			"antex.session_id_source":      "binding-v1",
+			snapshot.AntexSessionIDMetaKey: "shared",
+		},
 	}
 
 	errs := make(chan string, 32)
@@ -255,22 +165,29 @@ func TestStatusConcurrentReadersShareSessionPath(t *testing.T) {
 	}
 }
 
-func TestScopedCaptureValidatesRolloutTreeOnce(t *testing.T) {
+func TestScopedStatusValidatesRolloutTreeOnce(t *testing.T) {
 	t.Parallel()
 
 	home := t.TempDir()
 	cwd := "/workspace"
 	writeRollout(t, home, "2026/01/03", "session", cwd, time.Now())
 	base := New(home)
-	pane := snapshot.Pane{CurrentPath: cwd, CurrentCmd: "antex"}
+	pane := snapshot.Pane{
+		CurrentPath: cwd,
+		CurrentCmd:  "antex",
+		Meta: map[string]string{
+			"antex.session_id_source":      "binding-v1",
+			snapshot.AntexSessionIDMetaKey: "session",
+		},
+	}
 
 	scoped, ok := base.Scope().(*Integration)
 	if !ok {
 		t.Fatal("Antex scope has unexpected type")
 	}
 	for range 20 {
-		if _, err := scoped.Capture(pane); err != nil {
-			t.Fatalf("scoped capture: %v", err)
+		if _, ok := scoped.Status(pane); !ok {
+			t.Fatal("scoped status missing")
 		}
 	}
 	if base.index.validationChecks != 1 {
@@ -281,8 +198,8 @@ func TestScopedCaptureValidatesRolloutTreeOnce(t *testing.T) {
 	if !ok {
 		t.Fatal("next Antex scope has unexpected type")
 	}
-	if _, err := next.Capture(pane); err != nil {
-		t.Fatalf("next scope capture: %v", err)
+	if _, ok := next.Status(pane); !ok {
+		t.Fatal("next scoped status missing")
 	}
 	if base.index.validationChecks != 2 {
 		t.Fatalf("next scope validation checks = %d, want 2", base.index.validationChecks)
@@ -299,7 +216,10 @@ func TestStatusUsesLatestLifecycleEvent(t *testing.T) {
 
 	got, ok := New(home).Status(snapshot.Pane{
 		CurrentCmd: "antex",
-		Meta:       map[string]string{snapshot.AntexSessionIDMetaKey: "active"},
+		Meta: map[string]string{
+			"antex.session_id_source":      "binding-v1",
+			snapshot.AntexSessionIDMetaKey: "active",
+		},
 	})
 	if !ok || got != integration.StatusAwaitingInput {
 		t.Fatalf("Status() = %v, %v; want awaiting input", got, ok)
@@ -317,7 +237,10 @@ func TestStatusReadsAcrossLargeRolloutTail(t *testing.T) {
 
 	got, ok := New(home).Status(snapshot.Pane{
 		CurrentCmd: "antex",
-		Meta:       map[string]string{snapshot.AntexSessionIDMetaKey: "active"},
+		Meta: map[string]string{
+			"antex.session_id_source":      "binding-v1",
+			snapshot.AntexSessionIDMetaKey: "active",
+		},
 	})
 	if !ok || got != integration.StatusWorking {
 		t.Fatalf("Status() = %v, %v; want working", got, ok)
@@ -332,7 +255,10 @@ func TestStatusWithoutLifecycleIsIdle(t *testing.T) {
 
 	got, ok := New(home).Status(snapshot.Pane{
 		CurrentCmd: "antex",
-		Meta:       map[string]string{snapshot.AntexSessionIDMetaKey: "idle"},
+		Meta: map[string]string{
+			"antex.session_id_source":      "binding-v1",
+			snapshot.AntexSessionIDMetaKey: "idle",
+		},
 	})
 	if !ok || got != integration.StatusIdle {
 		t.Fatalf("Status() = %v, %v; want idle", got, ok)
@@ -365,12 +291,18 @@ func TestStatusDoesNotShareWorkingSessionAcrossPanes(t *testing.T) {
 		{
 			CurrentCmd:  "antex",
 			CurrentPath: cwd,
-			Meta:        map[string]string{snapshot.AntexSessionIDMetaKey: " "},
+			Meta: map[string]string{
+				"antex.session_id_source":      "binding-v1",
+				snapshot.AntexSessionIDMetaKey: " ",
+			},
 		},
 		{
 			CurrentCmd:  "antex",
 			CurrentPath: cwd,
-			Meta:        map[string]string{snapshot.AntexSessionIDMetaKey: "working"},
+			Meta: map[string]string{
+				"antex.session_id_source":      "binding-v1",
+				snapshot.AntexSessionIDMetaKey: "working",
+			},
 		},
 	}
 	for idx, pane := range panes {

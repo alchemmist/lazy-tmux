@@ -13,7 +13,11 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
-const metaSessionID = "session_id"
+const (
+	metaSessionID = "session_id"
+	bindingSource = "binding-v1"
+	commandName   = "antex"
+)
 
 type Integration struct {
 	home       string
@@ -27,7 +31,6 @@ type sessionIndex struct {
 	indexBuilds      int
 	validationChecks int
 	sessionPaths     map[string]string
-	latestByCWD      map[string]sessionCandidate
 	fileStates       map[string]fileState
 	dirStates        map[string]int64
 }
@@ -46,7 +49,6 @@ func New(home string) *Integration {
 			indexBuilds:      0,
 			validationChecks: 0,
 			sessionPaths:     make(map[string]string),
-			latestByCWD:      make(map[string]sessionCandidate),
 			fileStates:       make(map[string]fileState),
 			dirStates:        make(map[string]int64),
 		},
@@ -58,7 +60,7 @@ func (i *Integration) Scope() integration.Integration {
 	return &Integration{home: i.home, index: i.index, validation: &sync.Once{}}
 }
 
-func (i *Integration) Name() string { return "antex" }
+func (i *Integration) Name() string { return commandName }
 
 func (i *Integration) Matches(pane snapshot.Pane) bool {
 	for _, cmd := range []string{pane.RestoreCmd, pane.CurrentCmd} {
@@ -67,7 +69,7 @@ func (i *Integration) Matches(pane snapshot.Pane) bool {
 			continue
 		}
 
-		if executableName(cmd) == "antex" || strings.Contains(strings.ToLower(cmd), "antex") {
+		if executableName(cmd) == commandName {
 			return true
 		}
 	}
@@ -81,32 +83,29 @@ func (i *Integration) Capture(pane snapshot.Pane) (map[string]string, error) {
 		return map[string]string{}, nil
 	}
 
-	meta := map[string]string{metaSessionID: sessionID}
-	if strings.TrimSpace(pane.Meta[snapshot.AntexSessionIDMetaKey]) == "" {
-		meta["session_id_source"] = "cwd"
+	meta := map[string]string{metaSessionID: sessionID, "session_id_source": bindingSource}
+	for _, key := range []string{"home", "resume_argv"} {
+		meta[key] = pane.Meta["antex."+key]
 	}
 
 	return meta, nil
 }
 
 func (i *Integration) SessionID(pane snapshot.Pane) (string, bool) {
-	if !i.Matches(pane) {
+	if !i.Matches(pane) || pane.Meta["antex.session_id_source"] != bindingSource {
 		return "", false
 	}
 	if sessionID := strings.TrimSpace(pane.Meta[snapshot.AntexSessionIDMetaKey]); sessionID != "" {
 		return sessionID, true
 	}
 
-	return i.latestSessionID(pane.CurrentPath)
+	return "", false
 }
 
-func (i *Integration) RestoreCommand(_ snapshot.Pane, meta map[string]string) string {
-	id := strings.TrimSpace(meta[metaSessionID])
-	if id == "" {
-		return ""
-	}
+func (i *Integration) RestoreCommand(pane snapshot.Pane, meta map[string]string) string {
+	command, _ := i.RestoreDecision(pane, meta)
 
-	return "antex resume " + id
+	return command
 }
 
 type sessionMetaLine struct {
@@ -122,20 +121,6 @@ type sessionCandidate struct {
 	cwd     string
 	path    string
 	modTime int64
-}
-
-func (i *Integration) latestSessionID(cwd string) (string, bool) {
-	cwd = strings.TrimSpace(cwd)
-	if cwd == "" || strings.TrimSpace(i.home) == "" {
-		return "", false
-	}
-	i.ensureIndex("")
-
-	i.index.indexMu.Lock()
-	defer i.index.indexMu.Unlock()
-	candidate, found := i.index.latestByCWD[cwd]
-
-	return candidate.id, found
 }
 
 func (i *Integration) sessionPath(sessionID string) (string, bool) {
@@ -169,7 +154,6 @@ func (i *Integration) ensureIndexFresh(requiredID string) {
 
 	root := filepath.Join(i.home, "sessions")
 	paths := make(map[string]string)
-	latest := make(map[string]sessionCandidate)
 	files := make(map[string]fileState)
 	dirs := make(map[string]int64)
 	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
@@ -202,16 +186,11 @@ func (i *Integration) ensureIndexFresh(requiredID string) {
 		}
 		candidate.path = filepath.ToSlash(relative)
 		paths[candidate.id] = candidate.path
-		if previous, exists := latest[candidate.cwd]; !exists ||
-			candidate.modTime > previous.modTime {
-			latest[candidate.cwd] = candidate
-		}
 
 		return nil
 	})
 	if err == nil {
 		i.index.sessionPaths = paths
-		i.index.latestByCWD = latest
 		i.index.fileStates = files
 		i.index.dirStates = dirs
 		i.index.indexed = true

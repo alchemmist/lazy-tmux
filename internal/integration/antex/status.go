@@ -20,7 +20,7 @@ type rolloutEvent struct {
 }
 
 func (i *Integration) Status(pane snapshot.Pane) (integration.Status, bool) {
-	if !i.Matches(pane) || pane.Meta["antex.session_id_source"] == "cwd" {
+	if !i.Matches(pane) || pane.Meta["antex.session_id_source"] != bindingSource {
 		return integration.StatusUnknown, false
 	}
 
@@ -45,6 +45,9 @@ func (i *Integration) Status(pane snapshot.Pane) (integration.Status, bool) {
 }
 
 func (i *Integration) sessionFile(pane snapshot.Pane) (*os.Root, string, bool) {
+	if home := pane.Meta["antex.home"]; home != "" && home != i.home {
+		return New(home).sessionFile(pane)
+	}
 	sessionID := strings.TrimSpace(pane.Meta[snapshot.AntexSessionIDMetaKey])
 	if sessionID == "" || strings.TrimSpace(i.home) == "" {
 		return nil, "", false

@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
@@ -44,16 +45,34 @@ func (r *Registry) Enrich(snap *snapshot.SessionSnapshot) {
 }
 
 func (r *Registry) Resolve(pane snapshot.Pane) string {
+	command, _ := r.ResolveChecked(pane)
+
+	return command
+}
+
+func (r *Registry) ResolveChecked(pane snapshot.Pane) (string, error) {
 	if r == nil {
-		return ""
+		return "", nil
 	}
 
 	integ := r.match(pane)
 	if integ == nil {
-		return ""
+		return "", nil
 	}
 
-	return integ.RestoreCommand(pane, subMeta(pane.Meta, integ.Name()))
+	meta := subMeta(pane.Meta, integ.Name())
+	if resolver, ok := integ.(interface {
+		RestoreDecision(pane snapshot.Pane, meta map[string]string) (string, error)
+	}); ok {
+		command, err := resolver.RestoreDecision(pane, meta)
+		if err != nil {
+			return "", fmt.Errorf("resolve restore: %w", err)
+		}
+
+		return command, nil
+	}
+
+	return integ.RestoreCommand(pane, meta), nil
 }
 
 func (r *Registry) Status(pane snapshot.Pane) (Status, bool) {
