@@ -27,6 +27,7 @@ CLI written in Go for saving and restoring tmux sessions lazily. Key features:
 - Lightweight `picker --sessions-only` mode for Alt-Tab-style switching in a narrow tmux popup.
 - In the picker, press `Option/Alt` + a window number (`1`, `2`, `3`, …) to immediately restore the first matching window from the current results.
 - Antex and Claude Code integrations detect the active session on every save and restore the exact session instead of starting a new conversation.
+  Antex requires version 0.1.8 or later for verified tmux bindings. Upgrade both applications, resume each intended conversation, and save again. Unverified legacy snapshots leave the affected pane at a shell with a recovery message instead of guessing a conversation. Before overwriting a legacy Antex snapshot, lazy-tmux preserves its original contents in a sibling `.pre-binding-v1.bak` file; keep that file until recovery is complete.
 - Flexible sorting via `--session-sort` or `--window-sort` (by last-used, time, size, name, command, etc.).
 - Optional `fzf` integration via `--fzf-engine` (lighter and no dependencies binary, but without full keyboard control and TUI picker); add `--windows` to pick a specific window instead of a whole session.
 - Bootstrap restore on tmux startup: auto-restore latest or specific session.
