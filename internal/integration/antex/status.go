@@ -20,7 +20,8 @@ type rolloutEvent struct {
 }
 
 func (i *Integration) Status(pane snapshot.Pane) (integration.Status, bool) {
-	if !i.Matches(pane) || pane.Meta["antex.session_id_source"] != bindingSource {
+	if pane.Meta["antex.restore_pending"] != "" || !i.Matches(pane) ||
+		pane.Meta["antex.session_id_source"] != bindingSource {
 		return integration.StatusUnknown, false
 	}
 

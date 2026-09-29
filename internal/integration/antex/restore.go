@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"path/filepath"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -24,6 +25,12 @@ func (i *Integration) RestoreDecision(_ snapshot.Pane, meta map[string]string) (
 	if json.Unmarshal([]byte(meta["resume_argv"]), &argv) != nil || len(argv) < 3 ||
 		argv[0] != commandName || argv[1] != "resume" || argv[2] != sessionID {
 		return "", errUnverifiedSession
+	}
+	explicitCWD := slices.ContainsFunc(argv[3:], func(arg string) bool {
+		return arg == "--cd" || arg == "-C" || strings.HasPrefix(arg, "--cd=")
+	})
+	if !explicitCWD {
+		argv = append(argv, "-c", `tui.resume_cwd="session"`)
 	}
 	quoted := make([]string, 0, len(argv)+2)
 	quoted = append(quoted, "env", quote("ANTEX_HOME="+meta["home"]))

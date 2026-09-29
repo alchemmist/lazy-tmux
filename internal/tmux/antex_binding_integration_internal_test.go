@@ -121,3 +121,53 @@ func TestAntexBindingRoundTripWithRealTmux(t *testing.T) {
 		t.Fatalf("dead owner binding survived respawn: %v", stale.Meta)
 	}
 }
+
+func TestFailedBootstrapSurvivesRealTmuxCapture(t *testing.T) {
+	t.Setenv("LAZY_TMUX_BINDING_HELPER", "")
+	testutil.IsolatedTmux(t)
+	client := NewClient("tmux")
+	client.SetRestoreTimeout(0)
+	client.SetRestoreResolver(fakeResolver{matchCmd: "antex", override: "false"})
+	id := "01a09f96-a7d1-75f1-b8d8-6df25aaa7e6c"
+	original := snapshot.SessionSnapshot{
+		SessionName: "failed-bootstrap",
+		Windows: []snapshot.Window{
+			{
+				Panes: []snapshot.Pane{
+					{
+						CurrentCmd:  "antex",
+						CurrentPath: "/tmp",
+						Meta: map[string]string{
+							snapshot.AntexSessionIDMetaKey: id,
+							"antex.session_id_source":      "binding-v1",
+						},
+					},
+				},
+			},
+		},
+	}
+	if err := client.RestoreSession(context.Background(), original); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(100 * time.Millisecond)
+	got, err := client.CaptureSession("failed-bootstrap")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pane := got.Windows[0].Panes[0]
+	if pane.CurrentCmd != "antex" || pane.Meta[snapshot.AntexSessionIDMetaKey] != id ||
+		pane.Meta[pendingRestoreMeta] != "1" {
+		t.Fatalf("failed launch erased resume identity: %+v", pane)
+	}
+	storage := store.New(t.TempDir())
+	if err := storage.SaveSession(got); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := storage.LoadSession("failed-bootstrap")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Windows[0].Panes[0].Meta[snapshot.AntexSessionIDMetaKey] != id {
+		t.Fatal("autosave lost original identity")
+	}
+}

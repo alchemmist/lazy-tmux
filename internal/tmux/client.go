@@ -424,6 +424,8 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 			"#{pane_current_path}"+fieldSep+
 			"#{pane_id}"+fieldSep+
 			"#{socket_path}"+fieldSep+
+			"#{@lazy_tmux_restore_pending}"+fieldSep+
+			"#{@antex_restore_ack}"+fieldSep+
 			"#{@antex_binding}",
 	)
 	if err != nil {
@@ -436,6 +438,7 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 	}
 
 	windows := parseCapturedPanes(paneOutput, processes)
+	client.acknowledgeRestoredPanes(paneOutput, windows)
 
 	sort.Slice(windows, func(i, j int) bool { return windows[i].Index < windows[j].Index })
 
@@ -484,7 +487,7 @@ func parseCapturedPanes(output string, processes processSnapshot) []snapshot.Win
 			Scrollback:  nil,
 			IsActive:    parts[5] == "1",
 			Meta: validatedAntexMeta(
-				parts[12],
+				parts[14],
 				panePID,
 				parts[10],
 				parts[11],
@@ -492,6 +495,7 @@ func parseCapturedPanes(output string, processes processSnapshot) []snapshot.Win
 				processStartTime,
 			),
 		}
+		pane = preserveRestoreIntent(pane, parts[12], parts[13])
 		if pane.IsActive {
 			window.ActivePane = pane.Index
 		}
@@ -993,8 +997,12 @@ func (client *Client) restoreWindowCommands(
 		}
 
 		target := sessionPaneTarget(sessionName, windowIndex, pane.Index)
+		cmd, err := client.stageAntexRestore(target, pane, cmd)
+		if err != nil {
+			return err
+		}
 
-		_, err := client.Output("send-keys", "-t", target, cmd, "C-m")
+		_, err = client.Output("send-keys", "-t", target, cmd, "C-m")
 		if err != nil {
 			return err
 		}
@@ -1035,7 +1043,7 @@ func (client *Client) expectedPaneCommands(windows []snapshot.Window) map[string
 			cmd := client.effectiveRestoreCommand(pane)
 
 			exe := executableName(cmd)
-			if cmd != "" && pane.Meta["antex.session_id_source"] == "binding-v1" {
+			if cmd != "" && pane.Meta["antex.session_id_source"] == antexBindingSource {
 				exe = antexCommand
 			}
 			if exe == "" || !client.commandAllowed(cmd) {
@@ -1380,7 +1388,7 @@ func pickFromCandidates(allProcesses []psProcess) string {
 
 const (
 	livePaneLineFields    = 6
-	capturePaneLineFields = 13
+	capturePaneLineFields = 15
 	paneCommandFields     = 3
 	psLineFields          = 4
 )

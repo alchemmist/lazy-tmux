@@ -66,6 +66,9 @@ func TestRestoreUsesPublishedRootAndPreservesArguments(t *testing.T) {
 		!strings.Contains(got, `'/path with '"'"'quote'"'"''`) {
 		t.Fatalf("incorrect restore command: %s", got)
 	}
+	if !strings.Contains(got, `tui.resume_cwd="session"`) {
+		t.Fatalf("legacy restore may prompt for cwd: %s", got)
+	}
 	meta["session_id"] = "01a0cee1-2987-7b13-81cc-777ec4861be7"
 	if _, err := New(t.TempDir()).RestoreDecision(snapshot.Pane{}, meta); err == nil {
 		t.Fatal("conflicting published arguments accepted")

@@ -13,7 +13,10 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
-const antexCommand = "antex"
+const (
+	antexCommand       = "antex"
+	antexBindingSource = "binding-v1"
+)
 
 type antexBinding struct {
 	Version          int      `json:"version"`
@@ -56,7 +59,7 @@ func validatedAntexMeta(
 
 	return map[string]string{
 		snapshot.AntexSessionIDMetaKey: binding.ThreadID,
-		"antex.session_id_source":      "binding-v1",
+		"antex.session_id_source":      antexBindingSource,
 		"antex.home":                   binding.Home,
 		"antex.resume_argv":            string(argv),
 	}
