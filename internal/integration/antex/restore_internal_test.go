@@ -74,3 +74,17 @@ func TestRestoreUsesPublishedRootAndPreservesArguments(t *testing.T) {
 		t.Fatal("conflicting published arguments accepted")
 	}
 }
+
+func TestRepeatedRestorationDoesNotAccumulateDirectoryOverrides(t *testing.T) {
+	t.Parallel()
+	for _, argv := range [][]string{
+		{"antex", "resume", "id"},
+		{"antex", "resume", "id", "--cd", "/workspace"},
+	} {
+		once := resumeArgsWithCWD(argv)
+		twice := resumeArgsWithCWD(once)
+		if strings.Join(once, "\n") != strings.Join(twice, "\n") {
+			t.Fatalf("restore flags grew: %v -> %v", once, twice)
+		}
+	}
+}

@@ -26,12 +26,7 @@ func (i *Integration) RestoreDecision(_ snapshot.Pane, meta map[string]string) (
 		argv[0] != commandName || argv[1] != "resume" || argv[2] != sessionID {
 		return "", errUnverifiedSession
 	}
-	explicitCWD := slices.ContainsFunc(argv[3:], func(arg string) bool {
-		return arg == "--cd" || arg == "-C" || strings.HasPrefix(arg, "--cd=")
-	})
-	if !explicitCWD {
-		argv = append(argv, "-c", `tui.resume_cwd="session"`)
-	}
+	argv = resumeArgsWithCWD(argv)
 	quoted := make([]string, 0, len(argv)+2)
 	quoted = append(quoted, "env", quote("ANTEX_HOME="+meta["home"]))
 	for _, arg := range argv {
@@ -64,4 +59,15 @@ func validSessionID(value string) bool {
 	}
 
 	return true
+}
+
+func resumeArgsWithCWD(argv []string) []string {
+	explicit := slices.ContainsFunc(argv[3:], func(arg string) bool {
+		return arg == "--cd" || arg == "-C" || strings.HasPrefix(arg, "--cd=")
+	})
+	if explicit || slices.Contains(argv, `tui.resume_cwd="session"`) {
+		return argv
+	}
+
+	return append(argv, "-c", `tui.resume_cwd="session"`)
 }
