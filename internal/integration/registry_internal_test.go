@@ -203,3 +203,13 @@ func TestRegistryNilSafe(t *testing.T) {
 		t.Fatalf("nil registry resolve should be empty, got %q", got)
 	}
 }
+
+func TestDisabledAgentCannotFallBackToStartingNewConversation(t *testing.T) {
+	t.Parallel()
+	for _, kind := range []string{"codex", "antex", "claude"} {
+		command, err := NewRegistry().ResolveChecked(snapshot.Pane{CurrentCmd: kind})
+		if command != "" || err == nil {
+			t.Fatalf("disabled %s allowed fallback: %q %v", kind, command, err)
+		}
+	}
+}

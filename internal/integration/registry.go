@@ -1,11 +1,14 @@
 package integration
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
+
+var errAgentDisabled = errors.New("agent integration is disabled; automatic resume skipped")
 
 type Registry struct {
 	items []Integration
@@ -57,6 +60,11 @@ func (r *Registry) ResolveChecked(pane snapshot.Pane) (string, error) {
 
 	integ := r.match(pane)
 	if integ == nil {
+		if pane.Agent != nil || CommandAgent(pane.CurrentCmd) != "" ||
+			CommandAgent(pane.RestoreCmd) != "" {
+			return "", errAgentDisabled
+		}
+
 		return "", nil
 	}
 

@@ -3,7 +3,7 @@ package snapshot
 import "time"
 
 const (
-	FormatVersion         = 1
+	FormatVersion         = 2
 	AntexSessionIDMetaKey = "antex.session_id"
 )
 
@@ -33,7 +33,27 @@ type Pane struct {
 	Scrollback  *ScrollbackRef `json:"scrollback,omitempty"`
 	IsActive    bool           `json:"is_active"`
 
-	Meta map[string]string `json:"meta,omitempty"`
+	Meta  map[string]string `json:"meta,omitempty"`
+	Agent *AgentSession     `json:"agent,omitempty"`
+}
+
+type AgentKind = string
+
+const (
+	AgentCodex  AgentKind = "codex"
+	AgentAntex  AgentKind = "antex"
+	AgentClaude AgentKind = "claude"
+)
+
+type AgentSession struct {
+	Version int       `json:"version"`
+	Kind    AgentKind `json:"kind"`
+	ID      string    `json:"id"`
+	Home    string    `json:"home"`
+	CWD     string    `json:"cwd"`
+	Argv    []string  `json:"argv"`
+	Source  string    `json:"source"`
+	Status  string    `json:"status,omitempty"`
 }
 
 type ScrollbackRef struct {

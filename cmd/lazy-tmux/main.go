@@ -52,6 +52,8 @@ const exitUsage = 2
 
 func commands() map[string]func(args []string, stdout, stderr io.Writer) int {
 	return map[string]func(args []string, stdout, stderr io.Writer) int{
+		"integrations":  runIntegrations,
+		"agent-session": runAgentSession,
 		cmdVersion:      runVersionCmd,
 		cmdSave:         runSave,
 		cmdRestore:      runRestore,
@@ -73,6 +75,8 @@ func commands() map[string]func(args []string, stdout, stderr io.Writer) int {
 
 func helpFuncs() map[string]func(io.Writer) {
 	return map[string]func(io.Writer){
+		"integrations":  integrationsHelp,
+		"agent-session": agentSessionHelp,
 		cmdVersion:      versionHelp,
 		cmdSave:         saveHelp,
 		cmdRestore:      restoreHelp,
@@ -173,7 +177,9 @@ Commands:
   config     Generate (gen) or show the config file
   antex-session  Print the Antex session ID running in a tmux pane
   antex-fork     Fork the Antex session running in a tmux pane
-  claude-hooks  Install or remove Claude Code status hooks
+  claude-hooks   Install or remove Claude Code lifecycle hooks
+  integrations   Set up, diagnose, or repair agent integrations
+  agent-session  Print a verified session ID for codex, antex, or claude
   hook       Internal hook entrypoints (used by Claude Code)
   version    Print the version
 

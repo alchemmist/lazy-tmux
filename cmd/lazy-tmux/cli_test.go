@@ -187,7 +187,7 @@ func TestCLIAntexForkRejectsBackgroundBinding(t *testing.T) {
 	}
 	t.Setenv(
 		"LAZY_TMUX_TEST_PANE",
-		fmt.Sprintf("antex|/work tree|%d|%%7|/tmp/test-socket|%s", os.Getpid(), binding),
+		fmt.Sprintf("antex|/work tree|%d|%%7|/tmp/test-socket||%s", os.Getpid(), binding),
 	)
 	tmuxBin := filepath.Join(t.TempDir(), "tmux")
 	logPath := filepath.Join(t.TempDir(), "tmux-args")

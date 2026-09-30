@@ -21,6 +21,8 @@ func runHook(args []string, _, stderr io.Writer) int {
 	}
 
 	switch args[0] {
+	case "agent":
+		return runAgentHook(args[1:], os.Stdin, stderr)
 	case "claude-status":
 		return runClaudeStatusHook(args[1:], os.Stdin, stderr)
 	case "theme":

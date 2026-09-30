@@ -304,6 +304,7 @@ func (a *App) NewWindow(session, name string) error {
 				CurrentCmd:  "",
 				RestoreCmd:  "",
 				Scrollback:  nil,
+				Agent:       nil,
 				Meta:        nil,
 			},
 		},

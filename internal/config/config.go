@@ -48,6 +48,7 @@ type ScrollbackConfig struct {
 
 type IntegrationsConfig struct {
 	Enabled bool
+	Codex   AgentIntegrationConfig
 	Claude  ClaudeIntegrationConfig
 	Antex   AntexIntegrationConfig
 }
@@ -57,7 +58,9 @@ type ClaudeIntegrationConfig struct {
 	Home    string
 }
 
-type AntexIntegrationConfig struct {
+type AntexIntegrationConfig = AgentIntegrationConfig
+
+type AgentIntegrationConfig struct {
 	Enabled bool
 	Home    string
 }
@@ -92,6 +95,7 @@ func Default() Config {
 		},
 		Integrations: IntegrationsConfig{
 			Enabled: true,
+			Codex:   AgentIntegrationConfig{Enabled: true, Home: "~/.codex"},
 			Claude: ClaudeIntegrationConfig{
 				Enabled: true,
 				Home:    defaultClaudeHome,
@@ -246,6 +250,7 @@ type fileScrollbackConf struct {
 
 type fileIntegrationsConf struct {
 	Enabled *bool                  `toml:"enabled"`
+	Codex   *fileAgentIntegration  `toml:"codex"`
 	Claude  *fileClaudeIntegration `toml:"claude"`
 	Antex   *fileAntexIntegration  `toml:"antex"`
 }
@@ -255,7 +260,9 @@ type fileClaudeIntegration struct {
 	Home    *string `toml:"home"`
 }
 
-type fileAntexIntegration struct {
+type fileAntexIntegration = fileAgentIntegration
+
+type fileAgentIntegration struct {
 	Enabled *bool   `toml:"enabled"`
 	Home    *string `toml:"home"`
 }
@@ -385,6 +392,14 @@ func (ic IntegrationsConfig) withFile(file fileIntegrationsConf) IntegrationsCon
 		ic.Enabled = *file.Enabled
 	}
 
+	if file.Codex != nil {
+		if file.Codex.Enabled != nil {
+			ic.Codex.Enabled = *file.Codex.Enabled
+		}
+		if file.Codex.Home != nil {
+			ic.Codex.Home = ExpandHome(*file.Codex.Home)
+		}
+	}
 	if file.Claude != nil {
 		if file.Claude.Enabled != nil {
 			ic.Claude.Enabled = *file.Claude.Enabled

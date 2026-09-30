@@ -30,7 +30,7 @@ func TestFailedAntexBootstrapKeepsRestoreIntent(t *testing.T) {
 		t.Fatal(err)
 	}
 	encoded := base64.StdEncoding.EncodeToString(raw)
-	output := "0|layout|1|work|0|1|10|/dev/pts/1|zsh|/home/test|%1|/tmp/socket|" + encoded + "||"
+	output := "0|layout|1|work|0|1|10|/dev/pts/1|zsh|/home/test|%1|/tmp/socket|" + encoded + "|||"
 	windows := parseCapturedPanes(output, newProcessSnapshot([]string{"10 1 S+ zsh"}))
 	if len(windows) != 1 || len(windows[0].Panes) != 1 {
 		t.Fatalf("missing pane: %v", windows)

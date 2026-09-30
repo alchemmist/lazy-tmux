@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/alchemmist/lazy-tmux/internal/integration/agent"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 	"github.com/charmbracelet/x/term"
 )
@@ -425,7 +426,8 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 			"#{pane_id}"+fieldSep+
 			"#{socket_path}"+fieldSep+
 			"#{@lazy_tmux_restore_pending}"+fieldSep+
-			"#{@antex_restore_ack}"+fieldSep+
+			"#{?@lazy_tmux_restore_ack,#{@lazy_tmux_restore_ack},#{@antex_restore_ack}}"+fieldSep+
+			"#{@lazy_tmux_agent_binding}"+fieldSep+
 			"#{@antex_binding}",
 	)
 	if err != nil {
@@ -485,16 +487,19 @@ func parseCapturedPanes(output string, processes processSnapshot) []snapshot.Win
 			CurrentCmd:  parts[8],
 			RestoreCmd:  strings.TrimSpace(restoreCmd),
 			Scrollback:  nil,
+			Agent:       nil,
 			IsActive:    parts[5] == "1",
-			Meta: validatedAntexMeta(
-				parts[14],
-				panePID,
-				parts[10],
-				parts[11],
-				processes,
-				processStartTime,
-			),
+			Meta:        nil,
 		}
+		pane = attachAgentBindings(
+			pane,
+			parts[14],
+			parts[15],
+			panePID,
+			parts[10],
+			parts[11],
+			processes,
+		)
 		pane = preserveRestoreIntent(pane, parts[12], parts[13])
 		if pane.IsActive {
 			window.ActivePane = pane.Index
@@ -717,6 +722,7 @@ func (client *Client) CapturePane(target string) (snapshot.Pane, error) {
 			"#{pane_pid}"+fieldSep+
 			"#{pane_id}"+fieldSep+
 			"#{socket_path}"+fieldSep+
+			"#{@lazy_tmux_agent_binding}"+fieldSep+
 			"#{@antex_binding}",
 	)
 
@@ -739,22 +745,19 @@ func (client *Client) CapturePane(target string) (snapshot.Pane, error) {
 	}
 	panePID, _ := strconv.Atoi(parts[2])
 
-	return snapshot.Pane{
+	pane := snapshot.Pane{
 		Index:       0,
 		CurrentPath: parts[1],
 		CurrentCmd:  parts[0],
 		RestoreCmd:  "",
 		Scrollback:  nil,
+		Agent:       nil,
 		IsActive:    true,
-		Meta: validatedAntexMeta(
-			parts[5],
-			panePID,
-			parts[3],
-			parts[4],
-			processes,
-			processStartTime,
-		),
-	}, nil
+		Meta:        nil,
+	}
+	pane = attachAgentBindings(pane, parts[5], parts[6], panePID, parts[3], parts[4], processes)
+
+	return pane, nil
 }
 
 func (client *Client) createAndPopulateWindow(sessionName string, win snapshot.Window) error {
@@ -997,7 +1000,7 @@ func (client *Client) restoreWindowCommands(
 		}
 
 		target := sessionPaneTarget(sessionName, windowIndex, pane.Index)
-		cmd, err := client.stageAntexRestore(target, pane, cmd)
+		cmd, err := client.stageAgentRestore(target, pane, cmd)
 		if err != nil {
 			return err
 		}
@@ -1043,8 +1046,9 @@ func (client *Client) expectedPaneCommands(windows []snapshot.Window) map[string
 			cmd := client.effectiveRestoreCommand(pane)
 
 			exe := executableName(cmd)
-			if cmd != "" && pane.Meta["antex.session_id_source"] == antexBindingSource {
-				exe = antexCommand
+			if cmd != "" &&
+				(pane.Meta["antex.session_id_source"] == antexBindingSource || pane.Agent != nil) {
+				exe = agent.PaneKind(pane)
 			}
 			if exe == "" || !client.commandAllowed(cmd) {
 				continue
@@ -1387,8 +1391,8 @@ func pickFromCandidates(allProcesses []psProcess) string {
 }
 
 const (
-	livePaneLineFields    = 6
-	capturePaneLineFields = 15
+	livePaneLineFields    = 7
+	capturePaneLineFields = 16
 	paneCommandFields     = 3
 	psLineFields          = 4
 )

@@ -12,6 +12,7 @@ import (
 
 	"github.com/alchemmist/lazy-tmux/internal/config"
 	"github.com/alchemmist/lazy-tmux/internal/integration"
+	"github.com/alchemmist/lazy-tmux/internal/integration/agent"
 	"github.com/alchemmist/lazy-tmux/internal/picker"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
@@ -152,8 +153,20 @@ func windowStatuses(
 
 	for _, window := range windows {
 		for paneIdx := range window.Panes {
-			status, ok := registry.Status(window.Panes[paneIdx])
+			pane := window.Panes[paneIdx]
+			if pane.Meta[agent.PendingKey] != "" || pane.Meta["antex.restore_pending"] != "" {
+				statuses[window.Index] = picker.StatusRestorePending
+
+				break
+			}
+			status, ok := registry.Status(pane)
 			if !ok {
+				if kind := agent.PaneKind(pane); kind != "" {
+					if _, verified := agent.Session(pane, kind); !verified {
+						statuses[window.Index] = picker.StatusNeedsSetup
+					}
+				}
+
 				continue
 			}
 
@@ -371,7 +384,7 @@ func (a *App) quickWorkingSessions(sessions []picker.QuickSession) map[string]bo
 		sessions,
 		quickStatusWorkerLimit,
 		func(session picker.QuickSession) bool {
-			return a.sessionHasWorkingAntex(registry, session.Name, session.Restored)
+			return a.sessionHasWorkingAgent(registry, session.Name, session.Restored)
 		},
 	)
 	for index, isWorking := range statuses {
@@ -401,7 +414,7 @@ func sortQuickSessionRecords(records []snapshot.Record, live map[string]struct{}
 	})
 }
 
-func (a *App) sessionHasWorkingAntex(
+func (a *App) sessionHasWorkingAgent(
 	registry *integration.Registry,
 	session string,
 	restored bool,
@@ -417,8 +430,7 @@ func (a *App) sessionHasWorkingAntex(
 
 	for windowIndex := range snap.Windows {
 		for paneIndex := range snap.Windows[windowIndex].Panes {
-			status, ok := registry.StatusFor(
-				"antex",
+			status, ok := registry.Status(
 				snap.Windows[windowIndex].Panes[paneIndex],
 			)
 			if ok && status == integration.StatusWorking {

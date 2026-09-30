@@ -89,3 +89,33 @@ func TestRenderIncludesIntegrations(t *testing.T) {
 		}
 	}
 }
+
+func TestThreeIntegrationConfigurationsAreIndependent(t *testing.T) {
+	t.Parallel()
+	path := writeConfig(t, `[integrations.codex]
+enabled = false
+home = "/codex-home"
+[integrations.antex]
+enabled = true
+home = "/antex-home"
+[integrations.claude]
+enabled = true
+home = "/claude-home"
+`)
+	cfg, err := LoadFrom(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Integrations.Codex.Enabled || !cfg.Integrations.Antex.Enabled ||
+		!cfg.Integrations.Claude.Enabled {
+		t.Fatal("switches coupled")
+	}
+	if cfg.Integrations.Codex.Home != "/codex-home" ||
+		cfg.Integrations.Antex.Home != "/antex-home" ||
+		cfg.Integrations.Claude.Home != "/claude-home" {
+		t.Fatal("homes coupled")
+	}
+	if !strings.Contains(cfg.Render(), "[integrations.codex]") {
+		t.Fatal("Codex missing from generated config")
+	}
+}

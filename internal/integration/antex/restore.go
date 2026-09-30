@@ -3,11 +3,13 @@ package antex
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"slices"
 	"strings"
 	"unicode"
 
+	"github.com/alchemmist/lazy-tmux/internal/integration/agent"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
@@ -15,7 +17,15 @@ var errUnverifiedSession = errors.New(
 	"antex session identity is unverified; resume the intended conversation manually and save it with an updated Antex",
 )
 
-func (i *Integration) RestoreDecision(_ snapshot.Pane, meta map[string]string) (string, error) {
+func (i *Integration) RestoreDecision(pane snapshot.Pane, meta map[string]string) (string, error) {
+	if pane.Agent != nil {
+		command, err := agent.Restore(pane, commandName)
+		if err != nil {
+			return "", fmt.Errorf("restore agent: %w", err)
+		}
+
+		return command, nil
+	}
 	sessionID := meta[metaSessionID]
 	if meta["session_id_source"] != bindingSource || !validSessionID(sessionID) ||
 		!filepath.IsAbs(meta["home"]) || strings.IndexFunc(meta["home"], unicode.IsControl) >= 0 {

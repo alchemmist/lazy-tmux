@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/alchemmist/lazy-tmux/internal/integration/agent"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
@@ -62,16 +63,17 @@ func backupLegacyAntex(path string) error {
 func hasLegacyAntex(state snapshot.SessionSnapshot) bool {
 	for _, window := range state.Windows {
 		for _, pane := range window.Panes {
-			if pane.Meta["antex.session_id_source"] == "binding-v1" {
+			if pane.Agent != nil {
 				continue
 			}
-			if pane.Meta["antex.session_id"] != "" || pane.Meta["codex.session_id"] != "" {
+			if pane.Meta["antex.session_id"] != "" || pane.Meta["codex.session_id"] != "" ||
+				pane.Meta["claude.session_id"] != "" {
 				return true
 			}
 			for _, command := range []string{pane.CurrentCmd, pane.RestoreCmd} {
 				fields := strings.Fields(command)
 				if len(fields) > 0 &&
-					(filepath.Base(fields[0]) == "antex" || filepath.Base(fields[0]) == "codex") {
+					agent.Kind(fields[0]) != "" {
 					return true
 				}
 			}

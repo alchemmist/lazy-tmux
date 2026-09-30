@@ -8,13 +8,14 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/alchemmist/lazy-tmux/internal/integration/agent"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
 const (
 	pendingRestoreOption = "@lazy_tmux_restore_pending"
-	restoreAckOption     = "@antex_restore_ack"
-	pendingRestoreMeta   = "antex.restore_pending"
+	restoreAckOption     = "@lazy_tmux_restore_ack"
+	pendingRestoreMeta   = agent.PendingKey
 )
 
 type pendingRestore struct {
@@ -22,13 +23,12 @@ type pendingRestore struct {
 	Pane  snapshot.Pane `json:"pane"`
 }
 
-func (client *Client) stageAntexRestore(
+func (client *Client) stageAgentRestore(
 	target string,
 	pane snapshot.Pane,
 	command string,
 ) (string, error) {
-	if executableName(pane.CurrentCmd) != antexCommand &&
-		executableName(pane.RestoreCmd) != antexCommand {
+	if agent.PaneKind(pane) == "" {
 		return command, nil
 	}
 	pane.Scrollback = nil
@@ -37,14 +37,19 @@ func (client *Client) stageAntexRestore(
 	if err != nil {
 		return "", fmt.Errorf("encode restore intent: %w", err)
 	}
-	_, err = client.Output(
+	args := []string{
 		"set-option",
 		"-p",
 		"-t",
 		target,
 		pendingRestoreOption,
 		base64.StdEncoding.EncodeToString(data),
-	)
+		";", "set-option", "-p", "-t", target, restoreAckOption, "",
+	}
+	if agent.PaneKind(pane) == snapshot.AgentAntex {
+		args = append(args, ";", "set-option", "-p", "-t", target, "@antex_restore_ack", "")
+	}
+	_, err = client.Output(args...)
 	if err != nil {
 		return "", err
 	}
@@ -64,13 +69,15 @@ func decodeRestoreIntent(encoded string) (pendingRestore, bool) {
 
 func preserveRestoreIntent(pane snapshot.Pane, encoded, ack string) snapshot.Pane {
 	intent, ok := decodeRestoreIntent(encoded)
-	if !ok || intent.Token == ack || pane.Meta["antex.session_id_source"] == antexBindingSource ||
-		!antexStartupCommand(pane.CurrentCmd) {
+	if !ok || intent.Token == ack ||
+		(pane.Meta["antex.session_id_source"] == antexBindingSource || pane.Agent != nil) ||
+		!agentStartupCommand(pane.CurrentCmd) {
 		return pane
 	}
 	pane.CurrentCmd = intent.Pane.CurrentCmd
 	pane.RestoreCmd = intent.Pane.RestoreCmd
 	pane.CurrentPath = intent.Pane.CurrentPath
+	pane.Agent = intent.Pane.Agent
 	pane.Meta = intent.Pane.Meta
 	if pane.Meta == nil {
 		pane.Meta = make(map[string]string)
@@ -85,8 +92,8 @@ func (client *Client) acknowledgeRestoredPanes(output string, windows []snapshot
 	for _, window := range windows {
 		for _, pane := range window.Panes {
 			if pane.Meta[pendingRestoreMeta] == "" &&
-				(pane.Meta["antex.session_id_source"] == antexBindingSource ||
-					!antexStartupCommand(pane.CurrentCmd)) {
+				((pane.Meta["antex.session_id_source"] == antexBindingSource || pane.Agent != nil) ||
+					!agentStartupCommand(pane.CurrentCmd)) {
 				ready[strconv.Itoa(window.Index)+"."+strconv.Itoa(pane.Index)] = true
 			}
 		}
@@ -110,9 +117,10 @@ func (client *Client) acknowledgeRestoredPanes(output string, windows []snapshot
 	}
 }
 
-func antexStartupCommand(command string) bool {
+func agentStartupCommand(command string) bool {
 	name := executableName(command)
 
-	return strings.TrimSpace(command) == "" || isShellCommand(command) || name == antexCommand ||
+	return strings.TrimSpace(command) == "" || isShellCommand(command) ||
+		agent.Kind(command) != "" ||
 		name == "env"
 }

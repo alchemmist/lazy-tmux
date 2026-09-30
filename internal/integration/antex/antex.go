@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/alchemmist/lazy-tmux/internal/integration"
+	"github.com/alchemmist/lazy-tmux/internal/integration/agent"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
@@ -62,20 +63,7 @@ func (i *Integration) Scope() integration.Integration {
 
 func (i *Integration) Name() string { return commandName }
 
-func (i *Integration) Matches(pane snapshot.Pane) bool {
-	for _, cmd := range []string{pane.RestoreCmd, pane.CurrentCmd} {
-		cmd = strings.TrimSpace(cmd)
-		if cmd == "" {
-			continue
-		}
-
-		if executableName(cmd) == commandName {
-			return true
-		}
-	}
-
-	return false
-}
+func (i *Integration) Matches(pane snapshot.Pane) bool { return agent.Matches(pane, commandName) }
 
 func (i *Integration) Capture(pane snapshot.Pane) (map[string]string, error) {
 	sessionID, ok := i.SessionID(pane)
@@ -92,6 +80,11 @@ func (i *Integration) Capture(pane snapshot.Pane) (map[string]string, error) {
 }
 
 func (i *Integration) SessionID(pane snapshot.Pane) (string, bool) {
+	if pane.Agent != nil {
+		value, ok := agent.Session(pane, commandName)
+
+		return value.ID, ok
+	}
 	if !i.Matches(pane) || pane.Meta["antex.session_id_source"] != bindingSource {
 		return "", false
 	}
@@ -243,15 +236,4 @@ func readCandidate(path, cwd string) (sessionCandidate, bool) {
 		path:    path,
 		modTime: info.ModTime().UnixNano(),
 	}, true
-}
-
-func executableName(cmd string) string {
-	fields := strings.Fields(cmd)
-	if len(fields) == 0 {
-		return ""
-	}
-
-	base := filepath.Base(fields[0])
-
-	return strings.TrimPrefix(base, "-")
 }
