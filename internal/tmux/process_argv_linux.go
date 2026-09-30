@@ -22,5 +22,6 @@ func processArgv(pid int) ([]string, error) {
 	for idx, field := range fields {
 		argv[idx] = string(field)
 	}
+
 	return argv, nil
 }
