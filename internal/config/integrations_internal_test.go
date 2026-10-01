@@ -15,8 +15,8 @@ func TestIntegrationsDefaults(t *testing.T) {
 	if !cfg.Integrations.Enabled || !cfg.Integrations.Claude.Enabled {
 		t.Fatal("integrations should default to enabled")
 	}
-	if !cfg.Integrations.Codex.Enabled || cfg.Integrations.Codex.Home != "~/.codex" {
-		t.Fatalf("unexpected default codex integration: %+v", cfg.Integrations.Codex)
+	if !cfg.Integrations.Antex.Enabled || cfg.Integrations.Antex.Home != "~/.antex" {
+		t.Fatalf("unexpected default antex integration: %+v", cfg.Integrations.Antex)
 	}
 
 	if cfg.Integrations.Claude.Home != "~/.claude" {
@@ -82,10 +82,40 @@ func TestRenderIncludesIntegrations(t *testing.T) {
 
 	for _, want := range []string{
 		"[integrations]", "[integrations.claude]", "home    = \"~/.claude\"",
-		"[integrations.codex]", "home    = \"~/.codex\"",
+		"[integrations.antex]", "home    = \"~/.antex\"",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("rendered config missing %q:\n%s", want, out)
 		}
+	}
+}
+
+func TestThreeIntegrationConfigurationsAreIndependent(t *testing.T) {
+	t.Parallel()
+	path := writeConfig(t, `[integrations.codex]
+enabled = false
+home = "/codex-home"
+[integrations.antex]
+enabled = true
+home = "/antex-home"
+[integrations.claude]
+enabled = true
+home = "/claude-home"
+`)
+	cfg, err := LoadFrom(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Integrations.Codex.Enabled || !cfg.Integrations.Antex.Enabled ||
+		!cfg.Integrations.Claude.Enabled {
+		t.Fatal("switches coupled")
+	}
+	if cfg.Integrations.Codex.Home != "/codex-home" ||
+		cfg.Integrations.Antex.Home != "/antex-home" ||
+		cfg.Integrations.Claude.Home != "/claude-home" {
+		t.Fatal("homes coupled")
+	}
+	if !strings.Contains(cfg.Render(), "[integrations.codex]") {
+		t.Fatal("Codex missing from generated config")
 	}
 }

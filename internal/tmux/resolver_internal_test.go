@@ -66,7 +66,7 @@ func TestRestoreResolverOverridesCommand(t *testing.T) {
 		t.Fatalf("expected 2 send-keys, got %v", sent)
 	}
 
-	if sent[0] != "claude --resume sess-1" {
+	if !strings.HasSuffix(sent[0], " claude --resume sess-1") {
 		t.Fatalf("claude pane should use the resolver override, got %q", sent[0])
 	}
 

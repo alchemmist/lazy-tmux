@@ -77,40 +77,7 @@ func (s *Store) SaveSession(sessionSnapshot snapshot.SessionSnapshot) error {
 	}
 	defer unlock()
 
-	err = s.ensureLayout()
-	if err != nil {
-		return err
-	}
-
-	safeName, entries, err := s.planScrollbackUnlocked(&sessionSnapshot)
-	if err != nil {
-		return err
-	}
-
-	path := s.sessionPath(sessionSnapshot.SessionName)
-
-	jsonTmp, err := writeJSONTemp(path, sessionSnapshot, defaultFilePerm)
-	if err != nil {
-		return err
-	}
-
-	defer func() { _ = os.Remove(jsonTmp) }()
-
-	err = s.persistScrollbackUnlocked(
-		sessionSnapshot.SessionName,
-		safeName,
-		entries,
-	)
-	if err != nil {
-		return err
-	}
-
-	err = os.Rename(jsonTmp, path)
-	if err != nil {
-		return fmt.Errorf("rename tmp file: %w", err)
-	}
-
-	return s.updateIndex(sessionSnapshot, path)
+	return s.saveSessionUnlocked(sessionSnapshot)
 }
 
 func (s *Store) DeleteSession(name string) error {
@@ -410,14 +377,25 @@ func (s *Store) loadSession(name string, hydrate bool) (snapshot.SessionSnapshot
 	}
 	defer unlock()
 
+	return s.loadSessionUnlocked(name, hydrate)
+}
+
+func (s *Store) loadSessionUnlocked(name string, hydrate bool) (snapshot.SessionSnapshot, error) {
+	var out snapshot.SessionSnapshot
 	path := s.sessionPath(name)
 
-	b, err := os.ReadFile(path) // #nosec G304 -- sessionPath sanitizes the name under the data dir
+	data, err := os.ReadFile(
+		path,
+	) // #nosec G304 -- sessionPath sanitizes the name under the data dir
 	if err != nil {
 		return out, fmt.Errorf("read session file: %w", err)
 	}
 
-	err = json.Unmarshal(b, &out)
+	err = validateSnapshotVersion(data)
+	if err != nil {
+		return out, err
+	}
+	err = json.Unmarshal(data, &out)
 	if err != nil {
 		return out, fmt.Errorf("unmarshal session: %w", err)
 	}
@@ -840,4 +818,46 @@ func writeJSONTemp(path string, v any, perm os.FileMode) (string, error) {
 	}
 
 	return tmp, nil
+}
+
+func (s *Store) saveSessionUnlocked(sessionSnapshot snapshot.SessionSnapshot) error {
+	sessionSnapshot.Version = snapshot.FormatVersion
+	err := s.ensureLayout()
+	if err != nil {
+		return err
+	}
+
+	safeName, entries, err := s.planScrollbackUnlocked(&sessionSnapshot)
+	if err != nil {
+		return err
+	}
+
+	path := s.sessionPath(sessionSnapshot.SessionName)
+	err = backupLegacyAntex(path)
+	if err != nil {
+		return err
+	}
+
+	jsonTmp, err := writeJSONTemp(path, sessionSnapshot, defaultFilePerm)
+	if err != nil {
+		return err
+	}
+
+	defer func() { _ = os.Remove(jsonTmp) }()
+
+	err = s.persistScrollbackUnlocked(
+		sessionSnapshot.SessionName,
+		safeName,
+		entries,
+	)
+	if err != nil {
+		return err
+	}
+
+	err = os.Rename(jsonTmp, path)
+	if err != nil {
+		return fmt.Errorf("rename tmp file: %w", err)
+	}
+
+	return s.updateIndex(sessionSnapshot, path)
 }

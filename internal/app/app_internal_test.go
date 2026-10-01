@@ -44,18 +44,18 @@ func (r *quickRecordingTmux) ListSessions() ([]string, error)            { retur
 func (r *quickRecordingTmux) CurrentSession() (string, error)            { return r.current, nil }
 func (r *quickRecordingTmux) SessionsLastAttached() map[string]time.Time { return r.attached }
 
-type workingCodexIntegration struct{}
+type workingAntexIntegration struct{}
 
-func (workingCodexIntegration) Name() string { return "codex" }
-func (workingCodexIntegration) Matches(pane snapshot.Pane) bool {
-	return pane.CurrentCmd == "codex"
+func (workingAntexIntegration) Name() string { return "antex" }
+func (workingAntexIntegration) Matches(pane snapshot.Pane) bool {
+	return pane.CurrentCmd == "antex"
 }
 
-func (workingCodexIntegration) Capture(snapshot.Pane) (map[string]string, error) {
+func (workingAntexIntegration) Capture(snapshot.Pane) (map[string]string, error) {
 	return map[string]string{}, nil
 }
-func (workingCodexIntegration) RestoreCommand(snapshot.Pane, map[string]string) string { return "" }
-func (workingCodexIntegration) Status(snapshot.Pane) (integration.Status, bool) {
+func (workingAntexIntegration) RestoreCommand(snapshot.Pane, map[string]string) string { return "" }
+func (workingAntexIntegration) Status(snapshot.Pane) (integration.Status, bool) {
 	return integration.StatusWorking, true
 }
 
@@ -267,11 +267,11 @@ func TestOpenQuickSessionUpdatesLastUsed(t *testing.T) {
 	}
 }
 
-func TestQuickPickerSessionMarksWorkingCodex(t *testing.T) {
+func TestQuickPickerSessionMarksWorkingAntex(t *testing.T) {
 	t.Parallel()
 
 	a, _ := newTestApp(t)
-	a.integrations = integration.NewRegistry(workingCodexIntegration{})
+	a.integrations = integration.NewRegistry(workingAntexIntegration{})
 	if err := a.store.SaveSession(snapshot.SessionSnapshot{
 		Version:     snapshot.FormatVersion,
 		SessionName: "working",
@@ -280,14 +280,14 @@ func TestQuickPickerSessionMarksWorkingCodex(t *testing.T) {
 		CurrentPane: 0,
 		Windows: []snapshot.Window{{
 			Index:      0,
-			Name:       "codex",
+			Name:       "antex",
 			Layout:     "",
 			IsActive:   true,
 			ActivePane: 0,
 			Panes: []snapshot.Pane{{
 				Index:       0,
 				CurrentPath: "/workspace",
-				CurrentCmd:  "codex",
+				CurrentCmd:  "antex",
 				RestoreCmd:  "",
 				Scrollback:  nil,
 				IsActive:    true,
@@ -309,11 +309,11 @@ func TestQuickPickerSessionMarksWorkingCodex(t *testing.T) {
 		t.Fatalf("quick picker sessions: %v", err)
 	}
 	if len(sessions) != 1 || sessions[0].Working {
-		t.Fatalf("Codex status blocked the initial session list: %+v", sessions)
+		t.Fatalf("Antex status blocked the initial session list: %+v", sessions)
 	}
 	working := a.quickWorkingSessions(sessions)
 	if !working["working"] {
-		t.Fatalf("working Codex session was not detected: %+v", working)
+		t.Fatalf("working Antex session was not detected: %+v", working)
 	}
 }
 

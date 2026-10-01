@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/alchemmist/lazy-tmux/internal/integration/agent"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 	"github.com/charmbracelet/x/term"
 )
@@ -422,7 +423,12 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 			"#{pane_tty}"+fieldSep+
 			"#{pane_current_command}"+fieldSep+
 			"#{pane_current_path}"+fieldSep+
-			"#{@codex_thread_id}",
+			"#{pane_id}"+fieldSep+
+			"#{socket_path}"+fieldSep+
+			"#{@lazy_tmux_restore_pending}"+fieldSep+
+			"#{?@lazy_tmux_restore_ack,#{@lazy_tmux_restore_ack},#{@antex_restore_ack}}"+fieldSep+
+			"#{@lazy_tmux_agent_binding}"+fieldSep+
+			"#{@antex_binding}",
 	)
 	if err != nil {
 		return snapshot.SessionSnapshot{}, err
@@ -434,6 +440,7 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 	}
 
 	windows := parseCapturedPanes(paneOutput, processes)
+	client.acknowledgeRestoredPanes(paneOutput, windows)
 
 	sort.Slice(windows, func(i, j int) bool { return windows[i].Index < windows[j].Index })
 
@@ -480,9 +487,20 @@ func parseCapturedPanes(output string, processes processSnapshot) []snapshot.Win
 			CurrentCmd:  parts[8],
 			RestoreCmd:  strings.TrimSpace(restoreCmd),
 			Scrollback:  nil,
+			Agent:       nil,
 			IsActive:    parts[5] == "1",
-			Meta:        codexSessionMeta(parts[10]),
+			Meta:        nil,
 		}
+		pane = attachAgentBindings(
+			pane,
+			parts[14],
+			parts[15],
+			panePID,
+			parts[10],
+			parts[11],
+			processes,
+		)
+		pane = preserveRestoreIntent(pane, parts[12], parts[13])
 		if pane.IsActive {
 			window.ActivePane = pane.Index
 		}
@@ -701,7 +719,11 @@ func (client *Client) CapturePane(target string) (snapshot.Pane, error) {
 		args,
 		"#{pane_current_command}"+fieldSep+
 			"#{pane_current_path}"+fieldSep+
-			"#{@codex_thread_id}",
+			"#{pane_pid}"+fieldSep+
+			"#{pane_id}"+fieldSep+
+			"#{socket_path}"+fieldSep+
+			"#{@lazy_tmux_agent_binding}"+fieldSep+
+			"#{@antex_binding}",
 	)
 
 	out, err := client.Output(args...)
@@ -717,15 +739,25 @@ func (client *Client) CapturePane(target string) (snapshot.Pane, error) {
 		)
 	}
 
-	return snapshot.Pane{
+	processes, err := loadProcessSnapshot()
+	if err != nil {
+		return snapshot.Pane{}, err
+	}
+	panePID, _ := strconv.Atoi(parts[2])
+
+	pane := snapshot.Pane{
 		Index:       0,
 		CurrentPath: parts[1],
 		CurrentCmd:  parts[0],
 		RestoreCmd:  "",
 		Scrollback:  nil,
+		Agent:       nil,
 		IsActive:    true,
-		Meta:        codexSessionMeta(parts[2]),
-	}, nil
+		Meta:        nil,
+	}
+	pane = attachAgentBindings(pane, parts[5], parts[6], panePID, parts[3], parts[4], processes)
+
+	return pane, nil
 }
 
 func (client *Client) createAndPopulateWindow(sessionName string, win snapshot.Window) error {
@@ -787,15 +819,6 @@ func (client *Client) restoreFirstWindow(sessionName string, first snapshot.Wind
 	}
 
 	return client.populateWindow(sessionName, first, first.Index)
-}
-
-func codexSessionMeta(sessionID string) map[string]string {
-	sessionID = strings.TrimSpace(sessionID)
-	if sessionID == "" {
-		return nil
-	}
-
-	return map[string]string{snapshot.CodexSessionIDMetaKey: sessionID}
 }
 
 func (client *Client) populateWindow(
@@ -872,13 +895,30 @@ func firstPanePath(w snapshot.Window) string {
 }
 
 func (client *Client) effectiveRestoreCommand(pane snapshot.Pane) string {
+	command, _ := client.checkedRestoreCommand(pane)
+
+	return command
+}
+
+func (client *Client) checkedRestoreCommand(pane snapshot.Pane) (string, error) {
+	if resolver, ok := client.resolver.(interface {
+		ResolveChecked(pane snapshot.Pane) (string, error)
+	}); ok {
+		command, err := resolver.ResolveChecked(pane)
+		if err != nil {
+			return "", fmt.Errorf("resolve restore command: %w", err)
+		}
+		if strings.TrimSpace(command) != "" {
+			return command, nil
+		}
+	}
 	if client.resolver != nil {
 		if override := strings.TrimSpace(client.resolver.Resolve(pane)); override != "" {
-			return override
+			return override, nil
 		}
 	}
 
-	return normalizedCommand(pane.RestoreCmd, pane.CurrentCmd)
+	return normalizedCommand(pane.RestoreCmd, pane.CurrentCmd), nil
 }
 
 func normalizedCommand(restore, current string) string {
@@ -946,18 +986,26 @@ func (client *Client) restoreWindowCommands(
 	sort.Slice(panes, func(i, j int) bool { return panes[i].Index < panes[j].Index })
 
 	for _, pane := range panes {
-		cmd := client.effectiveRestoreCommand(pane)
+		cmd, resolveErr := client.checkedRestoreCommand(pane)
+		if resolveErr != nil {
+			message := "lazy-tmux: automatic resume skipped: " + resolveErr.Error()
+			cmd = "printf '%s\\n' '" + strings.ReplaceAll(message, "'", "'\"'\"'") + "'"
+		}
 		if strings.TrimSpace(cmd) == "" {
 			continue
 		}
 
-		if !client.commandAllowed(cmd) {
+		if resolveErr == nil && !client.commandAllowed(cmd) {
 			continue
 		}
 
 		target := sessionPaneTarget(sessionName, windowIndex, pane.Index)
+		cmd, err := client.stageAgentRestore(target, pane, cmd)
+		if err != nil {
+			return err
+		}
 
-		_, err := client.Output("send-keys", "-t", target, cmd, "C-m")
+		_, err = client.Output("send-keys", "-t", target, cmd, "C-m")
 		if err != nil {
 			return err
 		}
@@ -998,6 +1046,10 @@ func (client *Client) expectedPaneCommands(windows []snapshot.Window) map[string
 			cmd := client.effectiveRestoreCommand(pane)
 
 			exe := executableName(cmd)
+			if cmd != "" &&
+				(pane.Meta["antex.session_id_source"] == antexBindingSource || pane.Agent != nil) {
+				exe = agent.PaneKind(pane)
+			}
 			if exe == "" || !client.commandAllowed(cmd) {
 				continue
 			}
@@ -1339,8 +1391,8 @@ func pickFromCandidates(allProcesses []psProcess) string {
 }
 
 const (
-	livePaneLineFields    = 3
-	capturePaneLineFields = 11
+	livePaneLineFields    = 7
+	capturePaneLineFields = 16
 	paneCommandFields     = 3
 	psLineFields          = 4
 )

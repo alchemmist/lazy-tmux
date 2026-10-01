@@ -6,7 +6,7 @@ export function Integrations() {
     <>
       <Seo
         title="Integrations — lazy-tmux"
-        description="Program integrations adapt interactive tools to lazy-tmux's save/restore. Claude Code and Codex sessions resume from their current session."
+        description="Program integrations adapt interactive tools to lazy-tmux's save/restore. Claude Code and Antex sessions resume from their current session."
         slug="integrations"
       />
       <section className="doc-section">
@@ -34,10 +34,10 @@ export function Integrations() {
           conversation continues instead of starting fresh.
         </p>
 
-        <h2>Codex</h2>
+        <h2>Antex</h2>
         <p>
-          A window running <InlineCode>codex</InlineCode> is restored as{" "}
-          <InlineCode>codex resume &lt;session-id&gt;</InlineCode>. On every save,
+          A window running <InlineCode>antex</InlineCode> is restored as{" "}
+          <InlineCode>antex resume &lt;session-id&gt;</InlineCode>. On every save,
           lazy-tmux rereads the rollout metadata and selects the newest session
           for that pane&apos;s working directory, so switching sessions is reflected
           in the next snapshot.
@@ -45,9 +45,9 @@ export function Integrations() {
 
         <p>
           The integration is enabled by default. Its data directory can be
-          changed with <InlineCode>[integrations.codex]</InlineCode> and the{" "}
+          changed with <InlineCode>[integrations.antex]</InlineCode> and the{" "}
           <InlineCode>home</InlineCode> option (default:{" "}
-          <InlineCode>~/.codex</InlineCode>).
+          <InlineCode>~/.antex</InlineCode>).
         </p>
 
         <h3>Status dots</h3>

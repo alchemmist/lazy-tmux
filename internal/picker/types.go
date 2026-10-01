@@ -37,6 +37,8 @@ const (
 	StatusAwaitingInput
 	StatusIdle
 	StatusError
+	StatusNeedsSetup
+	StatusRestorePending
 )
 
 type Actions struct {

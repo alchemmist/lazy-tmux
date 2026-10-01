@@ -10,7 +10,15 @@ import (
 func claudePane() snapshot.Pane {
 	return snapshot.Pane{
 		CurrentCmd: "claude",
-		Meta:       map[string]string{"claude.session_id": "sess-9"},
+		Agent: &snapshot.AgentSession{
+			Version: 1,
+			Kind:    "claude",
+			ID:      "sess-9",
+			Home:    "/home/claude",
+			CWD:     "/workspace",
+			Argv:    []string{"claude", "--resume", "sess-9"},
+			Source:  "hook-v1",
+		},
 	}
 }
 
@@ -24,7 +32,9 @@ func TestBuildRegistryEnabledResolvesClaude(
 		Claude:  config.ClaudeIntegrationConfig{Enabled: true, Home: "~/.claude"},
 	}, "")
 
-	if got := reg.Resolve(claudePane()); got != "claude --resume sess-9" {
+	if got := reg.Resolve(
+		claudePane(),
+	); got != "env 'CLAUDE_CONFIG_DIR=/home/claude' 'claude' '--resume' 'sess-9'" {
 		t.Fatalf("enabled claude should resolve resume command, got %q", got)
 	}
 }

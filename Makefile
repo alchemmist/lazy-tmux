@@ -127,3 +127,7 @@ gifs:
 
 clean:
 	rm -rf bin dist coverage.out cover.html cover.out .cache docker/local-bin/$(BINARY) docs/tapes/$(BINARY)
+
+.PHONY: real-agent-test
+real-agent-test: build
+	ENABLE_INTEGRATION_TESTS=true ENABLE_REAL_AGENT_TESTS=true gotestsum --format testname -- ./internal/tmux -run '^TestRealAgentLifecycle$$' -count=1

@@ -2,7 +2,11 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -100,7 +104,7 @@ func TestCLIPerCommandHelp(t *testing.T) {
 
 	for _, cmd := range []string{
 		"save", "restore", "picker", "bootstrap", "daemon",
-		"list", "setup", "wakeup", "sleep", "forget", "codex-session", "codex-fork",
+		"list", "setup", "wakeup", "sleep", "forget", "antex-session", "antex-fork",
 	} {
 		code, out, _ := run(t, "help", cmd)
 		if code != 0 {
@@ -149,12 +153,47 @@ func TestCLIPickerStartNextRequiresSessionsOnly(t *testing.T) {
 	}
 }
 
-func TestCLICodexForkCreatesNamedWindowForFocusedSession(t *testing.T) {
+func TestCLIAntexForkRejectsBackgroundBinding(t *testing.T) {
+	process := exec.CommandContext(context.Background(), "sleep", "60")
+	process.Args[0] = "antex"
+	if err := process.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = process.Process.Kill(); _ = process.Wait() })
+	probe := exec.CommandContext(
+		context.Background(),
+		"ps",
+		"-p",
+		strconv.Itoa(process.Process.Pid),
+		"-o",
+		"lstart=",
+	)
+	probe.Env = append(os.Environ(), "LC_ALL=C")
+	started, err := probe.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	binding, err := json.Marshal(map[string]any{
+		"version":            1,
+		"thread_id":          "019fc30a-6732-7c63-9732-c76949907c98",
+		"pid":                process.Process.Pid,
+		"process_started_at": strings.Join(strings.Fields(string(started)), " "),
+		"pane_id":            "%7",
+		"socket_path":        "/tmp/test-socket",
+		"home":               "/tmp/antex",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(
+		"LAZY_TMUX_TEST_PANE",
+		fmt.Sprintf("antex|/work tree|%d|%%7|/tmp/test-socket||%s", os.Getpid(), binding),
+	)
 	tmuxBin := filepath.Join(t.TempDir(), "tmux")
 	logPath := filepath.Join(t.TempDir(), "tmux-args")
 	script := `#!/bin/sh
 if [ "$1" = "display-message" ]; then
-  printf '%s\n' 'codex|/work tree|019fc30a-6732-7c63-9732-c76949907c98'
+  printf '%s\n' "$LAZY_TMUX_TEST_PANE"
   exit 0
 fi
 printf '%s\n' "$@" > "$LAZY_TMUX_TEST_LOG"
@@ -166,33 +205,19 @@ printf '%s\n' "$@" > "$LAZY_TMUX_TEST_LOG"
 
 	code, _, errOut := run(
 		t,
-		"codex-fork",
+		"antex-fork",
 		"--pane",
 		"%7",
 		"--tmux-bin",
 		tmuxBin,
-		"--codex-bin",
-		"/custom/codex",
+		"--antex-bin",
+		"/custom/antex",
 	)
-	if code != 0 {
-		t.Fatalf("expected exit 0, got %d: %s", code, errOut)
+	if code != 1 || !strings.Contains(errOut, "antex session not found") {
+		t.Fatalf("expected stale binding refusal, got %d: %s", code, errOut)
 	}
-
-	args, err := os.ReadFile(logPath)
-	if err != nil {
-		t.Fatalf("read tmux args: %v", err)
-	}
-	want := strings.Join([]string{
-		"new-window",
-		"-n",
-		"fork-019fc30a",
-		"-c",
-		"/work tree",
-		"'/custom/codex' fork '019fc30a-6732-7c63-9732-c76949907c98'",
-		"",
-	}, "\n")
-	if string(args) != want {
-		t.Fatalf("tmux args:\n got %q\nwant %q", string(args), want)
+	if _, err := os.Stat(logPath); !os.IsNotExist(err) {
+		t.Fatalf("must not open a fork window for an unowned binding: %v", err)
 	}
 }
 

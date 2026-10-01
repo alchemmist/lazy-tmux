@@ -92,6 +92,10 @@ func statusGlyph(status WindowStatus) string {
 		return glyphAwaitingInput
 	case StatusIdle:
 		return glyphIdle
+	case StatusNeedsSetup:
+		return "?"
+	case StatusRestorePending:
+		return "↻"
 	case StatusError:
 		return glyphError
 	default:
@@ -109,6 +113,8 @@ func (t pickerTheme) statusStyle(status WindowStatus) lipgloss.Style {
 		return t.statusAwaitingInput
 	case StatusIdle:
 		return t.statusIdle
+	case StatusNeedsSetup, StatusRestorePending:
+		return t.statusAwaitingDecision
 	case StatusError:
 		return t.statusError
 	default:
