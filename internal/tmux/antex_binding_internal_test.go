@@ -30,6 +30,9 @@ func TestAntexBindingOwnership(t *testing.T) {
 		valid  bool
 	}{
 		{"live owner", func(*antexBinding) {}, []string{"10 1 Ss zsh", "20 10 S+ antex resume old"}, true},
+		{"adopted worktree", func(b *antexBinding) { b.CWD = "/worktrees/task with spaces" }, []string{"10 1 Ss zsh", "20 10 S+ antex"}, true},
+		{"relative worktree", func(b *antexBinding) { b.CWD = "worktree" }, []string{"10 1 Ss zsh", "20 10 S+ antex"}, false},
+		{"invalid worktree", func(b *antexBinding) { b.CWD = "/worktree\nother" }, []string{"10 1 Ss zsh", "20 10 S+ antex"}, false},
 		{"exec replaces shell", func(b *antexBinding) { b.PID = 10 }, []string{"10 1 S+ antex"}, true},
 		{"other pane", func(b *antexBinding) { b.PaneID = "%20" }, []string{"10 1 Ss zsh", "20 10 S+ antex"}, false},
 		{
@@ -77,6 +80,9 @@ func TestAntexBindingOwnership(t *testing.T) {
 				"antex.session_id_source":      "binding-v1",
 				"antex.home":                   base.Home,
 				"antex.resume_argv":            `["antex","resume","` + id + `"]`,
+			}
+			if b.CWD != "" {
+				want["antex.cwd"] = b.CWD
 			}
 			if !reflect.DeepEqual(got, want) {
 				t.Fatalf("got %v; want %v", got, want)

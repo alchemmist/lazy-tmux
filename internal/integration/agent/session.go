@@ -60,12 +60,16 @@ func Session(pane snapshot.Pane, kind string) (snapshot.AgentSession, bool) {
 	if json.Unmarshal([]byte(pane.Meta["antex.resume_argv"]), &argv) != nil {
 		return snapshot.AgentSession{}, false
 	}
+	cwd := pane.Meta["antex.cwd"]
+	if cwd == "" {
+		cwd = pane.CurrentPath
+	}
 	value := snapshot.AgentSession{
 		Version: 1,
 		Kind:    kind,
 		ID:      pane.Meta[snapshot.AntexSessionIDMetaKey],
 		Home:    pane.Meta["antex.home"],
-		CWD:     pane.CurrentPath,
+		CWD:     cwd,
 		Argv:    argv,
 		Source:  BindingSource,
 		Status:  "",

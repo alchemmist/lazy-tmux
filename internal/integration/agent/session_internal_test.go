@@ -1,11 +1,48 @@
 package agent
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
+
+func TestAntexBindingWorktreeRestore(t *testing.T) {
+	t.Parallel()
+	for _, cwd := range []string{"", "/worktrees/task with spaces"} {
+		t.Run(cwd, func(t *testing.T) {
+			t.Parallel()
+			pane := snapshot.Pane{
+				CurrentCmd:  "antex",
+				CurrentPath: "/original",
+				Meta: map[string]string{
+					"antex.session_id":        "thread-id",
+					"antex.session_id_source": BindingSource,
+					"antex.home":              "/home/.antex",
+					"antex.resume_argv":       `["antex","resume","thread-id"]`,
+					"antex.cwd":               cwd,
+				},
+			}
+			wantCWD := cwd
+			if wantCWD == "" {
+				wantCWD = pane.CurrentPath
+			}
+			got, err := Plan(pane, snapshot.AgentAntex)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := RestorePlan{
+				Argv: []string{"antex", "resume", "thread-id", "-c", `tui.resume_cwd="session"`},
+				Env:  []string{"ANTEX_HOME=/home/.antex"},
+				CWD:  wantCWD,
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("got %+v; want %+v", got, want)
+			}
+		})
+	}
+}
 
 func TestThreeAgentsNeverCrossRestoreIdentity(t *testing.T) {
 	t.Parallel()
