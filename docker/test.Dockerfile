@@ -2,10 +2,13 @@ FROM golang:1.27
 
 ENV PATH=/usr/local/go/bin:/go/bin:$PATH
 ENV ENABLE_INTEGRATION_TESTS=true
+ENV ENABLE_REAL_PI_TESTS=true
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends tmux fzf jq && \
+    apt-get install -y --no-install-recommends tmux fzf jq nodejs npm lsof && \
     rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g @mariozechner/pi-coding-agent@0.73.1
 
 RUN useradd -m -s /bin/bash appuser && \
     mkdir -p /workspace && \

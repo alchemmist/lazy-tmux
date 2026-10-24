@@ -15,6 +15,7 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/integration/antex"
 	"github.com/alchemmist/lazy-tmux/internal/integration/claude"
 	"github.com/alchemmist/lazy-tmux/internal/integration/codex"
+	"github.com/alchemmist/lazy-tmux/internal/integration/pi"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 	"github.com/alchemmist/lazy-tmux/internal/store"
 	"github.com/alchemmist/lazy-tmux/internal/tmux"
@@ -133,6 +134,11 @@ func buildRegistry(cfg config.IntegrationsConfig, statusDir string) *integration
 
 	var items []integration.Integration
 
+	if cfg.Pi.Enabled {
+		items = append(items, pi.New(
+			config.ExpandHome(cfg.Pi.Home), config.ExpandHome(cfg.Pi.SessionDir),
+		))
+	}
 	if cfg.Codex.Enabled {
 		items = append(items, codex.New(config.ExpandHome(cfg.Codex.Home)))
 	}

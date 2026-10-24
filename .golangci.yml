@@ -35,6 +35,12 @@ linters:
           - gosec
           - funlen
           - cyclop
+      - path: internal/tmux/pi_integration_test\.go
+        linters:
+          - paralleltest
+      - path: internal/tmux/antex_binding_internal_test\.go
+        linters:
+          - lll
 
   settings:
     # Allow all imports unless explicitly denied: the linter is enabled so real

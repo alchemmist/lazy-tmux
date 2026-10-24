@@ -32,6 +32,8 @@ type Pane struct {
 	RestoreCmd  string         `json:"restore_cmd,omitempty"`
 	Scrollback  *ScrollbackRef `json:"scrollback,omitempty"`
 	IsActive    bool           `json:"is_active"`
+	ProcessPID  int            `json:"-"`
+	ProcessArgv []string       `json:"-"`
 
 	Meta  map[string]string `json:"meta,omitempty"`
 	Agent *AgentSession     `json:"agent,omitempty"`
@@ -43,6 +45,7 @@ const (
 	AgentCodex  AgentKind = "codex"
 	AgentAntex  AgentKind = "antex"
 	AgentClaude AgentKind = "claude"
+	AgentPi     AgentKind = "pi"
 )
 
 type AgentSession struct {

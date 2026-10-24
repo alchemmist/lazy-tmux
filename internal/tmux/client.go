@@ -456,6 +456,7 @@ func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, err
 	}, nil
 }
 
+//nolint:funlen
 func parseCapturedPanes(output string, processes processSnapshot) []snapshot.Window {
 	byIndex := make(map[int]*snapshot.Window)
 	for _, line := range splitLines(output) {
@@ -490,6 +491,8 @@ func parseCapturedPanes(output string, processes processSnapshot) []snapshot.Win
 			Agent:       nil,
 			IsActive:    parts[5] == "1",
 			Meta:        nil,
+			ProcessPID:  panePID,
+			ProcessArgv: nil,
 		}
 		pane = attachAgentBindings(
 			pane,
@@ -500,6 +503,12 @@ func parseCapturedPanes(output string, processes processSnapshot) []snapshot.Win
 			parts[11],
 			processes,
 		)
+		if pane.CurrentCmd == "pi" || pane.CurrentCmd == "node" {
+			argv, argvErr := processArgv(panePID)
+			if argvErr == nil {
+				pane.ProcessArgv = argv
+			}
+		}
 		pane = preserveRestoreIntent(pane, parts[12], parts[13])
 		if pane.IsActive {
 			window.ActivePane = pane.Index
@@ -707,7 +716,7 @@ func (client *Client) CapturePaneScrollback(target string, lines int) (string, e
 	)
 }
 
-func (client *Client) CapturePane(target string) (snapshot.Pane, error) {
+func (client *Client) CapturePane(target string) (snapshot.Pane, error) { //nolint:funlen
 	args := []string{
 		"display-message",
 		"-p",
@@ -749,11 +758,25 @@ func (client *Client) CapturePane(target string) (snapshot.Pane, error) {
 		Index:       0,
 		CurrentPath: parts[1],
 		CurrentCmd:  parts[0],
-		RestoreCmd:  "",
+		RestoreCmd:  strings.TrimSpace(processes.foregroundCommand(panePID)),
 		Scrollback:  nil,
 		Agent:       nil,
 		IsActive:    true,
 		Meta:        nil,
+		ProcessArgv: nil,
+		ProcessPID: func() int {
+			if parts[0] == "pi" || parts[0] == "node" {
+				return panePID
+			}
+
+			return 0
+		}(),
+	}
+	if pane.ProcessPID > 0 {
+		argv, argvErr := processArgv(panePID)
+		if argvErr == nil {
+			pane.ProcessArgv = argv
+		}
 	}
 	pane = attachAgentBindings(pane, parts[5], parts[6], panePID, parts[3], parts[4], processes)
 

@@ -14,6 +14,7 @@ import (
 
 	"github.com/alchemmist/lazy-tmux/internal/config"
 	"github.com/alchemmist/lazy-tmux/internal/integration/agent"
+	"github.com/alchemmist/lazy-tmux/internal/integration/pi"
 	"github.com/alchemmist/lazy-tmux/internal/integration/setup"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 	"github.com/alchemmist/lazy-tmux/internal/store"
@@ -26,10 +27,14 @@ var (
 	errIntegrationSubcommand = errors.New("unknown integrations subcommand")
 	errIntegrationKind       = errors.New("specify codex or claude")
 	errRepairTarget          = errors.New("specify session, window and pane")
+	errPiNative              = errors.New("pi integration is native; no hooks need to be installed")
+	errPiRepairFile          = errors.New("pi repair requires --file")
 )
 
 func agentHome(cfg config.Config, kind string) string {
 	switch kind {
+	case snapshot.AgentPi:
+		return config.ExpandHome(cfg.Integrations.Pi.Home)
 	case snapshot.AgentCodex:
 		return config.ExpandHome(cfg.Integrations.Codex.Home)
 	case snapshot.AgentAntex:
@@ -44,6 +49,7 @@ func agentHome(cfg config.Config, kind string) string {
 func integrationsHelp(w io.Writer) {
 	_, _ = fmt.Fprint(w, `Usage: lazy-tmux integrations <setup|doctor|repair>
   setup <codex|claude> [--uninstall]  install owned lifecycle hooks; client trust remains explicit
+  Pi uses its JSONL session files and does not require hooks
   doctor                           report installed hooks and live pane verification
   repair --session NAME --window N --pane N --agent NAME --sessionID ID [--home PATH] [--apply]
                                    preview a saved pane repair; --apply saves it with a backup
@@ -85,6 +91,9 @@ func setupIntegration(args []string, cfg config.Config, stdout io.Writer) error 
 		return errIntegrationKind
 	}
 	kind := args[0]
+	if kind == snapshot.AgentPi {
+		return errPiNative
+	}
 	flags := flag.NewFlagSet("setup", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	uninstall := flags.Bool("uninstall", false, "remove owned hooks")
@@ -119,10 +128,10 @@ func doctorIntegrations(cfg config.Config, stdout io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("resolve executable: %w", err)
 	}
-	for _, kind := range []string{snapshot.AgentCodex, snapshot.AgentAntex, snapshot.AgentClaude} {
+	for _, kind := range []string{snapshot.AgentCodex, snapshot.AgentAntex, snapshot.AgentClaude, snapshot.AgentPi} {
 		executable, lookErr := exec.LookPath(kind)
 		installed := false
-		if kind != snapshot.AgentAntex {
+		if kind != snapshot.AgentAntex && kind != snapshot.AgentPi {
 			installed, err = setup.Check(kind, agentHome(cfg, kind), binary)
 			if err != nil {
 				return fmt.Errorf("inspect %s: %w", kind, err)
@@ -131,7 +140,7 @@ func doctorIntegrations(cfg config.Config, stdout io.Writer) error {
 		_, _ = fmt.Fprintf(
 			stdout,
 			"%s: executable=%q available=%t hooks_installed=%t version=%q; "+
-				"live binding required; compatibility/trust not certified\n",
+				"session metadata verification is required; compatibility/trust not certified\n",
 			kind,
 			executable,
 			lookErr == nil,
@@ -153,7 +162,15 @@ func doctorIntegrations(cfg config.Config, stdout io.Writer) error {
 		if kind == "" {
 			continue
 		}
-		value, verified := agent.Session(pane, kind)
+		var value snapshot.AgentSession
+		var verified bool
+		if kind == snapshot.AgentPi {
+			value, verified = pi.New(
+				agentHome(cfg, kind), cfg.Integrations.Pi.SessionDir,
+			).SessionID(pane)
+		} else {
+			value, verified = agent.Session(pane, kind)
+		}
 		_, _ = fmt.Fprintf(
 			stdout,
 			"%s %s: verified=%t session=%q\n",
@@ -170,7 +187,7 @@ func doctorIntegrations(cfg config.Config, stdout io.Writer) error {
 func agentSessionHelp(w io.Writer) {
 	_, _ = fmt.Fprintln(
 		w,
-		"Usage: lazy-tmux agent-session --agent <codex|antex|claude> [--pane TARGET]",
+		"Usage: lazy-tmux agent-session --agent <codex|antex|claude|pi> [--pane TARGET]",
 	)
 }
 
@@ -200,7 +217,13 @@ func runAgentSession(args []string, stdout, stderr io.Writer) int {
 
 		return 1
 	}
-	value, valid := agent.Session(live, *kind)
+	var value snapshot.AgentSession
+	var valid bool
+	if *kind == snapshot.AgentPi {
+		value, valid = pi.New(agentHome(cfg, *kind), cfg.Integrations.Pi.SessionDir).SessionID(live)
+	} else {
+		value, valid = agent.Session(live, *kind)
+	}
 	if !valid {
 		writeErr(stderr, agent.ErrUnverified)
 
@@ -248,6 +271,7 @@ func runAgentHook(args []string, stdin io.Reader, stderr io.Writer) int {
 	return 0
 }
 
+//nolint:cyclop,funlen
 func repairIntegration(args []string, cfg config.Config, stdout io.Writer) error {
 	flags := flag.NewFlagSet("repair", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
@@ -256,6 +280,7 @@ func repairIntegration(args []string, cfg config.Config, stdout io.Writer) error
 	pane := flags.Int("pane", -1, "pane")
 	kind := flags.String("agent", "", "agent")
 	sessionID := flags.String("id", "", "id")
+	sessionFile := flags.String("file", "", "Pi session file")
 	home := flags.String("home", "", "home")
 	apply := flags.Bool("apply", false, "apply")
 	parseErr := flags.Parse(args)
@@ -287,13 +312,20 @@ func repairIntegration(args []string, cfg config.Config, stdout io.Writer) error
 	if *kind == snapshot.AgentClaude {
 		subcommand = "--resume"
 	}
+	argv := []string{*kind, subcommand, *sessionID}
+	if *kind == snapshot.AgentPi {
+		if *sessionFile == "" {
+			return errPiRepairFile
+		}
+		argv = []string{"pi", "--session", *sessionID, *sessionFile}
+	}
 	value := snapshot.AgentSession{
 		Version: 1,
 		Kind:    *kind,
 		ID:      *sessionID,
 		Home:    *home,
 		CWD:     cwd,
-		Argv:    []string{*kind, subcommand, *sessionID},
+		Argv:    argv,
 		Source:  agent.ManualSource,
 		Status:  "",
 	}
@@ -321,6 +353,8 @@ func probeClientVersion(kind string) string {
 		command = exec.CommandContext(ctx, "antex", "--version")
 	case snapshot.AgentClaude:
 		command = exec.CommandContext(ctx, "claude", "--version")
+	case snapshot.AgentPi:
+		command = exec.CommandContext(ctx, "pi", "--version")
 	default:
 		return "unknown"
 	}

@@ -31,7 +31,7 @@ type antexBinding struct {
 	ResumeArgv       []string `json:"resume_argv"`
 }
 
-func validatedAntexMeta(
+func validatedAntexMeta( //nolint:cyclop
 	raw string,
 	panePID int,
 	paneID, socketPath string,
@@ -44,7 +44,8 @@ func validatedAntexMeta(
 		binding.PID <= 0 || binding.ProcessStartedAt == "" || !filepath.IsAbs(binding.Home) {
 		return nil
 	}
-	if binding.CWD != "" && (!filepath.IsAbs(binding.CWD) || strings.IndexFunc(binding.CWD, unicode.IsControl) >= 0) {
+	if binding.CWD != "" &&
+		(!filepath.IsAbs(binding.CWD) || strings.IndexFunc(binding.CWD, unicode.IsControl) >= 0) {
 		return nil
 	}
 	owner, exists := processes.processes[binding.PID]

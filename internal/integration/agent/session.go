@@ -86,7 +86,9 @@ func Valid(value snapshot.AgentSession) error {
 	if !absolutePath(value.Home) || (value.CWD != "" && !absolutePath(value.CWD)) {
 		return ErrUnverified
 	}
-	if !slices.Contains([]string{BindingSource, HookSource, ManualSource}, value.Source) {
+	if !slices.Contains(
+		[]string{BindingSource, HookSource, ManualSource, "pi-jsonl-v1"}, value.Source,
+	) {
 		return ErrUnverified
 	}
 	if !validArgv(value) {
@@ -108,13 +110,15 @@ func absolutePath(value string) bool {
 }
 
 func validArgv(value snapshot.AgentSession) bool {
-	if len(value.Argv) < 3 || filepath.Base(value.Argv[0]) != value.Kind ||
-		value.Argv[2] != value.ID {
+	if len(value.Argv) < 3 || filepath.Base(value.Argv[0]) != value.Kind {
 		return false
 	}
 	subcommand := "resume"
-	if value.Kind == snapshot.AgentClaude {
+	switch value.Kind {
+	case snapshot.AgentClaude:
 		subcommand = claudeResume
+	case snapshot.AgentPi:
+		subcommand = "--session"
 	}
 	if value.Argv[1] != subcommand {
 		return false
@@ -123,6 +127,12 @@ func validArgv(value snapshot.AgentSession) bool {
 		if strings.IndexFunc(arg, unicode.IsControl) >= 0 {
 			return false
 		}
+	}
+	if value.Kind == snapshot.AgentPi {
+		return value.Argv[2] == value.ID && len(value.Argv) >= 4 && absolutePath(value.Argv[3])
+	}
+	if value.Argv[2] != value.ID {
+		return false
 	}
 
 	return true
@@ -150,6 +160,7 @@ func Plan(pane snapshot.Pane, kind string) (RestorePlan, error) {
 		snapshot.AgentAntex:  "ANTEX_HOME",
 		snapshot.AgentCodex:  "CODEX_HOME",
 		snapshot.AgentClaude: "CLAUDE_CONFIG_DIR",
+		snapshot.AgentPi:     "PI_CODING_AGENT_DIR",
 	}[kind]
 
 	return RestorePlan{Argv: argv, Env: []string{env + "=" + value.Home}, CWD: value.CWD}, nil

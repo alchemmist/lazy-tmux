@@ -256,7 +256,7 @@ func (a *App) NewSession(name string) error {
 	return nil
 }
 
-func (a *App) NewWindow(session, name string) error {
+func (a *App) NewWindow(session, name string) error { //nolint:funlen
 	if strings.TrimSpace(session) == "" {
 		return errSessionNameEmpty
 	}
@@ -306,6 +306,8 @@ func (a *App) NewWindow(session, name string) error {
 				Scrollback:  nil,
 				Agent:       nil,
 				Meta:        nil,
+				ProcessPID:  0,
+				ProcessArgv: nil,
 			},
 		},
 	})

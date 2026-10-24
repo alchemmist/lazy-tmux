@@ -55,7 +55,7 @@ func GenerateConfig(path string, force bool) (string, error) {
 	return path, nil
 }
 
-func (c Config) Render() string {
+func (c Config) Render() string { //nolint:funlen
 	var buf strings.Builder
 
 	fmt.Fprintf(&buf, "tmux_bin        = %s\n", strconv.Quote(c.TmuxBin))
@@ -106,6 +106,12 @@ func (c Config) Render() string {
 		c.Integrations.Codex.Enabled,
 		strconv.Quote(c.Integrations.Codex.Home),
 	)
+	buf.WriteString("\n[integrations.pi]\n")
+	fmt.Fprintf(&buf, "enabled = %t\n", c.Integrations.Pi.Enabled)
+	fmt.Fprintf(&buf, "home    = %s\n", strconv.Quote(c.Integrations.Pi.Home))
+	if c.Integrations.Pi.SessionDir != "" {
+		fmt.Fprintf(&buf, "session_dir = %s\n", strconv.Quote(c.Integrations.Pi.SessionDir))
+	}
 	buf.WriteString("\n[integrations.claude]\n")
 	fmt.Fprintf(&buf, "enabled = %t\n", c.Integrations.Claude.Enabled)
 	fmt.Fprintf(&buf, "home    = %s\n", strconv.Quote(c.Integrations.Claude.Home))

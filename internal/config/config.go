@@ -49,6 +49,7 @@ type ScrollbackConfig struct {
 type IntegrationsConfig struct {
 	Enabled bool
 	Codex   AgentIntegrationConfig
+	Pi      AgentIntegrationConfig
 	Claude  ClaudeIntegrationConfig
 	Antex   AntexIntegrationConfig
 }
@@ -61,8 +62,9 @@ type ClaudeIntegrationConfig struct {
 type AntexIntegrationConfig = AgentIntegrationConfig
 
 type AgentIntegrationConfig struct {
-	Enabled bool
-	Home    string
+	Enabled    bool
+	Home       string
+	SessionDir string
 }
 
 type SessionPickerConfig struct {
@@ -95,14 +97,16 @@ func Default() Config {
 		},
 		Integrations: IntegrationsConfig{
 			Enabled: true,
-			Codex:   AgentIntegrationConfig{Enabled: true, Home: "~/.codex"},
+			Codex:   AgentIntegrationConfig{Enabled: true, Home: "~/.codex", SessionDir: ""},
+			Pi:      AgentIntegrationConfig{Enabled: true, Home: "~/.pi/agent", SessionDir: ""},
 			Claude: ClaudeIntegrationConfig{
 				Enabled: true,
 				Home:    defaultClaudeHome,
 			},
 			Antex: AntexIntegrationConfig{
-				Enabled: true,
-				Home:    defaultAntexHome,
+				Enabled:    true,
+				Home:       defaultAntexHome,
+				SessionDir: "",
 			},
 		},
 		SessionPicker: SessionPickerConfig{
@@ -152,7 +156,7 @@ func LoadFrom(path string) (Config, error) {
 
 	var file fileConfig
 
-	meta, err := toml.Decode(string(data), &file)
+	meta, err := toml.Decode(string(data), &file) //nolint:musttag
 	if err != nil {
 		return cfg, fmt.Errorf("parse config %s: %w", path, err)
 	}
@@ -249,8 +253,9 @@ type fileScrollbackConf struct {
 }
 
 type fileIntegrationsConf struct {
-	Enabled *bool                  `toml:"enabled"`
-	Codex   *fileAgentIntegration  `toml:"codex"`
+	Enabled *bool `toml:"enabled"`
+	Codex   *fileAgentIntegration
+	Pi      *fileAgentIntegration  `toml:"pi"`
 	Claude  *fileClaudeIntegration `toml:"claude"`
 	Antex   *fileAntexIntegration  `toml:"antex"`
 }
@@ -263,8 +268,9 @@ type fileClaudeIntegration struct {
 type fileAntexIntegration = fileAgentIntegration
 
 type fileAgentIntegration struct {
-	Enabled *bool   `toml:"enabled"`
-	Home    *string `toml:"home"`
+	Enabled    *bool   `toml:"enabled"`
+	Home       *string `toml:"home"`
+	SessionDir *string `toml:"session_dir"`
 }
 
 func (cfg Config) withFile(file fileConfig) Config {
@@ -400,6 +406,18 @@ func (ic IntegrationsConfig) withFile(file fileIntegrationsConf) IntegrationsCon
 			ic.Codex.Home = ExpandHome(*file.Codex.Home)
 		}
 	}
+	if file.Pi != nil {
+		if file.Pi.Enabled != nil {
+			ic.Pi.Enabled = *file.Pi.Enabled
+		}
+		if file.Pi.Home != nil {
+			ic.Pi.Home = ExpandHome(*file.Pi.Home)
+		}
+		if file.Pi.SessionDir != nil {
+			ic.Pi.SessionDir = ExpandHome(*file.Pi.SessionDir)
+		}
+	}
+
 	if file.Claude != nil {
 		if file.Claude.Enabled != nil {
 			ic.Claude.Enabled = *file.Claude.Enabled

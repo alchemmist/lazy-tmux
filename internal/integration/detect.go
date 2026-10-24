@@ -15,7 +15,7 @@ func CommandAgent(command string) string {
 	}
 	name := filepath.Base(fields[0])
 	if slices.Contains(
-		[]string{snapshot.AgentCodex, snapshot.AgentAntex, snapshot.AgentClaude},
+		[]string{snapshot.AgentCodex, snapshot.AgentAntex, snapshot.AgentClaude, snapshot.AgentPi},
 		name,
 	) {
 		return name
@@ -28,6 +28,9 @@ func CommandAgent(command string) string {
 		}
 		if strings.Contains(path, "/@openai/codex/") && filepath.Base(path) == "codex.js" {
 			return snapshot.AgentCodex
+		}
+		if strings.Contains(path, "/pi-coding-agent/") && filepath.Base(path) == "cli.js" {
+			return snapshot.AgentPi
 		}
 	}
 

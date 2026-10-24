@@ -56,7 +56,7 @@ For configuration, CLI reference, and usage, see the docs at
 
 ## Agent integrations
 
-Codex, Antex, and Claude Code are independent clients. Their commands, configuration homes, conversation IDs and statuses never migrate to another client automatically. Each has its own `enabled` and `home` settings under `[integrations.codex]`, `[integrations.antex]` and `[integrations.claude]`.
+Codex, Antex, Claude Code, and Pi are independent clients. Their commands, configuration homes, conversation IDs and statuses never migrate to another client automatically. Each has its own `enabled` and `home` settings under `[integrations.codex]`, `[integrations.antex]`, `[integrations.claude]`, and `[integrations.pi]`.
 
 Antex publishes a native binding (Antex 0.1.8+; 0.1.9+ also publishes startup receipts). Existing verified Antex snapshots work without reconfiguration.
 
@@ -72,6 +72,8 @@ lazy-tmux agent-session --agent codex --pane %1
 Codex uses `<home>/hooks.json`; Claude uses `<home>/settings.json`. The installer preserves other hooks and settings, keeps a `.lazy-tmux.bak` backup, and supports `--uninstall`. `claude-hooks` remains a compatibility command for the new setup. Review and trust installed hooks inside the client: installation does not bypass client trust or administrator policies. Older `hook claude-status` files are not used for identity or status.
 
 Hooks must execute as descendants of the local client that owns the tmux pane. A daemon, remote app-server, nested agent, suspended process or reused PID cannot claim a panel without ownership proof. Unsupported launch flags are rejected rather than discarded. Supported profile/model and other known launch options retain argument boundaries, including paths with spaces. Initial prompts and images are not replayed. Current runtime settings should be persisted by the client; launch options describe the original invocation.
+
+Pi is identified from its public session JSONL header, never from terminal output. Snapshots store the Pi session ID, file, working directory, and model, and restore with `pi --session <file>`. `--no-session`, ambiguous panes, missing files, and non-session print/RPC invocations remain unbound and are marked for manual review. Set `PI_CODING_AGENT_DIR` and `PI_CODING_AGENT_SESSION_DIR` when using non-default Pi locations.
 
 The picker displays `?` when an agent has no verified identity and `↻` when restoration is pending. Run `integrations doctor` for setup and per-pane details. A missing live status stays unknown. Hook status updates for another conversation do not modify the current panel.
 

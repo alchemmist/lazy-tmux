@@ -179,7 +179,7 @@ Commands:
   antex-fork     Fork the Antex session running in a tmux pane
   claude-hooks   Install or remove Claude Code lifecycle hooks
   integrations   Set up, diagnose, or repair agent integrations
-  agent-session  Print a verified session ID for codex, antex, or claude
+  agent-session  Print a verified session ID for codex, antex, claude, or pi
   hook       Internal hook entrypoints (used by Claude Code)
   version    Print the version
 

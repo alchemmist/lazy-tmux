@@ -54,7 +54,7 @@ func (client *Client) stageAgentRestore(
 		return "", err
 	}
 
-	return "env LAZY_TMUX_RESTORE_TOKEN=" + intent.Token + " " + command, nil
+	return "LAZY_TMUX_RESTORE_TOKEN=" + intent.Token + " " + command, nil
 }
 
 func decodeRestoreIntent(encoded string) (pendingRestore, bool) {
