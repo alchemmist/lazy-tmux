@@ -44,6 +44,7 @@ func captureAgentStatus(
 	started func(int) string,
 ) []snapshot.Pane {
 	var panes []snapshot.Pane
+	seen := make(map[string]bool)
 	for _, line := range splitLines(output) {
 		fields := splitFieldsN(line, agentStatusFields)
 		if len(fields) != agentStatusFields {
@@ -74,7 +75,9 @@ func captureAgentStatus(
 			Agent:        nil,
 		}
 		pane = liveAgentPane(pane, fields[3], fields[4], fields[5], fields[6], processes, started)
-		if pane.Agent != nil {
+		key := fields[4] + "/" + fields[3]
+		if pane.Agent != nil && !seen[key] {
+			seen[key] = true
 			panes = append(panes, pane)
 		}
 	}
@@ -87,7 +90,8 @@ func liveAgentPane(pane snapshot.Pane, paneID, socket, raw, legacy string,
 ) snapshot.Pane {
 	if raw != "" {
 		pane.Agent = verifiedAgentBinding(raw, pane.ProcessPID, paneID, socket, processes, started)
-	} else {
+	}
+	if pane.Agent == nil && legacyFallbackAllowed(raw, processes, started) {
 		var binding antexBinding
 		if json.Unmarshal([]byte(legacy), &binding) != nil ||
 			!processes.ownsAgentPane(binding.PID, pane.ProcessPID) {
@@ -102,6 +106,21 @@ func liveAgentPane(pane snapshot.Pane, paneID, socket, raw, legacy string,
 	}
 
 	return pane
+}
+
+// A dead prior client must not shadow a new legacy owner. A still-live typed
+// owner (including a closed same-generation record) remains authoritative.
+func legacyFallbackAllowed(raw string, processes processSnapshot, started func(int) string) bool {
+	if raw == "" {
+		return true
+	}
+	var binding LiveBinding
+	if json.Unmarshal([]byte(raw), &binding) != nil || binding.PID <= 0 || binding.StartedAt == "" {
+		return false
+	}
+	_, exists := processes.processes[binding.PID]
+
+	return !exists || started(binding.PID) != binding.StartedAt
 }
 
 // Capture ancestry, foreground state and PID birth identity in the same ps read.

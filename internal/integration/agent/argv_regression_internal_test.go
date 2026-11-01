@@ -295,3 +295,26 @@ func assertResumeArgv(t *testing.T, kind string, launch, want []string) {
 		t.Fatalf("launch mutated: got %q, want %q", launch, before)
 	}
 }
+
+func TestResumeRecognizedNodeClaudeLaunch(t *testing.T) {
+	t.Parallel()
+	argv, err := ResumeArgv(
+		"claude",
+		"session",
+		"/workspace",
+		[]string{
+			"/usr/bin/node",
+			"/usr/lib/node_modules/@anthropic-ai/claude-code/cli.js",
+			"--disallowedTools",
+			"Bash",
+			"Write",
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"claude", "--resume", "session", "--disallowedTools", "Bash", "Write"}
+	if !reflect.DeepEqual(argv, want) {
+		t.Fatalf("got %q want %q", argv, want)
+	}
+}

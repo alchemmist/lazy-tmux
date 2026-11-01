@@ -1,4 +1,5 @@
 // Managed by lazy-tmux: pi-extension-v1
+import { realpathSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
@@ -41,6 +42,29 @@ export default function (pi: ExtensionAPI) {
     tmux(["if-shell", "-F", "-t", pane,
       "#{==:#{@lazy_tmux_pi_binding}," + literal(previous) + "}", commands]);
   };
+  const sameDirectory = (left: string, right: string) => {
+    if (!left || !right) return false;
+    if (left === right) return true;
+    try { return realpathSync(left) === realpathSync(right); } catch { return false; }
+  };
+  const restoreAck = (file: string | undefined, ctx: ExtensionContext) => {
+    const token = process.env.LAZY_TMUX_RESTORE_TOKEN;
+    if (!token || !file) return undefined;
+    try {
+      const encoded = tmux(["show-option", "-p", "-v", "-t", process.env.TMUX_PANE!, "@lazy_tmux_restore_pending"]).trim();
+      const intent = JSON.parse(Buffer.from(encoded, "base64").toString("utf8"));
+      const pane = intent.pane;
+      const meta = pane.meta ?? {};
+      const id = ctx.sessionManager.getSessionId();
+      if (intent.token !== token || (!meta["pi.session_id"] && !pane.agent?.id)) return undefined;
+      if ((meta["pi.session_id"] && meta["pi.session_id"] !== id) ||
+          (meta["pi.session_file"] && meta["pi.session_file"] !== file) ||
+          !sameDirectory(pane.current_path, ctx.cwd)) return undefined;
+      if (pane.agent && (pane.agent.kind !== "pi" || pane.agent.id !== id ||
+          pane.agent.argv?.[3] !== file || !sameDirectory(pane.agent.cwd, ctx.cwd))) return undefined;
+      return token;
+    } catch { return undefined; }
+  };
   let published = false;
   let running = false;
   let compacting = false;
@@ -77,7 +101,7 @@ export default function (pi: ExtensionAPI) {
       }
       replaceBinding(previous, JSON.stringify({ version: 1, pid: process.pid, started_at: startedAt, file: file ?? "",
         session_id: file ? ctx.sessionManager.getSessionId() : "", state: file ? state() : "" }),
-        file ? process.env.LAZY_TMUX_RESTORE_TOKEN : undefined);
+        restoreAck(file, ctx));
       published = true;
     } catch { /* Never disrupt a conversation when tmux is unavailable. */ }
   };

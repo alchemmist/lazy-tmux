@@ -81,6 +81,22 @@ func TestRealPiRPCChildPreservesInteractiveBinding(t *testing.T) {
 		t.Fatalf("RPC child replaced parent binding:\nbefore %s\nafter %s", before, after)
 	}
 	waitForPiSnapshot(t, client, registry, "pi-parent", parentFile, "parent")
+	// Linked windows list the same pane more than once, not multiple clients.
+	testutil.Tmux(t, "new-session", "-d", "-s", "pi-linked", "sleep 30")
+	testutil.Tmux(t, "link-window", "-s", "pi-parent:0", "-t", "pi-linked:1")
+	live, err := client.CapturePiPanes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	count := 0
+	for _, pane := range live {
+		if pane.LiveStatusID == "parent" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("linked Pi pane counted as %d clients", count)
+	}
 	// Tampering with a live file's header must not silently replace saved ID.
 	writePiSession(t, parentFile, "replacement", cwd)
 	captured, err := client.CaptureSession("pi-parent")

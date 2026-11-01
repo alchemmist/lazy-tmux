@@ -168,3 +168,26 @@ extension with `/reload` when idle (new clients load it automatically). The olde
 identity-only extension remains compatible with restoration but reports no live
 activity; a verified conversation without activity data is not shown as needing
 identity setup.
+
+#### Agent integration safety and multi-pane status
+
+Window activity aggregates all panes, independent of pane order. Highest priority
+wins: restore pending, awaiting decision, error, needs setup, working, awaiting
+input, idle, then no status. Quick-picker activity still means that at least one
+verified live agent is working, even when its window displays a higher-priority
+attention state.
+
+Claude multi-value tool restrictions and additional directories are retained on
+restore; unsupported or ambiguous launch arguments fail closed instead of silently
+weakening the launch configuration. Recognized npm/Node Claude launches are
+normalized to the `claude` executable.
+
+Pi RPC/print clients never acquire or clear an interactive client's binding.
+Interactive binding changes are owner-checked and compare-and-set guarded. Initial
+restore acknowledgement requires the saved conversation ID, file, and working
+directory to agree; opening a different conversation leaves the restore pending.
+Arbitrary JSONL descriptors in descendant processes are no longer identity proof.
+Identity/status/restore checks read the session header only; capture still scans
+the history to recover model changes, so model extraction remains proportional to
+history size. Legacy identity-only bindings remain usable but cannot prove an ID
+they never published or supply live activity.

@@ -14,6 +14,7 @@ const (
 )
 
 func ResumeArgv(kind, sessionID, cwd string, launch []string) ([]string, error) {
+	launch = normalizedLaunch(kind, launch)
 	if (kind != snapshot.AgentClaude && kind != snapshot.AgentCodex && kind != snapshot.AgentAntex) ||
 		len(launch) == 0 ||
 		filepath.Base(launch[0]) != kind {
@@ -164,4 +165,12 @@ func transientOption(kind, flag string) (int, bool) {
 	default:
 		return 0, false
 	}
+}
+
+func normalizedLaunch(kind string, launch []string) []string {
+	if len(launch) > 1 && filepath.Base(launch[0]) == "node" && LaunchKind(launch) == kind {
+		return append([]string{kind}, launch[2:]...)
+	}
+
+	return launch
 }

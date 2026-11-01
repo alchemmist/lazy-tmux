@@ -46,7 +46,7 @@ function client(reset = true) {
   let file = '/tmp/session-a.jsonl';
   let id = 'session-a';
   const ctx = {
-    hasUI: true, mode: 'tui',
+    hasUI: true, mode: 'tui', cwd:'/tmp',
     isIdle: () => idle,
     sessionManager: { getSessionFile: () => file, getSessionId: () => id },
   };
@@ -140,3 +140,22 @@ assert.doesNotThrow(()=>client());
 assert.doesNotThrow(()=>c.emit('agent_start'));
 assert.doesNotThrow(()=>c.emit('session_shutdown'));
 console.log('Pi lifecycle status tests passed');
+
+// A startup acknowledgement must prove the saved restore identity, not merely
+// that some conversation opened. A successful restore may later switch files.
+unavailable=false;
+process.env.LAZY_TMUX_RESTORE_TOKEN='auditToken';
+for (const change of ['matching','id','file','cwd','token','agent','malformed']) {
+ c=client();
+ const intent={token:'auditToken',pane:{current_path:'/tmp',meta:{'pi.session_id':'session-a','pi.session_file':'/tmp/session-a.jsonl'}}};
+ if(change==='id') intent.pane.meta['pi.session_id']='different';
+ if(change==='file') intent.pane.meta['pi.session_file']='/tmp/other.jsonl';
+ if(change==='cwd') intent.pane.current_path='/missing/directory';
+ if(change==='token') intent.token='different';
+ if(change==='agent') intent.pane.agent={kind:'pi',id:'different',cwd:'/tmp',argv:['pi','--session','different','/tmp/session-a.jsonl']};
+ bindings.set('@lazy_tmux_restore_pending',change==='malformed'?'invalid':Buffer.from(JSON.stringify(intent)).toString('base64'));
+ c.emit('session_start');
+ assert.equal(bindings.get('@lazy_tmux_restore_ack'),change==='matching'?'auditToken':undefined,change);
+}
+delete process.env.LAZY_TMUX_RESTORE_TOKEN;
+console.log('Pi restore acknowledgement regressions passed');

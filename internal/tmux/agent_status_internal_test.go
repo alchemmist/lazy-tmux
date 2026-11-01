@@ -202,3 +202,54 @@ func TestAgentStatusProcessSnapshotIncludesBirthIdentity(t *testing.T) {
 		t.Fatalf("invalid process snapshot: %v %v", processes, starts)
 	}
 }
+
+func TestAgentStatusDeduplicatesLinkedPaneRows(t *testing.T) {
+	t.Parallel()
+	encoded, err := json.Marshal(statusBinding())
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := "10|claude|/workspace|%1|/tmp/test.sock|" + string(encoded) + "|||"
+	panes := captureAgentStatus(
+		row+"\n"+row,
+		newProcessSnapshot([]string{"10 1 Ss zsh", "20 10 S+ claude"}),
+		func(int) string { return "start" },
+	)
+	if len(panes) != 1 {
+		t.Fatalf("one linked pane became %d clients", len(panes))
+	}
+}
+
+func TestAgentStatusLegacyAfterExitedTypedOwner(t *testing.T) {
+	t.Parallel()
+	legacy := antexBinding{
+		Version:          1,
+		ThreadID:         "session",
+		PID:              40,
+		ProcessStartedAt: "start",
+		PaneID:           "%1",
+		SocketPath:       "/tmp/test.sock",
+		Home:             "/agents/antex",
+		CWD:              "/workspace",
+		ResumeArgv:       []string{"antex", "resume", "session"},
+	}
+	encoded, err := json.Marshal(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := statusBinding()
+	old.Closed = true
+	raw, err := json.Marshal(old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := "10|antex|/workspace|%1|/tmp/test.sock|" + string(raw) + "|" + string(encoded) + "||"
+	panes := captureAgentStatus(
+		row,
+		newProcessSnapshot([]string{"10 1 Ss zsh", "40 10 S+ antex"}),
+		func(int) string { return "start" },
+	)
+	if len(panes) != 1 || panes[0].Agent.Kind != "antex" {
+		t.Fatalf("dead Claude owner hid new Antex: %v", panes)
+	}
+}

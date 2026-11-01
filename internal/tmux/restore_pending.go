@@ -127,5 +127,5 @@ func agentStartupCommand(command string) bool {
 
 	return strings.TrimSpace(command) == "" || isShellCommand(command) ||
 		agent.Kind(command) != "" ||
-		name == "env"
+		name == "env" || name == "node"
 }

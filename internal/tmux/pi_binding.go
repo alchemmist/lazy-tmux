@@ -108,13 +108,17 @@ func piForegroundOwner(process psProcess) bool {
 	return strings.Contains(process.stat, "+") && !strings.ContainsAny(process.stat, "TZ")
 }
 
-const piStatusFields = 4
+const piStatusFields = 5
 
 // CapturePiPanes takes one process snapshot per picker refresh, independent of
 // stored snapshots and autosave cadence. attachPiBinding performs owner checks.
 func (client *Client) CapturePiPanes() ([]snapshot.Pane, error) {
-	output, err := client.Output("list-panes", "-a", "-F",
-		"#{pane_pid}|#{pane_current_command}|#{pane_current_path}|#{@lazy_tmux_pi_binding}")
+	output, err := client.Output(
+		"list-panes",
+		"-a",
+		"-F",
+		"#{pane_pid}|#{pane_current_command}|#{pane_current_path}|#{@lazy_tmux_pi_binding}|#{pane_id}",
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -123,6 +127,7 @@ func (client *Client) CapturePiPanes() ([]snapshot.Pane, error) {
 		return nil, err
 	}
 	var panes []snapshot.Pane
+	seen := make(map[string]bool)
 	for _, line := range splitLines(output) {
 		fields := splitFieldsN(line, piStatusFields)
 		if len(fields) != piStatusFields || fields[3] == "" {
@@ -146,7 +151,8 @@ func (client *Client) CapturePiPanes() ([]snapshot.Pane, error) {
 			Meta:         nil,
 			Agent:        nil,
 		}, fields[3])
-		if pane.Meta["pi.session_file"] != "" {
+		if pane.Meta["pi.session_file"] != "" && !seen[fields[4]] {
+			seen[fields[4]] = true
 			panes = append(panes, pane)
 		}
 	}
