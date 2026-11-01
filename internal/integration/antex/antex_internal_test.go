@@ -111,13 +111,7 @@ func TestStatusFromRolloutLifecycle(t *testing.T) {
 			path := writeRollout(t, home, "2026/01/03", tc.name, "/workspace", time.Now())
 			appendRolloutLine(t, path, `{"type":"event_msg","payload":{"type":"`+tc.event+`"}}`)
 
-			got, ok := New(home).Status(snapshot.Pane{
-				CurrentCmd: "antex",
-				Meta: map[string]string{
-					"antex.session_id_source":      "binding-v1",
-					snapshot.AntexSessionIDMetaKey: tc.name,
-				},
-			})
+			got, ok := testStatusIntegration(home, tc.name).Status(boundStatusPane(home, tc.name))
 			if !ok || got != tc.want {
 				t.Fatalf("Status() = %v, %v; want %v", got, ok, tc.want)
 			}
@@ -131,7 +125,7 @@ func TestStatusConcurrentReadersShareSessionPath(t *testing.T) {
 	home := t.TempDir()
 	path := writeRollout(t, home, "2026/01/03", "shared", "/workspace", time.Now())
 	appendRolloutLine(t, path, `{"type":"event_msg","payload":{"type":"task_started"}}`)
-	antexIntegration := New(home)
+	antexIntegration := testStatusIntegration(home, "shared")
 	pane := snapshot.Pane{
 		Index:       0,
 		CurrentPath: "/workspace",
@@ -140,7 +134,8 @@ func TestStatusConcurrentReadersShareSessionPath(t *testing.T) {
 		Scrollback:  nil,
 		IsActive:    true,
 		Meta: map[string]string{
-			"antex.session_id_source":      "binding-v1",
+			"antex.session_id_source": "binding-v1",
+			"antex.home":              home, "antex.resume_argv": `["antex","resume","shared"]`,
 			snapshot.AntexSessionIDMetaKey: "shared",
 		},
 	}
@@ -171,12 +166,13 @@ func TestScopedStatusValidatesRolloutTreeOnce(t *testing.T) {
 	home := t.TempDir()
 	cwd := "/workspace"
 	writeRollout(t, home, "2026/01/03", "session", cwd, time.Now())
-	base := New(home)
+	base := testStatusIntegration(home, "session")
 	pane := snapshot.Pane{
 		CurrentPath: cwd,
 		CurrentCmd:  "antex",
 		Meta: map[string]string{
-			"antex.session_id_source":      "binding-v1",
+			"antex.session_id_source": "binding-v1",
+			"antex.home":              home, "antex.resume_argv": `["antex","resume","session"]`,
 			snapshot.AntexSessionIDMetaKey: "session",
 		},
 	}
@@ -214,13 +210,7 @@ func TestStatusUsesLatestLifecycleEvent(t *testing.T) {
 	appendRolloutLine(t, path, `{"type":"event_msg","payload":{"type":"task_started"}}`)
 	appendRolloutLine(t, path, `{"type":"event_msg","payload":{"type":"task_complete"}}`)
 
-	got, ok := New(home).Status(snapshot.Pane{
-		CurrentCmd: "antex",
-		Meta: map[string]string{
-			"antex.session_id_source":      "binding-v1",
-			snapshot.AntexSessionIDMetaKey: "active",
-		},
-	})
+	got, ok := testStatusIntegration(home, "active").Status(boundStatusPane(home, "active"))
 	if !ok || got != integration.StatusAwaitingInput {
 		t.Fatalf("Status() = %v, %v; want awaiting input", got, ok)
 	}
@@ -235,13 +225,7 @@ func TestStatusReadsAcrossLargeRolloutTail(t *testing.T) {
 	appendRolloutLine(t, path, `{"type":"response_item","payload":{"text":"`+
 		strings.Repeat("x", int(statusReadBlockSize*2))+`"}}`)
 
-	got, ok := New(home).Status(snapshot.Pane{
-		CurrentCmd: "antex",
-		Meta: map[string]string{
-			"antex.session_id_source":      "binding-v1",
-			snapshot.AntexSessionIDMetaKey: "active",
-		},
-	})
+	got, ok := testStatusIntegration(home, "active").Status(boundStatusPane(home, "active"))
 	if !ok || got != integration.StatusWorking {
 		t.Fatalf("Status() = %v, %v; want working", got, ok)
 	}
@@ -253,13 +237,7 @@ func TestStatusWithoutLifecycleIsIdle(t *testing.T) {
 	home := t.TempDir()
 	writeRollout(t, home, "2026/01/03", "idle", "/workspace", time.Now())
 
-	got, ok := New(home).Status(snapshot.Pane{
-		CurrentCmd: "antex",
-		Meta: map[string]string{
-			"antex.session_id_source":      "binding-v1",
-			snapshot.AntexSessionIDMetaKey: "idle",
-		},
-	})
+	got, ok := testStatusIntegration(home, "idle").Status(boundStatusPane(home, "idle"))
 	if !ok || got != integration.StatusIdle {
 		t.Fatalf("Status() = %v, %v; want idle", got, ok)
 	}
@@ -285,7 +263,7 @@ func TestStatusDoesNotShareWorkingSessionAcrossPanes(t *testing.T) {
 	cwd := "/workspace"
 	path := writeRollout(t, home, "2026/01/03", "working", cwd, time.Now())
 	appendRolloutLine(t, path, `{"type":"event_msg","payload":{"type":"task_started"}}`)
-	registry := integration.NewRegistry(New(home))
+	registry := integration.NewRegistry(testStatusIntegration(home, "working"))
 	panes := []snapshot.Pane{
 		{CurrentCmd: "antex", CurrentPath: cwd},
 		{
@@ -301,6 +279,8 @@ func TestStatusDoesNotShareWorkingSessionAcrossPanes(t *testing.T) {
 			CurrentPath: cwd,
 			Meta: map[string]string{
 				"antex.session_id_source":      "binding-v1",
+				"antex.home":                   home,
+				"antex.resume_argv":            `["antex","resume","working"]`,
 				snapshot.AntexSessionIDMetaKey: "working",
 			},
 		},
@@ -318,4 +298,17 @@ func TestStatusDoesNotShareWorkingSessionAcrossPanes(t *testing.T) {
 			t.Errorf("bound pane status = %v, %v; want working", status, ok)
 		}
 	}
+}
+
+func boundStatusPane(home, id string) snapshot.Pane {
+	return snapshot.Pane{CurrentCmd: "antex", CurrentPath: "/workspace", Meta: map[string]string{
+		"antex.session_id_source": "binding-v1", "antex.session_id": id,
+		"antex.home": home, "antex.resume_argv": `["antex","resume","` + id + `"]`,
+	}}
+}
+
+func testStatusIntegration(home, id string) *Integration {
+	return New(home).WithStatusLoader(func() ([]snapshot.Pane, error) {
+		return []snapshot.Pane{boundStatusPane(home, id)}, nil
+	})
 }

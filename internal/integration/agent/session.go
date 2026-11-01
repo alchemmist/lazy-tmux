@@ -193,20 +193,8 @@ func Capture(pane snapshot.Pane, kind string) map[string]string {
 	return map[string]string{"session_id": value.ID, "session_id_source": value.Source}
 }
 
-func Status(pane snapshot.Pane, kind string) (integration.Status, bool) {
-	value, ok := Session(pane, kind)
-	if !ok || value.Source == ManualSource || pane.Meta[PendingKey] != "" ||
-		pane.Meta[kind+".restore_pending"] != "" {
-		return integration.StatusUnknown, false
-	}
-	states := map[string]integration.Status{
-		"working":           integration.StatusWorking,
-		"idle":              integration.StatusIdle,
-		"awaiting_input":    integration.StatusAwaitingInput,
-		"awaiting_decision": integration.StatusAwaitingDecision,
-		"error":             integration.StatusError,
-	}
-	state, ok := states[value.Status]
-
-	return state, ok
+// Status cannot infer current ownership from a saved pane. Call LiveStatus.Status
+// with an ownership-verifying loader instead.
+func Status(_ snapshot.Pane, _ string) (integration.Status, bool) {
+	return integration.StatusUnknown, false
 }

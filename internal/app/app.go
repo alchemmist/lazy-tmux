@@ -108,7 +108,12 @@ func New(cfg config.Config) *App {
 	client.SetRestoreAllowlist(cfg.RestoreAllowlist)
 	client.SetRestoreDenylist(cfg.RestoreDenylist)
 
-	registry := buildRegistry(cfg.Integrations, ClaudeStatusDir(cfg.DataDir), client.CapturePiPanes)
+	registry := buildRegistry(
+		cfg.Integrations,
+		ClaudeStatusDir(cfg.DataDir),
+		client.CapturePiPanes,
+		client.CaptureAgentPanes,
+	)
 	client.SetRestoreResolver(registry)
 
 	return &App{
@@ -131,6 +136,7 @@ func buildRegistry(
 	cfg config.IntegrationsConfig,
 	statusDir string,
 	piStatus pi.StatusLoader,
+	agentStatus integration.StatusLoader,
 ) *integration.Registry {
 	if !cfg.Enabled {
 		return integration.NewRegistry()
@@ -144,14 +150,23 @@ func buildRegistry(
 		).WithStatusLoader(piStatus))
 	}
 	if cfg.Codex.Enabled {
-		items = append(items, codex.New(config.ExpandHome(cfg.Codex.Home)))
+		items = append(
+			items,
+			codex.New(config.ExpandHome(cfg.Codex.Home)).WithStatusLoader(agentStatus),
+		)
 	}
 	if cfg.Claude.Enabled {
-		items = append(items, claude.New(config.ExpandHome(cfg.Claude.Home), statusDir))
+		items = append(
+			items,
+			claude.New(config.ExpandHome(cfg.Claude.Home), statusDir).WithStatusLoader(agentStatus),
+		)
 	}
 
 	if cfg.Antex.Enabled {
-		items = append(items, antex.New(config.ExpandHome(cfg.Antex.Home)))
+		items = append(
+			items,
+			antex.New(config.ExpandHome(cfg.Antex.Home)).WithStatusLoader(agentStatus),
+		)
 	}
 
 	return integration.NewRegistry(items...)

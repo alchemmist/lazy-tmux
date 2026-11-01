@@ -24,8 +24,11 @@ func (r *Registry) Scope() *Registry {
 	}
 
 	items := make([]Integration, 0, len(r.items))
+	status := &StatusSnapshot{}
 	for _, item := range r.items {
-		if scoper, ok := item.(Scoper); ok {
+		if scoper, ok := item.(StatusScoper); ok {
+			items = append(items, scoper.ScopeWithStatus(status))
+		} else if scoper, ok := item.(Scoper); ok {
 			items = append(items, scoper.Scope())
 		} else {
 			items = append(items, item)

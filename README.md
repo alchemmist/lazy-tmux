@@ -77,6 +77,8 @@ Pi is identified from its public session JSONL header, never from terminal outpu
 
 The picker displays `?` when an agent has no verified identity and `↻` when restoration is pending. Run `integrations doctor` for setup and per-pane details. A missing live status stays unknown. Hook status updates for another conversation do not modify the current panel.
 
+Claude, Codex, and Antex activity is refreshed from current ownership-verified tmux bindings, not saved `Agent.Status` fields. Each picker refresh shares one live capture across these integrations and concurrent quick-picker checks; changes appear without autosave. Matching requires the same client, conversation ID, configuration home, and working directory. Exited clients, reused PIDs, switched conversations, pending restores, and ambiguous duplicate clients produce no live activity. Antex reads rollout lifecycle events only after this live-owner check and validates the rollout's ID and working directory. Both typed and legacy verified Antex bindings are supported. Manually repaired identities remain available for restore but do not establish live ownership.
+
 ### Old snapshots and recovery
 
 Snapshot format 2 stores the agent and restoration arguments explicitly and continues to read format 1. There is no automatic `codex` to `antex` conversion. Existing snapshots already rewritten by older releases cannot be classified reliably without the original backup or user knowledge.

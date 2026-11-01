@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/alchemmist/lazy-tmux/internal/integration"
+	"github.com/alchemmist/lazy-tmux/internal/integration/agent"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
@@ -20,9 +21,8 @@ type rolloutEvent struct {
 }
 
 func (i *Integration) Status(pane snapshot.Pane) (integration.Status, bool) {
-	if pane.Meta["agent.restore_pending"] != "" || pane.Meta["antex.restore_pending"] != "" ||
-		!i.Matches(pane) ||
-		pane.Meta["antex.session_id_source"] != bindingSource {
+	identity, ok := i.live.Match(pane, commandName)
+	if !ok {
 		return integration.StatusUnknown, false
 	}
 
@@ -38,6 +38,12 @@ func (i *Integration) Status(pane snapshot.Pane) (integration.Status, bool) {
 	}
 	defer func() { _ = file.Close() }()
 
+	var header sessionMetaLine
+	if json.NewDecoder(file).Decode(&header) != nil || header.Type != "session_meta" ||
+		header.Payload.ID != identity.ID || header.Payload.CWD != identity.CWD {
+		return integration.StatusUnknown, false
+	}
+
 	info, err := file.Stat()
 	if err != nil {
 		return integration.StatusUnknown, false
@@ -47,10 +53,14 @@ func (i *Integration) Status(pane snapshot.Pane) (integration.Status, bool) {
 }
 
 func (i *Integration) sessionFile(pane snapshot.Pane) (*os.Root, string, bool) {
-	if home := pane.Meta["antex.home"]; home != "" && home != i.home {
-		return New(home).sessionFile(pane)
+	identity, ok := agent.Session(pane, commandName)
+	if !ok {
+		return nil, "", false
 	}
-	sessionID := strings.TrimSpace(pane.Meta[snapshot.AntexSessionIDMetaKey])
+	if identity.Home != i.home {
+		return New(identity.Home).sessionFile(pane)
+	}
+	sessionID := strings.TrimSpace(identity.ID)
 	if sessionID == "" || strings.TrimSpace(i.home) == "" {
 		return nil, "", false
 	}

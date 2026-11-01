@@ -24,6 +24,7 @@ type Integration struct {
 	home       string
 	index      *sessionIndex
 	validation *sync.Once
+	live       agent.LiveStatus
 }
 
 type sessionIndex struct {
@@ -54,11 +55,27 @@ func New(home string) *Integration {
 			dirStates:        make(map[string]int64),
 		},
 		validation: nil,
+		live:       agent.LiveStatus{},
 	}
 }
 
 func (i *Integration) Scope() integration.Integration {
-	return &Integration{home: i.home, index: i.index, validation: &sync.Once{}}
+	return i.ScopeWithStatus(&integration.StatusSnapshot{})
+}
+
+func (i *Integration) WithStatusLoader(loader integration.StatusLoader) *Integration {
+	i.live.Loader = loader
+
+	return i
+}
+
+func (i *Integration) ScopeWithStatus(cache *integration.StatusSnapshot) integration.Integration {
+	return &Integration{
+		home:       i.home,
+		index:      i.index,
+		validation: &sync.Once{},
+		live:       i.live.Scope(cache),
+	}
 }
 
 func (i *Integration) Name() string { return commandName }
@@ -147,6 +164,7 @@ func (i *Integration) ensureIndexFresh(requiredID string) {
 
 	root := filepath.Join(i.home, "sessions")
 	paths := make(map[string]string)
+	ambiguous := make(map[string]bool)
 	files := make(map[string]fileState)
 	dirs := make(map[string]int64)
 	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
@@ -178,7 +196,12 @@ func (i *Integration) ensureIndexFresh(requiredID string) {
 			return fmt.Errorf("make rollout path relative: %w", relErr)
 		}
 		candidate.path = filepath.ToSlash(relative)
-		paths[candidate.id] = candidate.path
+		if paths[candidate.id] != "" || ambiguous[candidate.id] {
+			delete(paths, candidate.id)
+			ambiguous[candidate.id] = true
+		} else {
+			paths[candidate.id] = candidate.path
+		}
 
 		return nil
 	})
