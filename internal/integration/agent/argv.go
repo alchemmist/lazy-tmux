@@ -8,16 +8,22 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
+const (
+	optionVariadic = -1
+	optionOptional = -2
+)
+
 func ResumeArgv(kind, sessionID, cwd string, launch []string) ([]string, error) {
+	if (kind != snapshot.AgentClaude && kind != snapshot.AgentCodex && kind != snapshot.AgentAntex) ||
+		len(launch) == 0 ||
+		filepath.Base(launch[0]) != kind {
+		return nil, ErrUnverified
+	}
 	subcommand := "resume"
 	if kind == snapshot.AgentClaude {
 		subcommand = claudeResume
 	}
-	executable := restorationExecutable(kind, launch)
-	result := []string{executable, subcommand, sessionID}
-	if len(launch) == 0 {
-		return nil, ErrUnverified
-	}
+	result := []string{launch[0], subcommand, sessionID}
 	remaining := launch[1:]
 	for len(remaining) > 0 {
 		arg := remaining[0]
@@ -28,41 +34,56 @@ func ResumeArgv(kind, sessionID, cwd string, launch []string) ([]string, error) 
 		if !strings.HasPrefix(arg, "-") {
 			continue
 		}
-		flag, value, attached := strings.Cut(arg, "=")
-		skip, hasValue := transientOption(flag)
-		if skip {
-			if hasValue && !attached {
-				if len(remaining) == 0 {
-					return nil, ErrUnverified
-				}
-				remaining = remaining[1:]
+		flag, _, _ := strings.Cut(arg, "=")
+		arity, transient := transientOption(kind, flag)
+		if !transient {
+			var known bool
+			arity, known = launchOption(kind, flag)
+			if !known {
+				return nil, fmt.Errorf("unsupported launch option %q: %w", flag, ErrUnverified)
 			}
-
-			continue
 		}
-		arity, known := launchOption(kind, flag)
-		if !known {
-			return nil, fmt.Errorf("unsupported launch option %q: %w", flag, ErrUnverified)
+		values, rest, err := launchOptionArgs(arg, remaining, arity)
+		if err != nil {
+			return nil, err
 		}
-		if arity == 0 {
-			result = append(result, arg)
-
-			continue
+		remaining = rest
+		if !transient {
+			result = append(result, values...)
 		}
-		if !attached {
-			if len(remaining) == 0 {
-				return nil, ErrUnverified
-			}
-			value = remaining[0]
-			remaining = remaining[1:]
-		}
-		result = append(result, flag, value)
 	}
 	if kind != snapshot.AgentClaude {
 		result = append(result, "--cd", cwd)
 	}
 
 	return result, nil
+}
+
+func launchOptionArgs(arg string, remaining []string, arity int) ([]string, []string, error) {
+	flag, value, attached := strings.Cut(arg, "=")
+	if attached {
+		// Commander only consumes the attached value, even for variadic options.
+		// Keep its spelling: separating a dash-prefixed value changes its meaning.
+		if arity == 0 || value == "" || !strings.HasPrefix(flag, "--") {
+			return nil, nil, fmt.Errorf("unsupported attached value %q: %w", arg, ErrUnverified)
+		}
+
+		return []string{arg}, remaining, nil
+	}
+	count := 0
+	if arity != 0 && len(remaining) > 0 && !strings.HasPrefix(remaining[0], "-") {
+		count = 1
+		if arity == optionVariadic {
+			for count < len(remaining) && !strings.HasPrefix(remaining[count], "-") {
+				count++
+			}
+		}
+	}
+	if arity != 0 && arity != optionOptional && (count == 0 || remaining[0] == "") {
+		return nil, nil, fmt.Errorf("missing launch option value for %q: %w", arg, ErrUnverified)
+	}
+
+	return append([]string{arg}, remaining[:count]...), remaining[count:], nil
 }
 
 func launchOption(kind, flag string) (int, bool) {
@@ -74,9 +95,11 @@ func launchOption(kind, flag string) (int, bool) {
 		options := map[string]int{
 			"--permission-mode":              1,
 			"--dangerously-skip-permissions": 0,
-			"--allowedTools":                 1,
-			"--disallowedTools":              1,
-			"--add-dir":                      1,
+			"--allowedTools":                 optionVariadic,
+			"--allowed-tools":                optionVariadic,
+			"--disallowedTools":              optionVariadic,
+			"--disallowed-tools":             optionVariadic,
+			"--add-dir":                      optionVariadic,
 			"--settings":                     1,
 			"--setting-sources":              1,
 			"--verbose":                      0,
@@ -122,21 +145,23 @@ func LaunchKind(argv []string) string {
 	return Kind(argv[0])
 }
 
-func transientOption(flag string) (bool, bool) {
+func transientOption(kind, flag string) (int, bool) {
+	if kind == snapshot.AgentClaude {
+		switch flag {
+		case claudeResume, "-r", "--worktree", "-w":
+			return optionOptional, true
+		case "--continue", "-c", "--fork-session":
+			return 0, true
+		default:
+			return 0, false
+		}
+	}
 	switch flag {
-	case claudeResume, "-r", "--cd", "-C", "--image", "-i":
-		return true, true
-	case "--continue", "--last", "--fork-session", "--worktree", "--all":
-		return true, false
+	case "--cd", "-C", "--image", "-i":
+		return 1, true
+	case "--last", "--all":
+		return 0, true
 	default:
-		return false, false
+		return 0, false
 	}
-}
-
-func restorationExecutable(kind string, launch []string) string {
-	if len(launch) > 0 && filepath.Base(launch[0]) == kind {
-		return launch[0]
-	}
-
-	return kind
 }
