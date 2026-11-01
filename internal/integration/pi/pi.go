@@ -1,16 +1,13 @@
 package pi
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/alchemmist/lazy-tmux/internal/integration"
@@ -21,7 +18,6 @@ import (
 const (
 	source      = "pi-jsonl-v1"
 	sessionFlag = "--session"
-	jsonlSuffix = ".jsonl"
 )
 
 var (
@@ -100,7 +96,7 @@ func (i *Integration) RestoreDecision(
 			)
 		}
 	}
-	value, ok := i.Session(pane, metadata)
+	value, ok := i.session(pane, metadata, false)
 	if !ok {
 		return "", errUnverified
 	}
@@ -121,12 +117,18 @@ func (i *Integration) RestoreDecision(
 }
 
 func (i *Integration) SessionID(p snapshot.Pane) (snapshot.AgentSession, bool) {
-	return i.Session(p, nil)
+	return i.session(p, nil, false)
+}
+
+func (i *Integration) Session(
+	pane snapshot.Pane, metadata map[string]string,
+) (snapshot.AgentSession, bool) {
+	return i.session(pane, metadata, true)
 }
 
 //nolint:cyclop
-func (i *Integration) Session(
-	pane snapshot.Pane, metadata map[string]string,
+func (i *Integration) session(
+	pane snapshot.Pane, metadata map[string]string, history bool,
 ) (snapshot.AgentSession, bool) {
 	if !i.Matches(pane) || noSession(pane.CurrentCmd) || noSession(pane.RestoreCmd) ||
 		nonInteractive(pane.ProcessArgv) {
@@ -143,20 +145,24 @@ func (i *Integration) Session(
 		file = sessionFileFromCommand(pane.RestoreCmd)
 	}
 
-	if file == "" && pane.ProcessPID > 0 {
-		file = i.openSessionFile(pane.ProcessPID)
-	}
-
 	if file == "" {
 		return snapshot.AgentSession{}, false
 	}
-	header, model, err := readSession(file)
+	header, err := readSessionHeader(file)
 	if err != nil || header.ID == "" || header.CWD == "" ||
 		!sameDirectory(header.CWD, pane.CurrentPath) {
 		return snapshot.AgentSession{}, false
 	}
-	if metadata != nil && metadata["session_id"] != "" && metadata["session_id"] != header.ID {
+	if !sessionIntentMatches(pane, metadata, file, header) {
 		return snapshot.AgentSession{}, false
+	}
+	model := ""
+	if history {
+		var current sessionHeader
+		current, model, err = readSession(file)
+		if err != nil || current != header {
+			return snapshot.AgentSession{}, false
+		}
 	}
 	value := snapshot.AgentSession{
 		Version: 1, Kind: snapshot.AgentPi, ID: header.ID, Home: i.home, CWD: header.CWD,
@@ -243,73 +249,65 @@ func readSession(path string) (sessionHeader, string, error) {
 	return header, model, nil
 }
 
-func (i *Integration) openSessionFile(pid int) string {
-	for _, candidate := range processTree(pid) {
-		//nolint:gosec // fixed executable and numeric PID
-		out, err := exec.CommandContext(
-			context.Background(), "lsof", "-p", strconv.Itoa(candidate), "-Fn",
-		).Output()
-		if err == nil {
-			for line := range strings.SplitSeq(string(out), "\n") {
-				path := strings.TrimPrefix(line, "n")
-				if isSessionPath(path, i.sessionDir) {
-					_, statErr := os.Stat(path)
-					if statErr == nil {
-						return path
-					}
-				}
-			}
+// An open JSONL in a descendant is not proof of the interactive client's
+// identity: tools and RPC children can open unrelated histories. Only explicit
+// arguments, saved intent or the ownership-verified tmux binding select a file.
+func sessionIntentMatches(
+	pane snapshot.Pane,
+	metadata map[string]string,
+	file string,
+	header sessionHeader,
+) bool {
+	for _, expected := range []string{
+		pane.LiveStatusID, pane.Meta["pi.session_id"], metadata["session_id"],
+	} {
+		if expected != "" && expected != header.ID {
+			return false
 		}
 	}
-	for _, candidate := range processTree(pid) {
-		entry := fmt.Sprintf("/proc/%d/fd", candidate)
-		fdEntries, readErr := os.ReadDir(entry)
-		if readErr != nil {
-			continue
+	if metadata["session_file"] != "" && !sameDirectory(metadata["session_file"], file) {
+		return false
+	}
+	for _, cwd := range []string{metadata["cwd"], pane.Meta["pi.cwd"]} {
+		if cwd != "" && !sameDirectory(cwd, header.CWD) {
+			return false
 		}
-		for _, fd := range fdEntries {
-			path, evalErr := filepath.EvalSymlinks(filepath.Join(entry, fd.Name()))
-			if evalErr == nil && filepath.Ext(path) == ".jsonl" && within(path, i.sessionDir) {
-				return path
-			}
-		}
+	}
+	if pane.Agent != nil &&
+		(agent.Valid(*pane.Agent) != nil || pane.Agent.Kind != snapshot.AgentPi ||
+			pane.Agent.ID != header.ID || !sameDirectory(pane.Agent.CWD, header.CWD) ||
+			!sameDirectory(pane.Agent.Argv[3], file)) {
+		return false
 	}
 
-	return ""
+	return true
 }
 
-func processTree(root int) []int {
-	children := make(map[int][]int)
-	out, err := exec.CommandContext(context.Background(), "ps", "-axo", "pid=,ppid=").Output()
-	if err == nil {
-		for line := range strings.SplitSeq(string(out), "\n") {
-			fields := strings.Fields(line)
-			if len(fields) != 2 {
-				continue
-			}
-			child, childErr := strconv.Atoi(fields[0])
-			parent, parentErr := strconv.Atoi(fields[1])
-			if childErr == nil && parentErr == nil {
-				children[parent] = append(children[parent], child)
-			}
-		}
-	}
-	result := []int{root}
-	for index := 0; index < len(result); index++ {
-		result = append(result, children[result[index]]...)
-	}
+// VerifySessionFile checks identity without decoding potentially large history
+// records. An empty ID supports legacy version-1 identity-only bindings.
+func VerifySessionFile(path, id, cwd string) bool {
+	header, err := readSessionHeader(path)
 
-	return result
+	return err == nil && header.ID != "" && (id == "" || header.ID == id) &&
+		header.CWD != "" && sameDirectory(header.CWD, cwd)
 }
 
-func within(path, root string) bool {
-	rel, err := filepath.Rel(root, path)
+func readSessionHeader(path string) (sessionHeader, error) {
+	file, err := os.Open(path) //nolint:gosec // explicit Pi session identity
+	if err != nil {
+		return sessionHeader{}, fmt.Errorf("open pi session: %w", err)
+	}
+	defer func() { _ = file.Close() }()
+	var header sessionHeader
+	err = json.NewDecoder(file).Decode(&header)
+	if err != nil {
+		return sessionHeader{}, fmt.Errorf("read pi session header: %w", err)
+	}
+	if header.Type != "session" {
+		return sessionHeader{}, errInvalidHeader
+	}
 
-	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
-}
-
-func isSessionPath(path, root string) bool {
-	return filepath.Ext(path) == jsonlSuffix && within(path, root)
+	return header, nil
 }
 
 func sameDirectory(first, second string) bool {

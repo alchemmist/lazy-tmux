@@ -1,8 +1,6 @@
 package pi
 
 import (
-	"encoding/json"
-	"os"
 	"sync"
 
 	"github.com/alchemmist/lazy-tmux/internal/integration"
@@ -74,16 +72,7 @@ func (i *Integration) Status(pane snapshot.Pane) (integration.Status, bool) {
 }
 
 func statusHeaderMatches(path, sessionID, savedCWD, liveCWD string) bool {
-	file, err := os.Open(path) //nolint:gosec // explicit file from the saved Pi identity
-	if err != nil {
-		return false
-	}
-	defer func() { _ = file.Close() }()
-	var header sessionHeader
-	err = json.NewDecoder(file).Decode(&header)
-
-	return err == nil && header.Type == "session" && header.ID == sessionID &&
-		sameDirectory(header.CWD, savedCWD) && sameDirectory(header.CWD, liveCWD)
+	return VerifySessionFile(path, sessionID, savedCWD) && sameDirectory(savedCWD, liveCWD)
 }
 
 func piState(state string) (integration.Status, bool) {

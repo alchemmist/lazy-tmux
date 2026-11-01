@@ -7,12 +7,41 @@ export default function (pi: ExtensionAPI) {
   const tmux = (args: string[]) => execFileSync("tmux", args, {
     timeout: 2000, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"],
   });
+  const startTime = (pid: number) => execFileSync("ps", ["-p", String(pid), "-o", "lstart="], {
+    timeout: 2000, encoding: "utf8", env: { ...process.env, LC_ALL: "C", TZ: "UTC" },
+  }).trim().replace(/\s+/g, " ");
   let startedAt = "";
-  try {
-    startedAt = execFileSync("ps", ["-p", String(process.pid), "-o", "lstart="], {
-      timeout: 2000, encoding: "utf8", env: { ...process.env, LC_ALL: "C", TZ: "UTC" },
-    }).trim().replace(/\s+/g, " ");
-  } catch { /* Without ownership proof lazy-tmux must leave the pane unbound. */ }
+  try { startedAt = startTime(process.pid); }
+  catch { /* Without ownership proof lazy-tmux must leave the pane unbound. */ }
+  const owns = (binding: any) => binding.pid === process.pid && binding.started_at === startedAt;
+  const foreignOwnerAlive = (binding: any) => {
+    if (!Number.isInteger(binding.pid) || binding.pid <= 0 || !binding.started_at) return true;
+    try { return startTime(binding.pid) === binding.started_at; }
+    catch {
+      // A failed ps is not proof of exit (it may be unavailable).
+      try { process.kill(binding.pid, 0); return true; }
+      catch (error: any) { return error.code !== "ESRCH"; }
+    }
+  };
+  const quote = (value: string) => "'" + value.replace(/'/g, "'\\''") + "'";
+  const literal = (value: string) => value.replace(/#/g, "##").replace(/,/g, "#,").replace(/}/g, "#}");
+  const readBinding = () => {
+    try { return tmux(["show-option", "-p", "-v", "-t", process.env.TMUX_PANE!, "@lazy_tmux_pi_binding"]).trim(); }
+    catch { return ""; }
+  };
+  // Compare and mutate in tmux's command queue, not in separate read/set calls:
+  // another client may have acquired the pane after our ownership check.
+  const replaceBinding = (previous: string, next?: string, ack?: string) => {
+    const pane = process.env.TMUX_PANE!;
+    const command = next === undefined
+      ? ["set-option", "-pu", "-t", pane, "@lazy_tmux_pi_binding"]
+      : ["set-option", "-p", "-t", pane, "@lazy_tmux_pi_binding", next];
+    let commands = command.map(quote).join(" ");
+    if (ack) commands += " ; " + ["set-option", "-p", "-t", pane, "@lazy_tmux_restore_ack", ack].map(quote).join(" ");
+    tmux(["if-shell", "-F", "-t", pane,
+      "#{==:#{@lazy_tmux_pi_binding}," + literal(previous) + "}", commands]);
+  };
+  let published = false;
   let running = false;
   let compacting = false;
   let settledState = "idle";
@@ -36,19 +65,23 @@ export default function (pi: ExtensionAPI) {
   };
   const publish = (_event: unknown, ctx: ExtensionContext) => {
     if (!process.env.TMUX || !process.env.TMUX_PANE || !startedAt) return;
-    // Noninteractive and --no-session clients must not inherit an old binding.
-    const interactive = ctx.hasUI && (ctx.mode === undefined || ctx.mode === "tui");
-    const file = interactive ? ctx.sessionManager.getSessionFile() : undefined;
+    // RPC/print clients inherit TMUX_PANE from interactive tools. They must
+    // never publish an empty binding, acknowledge a restore, or clear an owner.
+    if (!ctx.hasUI || (ctx.mode !== undefined && ctx.mode !== "tui")) return;
+    const file = ctx.sessionManager.getSessionFile();
     try {
-      tmux(["set-option", "-p", "-t", process.env.TMUX_PANE,
-        "@lazy_tmux_pi_binding", JSON.stringify({ version: 1, pid: process.pid, started_at: startedAt, file: file ?? "",
-          session_id: file ? ctx.sessionManager.getSessionId() : "", state: file ? state() : "" })]);
-      if (file && process.env.LAZY_TMUX_RESTORE_TOKEN) {
-        tmux(["set-option", "-p", "-t", process.env.TMUX_PANE,
-          "@lazy_tmux_restore_ack", process.env.LAZY_TMUX_RESTORE_TOKEN]);
+      const previous = readBinding();
+      if (previous) {
+        const binding = JSON.parse(previous);
+        if (!owns(binding) && foreignOwnerAlive(binding)) return;
       }
+      replaceBinding(previous, JSON.stringify({ version: 1, pid: process.pid, started_at: startedAt, file: file ?? "",
+        session_id: file ? ctx.sessionManager.getSessionId() : "", state: file ? state() : "" }),
+        file ? process.env.LAZY_TMUX_RESTORE_TOKEN : undefined);
+      published = true;
     } catch { /* Never disrupt a conversation when tmux is unavailable. */ }
   };
+
   const resetSession = (_event: unknown, ctx: ExtensionContext) => {
     running = !ctx.isIdle();
     clearCompaction();
@@ -123,13 +156,10 @@ export default function (pi: ExtensionAPI) {
     publish(event, ctx);
   });
   pi.on("session_shutdown", () => {
-    if (!process.env.TMUX || !process.env.TMUX_PANE || !startedAt) return;
+    if (!published || !process.env.TMUX || !process.env.TMUX_PANE || !startedAt) return;
     try {
-      const binding = JSON.parse(tmux(["show-option", "-p", "-v", "-t",
-        process.env.TMUX_PANE, "@lazy_tmux_pi_binding"]));
-      if (binding.pid === process.pid) {
-        tmux(["set-option", "-pu", "-t", process.env.TMUX_PANE, "@lazy_tmux_pi_binding"]);
-      }
+      const previous = readBinding();
+      if (previous && owns(JSON.parse(previous))) replaceBinding(previous);
     } catch { /* The pane may already be gone. */ }
   });
 }
