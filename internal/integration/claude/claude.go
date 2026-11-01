@@ -8,11 +8,13 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
-type Integration struct{}
+type Integration struct{ live agent.LiveStatus }
 
-func New(_, _ string) *Integration                     { return &Integration{} }
-func (i *Integration) Name() string                    { return "claude" }
-func (i *Integration) Scope() integration.Integration  { return i }
+func New(_, _ string) *Integration  { return &Integration{} }
+func (i *Integration) Name() string { return "claude" }
+func (i *Integration) Scope() integration.Integration {
+	return i.ScopeWithStatus(&integration.StatusSnapshot{})
+}
 func (i *Integration) Matches(pane snapshot.Pane) bool { return agent.Matches(pane, "claude") }
 func (i *Integration) Capture(pane snapshot.Pane) (map[string]string, error) {
 	return agent.Capture(pane, "claude"), nil
@@ -34,5 +36,15 @@ func (i *Integration) RestoreDecision(pane snapshot.Pane, _ map[string]string) (
 }
 
 func (i *Integration) Status(pane snapshot.Pane) (integration.Status, bool) {
-	return agent.Status(pane, "claude")
+	return i.live.Status(pane, "claude")
+}
+
+func (i *Integration) WithStatusLoader(loader integration.StatusLoader) *Integration {
+	i.live.Loader = loader
+
+	return i
+}
+
+func (i *Integration) ScopeWithStatus(cache *integration.StatusSnapshot) integration.Integration {
+	return &Integration{live: i.live.Scope(cache)}
 }

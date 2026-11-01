@@ -152,35 +152,55 @@ func windowStatuses(
 	statuses := make(map[int]picker.WindowStatus)
 
 	for _, window := range windows {
-		for paneIdx := range window.Panes {
-			pane := window.Panes[paneIdx]
-			if pane.Meta[agent.PendingKey] != "" || pane.Meta["antex.restore_pending"] != "" {
-				statuses[window.Index] = picker.StatusRestorePending
-
-				break
+		for _, pane := range window.Panes {
+			status := panePickerStatus(registry, pane)
+			if windowStatusPriority(status) > windowStatusPriority(statuses[window.Index]) {
+				statuses[window.Index] = status
 			}
-			status, ok := registry.Status(pane)
-			if !ok {
-				if kind := agent.PaneKind(pane); kind != "" {
-					if _, verified := agent.Session(
-						pane,
-						kind,
-					); !verified &&
-						!registry.HasVerifiedNativeSession(pane) {
-						statuses[window.Index] = picker.StatusNeedsSetup
-					}
-				}
-
-				continue
-			}
-
-			statuses[window.Index] = toPickerStatus(status)
-
-			break
 		}
 	}
 
 	return statuses
+}
+
+func panePickerStatus(registry *integration.Registry, pane snapshot.Pane) picker.WindowStatus {
+	if pane.Meta[agent.PendingKey] != "" || pane.Meta["antex.restore_pending"] != "" {
+		return picker.StatusRestorePending
+	}
+	if status, ok := registry.Status(pane); ok {
+		return toPickerStatus(status)
+	}
+	if kind := agent.PaneKind(pane); kind != "" {
+		if _, verified := agent.Session(pane, kind); !verified &&
+			!registry.HasVerifiedNativeSession(pane) {
+			return picker.StatusNeedsSetup
+		}
+	}
+
+	return picker.StatusNone
+}
+
+func windowStatusPriority(status picker.WindowStatus) int {
+	// Highest first: restore pending > decision > error > needs setup > working >
+	// awaiting input > idle > none. Surface blocked/unsafe panes before activity,
+	// but never let an idle pane hide activity or a pane needing attention.
+	priorities := [...]picker.WindowStatus{
+		picker.StatusNone,
+		picker.StatusIdle,
+		picker.StatusAwaitingInput,
+		picker.StatusWorking,
+		picker.StatusNeedsSetup,
+		picker.StatusError,
+		picker.StatusAwaitingDecision,
+		picker.StatusRestorePending,
+	}
+	for priority, candidate := range priorities {
+		if status == candidate {
+			return priority
+		}
+	}
+
+	return 0
 }
 
 func toPickerStatus(status integration.Status) picker.WindowStatus {

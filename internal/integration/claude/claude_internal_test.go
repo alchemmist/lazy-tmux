@@ -9,7 +9,6 @@ import (
 
 func TestClaudeConversationsAreIndependent(t *testing.T) {
 	t.Parallel()
-	registry := integration.NewRegistry(New(t.TempDir(), t.TempDir()))
 	state := snapshot.SessionSnapshot{Windows: []snapshot.Window{{Panes: []snapshot.Pane{
 		{
 			CurrentCmd:  "claude",
@@ -40,6 +39,12 @@ func TestClaudeConversationsAreIndependent(t *testing.T) {
 			},
 		},
 	}}}}
+	registry := integration.NewRegistry(
+		New(
+			t.TempDir(),
+			t.TempDir(),
+		).WithStatusLoader(func() ([]snapshot.Pane, error) { return state.Windows[0].Panes, nil }),
+	)
 	registry.Enrich(&state)
 	first := state.Windows[0].Panes[0]
 	second := state.Windows[0].Panes[1]

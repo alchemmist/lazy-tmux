@@ -77,6 +77,8 @@ Pi is identified from its public session JSONL header, never from terminal outpu
 
 The picker displays `?` when an agent has no verified identity and `↻` when restoration is pending. Run `integrations doctor` for setup and per-pane details. A missing live status stays unknown. Hook status updates for another conversation do not modify the current panel.
 
+Claude, Codex, and Antex activity is refreshed from current ownership-verified tmux bindings, not saved `Agent.Status` fields. Each picker refresh shares one live capture across these integrations and concurrent quick-picker checks; changes appear without autosave. Matching requires the same client, conversation ID, configuration home, and working directory. Exited clients, reused PIDs, switched conversations, pending restores, and ambiguous duplicate clients produce no live activity. Antex reads rollout lifecycle events only after this live-owner check and validates the rollout's ID and working directory. Both typed and legacy verified Antex bindings are supported. Manually repaired identities remain available for restore but do not establish live ownership.
+
 ### Old snapshots and recovery
 
 Snapshot format 2 stores the agent and restoration arguments explicitly and continues to read format 1. There is no automatic `codex` to `antex` conversion. Existing snapshots already rewritten by older releases cannot be classified reliably without the original backup or user knowledge.
@@ -166,3 +168,26 @@ extension with `/reload` when idle (new clients load it automatically). The olde
 identity-only extension remains compatible with restoration but reports no live
 activity; a verified conversation without activity data is not shown as needing
 identity setup.
+
+#### Agent integration safety and multi-pane status
+
+Window activity aggregates all panes, independent of pane order. Highest priority
+wins: restore pending, awaiting decision, error, needs setup, working, awaiting
+input, idle, then no status. Quick-picker activity still means that at least one
+verified live agent is working, even when its window displays a higher-priority
+attention state.
+
+Claude multi-value tool restrictions and additional directories are retained on
+restore; unsupported or ambiguous launch arguments fail closed instead of silently
+weakening the launch configuration. Recognized npm/Node Claude launches are
+normalized to the `claude` executable.
+
+Pi RPC/print clients never acquire or clear an interactive client's binding.
+Interactive binding changes are owner-checked and compare-and-set guarded. Initial
+restore acknowledgement requires the saved conversation ID, file, and working
+directory to agree; opening a different conversation leaves the restore pending.
+Arbitrary JSONL descriptors in descendant processes are no longer identity proof.
+Identity/status/restore checks read the session header only; capture still scans
+the history to recover model changes, so model extraction remains proportional to
+history size. Legacy identity-only bindings remain usable but cannot prove an ID
+they never published or supply live activity.

@@ -35,7 +35,6 @@ func TestPickerDistinguishesUnverifiedAndPendingAgents(t *testing.T) {
 func TestQuickPickerIncludesClaudeActivity(t *testing.T) {
 	t.Parallel()
 	app, _ := newTestApp(t)
-	registry := integration.NewRegistry(claude.New(t.TempDir(), t.TempDir()))
 	pane := snapshot.Pane{
 		CurrentCmd: "claude",
 		Agent: &snapshot.AgentSession{
@@ -49,6 +48,10 @@ func TestQuickPickerIncludesClaudeActivity(t *testing.T) {
 			Status:  "working",
 		},
 	}
+	live := []snapshot.Pane{pane}
+	registry := integration.NewRegistry(
+		claude.New("", "").WithStatusLoader(func() ([]snapshot.Pane, error) { return live, nil }),
+	)
 	if err := app.store.SaveSession(
 		snapshot.SessionSnapshot{
 			SessionName: "work",
@@ -62,6 +65,10 @@ func TestQuickPickerIncludesClaudeActivity(t *testing.T) {
 	}
 	if app.sessionHasWorkingAgent(registry, "work", false) {
 		t.Fatal("offline snapshot counted as working")
+	}
+	live = nil
+	if app.sessionHasWorkingAgent(registry, "work", true) {
+		t.Fatal("exited owner still counted as working")
 	}
 }
 
