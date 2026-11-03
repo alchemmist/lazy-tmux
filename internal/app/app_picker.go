@@ -51,25 +51,43 @@ func mergeLastAttached(records []snapshot.Record, attached map[string]time.Time)
 	}
 }
 
-func (a *App) pickerSessions(opts PickerSortOptions) ([]picker.Session, error) {
-	records, err := a.pickerRecords(opts)
+func (a *App) pickerOutline(opts PickerSortOptions) ([]picker.Session, error) {
+	records, live, err := a.pickerRecordsAndLive(opts)
 	if err != nil {
 		return nil, err
 	}
-
-	liveSessions, err := a.tmux.ListSessions()
-	if err != nil {
-		return nil, fmt.Errorf("list sessions: %w", err)
+	sessions := make([]picker.Session, 0, len(records))
+	for _, rec := range records {
+		_, restored := live[rec.SessionName]
+		sessions = append(sessions, picker.Session{Record: rec, Restored: restored})
 	}
 
+	return sessions, nil
+}
+
+func (a *App) pickerRecordsAndLive(opts PickerSortOptions) ([]snapshot.Record, map[string]struct{}, error) {
+	records, err := a.pickerRecords(opts)
+	if err != nil {
+		return nil, nil, err
+	}
+	liveSessions, err := a.tmux.ListSessions()
+	if err != nil {
+		return nil, nil, fmt.Errorf("list sessions: %w", err)
+	}
 	live := make(map[string]struct{}, len(liveSessions))
 	for _, name := range liveSessions {
 		live[name] = struct{}{}
 	}
 
-	sessions := make([]picker.Session, 0, len(records))
-	statusRegistry := a.integrations.Scope()
+	return records, live, nil
+}
 
+func (a *App) pickerSessions(opts PickerSortOptions) ([]picker.Session, error) {
+	records, live, err := a.pickerRecordsAndLive(opts)
+	if err != nil {
+		return nil, err
+	}
+	sessions := make([]picker.Session, 0, len(records))
 	for _, rec := range records {
 		snap, err := a.pickerSnapshot(rec)
 		if err != nil {
@@ -77,23 +95,30 @@ func (a *App) pickerSessions(opts PickerSortOptions) ([]picker.Session, error) {
 
 			continue
 		}
-
 		_, restored := live[rec.SessionName]
-
-		session := picker.Session{
+		sessions = append(sessions, picker.Session{
 			Record:   rec,
 			Windows:  snap.Windows,
 			Restored: restored,
-		}
-
-		if restored {
-			session.Statuses = windowStatuses(statusRegistry, snap.Windows)
-		}
-
-		sessions = append(sessions, session)
+		})
 	}
 
 	return sessions, nil
+}
+
+func (a *App) refreshPickerStatuses(
+	sessions []picker.Session,
+) (map[string]map[int]picker.WindowStatus, error) {
+	registry := a.integrations.Scope()
+	statuses := make(map[string]map[int]picker.WindowStatus, len(sessions))
+	for _, session := range sessions {
+		if !session.Restored || len(session.Windows) == 0 {
+			continue
+		}
+		statuses[session.Record.SessionName] = windowStatuses(registry, session.Windows)
+	}
+
+	return statuses, nil
 }
 
 func (a *App) pickerSnapshot(record snapshot.Record) (snapshot.SessionSnapshot, error) {
@@ -299,6 +324,18 @@ func (a *App) SelectTargetWithTUISorted(opts PickerSortOptions) (PickerTarget, e
 		SetTheme: func(theme string) error {
 			return config.SetTheme(config.DefaultConfigPath(), theme)
 		},
+		Outline: func() ([]picker.Session, error) {
+			sessions, err := a.pickerOutline(opts)
+			if err != nil {
+				if errors.Is(err, errNoSavedSessions) {
+					return []picker.Session{}, nil
+				}
+
+				return nil, err
+			}
+
+			return sessions, nil
+		},
 		Reload: func() ([]picker.Session, error) {
 			sessions, err := a.pickerSessions(opts)
 			if err != nil {
@@ -311,6 +348,7 @@ func (a *App) SelectTargetWithTUISorted(opts PickerSortOptions) (PickerTarget, e
 
 			return sessions, nil
 		},
+		RefreshStatuses: a.refreshPickerStatuses,
 	}
 
 	target, err := picker.ChooseTargetWithLoader(opts.Window, actions, a.cfg.Theme)

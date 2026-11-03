@@ -311,6 +311,34 @@ func TestLoadingModelRendersBeforeSessionsArrive(t *testing.T) {
 	}
 }
 
+func TestOutlineRendersBeforeDetailsAndStatus(t *testing.T) {
+	t.Parallel()
+	m := newTestModel(t, &recordingActions{}, makeSession("alpha", true, "one"))
+	m.sessions[0].Windows = nil
+	m.loading = false
+	m.applyFilter()
+	m.renderViewport()
+	if view := m.View().Content; !strings.Contains(view, "alpha") || strings.Contains(view, "Loading sessions…") {
+		t.Fatalf("outline was not visible immediately: %s", view)
+	}
+	m.reloadGeneration = 1
+	m = feed(t, m, sessionsLoadedMsg{
+		sessions:   []Session{makeSession("alpha", true, "one")},
+		generation: 1,
+	})
+	m.statusGeneration = 1
+	m = feed(t, m, statusesLoadedMsg{
+		generation: 1,
+		statuses:   map[string]map[int]WindowStatus{"alpha": {1: StatusWorking}},
+	})
+	if m.sessions[0].Statuses[1] != StatusWorking {
+		t.Fatalf("status was not applied lazily: %+v", m.sessions[0].Statuses)
+	}
+	if view := m.View().Content; !strings.Contains(view, "one") {
+		t.Fatalf("window missing after background load: %s", view)
+	}
+}
+
 func TestSessionsLoadedMessagePopulatesPicker(t *testing.T) {
 	t.Parallel()
 

@@ -49,7 +49,12 @@ type Actions struct {
 	NewSession    func(name string) error
 	NewWindow     func(session, name string) error
 	Reload        func() ([]Session, error)
-	Wakeup        func(session string) error
-	Sleep         func(session string) error
-	SetTheme      func(theme string) error
+	// Outline is the session index only. The picker draws it immediately and
+	// fills windows, then agent status, in the background.
+	Outline func() ([]Session, error)
+	// RefreshStatuses returns agent activity for sessions that already have windows.
+	RefreshStatuses func([]Session) (map[string]map[int]WindowStatus, error)
+	Wakeup          func(session string) error
+	Sleep           func(session string) error
+	SetTheme        func(theme string) error
 }

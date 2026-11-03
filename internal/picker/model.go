@@ -35,6 +35,12 @@ type sessionsLoadedMsg struct {
 	generation uint64
 }
 
+type statusesLoadedMsg struct {
+	statuses   map[string]map[int]WindowStatus
+	err        error
+	generation uint64
+}
+
 type sessionLoadSource int
 
 const (
@@ -86,6 +92,7 @@ type pickerModel struct {
 	loading          bool
 	reloadPending    bool
 	reloadGeneration uint64
+	statusGeneration uint64
 }
 
 type pickerMode int
@@ -124,6 +131,7 @@ func newPickerModelWithTheme(
 	themeName string,
 ) pickerModel {
 	actions.Reload = serializeSessionLoader(actions.Reload)
+	actions.RefreshStatuses = serializeStatusLoader(actions.RefreshStatuses)
 	if themeName != themeLight {
 		themeName = themeDark
 	}
@@ -160,6 +168,22 @@ func newPickerModelWithTheme(
 	return model
 }
 
+func serializeStatusLoader(
+	loader func([]Session) (map[string]map[int]WindowStatus, error),
+) func([]Session) (map[string]map[int]WindowStatus, error) {
+	if loader == nil {
+		return nil
+	}
+	var mutex sync.Mutex
+
+	return func(sessions []Session) (map[string]map[int]WindowStatus, error) {
+		mutex.Lock()
+		defer mutex.Unlock()
+
+		return loader(sessions)
+	}
+}
+
 func serializeSessionLoader(loader func() ([]Session, error)) func() ([]Session, error) {
 	if loader == nil {
 		return nil
@@ -177,7 +201,7 @@ func serializeSessionLoader(loader func() ([]Session, error)) func() ([]Session,
 
 func (m pickerModel) Init() tea.Cmd {
 	cmds := []tea.Cmd{textinput.Blink, scheduleStatusRefresh(), scheduleSpinner()}
-	if m.loading {
+	if m.loading || m.reloadPending {
 		cmds = append(cmds, loadSessions(m.actions.Reload, m.reloadGeneration))
 	}
 
@@ -221,6 +245,8 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleSpinnerTick()
 	case sessionsLoadedMsg:
 		return m.handleSessionsLoaded(msg)
+	case statusesLoadedMsg:
+		return m.handleStatusesLoaded(msg)
 	case tea.MouseWheelMsg:
 		return m.handleWheel(msg)
 	case tea.MouseClickMsg:
@@ -306,12 +332,48 @@ func (m pickerModel) handleSessionsLoaded(msg sessionsLoadedMsg) (tea.Model, tea
 	m.applySessionLoadResult(msg.sessions, msg.err, sessionLoadBackground)
 	m.renderViewport()
 
+	return m, m.scheduleStatus()
+}
+
+func (m pickerModel) handleStatusesLoaded(msg statusesLoadedMsg) (tea.Model, tea.Cmd) {
+	if msg.generation != m.statusGeneration || msg.err != nil {
+		return m, nil
+	}
+	for index := range m.sessions {
+		statuses, ok := msg.statuses[m.sessions[index].Record.SessionName]
+		if ok {
+			m.sessions[index].Statuses = statuses
+		}
+	}
+	m.applyFilter()
+	m.renderViewport()
+
 	return m, nil
+}
+
+func (m *pickerModel) scheduleStatus() tea.Cmd {
+	if m.actions.RefreshStatuses == nil || m.loading || m.reloadPending {
+		return nil
+	}
+	m.statusGeneration++
+	generation := m.statusGeneration
+	sessions := append([]Session(nil), m.sessions...)
+	loader := m.actions.RefreshStatuses
+
+	return func() tea.Msg {
+		statuses, err := loader(sessions)
+
+		return statusesLoadedMsg{statuses: statuses, err: err, generation: generation}
+	}
 }
 
 func (m pickerModel) handleStatusTick() (tea.Model, tea.Cmd) {
 	cmds := []tea.Cmd{scheduleStatusRefresh()}
-	if m.mode == modeBrowse && !m.palette && !m.loading && !m.reloadPending &&
+	if m.actions.RefreshStatuses != nil {
+		if m.mode == modeBrowse && !m.palette {
+			cmds = append(cmds, m.scheduleStatus())
+		}
+	} else if m.mode == modeBrowse && !m.palette && !m.loading && !m.reloadPending &&
 		m.actions.Reload != nil {
 		m.reloadGeneration++
 		m.reloadPending = true
@@ -1253,10 +1315,18 @@ func ChooseTargetWithLoader(
 		return Target{}, errTUIDisabled
 	}
 
-	m := newPickerModelWithTheme([]Session{}, windowSort, actions, themeName)
-	m.loading = true
+	sessions := []Session{}
+	if actions.Outline != nil {
+		var err error
+		sessions, err = actions.Outline()
+		if err != nil {
+			return Target{}, err
+		}
+	}
+	m := newPickerModelWithTheme(sessions, windowSort, actions, themeName)
 	m.reloadPending = true
 	m.reloadGeneration = 1
+	m.loading = len(sessions) == 0
 
 	return runPicker(m)
 }
