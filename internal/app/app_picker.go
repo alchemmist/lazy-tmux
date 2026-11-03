@@ -65,7 +65,9 @@ func (a *App) pickerOutline(opts PickerSortOptions) ([]picker.Session, error) {
 	return sessions, nil
 }
 
-func (a *App) pickerRecordsAndLive(opts PickerSortOptions) ([]snapshot.Record, map[string]struct{}, error) {
+func (a *App) pickerRecordsAndLive(
+	opts PickerSortOptions,
+) ([]snapshot.Record, map[string]struct{}, error) {
 	records, err := a.pickerRecords(opts)
 	if err != nil {
 		return nil, nil, err

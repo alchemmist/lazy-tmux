@@ -318,7 +318,8 @@ func TestOutlineRendersBeforeDetailsAndStatus(t *testing.T) {
 	m.loading = false
 	m.applyFilter()
 	m.renderViewport()
-	if view := m.View().Content; !strings.Contains(view, "alpha") || strings.Contains(view, "Loading sessions…") {
+	view := m.View().Content
+	if !strings.Contains(view, "alpha") || strings.Contains(view, "Loading sessions…") {
 		t.Fatalf("outline was not visible immediately: %s", view)
 	}
 	m.reloadGeneration = 1
