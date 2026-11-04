@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@gravity-ui/icons": "^2.13.0",
-    "@gravity-ui/uikit": "^7.18.0",
+    "@gravity-ui/uikit": "^8.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^6.30.6"
