@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+trap 'printf "AUR packaging check failed at line %s: %s\n" "$LINENO" "$BASH_COMMAND" >&2' ERR
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 # AUR remains the single source of truth. An explicit local checkout can be
