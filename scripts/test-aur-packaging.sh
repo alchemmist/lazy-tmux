@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
-root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-source "$root/packaging/aur/PKGBUILD"
+# AUR remains the single source of truth. An explicit local checkout can be
+# supplied when validating an unpublished AUR packaging fix.
+recipe_dir=${AUR_RECIPE_DIR:-}
+if [[ -z "$recipe_dir" ]]; then
+  git clone --depth 1 https://aur.archlinux.org/lazy-tmux.git "$work/aur"
+  recipe_dir="$work/aur"
+fi
+source "$recipe_dir/PKGBUILD"
 for CARCH in x86_64 aarch64; do
   srcdir="$work/$CARCH/src"
   mkdir -p "$srcdir" "$work/fixture"

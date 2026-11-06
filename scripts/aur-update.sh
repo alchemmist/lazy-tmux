@@ -11,8 +11,6 @@ if [ -z "${AUR_REPO_URL:-}" ]; then
   exit 1
 fi
 
-script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-
 tag="$GITHUB_REF_NAME"
 ver="${tag#v}"
 
@@ -44,9 +42,6 @@ git clone --single-branch "$AUR_REPO_URL" "$workdir"
 pkgbuild="$workdir/PKGBUILD"
 srcinfo="$workdir/.SRCINFO"
 
-# Keep packaging logic versioned and reviewed in the main repository.
-cp "$script_dir/../packaging/aur/PKGBUILD" "$pkgbuild"
-
 sed -i "s/^pkgver=.*/pkgver=${ver}/" "$pkgbuild"
 sed -i "s/^sha256sums_x86_64=.*/sha256sums_x86_64=('${sha_amd64}' '${sha_amd64_fzf}')/" "$pkgbuild"
 sed -i "s/^sha256sums_aarch64=.*/sha256sums_aarch64=('${sha_arm64}' '${sha_arm64_fzf}')/" "$pkgbuild"
@@ -58,13 +53,17 @@ sed -i "s/^sha256sums_aarch64=.*/sha256sums_aarch64=('${sha_arm64}' '${sha_arm64
 # Single-quoted so ${pkgver} stays a literal PKGBUILD variable.
 sed -i 's#\(/releases/download/v${pkgver}/\)lazy-tmux_${pkgver}_#\1lazy-tmux_#g' "$pkgbuild"
 
-# Generate all metadata from the finished recipe, including pkgrel and split
-# package sections. The release runner is Ubuntu, so use Arch's makepkg.
-# Run as the invoking non-root user; makepkg refuses root even for printsrcinfo.
-docker run --rm --user "$(id -u):$(id -g)" \
-  -v "$workdir:/recipe:ro" \
-  docker.io/library/archlinux:base-devel \
-  bash -c 'work=$(mktemp -d); cp /recipe/PKGBUILD "$work/"; cd "$work"; makepkg --printsrcinfo' > "$srcinfo"
+sed -i "s/^\tpkgver = .*/\tpkgver = ${ver}/" "$srcinfo"
+sed -i "s#releases/download/v[0-9.\-]\+/lazy-tmux_#releases/download/v${ver}/lazy-tmux_#g" "$srcinfo"
+sed -i "s#lazy-tmux_[0-9.\-]\+_#lazy-tmux_${ver}_#g" "$srcinfo"
+
+# Same as PKGBUILD: the download URL filename must be unversioned. The previous
+# sed bumps the version everywhere (correct for the local alias), so strip it
+# back off only the URL-side filename, right after the v${ver} path (issue #141).
+sed -i -E "s#(/releases/download/v${ver}/)lazy-tmux_[0-9][0-9.\-]*_#\1lazy-tmux_#g" "$srcinfo"
+
+perl -0777 -i -pe "s/sha256sums_x86_64 = .*\n\tsha256sums_x86_64 = .*/sha256sums_x86_64 = ${sha_amd64}\n\tsha256sums_x86_64 = ${sha_amd64_fzf}/" "$srcinfo"
+perl -0777 -i -pe "s/sha256sums_aarch64 = .*\n\tsha256sums_aarch64 = .*/sha256sums_aarch64 = ${sha_arm64}\n\tsha256sums_aarch64 = ${sha_arm64_fzf}/" "$srcinfo"
 
 grep -q "pkgver = ${ver}" "$srcinfo" || { echo "AUR update failed: pkgver" >&2; exit 1; }
 grep -q "sha256sums_x86_64 = ${sha_amd64}" "$srcinfo" || { echo "AUR update failed: sha256sums_x86_64 (main)" >&2; exit 1; }
