@@ -1,0 +1,16 @@
+name: AUR packaging
+on:
+  pull_request:
+    paths:
+      - 'packaging/aur/**'
+      - 'scripts/*aur*'
+      - '.github/workflows/aur-packaging.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  split-packages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: bash scripts/test-aur-packaging.sh

@@ -11,6 +11,8 @@ if [ -z "${AUR_REPO_URL:-}" ]; then
   exit 1
 fi
 
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+
 tag="$GITHUB_REF_NAME"
 ver="${tag#v}"
 
@@ -41,6 +43,9 @@ git clone --single-branch "$AUR_REPO_URL" "$workdir"
 
 pkgbuild="$workdir/PKGBUILD"
 srcinfo="$workdir/.SRCINFO"
+
+# Keep packaging logic versioned and reviewed in the main repository.
+cp "$script_dir/../packaging/aur/PKGBUILD" "$pkgbuild"
 
 sed -i "s/^pkgver=.*/pkgver=${ver}/" "$pkgbuild"
 sed -i "s/^sha256sums_x86_64=.*/sha256sums_x86_64=('${sha_amd64}' '${sha_amd64_fzf}')/" "$pkgbuild"
