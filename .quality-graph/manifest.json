@@ -5,7 +5,7 @@
       "admin"
     ]
   },
-  "graphDigest": "e4fac2f8afe81cd2f7b26828e59d9db5466d9ab2b50eeb06fe8efce7140ab30b",
+  "graphDigest": "045acbba54dbe96c481bdae6b983030c43b9ebc566ad884e2707cd8394b3d1b9",
   "graphVersion": 0,
   "labels": {
     "enabled": false
@@ -299,7 +299,7 @@
           }
         },
         {
-          "uses": "astral-sh/setup-uv@v10.0.1"
+          "uses": "astral-sh/setup-uv@v10.1.0"
         }
       ]
     },

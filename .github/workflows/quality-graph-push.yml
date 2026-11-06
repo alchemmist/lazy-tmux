@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: 'false'
-      - uses: astral-sh/setup-uv@v10.0.1
+      - uses: astral-sh/setup-uv@v10.1.0
       - run: uvx --from quality-graph-cli==0.1.8 --with quality-graph-github==0.1.8 qg validate
         name: Run Workflow graph validation
         id: quality-command
@@ -36,7 +36,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: e4fac2f8afe81cd2f7b26828e59d9db5466d9ab2b50eeb06fe8efce7140ab30b
+          graph-digest: 045acbba54dbe96c481bdae6b983030c43b9ebc566ad884e2707cd8394b3d1b9
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -78,7 +78,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: e4fac2f8afe81cd2f7b26828e59d9db5466d9ab2b50eeb06fe8efce7140ab30b
+          graph-digest: 045acbba54dbe96c481bdae6b983030c43b9ebc566ad884e2707cd8394b3d1b9
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -125,7 +125,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: e4fac2f8afe81cd2f7b26828e59d9db5466d9ab2b50eeb06fe8efce7140ab30b
+          graph-digest: 045acbba54dbe96c481bdae6b983030c43b9ebc566ad884e2707cd8394b3d1b9
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -174,7 +174,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: e4fac2f8afe81cd2f7b26828e59d9db5466d9ab2b50eeb06fe8efce7140ab30b
+          graph-digest: 045acbba54dbe96c481bdae6b983030c43b9ebc566ad884e2707cd8394b3d1b9
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -223,7 +223,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: e4fac2f8afe81cd2f7b26828e59d9db5466d9ab2b50eeb06fe8efce7140ab30b
+          graph-digest: 045acbba54dbe96c481bdae6b983030c43b9ebc566ad884e2707cd8394b3d1b9
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -272,7 +272,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: e4fac2f8afe81cd2f7b26828e59d9db5466d9ab2b50eeb06fe8efce7140ab30b
+          graph-digest: 045acbba54dbe96c481bdae6b983030c43b9ebc566ad884e2707cd8394b3d1b9
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -321,7 +321,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: e4fac2f8afe81cd2f7b26828e59d9db5466d9ab2b50eeb06fe8efce7140ab30b
+          graph-digest: 045acbba54dbe96c481bdae6b983030c43b9ebc566ad884e2707cd8394b3d1b9
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -366,7 +366,7 @@ jobs:
           adapter: native
           report-path: .cache/quality-graph/tmux-versions.json
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: e4fac2f8afe81cd2f7b26828e59d9db5466d9ab2b50eeb06fe8efce7140ab30b
+          graph-digest: 045acbba54dbe96c481bdae6b983030c43b9ebc566ad884e2707cd8394b3d1b9
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
