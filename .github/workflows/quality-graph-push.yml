@@ -36,7 +36,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: de7217a2debee71075d2b94d82e0e8e65188deb58b4c34636761be77796108ce
+          graph-digest: e4fac2f8afe81cd2f7b26828e59d9db5466d9ab2b50eeb06fe8efce7140ab30b
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -54,6 +54,50 @@ jobs:
         env:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
+  aur-packaging:
+    name: AUR packaging
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: 'false'
+      - run: bash scripts/test-aur-packaging.sh
+        name: Run AUR packaging
+        id: quality-command
+        continue-on-error: true
+      - name: Collect AUR packaging result
+        id: quality-result
+        if: always()
+        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        with:
+          operation: collect
+          node-id: aur-packaging
+          title: AUR packaging
+          adapter: exit-code
+          report-path: ''
+          command-outcome: ${{ steps.quality-command.outcome }}
+          graph-digest: e4fac2f8afe81cd2f7b26828e59d9db5466d9ab2b50eeb06fe8efce7140ab30b
+          approval-findings: 'true'
+          approval-files: 'false'
+          approval-node: 'false'
+      - name: Upload AUR packaging result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-result-aur-packaging-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/quality-graph/aur-packaging.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce AUR packaging result
+        if: always()
+        shell: bash
+        env:
+          EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
+        run: exit "${EXIT_CODE:-2}"
+    needs:
+      - workflow-graph
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -81,7 +125,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: de7217a2debee71075d2b94d82e0e8e65188deb58b4c34636761be77796108ce
+          graph-digest: e4fac2f8afe81cd2f7b26828e59d9db5466d9ab2b50eeb06fe8efce7140ab30b
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -130,7 +174,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: de7217a2debee71075d2b94d82e0e8e65188deb58b4c34636761be77796108ce
+          graph-digest: e4fac2f8afe81cd2f7b26828e59d9db5466d9ab2b50eeb06fe8efce7140ab30b
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -179,7 +223,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: de7217a2debee71075d2b94d82e0e8e65188deb58b4c34636761be77796108ce
+          graph-digest: e4fac2f8afe81cd2f7b26828e59d9db5466d9ab2b50eeb06fe8efce7140ab30b
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -228,7 +272,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: de7217a2debee71075d2b94d82e0e8e65188deb58b4c34636761be77796108ce
+          graph-digest: e4fac2f8afe81cd2f7b26828e59d9db5466d9ab2b50eeb06fe8efce7140ab30b
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -277,7 +321,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: de7217a2debee71075d2b94d82e0e8e65188deb58b4c34636761be77796108ce
+          graph-digest: e4fac2f8afe81cd2f7b26828e59d9db5466d9ab2b50eeb06fe8efce7140ab30b
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -322,7 +366,7 @@ jobs:
           adapter: native
           report-path: .cache/quality-graph/tmux-versions.json
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: de7217a2debee71075d2b94d82e0e8e65188deb58b4c34636761be77796108ce
+          graph-digest: e4fac2f8afe81cd2f7b26828e59d9db5466d9ab2b50eeb06fe8efce7140ab30b
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'

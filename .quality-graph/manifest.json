@@ -5,7 +5,7 @@
       "admin"
     ]
   },
-  "graphDigest": "de7217a2debee71075d2b94d82e0e8e65188deb58b4c34636761be77796108ce",
+  "graphDigest": "e4fac2f8afe81cd2f7b26828e59d9db5466d9ab2b50eeb06fe8efce7140ab30b",
   "graphVersion": 0,
   "labels": {
     "enabled": false
@@ -35,6 +35,32 @@
         "run": "uvx --from quality-graph-cli==0.1.8 --with quality-graph-github==0.1.8 qg validate"
       },
       "title": "Workflow graph validation"
+    },
+    {
+      "env": {},
+      "id": "aur-packaging",
+      "needs": [
+        "workflow-graph"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "default",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "bash scripts/test-aur-packaging.sh"
+      },
+      "title": "AUR packaging"
     },
     {
       "env": {},
