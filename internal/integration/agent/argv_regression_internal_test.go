@@ -318,3 +318,22 @@ func TestResumeRecognizedNodeClaudeLaunch(t *testing.T) {
 		t.Fatalf("got %q want %q", argv, want)
 	}
 }
+
+func TestResumeArgvCodexPreservesNoDaemon(t *testing.T) {
+	t.Parallel()
+	for _, launch := range [][]string{
+		{"codex", "--no-daemon", "--no-alt-screen"},
+		{"codex", "--no-daemon", "resume", "old-id"},
+		{"codex", "resume", "old-id", "--no-daemon"},
+		{"node", "/usr/lib/node_modules/@openai/codex/bin/codex.js", "--no-daemon"},
+	} {
+		want := []string{"codex", "resume", "new-id", "--no-daemon"}
+		if len(launch) == 3 && launch[2] == "--no-alt-screen" {
+			want = append(want, "--no-alt-screen")
+		}
+		want = append(want, "--cd", "/workspace")
+		assertResumeArgv(t, "codex", launch, want)
+	}
+	assertUnverifiedResumeArgv(t, "codex", []string{"codex", "--no-daemon=false"})
+	assertUnverifiedResumeArgv(t, "claude", []string{"claude", "--no-daemon"})
+}

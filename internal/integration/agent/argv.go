@@ -110,6 +110,10 @@ func launchOption(kind, flag string) (int, bool) {
 
 		return arity, ok
 	}
+	// Keep Codex's execution mode when resuming instead of switching back to a daemon.
+	if kind == snapshot.AgentCodex && flag == "--no-daemon" {
+		return 0, true
+	}
 	options := map[string]int{
 		"--profile":          1,
 		"-p":                 1,
