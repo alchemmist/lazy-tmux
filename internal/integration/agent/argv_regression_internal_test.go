@@ -336,10 +336,38 @@ func TestResumeArgvCodexPreservesNoDaemon(t *testing.T) {
 		want = append(want, "--cd", "/workspace")
 		assertResumeArgv(t, "codex", launch, want)
 	}
-	assertResumeArgv(t, "codex",
-		[]string{"codex", "--no-daemon", "--model", "m", "resume", "old-id", "--no-daemon", "--sandbox", "read-only"},
-		[]string{"codex", "resume", "new-id", "--no-daemon", "--model", "m", "--sandbox", "read-only", "--cd", "/workspace"})
-	assertUnverifiedResumeArgv(t, "codex", []string{"codex", "--no-daemon", "resume", "old-id", "--no-daemon=false"})
+	assertResumeArgv(
+		t,
+		"codex",
+		[]string{
+			"codex",
+			"--no-daemon",
+			"--model",
+			"m",
+			"resume",
+			"old-id",
+			"--no-daemon",
+			"--sandbox",
+			"read-only",
+		},
+		[]string{
+			"codex",
+			"resume",
+			"new-id",
+			"--no-daemon",
+			"--model",
+			"m",
+			"--sandbox",
+			"read-only",
+			"--cd",
+			"/workspace",
+		},
+	)
+	assertUnverifiedResumeArgv(
+		t,
+		"codex",
+		[]string{"codex", "--no-daemon", "resume", "old-id", "--no-daemon=false"},
+	)
 	assertUnverifiedResumeArgv(t, "codex", []string{"codex", "--no-daemon=false"})
 	assertUnverifiedResumeArgv(t, "claude", []string{"claude", "--no-daemon"})
 }

@@ -3,6 +3,7 @@ package agent
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
@@ -26,7 +27,6 @@ func ResumeArgv(kind, sessionID, cwd string, launch []string) ([]string, error) 
 	}
 	result := []string{launch[0], subcommand, sessionID}
 	remaining := launch[1:]
-	noDaemon := false
 	for len(remaining) > 0 {
 		arg := remaining[0]
 		remaining = remaining[1:]
@@ -51,14 +51,7 @@ func ResumeArgv(kind, sessionID, cwd string, launch []string) ([]string, error) 
 		}
 		remaining = rest
 		if !transient {
-			if kind == snapshot.AgentCodex && flag == "--no-daemon" {
-				// Global and resume-local switches collapse into the same scope.
-				if noDaemon {
-					continue
-				}
-				noDaemon = true
-			}
-			result = append(result, values...)
+			result = appendResumeOption(result, kind, flag, values)
 		}
 	}
 	if kind != snapshot.AgentClaude {
@@ -66,6 +59,15 @@ func ResumeArgv(kind, sessionID, cwd string, launch []string) ([]string, error) 
 	}
 
 	return result, nil
+}
+
+// appendResumeOption keeps Codex's global and resume-local execution mode in one scope.
+func appendResumeOption(argv []string, kind, flag string, values []string) []string {
+	if kind == snapshot.AgentCodex && flag == "--no-daemon" && slices.Contains(argv, flag) {
+		return argv
+	}
+
+	return append(argv, values...)
 }
 
 func launchOptionArgs(arg string, remaining []string, arity int) ([]string, []string, error) {
