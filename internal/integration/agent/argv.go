@@ -10,21 +10,20 @@ import (
 )
 
 const (
-	optionVariadic = -1
-	optionOptional = -2
+	resumeSubcommand = "resume"
+	optionVariadic   = -1
+	optionOptional   = -2
 )
 
 func ResumeArgv(kind, sessionID, cwd string, launch []string) ([]string, error) {
 	launch = normalizedLaunch(kind, launch)
-	if (kind != snapshot.AgentClaude && kind != snapshot.AgentCodex && kind != snapshot.AgentAntex) ||
-		len(launch) == 0 ||
-		filepath.Base(launch[0]) != kind {
+	if !validResumeLaunch(kind, launch) {
 		return nil, ErrUnverified
 	}
 	if split := codexResumeScope(kind, launch); split > 1 {
 		return scopedCodexResume(sessionID, cwd, launch, split)
 	}
-	subcommand := "resume"
+	subcommand := resumeSubcommand
 	if kind == snapshot.AgentClaude {
 		subcommand = claudeResume
 	}
@@ -64,6 +63,12 @@ func ResumeArgv(kind, sessionID, cwd string, launch []string) ([]string, error) 
 	return result, nil
 }
 
+func validResumeLaunch(kind string, launch []string) bool {
+	return slices.Contains([]string{snapshot.AgentClaude, snapshot.AgentCodex, snapshot.AgentAntex}, kind) &&
+		len(launch) > 0 &&
+		filepath.Base(launch[0]) == kind
+}
+
 // codexResumeScope locates the subcommand without treating option values as commands.
 func codexResumeScope(kind string, launch []string) int {
 	if kind != snapshot.AgentCodex {
@@ -71,7 +76,7 @@ func codexResumeScope(kind string, launch []string) int {
 	}
 	for index := 1; index < len(launch); {
 		arg := launch[index]
-		if arg == "resume" {
+		if arg == resumeSubcommand {
 			return index
 		}
 		if !strings.HasPrefix(arg, "-") || arg == "--" {
