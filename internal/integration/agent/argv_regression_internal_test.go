@@ -385,3 +385,18 @@ func TestResumeArgvCodexPreservesScopes(t *testing.T) {
 	assertResumeArgv(t, "codex", []string{"codex", "--no-daemon", "resume", "old-id"},
 		[]string{"codex", "--no-daemon", "resume", "new-id", "--cd", "/workspace"})
 }
+
+func TestResumeArgvCodexScopeValidation(t *testing.T) {
+	t.Parallel()
+	for _, launch := range [][]string{
+		{"codex", "--unknown", "resume", "old-id"},
+		{"codex", "--no-daemon=false", "resume", "old-id"},
+		{"codex", "--no-daemon", "resume", "old-id", "--unknown"},
+		{"codex", "--no-daemon", "resume", "old-id", "--model"},
+	} {
+		assertUnverifiedResumeArgv(t, "codex", launch)
+	}
+	// A transient-only root scope contributes no persistent options to the result.
+	assertResumeArgv(t, "codex", []string{"codex", "--cd", "/old", "resume"},
+		[]string{"codex", "resume", "new-id", "--cd", "/workspace"})
+}

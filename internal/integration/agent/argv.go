@@ -114,7 +114,9 @@ func scopedCodexResume(sessionID, cwd string, launch []string, split int) ([]str
 	if err != nil {
 		return nil, err
 	}
-	// Strip the synthetic resume/id prefix and cwd suffix from root arguments.
+	// Successful Codex results always contain the executable/resume/id prefix
+	// and --cd/cwd suffix (at least five elements), even with no saved options.
+	// Both errors have been checked before stripping that synthetic structure.
 	result := append([]string{launch[0]}, root[3:len(root)-2]...)
 
 	return append(result, local[1:]...), nil
