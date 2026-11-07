@@ -21,6 +21,9 @@ func ResumeArgv(kind, sessionID, cwd string, launch []string) ([]string, error) 
 		filepath.Base(launch[0]) != kind {
 		return nil, ErrUnverified
 	}
+	if split := codexResumeScope(kind, launch); split > 1 {
+		return scopedCodexResume(sessionID, cwd, launch, split)
+	}
 	subcommand := "resume"
 	if kind == snapshot.AgentClaude {
 		subcommand = claudeResume
@@ -59,6 +62,54 @@ func ResumeArgv(kind, sessionID, cwd string, launch []string) ([]string, error) 
 	}
 
 	return result, nil
+}
+
+// codexResumeScope locates the subcommand without treating option values as commands.
+func codexResumeScope(kind string, launch []string) int {
+	if kind != snapshot.AgentCodex {
+		return 0
+	}
+	for index := 1; index < len(launch); {
+		arg := launch[index]
+		if arg == "resume" {
+			return index
+		}
+		if !strings.HasPrefix(arg, "-") || arg == "--" {
+			return 0
+		}
+		flag, _, _ := strings.Cut(arg, "=")
+		arity, known := launchOption(kind, flag)
+		if !known {
+			arity, known = transientOption(kind, flag)
+		}
+		if !known {
+			return 0
+		}
+		_, rest, err := launchOptionArgs(arg, launch[index+1:], arity)
+		if err != nil {
+			return 0
+		}
+		index = len(launch) - len(rest)
+	}
+
+	return 0
+}
+
+// scopedCodexResume validates each scope separately, preserving local precedence.
+func scopedCodexResume(sessionID, cwd string, launch []string, split int) ([]string, error) {
+	root, err := ResumeArgv(snapshot.AgentCodex, sessionID, cwd, launch[:split])
+	if err != nil {
+		return nil, err
+	}
+	localLaunch := append([]string{launch[0]}, launch[split:]...)
+	local, err := ResumeArgv(snapshot.AgentCodex, sessionID, cwd, localLaunch)
+	if err != nil {
+		return nil, err
+	}
+	// Strip the synthetic resume/id prefix and cwd suffix from root arguments.
+	result := append([]string{launch[0]}, root[3:len(root)-2]...)
+
+	return append(result, local[1:]...), nil
 }
 
 // appendResumeOption keeps Codex's global and resume-local execution mode in one scope.

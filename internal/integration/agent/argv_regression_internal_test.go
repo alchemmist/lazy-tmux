@@ -324,9 +324,7 @@ func TestResumeArgvCodexPreservesNoDaemon(t *testing.T) {
 	t.Parallel()
 	for _, launch := range [][]string{
 		{"codex", "--no-daemon", "--no-alt-screen"},
-		{"codex", "--no-daemon", "resume", "old-id"},
 		{"codex", "resume", "old-id", "--no-daemon"},
-		{"codex", "--no-daemon", "resume", "old-id", "--no-daemon"},
 		{"node", "/usr/lib/node_modules/@openai/codex/bin/codex.js", "--no-daemon"},
 	} {
 		want := []string{"codex", "resume", "new-id", "--no-daemon"}
@@ -336,33 +334,7 @@ func TestResumeArgvCodexPreservesNoDaemon(t *testing.T) {
 		want = append(want, "--cd", "/workspace")
 		assertResumeArgv(t, "codex", launch, want)
 	}
-	assertResumeArgv(
-		t,
-		"codex",
-		[]string{
-			"codex",
-			"--no-daemon",
-			"--model",
-			"m",
-			"resume",
-			"old-id",
-			"--no-daemon",
-			"--sandbox",
-			"read-only",
-		},
-		[]string{
-			"codex",
-			"resume",
-			"new-id",
-			"--no-daemon",
-			"--model",
-			"m",
-			"--sandbox",
-			"read-only",
-			"--cd",
-			"/workspace",
-		},
-	)
+
 	assertUnverifiedResumeArgv(
 		t,
 		"codex",
@@ -370,4 +342,46 @@ func TestResumeArgvCodexPreservesNoDaemon(t *testing.T) {
 	)
 	assertUnverifiedResumeArgv(t, "codex", []string{"codex", "--no-daemon=false"})
 	assertUnverifiedResumeArgv(t, "claude", []string{"claude", "--no-daemon"})
+}
+
+func TestResumeArgvCodexPreservesScopes(t *testing.T) {
+	t.Parallel()
+	for _, options := range [][]string{
+		{"--no-daemon"},
+		{"--no-alt-screen"},
+		{"--model", "root"},
+		{"--sandbox", "read-only"},
+		{"--model=resume"},
+		{"--config", "name=resume"},
+	} {
+		launch := append([]string{"codex"}, options...)
+		launch = append(
+			launch,
+			"resume",
+			"old-id",
+			"--no-daemon",
+			"--no-alt-screen",
+			"--model",
+			"local",
+			"--sandbox",
+			"workspace-write",
+		)
+		want := append([]string{"codex"}, options...)
+		want = append(
+			want,
+			"resume",
+			"new-id",
+			"--no-daemon",
+			"--no-alt-screen",
+			"--model",
+			"local",
+			"--sandbox",
+			"workspace-write",
+			"--cd",
+			"/workspace",
+		)
+		assertResumeArgv(t, "codex", launch, want)
+	}
+	assertResumeArgv(t, "codex", []string{"codex", "--no-daemon", "resume", "old-id"},
+		[]string{"codex", "--no-daemon", "resume", "new-id", "--cd", "/workspace"})
 }
