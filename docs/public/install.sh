@@ -198,6 +198,9 @@ fi
 tmp_dir=$(mktemp -d)
 cleanup() {
   end_bar_line
+  if [ -n "${staged:-}" ]; then
+    rm -f "$staged"
+  fi
   rm -rf "$tmp_dir"
 }
 trap cleanup EXIT INT TERM
@@ -262,12 +265,29 @@ fi
 mkdir -p "$install_dir"
 
 step 92 "Installing to ${install_dir}"
+# Stage beside the destination, then rename atomically. Readers see either
+# the complete old binary or the complete new one, and running processes keep
+# their old inode (important for the cp fallback on Linux: ETXTBSY).
+staged=$(mktemp "$install_dir/.$bin_name.new.XXXXXX") || die "Failed to stage binary in ${install_dir}"
 if command -v install >/dev/null 2>&1; then
-  install -m 0755 "$tmp_dir/$bin_name" "$install_dir/$bin_name"
+  install -m 0755 "$tmp_dir/$bin_name" "$staged" || {
+    rm -f "$staged"
+    die "Failed to write ${staged}"
+  }
 else
-  cp "$tmp_dir/$bin_name" "$install_dir/$bin_name"
-  chmod 0755 "$install_dir/$bin_name"
+  cp "$tmp_dir/$bin_name" "$staged" || {
+    rm -f "$staged"
+    die "Failed to write ${staged}"
+  }
+  chmod 0755 "$staged" || {
+    rm -f "$staged"
+    die "Failed to chmod ${staged}"
+  }
 fi
+mv -f "$staged" "$install_dir/$bin_name" || {
+  rm -f "$staged"
+  die "Failed to install into ${install_dir}"
+}
 
 # Keep the bar's final label short (it would otherwise be the longest line and
 # wrap); print the full install path on its own line below the finished bar.
