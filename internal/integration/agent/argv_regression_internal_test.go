@@ -318,3 +318,85 @@ func TestResumeRecognizedNodeClaudeLaunch(t *testing.T) {
 		t.Fatalf("got %q want %q", argv, want)
 	}
 }
+
+// TestResumeArgvCodexPreservesNoDaemon covers execution mode across launch layouts.
+func TestResumeArgvCodexPreservesNoDaemon(t *testing.T) {
+	t.Parallel()
+	for _, launch := range [][]string{
+		{"codex", "--no-daemon", "--no-alt-screen"},
+		{"codex", "resume", "old-id", "--no-daemon"},
+		{"node", "/usr/lib/node_modules/@openai/codex/bin/codex.js", "--no-daemon"},
+	} {
+		want := []string{"codex", "resume", "new-id", "--no-daemon"}
+		if len(launch) == 3 && launch[2] == "--no-alt-screen" {
+			want = append(want, "--no-alt-screen")
+		}
+		want = append(want, "--cd", "/workspace")
+		assertResumeArgv(t, "codex", launch, want)
+	}
+
+	assertUnverifiedResumeArgv(
+		t,
+		"codex",
+		[]string{"codex", "--no-daemon", "resume", "old-id", "--no-daemon=false"},
+	)
+	assertUnverifiedResumeArgv(t, "codex", []string{"codex", "--no-daemon=false"})
+	assertUnverifiedResumeArgv(t, "claude", []string{"claude", "--no-daemon"})
+}
+
+func TestResumeArgvCodexPreservesScopes(t *testing.T) {
+	t.Parallel()
+	for _, options := range [][]string{
+		{"--no-daemon"},
+		{"--no-alt-screen"},
+		{"--model", "root"},
+		{"--sandbox", "read-only"},
+		{"--model=resume"},
+		{"--config", "name=resume"},
+	} {
+		launch := append([]string{"codex"}, options...)
+		launch = append(
+			launch,
+			"resume",
+			"old-id",
+			"--no-daemon",
+			"--no-alt-screen",
+			"--model",
+			"local",
+			"--sandbox",
+			"workspace-write",
+		)
+		want := append([]string{"codex"}, options...)
+		want = append(
+			want,
+			"resume",
+			"new-id",
+			"--no-daemon",
+			"--no-alt-screen",
+			"--model",
+			"local",
+			"--sandbox",
+			"workspace-write",
+			"--cd",
+			"/workspace",
+		)
+		assertResumeArgv(t, "codex", launch, want)
+	}
+	assertResumeArgv(t, "codex", []string{"codex", "--no-daemon", "resume", "old-id"},
+		[]string{"codex", "--no-daemon", "resume", "new-id", "--cd", "/workspace"})
+}
+
+func TestResumeArgvCodexScopeValidation(t *testing.T) {
+	t.Parallel()
+	for _, launch := range [][]string{
+		{"codex", "--unknown", "resume", "old-id"},
+		{"codex", "--no-daemon=false", "resume", "old-id"},
+		{"codex", "--no-daemon", "resume", "old-id", "--unknown"},
+		{"codex", "--no-daemon", "resume", "old-id", "--model"},
+	} {
+		assertUnverifiedResumeArgv(t, "codex", launch)
+	}
+	// A transient-only root scope contributes no persistent options to the result.
+	assertResumeArgv(t, "codex", []string{"codex", "--cd", "/old", "resume"},
+		[]string{"codex", "resume", "new-id", "--cd", "/workspace"})
+}

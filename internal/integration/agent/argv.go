@@ -3,24 +3,27 @@ package agent
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
 const (
-	optionVariadic = -1
-	optionOptional = -2
+	resumeSubcommand = "resume"
+	optionVariadic   = -1
+	optionOptional   = -2
 )
 
 func ResumeArgv(kind, sessionID, cwd string, launch []string) ([]string, error) {
 	launch = normalizedLaunch(kind, launch)
-	if (kind != snapshot.AgentClaude && kind != snapshot.AgentCodex && kind != snapshot.AgentAntex) ||
-		len(launch) == 0 ||
-		filepath.Base(launch[0]) != kind {
+	if !validResumeLaunch(kind, launch) {
 		return nil, ErrUnverified
 	}
-	subcommand := "resume"
+	if split := codexResumeScope(kind, launch); split > 1 {
+		return scopedCodexResume(sessionID, cwd, launch, split)
+	}
+	subcommand := resumeSubcommand
 	if kind == snapshot.AgentClaude {
 		subcommand = claudeResume
 	}
@@ -50,7 +53,7 @@ func ResumeArgv(kind, sessionID, cwd string, launch []string) ([]string, error) 
 		}
 		remaining = rest
 		if !transient {
-			result = append(result, values...)
+			result = appendResumeOption(result, kind, flag, values)
 		}
 	}
 	if kind != snapshot.AgentClaude {
@@ -58,6 +61,74 @@ func ResumeArgv(kind, sessionID, cwd string, launch []string) ([]string, error) 
 	}
 
 	return result, nil
+}
+
+func validResumeLaunch(kind string, launch []string) bool {
+	return slices.Contains(
+		[]string{snapshot.AgentClaude, snapshot.AgentCodex, snapshot.AgentAntex},
+		kind,
+	) &&
+		len(launch) > 0 &&
+		filepath.Base(launch[0]) == kind
+}
+
+// codexResumeScope locates the subcommand without treating option values as commands.
+func codexResumeScope(kind string, launch []string) int {
+	if kind != snapshot.AgentCodex {
+		return 0
+	}
+	for index := 1; index < len(launch); {
+		arg := launch[index]
+		if arg == resumeSubcommand {
+			return index
+		}
+		if !strings.HasPrefix(arg, "-") || arg == "--" {
+			return 0
+		}
+		flag, _, _ := strings.Cut(arg, "=")
+		arity, known := launchOption(kind, flag)
+		if !known {
+			arity, known = transientOption(kind, flag)
+		}
+		if !known {
+			return 0
+		}
+		_, rest, err := launchOptionArgs(arg, launch[index+1:], arity)
+		if err != nil {
+			return 0
+		}
+		index = len(launch) - len(rest)
+	}
+
+	return 0
+}
+
+// scopedCodexResume validates each scope separately, preserving local precedence.
+func scopedCodexResume(sessionID, cwd string, launch []string, split int) ([]string, error) {
+	root, err := ResumeArgv(snapshot.AgentCodex, sessionID, cwd, launch[:split])
+	if err != nil {
+		return nil, err
+	}
+	localLaunch := append([]string{launch[0]}, launch[split:]...)
+	local, err := ResumeArgv(snapshot.AgentCodex, sessionID, cwd, localLaunch)
+	if err != nil {
+		return nil, err
+	}
+	// Successful Codex results always contain the executable/resume/id prefix
+	// and --cd/cwd suffix (at least five elements), even with no saved options.
+	// Both errors have been checked before stripping that synthetic structure.
+	result := append([]string{launch[0]}, root[3:len(root)-2]...)
+
+	return append(result, local[1:]...), nil
+}
+
+// appendResumeOption keeps Codex's global and resume-local execution mode in one scope.
+func appendResumeOption(argv []string, kind, flag string, values []string) []string {
+	if kind == snapshot.AgentCodex && flag == "--no-daemon" && slices.Contains(argv, flag) {
+		return argv
+	}
+
+	return append(argv, values...)
 }
 
 func launchOptionArgs(arg string, remaining []string, arity int) ([]string, []string, error) {
@@ -87,6 +158,7 @@ func launchOptionArgs(arg string, remaining []string, arity int) ([]string, []st
 	return append([]string{arg}, remaining[:count]...), remaining[count:], nil
 }
 
+// launchOption returns the argument count for persistent options supported on resume.
 func launchOption(kind, flag string) (int, bool) {
 	common := map[string]int{"--model": 1, "-m": 1}
 	if arity, ok := common[flag]; ok {
@@ -109,6 +181,10 @@ func launchOption(kind, flag string) (int, bool) {
 		arity, ok := options[flag]
 
 		return arity, ok
+	}
+	// Keep Codex's execution mode when resuming instead of switching back to a daemon.
+	if kind == snapshot.AgentCodex && flag == "--no-daemon" {
+		return 0, true
 	}
 	options := map[string]int{
 		"--profile":          1,
