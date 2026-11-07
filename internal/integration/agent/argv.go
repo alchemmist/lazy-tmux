@@ -26,6 +26,7 @@ func ResumeArgv(kind, sessionID, cwd string, launch []string) ([]string, error) 
 	}
 	result := []string{launch[0], subcommand, sessionID}
 	remaining := launch[1:]
+	noDaemon := false
 	for len(remaining) > 0 {
 		arg := remaining[0]
 		remaining = remaining[1:]
@@ -50,6 +51,13 @@ func ResumeArgv(kind, sessionID, cwd string, launch []string) ([]string, error) 
 		}
 		remaining = rest
 		if !transient {
+			if kind == snapshot.AgentCodex && flag == "--no-daemon" {
+				// Global and resume-local switches collapse into the same scope.
+				if noDaemon {
+					continue
+				}
+				noDaemon = true
+			}
 			result = append(result, values...)
 		}
 	}
@@ -87,6 +95,7 @@ func launchOptionArgs(arg string, remaining []string, arity int) ([]string, []st
 	return append([]string{arg}, remaining[:count]...), remaining[count:], nil
 }
 
+// launchOption returns the argument count for persistent options supported on resume.
 func launchOption(kind, flag string) (int, bool) {
 	common := map[string]int{"--model": 1, "-m": 1}
 	if arity, ok := common[flag]; ok {
