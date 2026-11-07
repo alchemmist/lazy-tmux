@@ -64,7 +64,10 @@ func ResumeArgv(kind, sessionID, cwd string, launch []string) ([]string, error) 
 }
 
 func validResumeLaunch(kind string, launch []string) bool {
-	return slices.Contains([]string{snapshot.AgentClaude, snapshot.AgentCodex, snapshot.AgentAntex}, kind) &&
+	return slices.Contains(
+		[]string{snapshot.AgentClaude, snapshot.AgentCodex, snapshot.AgentAntex},
+		kind,
+	) &&
 		len(launch) > 0 &&
 		filepath.Base(launch[0]) == kind
 }
