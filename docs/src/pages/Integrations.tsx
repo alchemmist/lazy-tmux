@@ -1,12 +1,13 @@
 import { Seo } from "../components/Seo";
 import { InlineCode } from "../components/InlineCode";
+import { CodeBlock } from "../components/CodeBlock";
 
 export function Integrations() {
   return (
     <>
       <Seo
         title="Integrations — lazy-tmux"
-        description="Program integrations adapt interactive tools to lazy-tmux's save/restore. Claude Code and Antex sessions resume from their current session."
+        description="Program integrations for lazy-tmux save/restore. Codex requires --no-daemon; learn how to configure hooks and a shell alias."
         slug="integrations"
       />
       <section className="doc-section">
@@ -18,6 +19,60 @@ export function Integrations() {
           program-specific state to record on save, what to replay on restore, and
           — optionally — a live status to surface in the picker. They plug into a
           registry, so the core save/restore logic stays untouched.
+        </p>
+
+        <h2 id="codex">Codex</h2>
+        <p>
+          <strong>
+            Codex must run with <InlineCode>--no-daemon</InlineCode> for reliable
+            session tracking and restoration. The shared daemon mode is not
+            supported.
+          </strong>{" "}
+          Use lazy-tmux <strong>v0.3.6 or newer</strong>, which supports saving
+          this flag and preserving it in the resume command.
+        </p>
+        <p>
+          Install the lifecycle hooks once, then review and trust them in Codex:
+        </p>
+        <CodeBlock>lazy-tmux integrations setup codex</CodeBlock>
+        <p>
+          Start Codex inside your tmux pane with:
+        </p>
+        <CodeBlock>codex --no-daemon</CodeBlock>
+        <p>
+          We recommend adding this alias to <InlineCode>~/.bashrc</InlineCode>
+          {" "}(bash) or <InlineCode>~/.zshrc</InlineCode> (zsh), then opening a
+          new shell or sourcing that file:
+        </p>
+        <CodeBlock>{`alias codex='codex --no-daemon'`}</CodeBlock>
+        <p>
+          The alias applies to interactive shell commands. Scripts, tmux bindings,
+          and other launchers that do not expand aliases must pass
+          {" "}<InlineCode>--no-daemon</InlineCode> explicitly. lazy-tmux records
+          the flag when saving a verified session and restores it with
+          {" "}<InlineCode>codex resume &lt;session-id&gt; --no-daemon</InlineCode>,
+          preserving any other supported launch options.
+        </p>
+        <h3>Why shared daemon mode is unsupported</h3>
+        <p>
+          A shared Codex daemon can outlive the tmux pane that started it. Its
+          hooks may inherit that pane&apos;s old environment, and their process
+          ancestry no longer identifies the current interactive Codex client.
+          Although a hook reports the conversation ID, lazy-tmux cannot reliably
+          associate it with the correct pane. This can cause hook failures and
+          an <InlineCode>agent identity is unverified</InlineCode> error on
+          restore. lazy-tmux refuses automatic resume rather than risk restoring
+          the wrong conversation.
+        </p>
+        <p>
+          After switching to <InlineCode>--no-daemon</InlineCode>, start a new
+          Codex client and save the pane again once its session is verified.
+          Updating lazy-tmux or adding the alias does not repair previously
+          saved unverified panes. See{" "}
+          <a href="https://github.com/alchemmist/lazy-tmux/issues/325">
+            issue #325
+          </a>{" "}
+          for the daemon-mode limitation.
         </p>
 
         <h2>Claude Code</h2>
