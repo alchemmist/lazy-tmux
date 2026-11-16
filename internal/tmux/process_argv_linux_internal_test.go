@@ -1,3 +1,5 @@
+//go:build linux
+
 package tmux
 
 import (
@@ -18,7 +20,10 @@ func TestParseProcessArgvRejectsEmptyCommandLine(t *testing.T) {
 
 func TestParseProcessArgvPreservesArgumentBoundaries(t *testing.T) {
 	t.Parallel()
-	for _, data := range [][]byte{[]byte("claude\x00--append-system-prompt\x00\x00path with spaces\x00"), []byte("claude\x00--append-system-prompt\x00\x00path with spaces")} {
+	for _, data := range [][]byte{
+		[]byte("claude\x00--append-system-prompt\x00\x00path with spaces\x00"),
+		[]byte("claude\x00--append-system-prompt\x00\x00path with spaces"),
+	} {
 		argv, err := parseProcessArgv(data)
 		want := []string{"claude", "--append-system-prompt", "", "path with spaces"}
 		if err != nil || !reflect.DeepEqual(argv, want) {

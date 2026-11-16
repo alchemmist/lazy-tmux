@@ -17,6 +17,7 @@ func processArgv(pid int) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read process arguments: %w", err)
 	}
+
 	return parseProcessArgv(data)
 }
 
