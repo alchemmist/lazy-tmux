@@ -167,6 +167,7 @@ func (i *Integration) session(
 	value := snapshot.AgentSession{
 		Version: 1, Kind: snapshot.AgentPi, ID: header.ID, Home: i.home, CWD: header.CWD,
 		Argv: []string{"pi", sessionFlag, header.ID, file}, Source: source, Status: model,
+		ClaudeConfigDir: nil,
 	}
 
 	return value, agent.Valid(value) == nil

@@ -150,14 +150,15 @@ func newHookSession(kind, home string, event AgentHookEvent) (snapshot.AgentSess
 		subcommand = "--resume"
 	}
 	session := snapshot.AgentSession{
-		Version: 1,
-		Kind:    kind,
-		ID:      event.SessionID,
-		Home:    filepath.Clean(home),
-		CWD:     event.CWD,
-		Argv:    []string{kind, subcommand, event.SessionID},
-		Source:  agent.HookSource,
-		Status:  idleHookState,
+		Version:         1,
+		Kind:            kind,
+		ID:              event.SessionID,
+		Home:            filepath.Clean(home),
+		CWD:             event.CWD,
+		Argv:            []string{kind, subcommand, event.SessionID},
+		Source:          agent.HookSource,
+		Status:          idleHookState,
+		ClaudeConfigDir: nil,
 	}
 	err := agent.Valid(session)
 	if err != nil {
@@ -188,6 +189,14 @@ func populateHookArgs(
 		return fmt.Errorf("capture launch arguments: %w", err)
 	}
 	next.Session.Argv = resume
+	if kind == snapshot.AgentClaude {
+		configDir := os.Getenv("CLAUDE_CONFIG_DIR")
+		next.Session.ClaudeConfigDir = &configDir
+		err = agent.Valid(next.Session)
+		if err != nil {
+			return fmt.Errorf("capture Claude config override: %w", err)
+		}
+	}
 
 	return nil
 }
