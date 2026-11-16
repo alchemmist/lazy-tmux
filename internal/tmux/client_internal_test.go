@@ -635,7 +635,8 @@ func (r *argsRunner) runCommand(args ...string) commandResult {
 func TestCapturePane(t *testing.T) {
 	t.Parallel()
 
-	runner := &argsRunner{out: "antex|/workspace|123|%7|/tmp/socket|||\n"}
+	// A nonpositive fixture PID cannot collide with a live CI process.
+	runner := &argsRunner{out: "antex|/workspace|-1|%7|/tmp/socket|||\n"}
 	client := NewClientWithRunner("tmux", runner)
 
 	got, err := client.CapturePane("%7")
@@ -649,7 +650,7 @@ func TestCapturePane(t *testing.T) {
 		RestoreCmd:  "",
 		Scrollback:  nil,
 		IsActive:    true,
-		ProcessPID:  123,
+		ProcessPID:  -1,
 		Meta:        nil,
 	}
 	if !reflect.DeepEqual(got, want) {
