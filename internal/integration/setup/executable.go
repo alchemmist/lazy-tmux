@@ -14,7 +14,7 @@ func StableExecutable(current, invoked string) string {
 	if prefix, _, ok := strings.Cut(filepath.ToSlash(current), "/Cellar/lazy-tmux/"); ok {
 		candidates = append(candidates, filepath.Join(prefix, "bin", "lazy-tmux"))
 	}
-	if filepath.IsAbs(invoked) {
+	if filepath.IsAbs(invoked) || strings.ContainsRune(invoked, filepath.Separator) {
 		candidates = append(candidates, invoked)
 	}
 	path, lookErr := exec.LookPath("lazy-tmux")

@@ -75,3 +75,35 @@ func TestStableExecutableSurvivesCellarCleanup(t *testing.T) {
 		t.Fatalf("hook path did not survive cleanup: %s %v", data, err)
 	}
 }
+
+func TestStableExecutableAcceptsRelativeLaunchSymlink(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(root)
+	t.Setenv("PATH", "")
+	binary := filepath.Join(root, "releases", "current")
+	if err := os.MkdirAll(filepath.Dir(binary), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(binary, []byte("running executable"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	stable := filepath.Join(root, "launch", "renamed-client")
+	if err := os.MkdirAll(filepath.Dir(stable), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(binary, stable); err != nil {
+		t.Fatal(err)
+	}
+	if got := StableExecutable(binary, "./launch/renamed-client"); got != stable {
+		t.Fatalf("selected %q want %q", got, stable)
+	}
+	if err := os.Remove(stable); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(stable, []byte("unrelated executable"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if got := StableExecutable(binary, "./launch/renamed-client"); got != binary {
+		t.Fatalf("accepted unrelated relative executable %q", got)
+	}
+}
