@@ -17,6 +17,14 @@ func processArgv(pid int) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read process arguments: %w", err)
 	}
+
+	return parseProcessArgv(data)
+}
+
+func parseProcessArgv(data []byte) ([]string, error) {
+	if len(data) == 0 || data[0] == 0 {
+		return nil, fmt.Errorf("empty process arguments: %w", errHookOwner)
+	}
 	fields := bytes.Split(bytes.TrimSuffix(data, []byte{0}), []byte{0})
 	argv := make([]string, len(fields))
 	for idx, field := range fields {

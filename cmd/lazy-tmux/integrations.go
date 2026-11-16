@@ -105,6 +105,7 @@ func setupIntegration(args []string, cfg config.Config, stdout io.Writer) error 
 	if err != nil {
 		return fmt.Errorf("resolve executable: %w", err)
 	}
+	binary = setup.StableExecutable(binary, os.Args[0])
 	changed, err := setup.Apply(kind, agentHome(cfg, kind), binary, *uninstall)
 	if err != nil {
 		return fmt.Errorf("configure integration: %w", err)
@@ -136,6 +137,7 @@ func doctorIntegrations(cfg config.Config, stdout io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("resolve executable: %w", err)
 	}
+	binary = setup.StableExecutable(binary, os.Args[0])
 	for _, kind := range []string{snapshot.AgentCodex, snapshot.AgentAntex, snapshot.AgentClaude, snapshot.AgentPi} {
 		executable, lookErr := exec.LookPath(kind)
 		installed := false
@@ -328,14 +330,15 @@ func repairIntegration(args []string, cfg config.Config, stdout io.Writer) error
 		argv = []string{"pi", "--session", *sessionID, *sessionFile}
 	}
 	value := snapshot.AgentSession{
-		Version: 1,
-		Kind:    *kind,
-		ID:      *sessionID,
-		Home:    *home,
-		CWD:     cwd,
-		Argv:    argv,
-		Source:  agent.ManualSource,
-		Status:  "",
+		ClaudeConfigDir: nil,
+		Version:         1,
+		Kind:            *kind,
+		ID:              *sessionID,
+		Home:            *home,
+		CWD:             cwd,
+		Argv:            argv,
+		Source:          agent.ManualSource,
+		Status:          "",
 	}
 	changed, err := storage.RepairAgent(*session, *window, *pane, value, *apply)
 	if err != nil {

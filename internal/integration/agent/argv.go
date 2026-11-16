@@ -166,6 +166,10 @@ func launchOption(kind, flag string) (int, bool) {
 	}
 	if kind == snapshot.AgentClaude {
 		options := map[string]int{
+			"-n":                             1,
+			"--name":                         1,
+			"--append-system-prompt":         1,
+			"--mcp-config":                   optionVariadic,
 			"--permission-mode":              1,
 			"--dangerously-skip-permissions": 0,
 			"--allowedTools":                 optionVariadic,

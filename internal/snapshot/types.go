@@ -51,14 +51,15 @@ const (
 )
 
 type AgentSession struct {
-	Version int       `json:"version"`
-	Kind    AgentKind `json:"kind"`
-	ID      string    `json:"id"`
-	Home    string    `json:"home"`
-	CWD     string    `json:"cwd"`
-	Argv    []string  `json:"argv"`
-	Source  string    `json:"source"`
-	Status  string    `json:"status,omitempty"`
+	ClaudeConfigDir *string   `json:"claude_config_dir,omitempty"`
+	Version         int       `json:"version"`
+	Kind            AgentKind `json:"kind"`
+	ID              string    `json:"id"`
+	Home            string    `json:"home"`
+	CWD             string    `json:"cwd"`
+	Argv            []string  `json:"argv"`
+	Source          string    `json:"source"`
+	Status          string    `json:"status,omitempty"`
 }
 
 type ScrollbackRef struct {

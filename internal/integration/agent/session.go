@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -65,20 +66,25 @@ func Session(pane snapshot.Pane, kind string) (snapshot.AgentSession, bool) {
 		cwd = pane.CurrentPath
 	}
 	value := snapshot.AgentSession{
-		Version: 1,
-		Kind:    kind,
-		ID:      pane.Meta[snapshot.AntexSessionIDMetaKey],
-		Home:    pane.Meta["antex.home"],
-		CWD:     cwd,
-		Argv:    argv,
-		Source:  BindingSource,
-		Status:  "",
+		Version:         1,
+		Kind:            kind,
+		ID:              pane.Meta[snapshot.AntexSessionIDMetaKey],
+		Home:            pane.Meta["antex.home"],
+		CWD:             cwd,
+		Argv:            argv,
+		Source:          BindingSource,
+		Status:          "",
+		ClaudeConfigDir: nil,
 	}
 
 	return value, Valid(value) == nil
 }
 
 func Valid(value snapshot.AgentSession) error {
+	if value.ClaudeConfigDir != nil &&
+		(value.Kind != snapshot.AgentClaude || (*value.ClaudeConfigDir != "" && !absolutePath(*value.ClaudeConfigDir))) {
+		return ErrUnverified
+	}
 	if value.Version != 1 || Kind(value.Kind) != value.Kind || value.Kind == "" ||
 		!validID(value.ID) {
 		return ErrUnverified
@@ -163,7 +169,12 @@ func Plan(pane snapshot.Pane, kind string) (RestorePlan, error) {
 		snapshot.AgentPi:     "PI_CODING_AGENT_DIR",
 	}[kind]
 
-	return RestorePlan{Argv: argv, Env: []string{env + "=" + value.Home}, CWD: value.CWD}, nil
+	environment := []string{env + "=" + value.Home}
+	if kind == snapshot.AgentClaude {
+		environment = claudeEnvironment(value)
+	}
+
+	return RestorePlan{Argv: argv, Env: environment, CWD: value.CWD}, nil
 }
 
 func Restore(pane snapshot.Pane, kind string) (string, error) {
@@ -172,6 +183,9 @@ func Restore(pane snapshot.Pane, kind string) (string, error) {
 		return "", err
 	}
 	words := []string{"env"}
+	if kind == snapshot.AgentClaude && len(plan.Env) == 0 {
+		words = append(words, "-u", "CLAUDE_CONFIG_DIR")
+	}
 	for _, value := range plan.Env {
 		words = append(words, Quote(value))
 	}
@@ -197,4 +211,21 @@ func Capture(pane snapshot.Pane, kind string) map[string]string {
 // with an ownership-verifying loader instead.
 func Status(_ snapshot.Pane, _ string) (integration.Status, bool) {
 	return integration.StatusUnknown, false
+}
+
+// A nil field denotes an older snapshot, whose override provenance was not saved.
+func claudeEnvironment(value snapshot.AgentSession) []string {
+	if value.ClaudeConfigDir != nil {
+		if *value.ClaudeConfigDir == "" {
+			return nil
+		}
+
+		return []string{"CLAUDE_CONFIG_DIR=" + *value.ClaudeConfigDir}
+	}
+	home, err := os.UserHomeDir()
+	if err == nil && filepath.Clean(value.Home) == filepath.Join(home, ".claude") {
+		return nil
+	}
+
+	return []string{"CLAUDE_CONFIG_DIR=" + value.Home}
 }

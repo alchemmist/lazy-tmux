@@ -71,7 +71,11 @@ func TestThreeAgentHooksRoundTripWithoutAccounts(t *testing.T) {
 		}
 		for _, id := range []string{"first", "second"} {
 			name := kind + "-" + id
-			command := "env LAZY_TEST_AGENT=" + kind + " LAZY_TEST_ID=" + id + " '" + helper + "'"
+			environment := "env -u CLAUDE_CONFIG_DIR "
+			if id == "second" {
+				environment = "env CLAUDE_CONFIG_DIR=/tmp/agent-home "
+			}
+			command := environment + "LAZY_TEST_AGENT=" + kind + " LAZY_TEST_ID=" + id + " '" + helper + "'"
 			testutil.Tmux(t, "new-session", "-d", "-s", name, "-c", "/tmp", command)
 		}
 	}
@@ -105,6 +109,7 @@ func TestThreeAgentHooksRoundTripWithoutAccounts(t *testing.T) {
 					testutil.Tmux(t, "capture-pane", "-p", "-t", "="+name+":0.0"),
 				)
 			}
+			verifyClaudeConfigProvenance(t, kind, id, pane.Agent)
 			verifyHookRoundtrip(t, name, kind, id, client, registry, state)
 		}
 	}
@@ -138,6 +143,15 @@ func verifyHookRoundtrip(
 		!strings.Contains(command, "'"+id+"'") {
 		t.Fatalf("wrong restore: %s %v", command, err)
 	}
+	if kind == "claude" {
+		prefix := "env -u CLAUDE_CONFIG_DIR "
+		if id == "second" {
+			prefix = "env 'CLAUDE_CONFIG_DIR=/tmp/agent-home' "
+		}
+		if !strings.HasPrefix(command, prefix) {
+			t.Fatalf("wrong restored config environment: %s", command)
+		}
+	}
 	raw := testutil.Tmux(
 		t,
 		"show-options",
@@ -170,5 +184,19 @@ func verifyHookRoundtrip(
 	}
 	if stale.Agent != nil {
 		t.Fatal("stale binding accepted")
+	}
+}
+
+func verifyClaudeConfigProvenance(t *testing.T, kind, id string, session *snapshot.AgentSession) {
+	t.Helper()
+	if kind != "claude" {
+		return
+	}
+	want := ""
+	if id == "second" {
+		want = "/tmp/agent-home"
+	}
+	if session.ClaudeConfigDir == nil || *session.ClaudeConfigDir != want {
+		t.Fatalf("lost config override provenance: %+v", session)
 	}
 }
