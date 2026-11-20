@@ -51,6 +51,7 @@ sed -i "s/^sha256sums_aarch64=.*/sha256sums_aarch64=('${sha_arm64}' '${sha_arm64
 # not carry ${pkgver} — only the local alias (before "::") and the v${pkgver}
 # path tag keep it. Strip a stray version from the URL-side filename (issue #141).
 # Single-quoted so ${pkgver} stays a literal PKGBUILD variable.
+# shellcheck disable=SC2016
 sed -i 's#\(/releases/download/v${pkgver}/\)lazy-tmux_${pkgver}_#\1lazy-tmux_#g' "$pkgbuild"
 
 sed -i "s/^\tpkgver = .*/\tpkgver = ${ver}/" "$srcinfo"
@@ -75,6 +76,7 @@ grep -q "sha256sums_aarch64 = ${sha_arm64_fzf}" "$srcinfo" || { echo "AUR update
 # real (unversioned) release asset, not lazy-tmux_<ver>_linux_*.tar.gz (404).
 grep -q "releases/download/v${ver}/lazy-tmux_linux_amd64.tar.gz" "$srcinfo" || { echo "AUR update failed: missing unversioned amd64 asset URL in .SRCINFO (issue #141)" >&2; exit 1; }
 grep -qE "releases/download/v${ver}/lazy-tmux_[0-9]" "$srcinfo" && { echo "AUR update failed: .SRCINFO still has a versioned asset URL (issue #141)" >&2; exit 1; }
+# shellcheck disable=SC2016 # ${pkgver} is literal PKGBUILD text, not a shell expansion
 grep -q 'releases/download/v${pkgver}/lazy-tmux_linux_amd64.tar.gz' "$pkgbuild" || { echo "AUR update failed: missing unversioned amd64 asset URL in PKGBUILD (issue #141)" >&2; exit 1; }
 # Reject any source_* entry whose URL filename still carries the version
 # (the variable form lazy-tmux_${pkgver}_ or a literal digit), so a single

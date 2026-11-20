@@ -10,7 +10,10 @@ if [[ -z "$recipe_dir" ]]; then
   git clone --depth 1 https://aur.archlinux.org/lazy-tmux.git "$work/aur"
   recipe_dir="$work/aur"
 fi
+# The recipe is the AUR checkout (or AUR_RECIPE_DIR), not a file in this repo.
+# shellcheck disable=SC1091
 source "$recipe_dir/PKGBUILD"
+pkgver=${pkgver:?PKGBUILD did not set pkgver}
 for CARCH in x86_64 aarch64; do
   srcdir="$work/$CARCH/src"
   mkdir -p "$srcdir" "$work/fixture"

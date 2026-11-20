@@ -33,3 +33,10 @@ summary. The node compares supported versions with the pull request's base and
 fails when a version previously supported on the base is no longer supported.
 
 Rollback is restoring the standalone workflow and its required check.
+
+## Workflow and script lint
+
+`actionlint-shellcheck.yml` is a standalone check, not a Quality Graph node.
+`make test-lint-actions-shell` downloads checksum-pinned actionlint and
+shellcheck, then lints workflows and shell scripts. Generated Quality Graph
+workflows stay owned by `qg generate`.

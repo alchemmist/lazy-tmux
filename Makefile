@@ -9,11 +9,12 @@ BINARY := lazy-tmux
 GOLANGCI_LINT_CACHE ?= $(CURDIR)/.cache/golangci-lint
 export GOLANGCI_LINT_CACHE
 
-.PHONY: check build build-fzf build-all test test-fzf test-cov integration-test fmt install clean dist dist-tui dist-fzf release-patch release-minor release-major sandbox test-sup-versions docker-hub vet setup-env golangci-lint docs-install docs-dev docs-build docs-preview gifs
+.PHONY: check build build-fzf build-all test test-fzf test-cov integration-test fmt install clean dist dist-tui dist-fzf release-patch release-minor release-major sandbox test-sup-versions docker-hub vet setup-env golangci-lint lint-actions-shell test-lint-actions-shell docs-install docs-dev docs-build docs-preview gifs
 
 QG_REPORT_DIR := .cache/quality-graph
 
-check: build-all vet golangci-lint test test-fzf integration-test
+check: build-all vet golangci-lint test-lint-actions-shell test test-fzf integration-test
+
 
 integration-test:
 	podman build -f ./docker/test.Dockerfile -t lazy-tmux-test . && podman run --rm lazy-tmux-test
@@ -53,6 +54,14 @@ vet:
 
 golangci-lint:
 	golangci-lint run
+
+# Checksums and versions are pinned in scripts/lint-actions-shell.sh.
+lint-actions-shell:
+	./scripts/lint-actions-shell.sh
+
+# Lints the repo with the pinned tools and rejects known-bad fixtures.
+test-lint-actions-shell:
+	./scripts/test-lint-actions-shell.sh
 
 install: build
 	go install ./cmd/$(BINARY)
