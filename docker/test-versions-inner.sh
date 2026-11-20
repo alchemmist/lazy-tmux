@@ -149,14 +149,15 @@ check_roundtrip() {
 check_version() {
     version=$1
 
-    build_tmux "$version" || return 1
+    build_tmux "$version" || exit 2
     build_fixture || return 1
     check_roundtrip
 }
 
 # This fixture exercises tmux, not Pi. Keep first-run integration setup from
 # writing an informational notice during the first version's strict stderr check.
-export XDG_CONFIG_HOME="$HOME/.config"
+XDG_CONFIG_HOME=$(mktemp -d) || exit 2
+export XDG_CONFIG_HOME
 mkdir -p "$XDG_CONFIG_HOME/lazy-tmux" || exit 1
 printf '[integrations.pi]\nenabled = false\n' >"$XDG_CONFIG_HOME/lazy-tmux/lazy-tmux.toml" || exit 1
 
