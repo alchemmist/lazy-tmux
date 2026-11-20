@@ -1,6 +1,10 @@
 #!/bin/sh
 set -eu
+# pipefail is not POSIX. Probe it in a subshell and enable it only when the
+# current shell supports it (curl | sh ignores the shebang and may be dash).
+# shellcheck disable=SC3040
 if (set -o pipefail) 2>/dev/null; then
+  # shellcheck disable=SC3040
   set -o pipefail
 fi
 

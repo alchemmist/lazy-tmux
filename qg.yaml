@@ -14,6 +14,7 @@ profiles:
       - uses: actions/checkout@v7
         with:
           persist-credentials: "false"
+          fetch-depth: "0"
 
   go:
     extends: default
@@ -27,6 +28,15 @@ profiles:
     setup:
       - name: Setup tools
         run: make setup-env
+
+  docs:
+    extends: default
+    setup:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "26"
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
 
   tmux:
     runner: ubuntu-latest
@@ -51,13 +61,15 @@ nodes:
     title: Build
     profile: go
     needs: [workflow-graph]
-    run: make build
+    run: make build-all
 
   coverage:
     title: Coverage
     profile: go-tools
     needs: [workflow-graph]
-    run: make test-cov
+    env:
+      BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
+    run: make test-cov && python3 scripts/quality_diff.py coverage --base "$BASE"
 
   golangci-lint:
     title: GolangCI-Lint
@@ -70,10 +82,26 @@ nodes:
     profile: go-tools
     needs: [workflow-graph]
     run: make test
+    results:
+      junit: .cache/quality-graph/test.xml
+
+  test-fzf:
+    title: Test (fzf)
+    profile: go-tools
+    needs: [workflow-graph]
+    run: make test-fzf
+    results:
+      junit: .cache/quality-graph/test-fzf.xml
+
+  docs-build:
+    title: Docs build
+    profile: docs
+    needs: [workflow-graph]
+    run: make docs-install && make docs-build
 
   integration:
     title: Integration tests
-    profile: go-tools
+    profile: default
     needs: [workflow-graph]
     run: make integration-test
 
@@ -84,3 +112,27 @@ nodes:
     run: ./scripts/quality-graph-tmux-versions.sh
     results:
       native: .cache/quality-graph/tmux-versions.json
+
+  workflow-shell-lint:
+    title: Workflow and shell lint
+    needs: [workflow-graph]
+    run: make test-lint-actions-shell && python3 -m unittest discover -s scripts -p 'test_quality*.py'
+
+  nolint-exclusions:
+    title: New Go lint exceptions
+    profile: quality-graph
+    needs: [workflow-graph]
+    env:
+      BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
+    run: uv run --no-project --with PyYAML==6.0.3 python scripts/quality_diff.py suppressions --base "$BASE"
+
+  packaging:
+    title: Packaging change verification
+    profile: go
+    needs: [workflow-graph]
+    env:
+      BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
+    run: |
+      base=$(git merge-base "$BASE" HEAD) || exit 1
+      changes=$(git diff --name-only "$base" HEAD -- .goreleaser.yaml .github/workflows/release.yml scripts/verify-snapshot-packages.sh) || exit 1
+      if [ -n "$changes" ]; then ./scripts/verify-snapshot-packages.sh; else echo 'Packaging unchanged'; fi

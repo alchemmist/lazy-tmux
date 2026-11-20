@@ -149,10 +149,17 @@ check_roundtrip() {
 check_version() {
     version=$1
 
-    build_tmux "$version" || return 1
+    build_tmux "$version" || exit 2
     build_fixture || return 1
     check_roundtrip
 }
+
+# This fixture exercises tmux, not Pi. Keep first-run integration setup from
+# writing an informational notice during the first version's strict stderr check.
+XDG_CONFIG_HOME=$(mktemp -d) || exit 2
+export XDG_CONFIG_HOME
+mkdir -p "$XDG_CONFIG_HOME/lazy-tmux" || exit 1
+printf '[integrations.pi]\nenabled = false\n' >"$XDG_CONFIG_HOME/lazy-tmux/lazy-tmux.toml" || exit 1
 
 failed=0
 for version in "$@"; do
@@ -166,4 +173,5 @@ for version in "$@"; do
     rm -rf "$HOME/.local/share/lazy-tmux"
 done
 
-exit "$failed"
+# 42 means a complete matrix with unsupported versions (not a runner error).
+exit "$((failed * 42))"

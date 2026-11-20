@@ -5,7 +5,7 @@
       "admin"
     ]
   },
-  "graphDigest": "4ea0bd949fae479e4e42dd0e37daa240a11b8968b421a79748f04a2292fae415",
+  "graphDigest": "3290886a82023d91aa250d02a10b448d4df52615c02b7c30e1336ac3b31ccb3f",
   "graphVersion": 0,
   "labels": {
     "enabled": false
@@ -58,12 +58,14 @@
         "adapter": "exit-code"
       },
       "step": {
-        "run": "make build"
+        "run": "make build-all"
       },
       "title": "Build"
     },
     {
-      "env": {},
+      "env": {
+        "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+      },
       "id": "coverage",
       "needs": [
         "workflow-graph"
@@ -84,7 +86,10 @@
         "adapter": "exit-code"
       },
       "step": {
-        "run": "make test-cov"
+        "env": {
+          "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+        },
+        "run": "make test-cov && python3 scripts/quality_diff.py coverage --base \"$BASE\""
       },
       "title": "Coverage"
     },
@@ -133,12 +138,66 @@
       },
       "profile": "go-tools",
       "result": {
-        "adapter": "exit-code"
+        "adapter": "junit",
+        "path": ".cache/quality-graph/test.xml"
       },
       "step": {
         "run": "make test"
       },
       "title": "Test"
+    },
+    {
+      "env": {},
+      "id": "test-fzf",
+      "needs": [
+        "workflow-graph"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "go-tools",
+      "result": {
+        "adapter": "junit",
+        "path": ".cache/quality-graph/test-fzf.xml"
+      },
+      "step": {
+        "run": "make test-fzf"
+      },
+      "title": "Test (fzf)"
+    },
+    {
+      "env": {},
+      "id": "docs-build",
+      "needs": [
+        "workflow-graph"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "docs",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "make docs-install && make docs-build"
+      },
+      "title": "Docs build"
     },
     {
       "env": {},
@@ -157,7 +216,7 @@
           "error"
         ]
       },
-      "profile": "go-tools",
+      "profile": "default",
       "result": {
         "adapter": "exit-code"
       },
@@ -191,6 +250,94 @@
       },
       "timeoutMinutes": 60,
       "title": "Tmux version test"
+    },
+    {
+      "env": {},
+      "id": "workflow-shell-lint",
+      "needs": [
+        "workflow-graph"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "default",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "make test-lint-actions-shell && python3 -m unittest discover -s scripts -p 'test_quality*.py'"
+      },
+      "title": "Workflow and shell lint"
+    },
+    {
+      "env": {
+        "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+      },
+      "id": "nolint-exclusions",
+      "needs": [
+        "workflow-graph"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "quality-graph",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "env": {
+          "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+        },
+        "run": "uv run --no-project --with PyYAML==6.0.3 python scripts/quality_diff.py suppressions --base \"$BASE\""
+      },
+      "title": "New Go lint exceptions"
+    },
+    {
+      "env": {
+        "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+      },
+      "id": "packaging",
+      "needs": [
+        "workflow-graph"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "go",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "env": {
+          "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+        },
+        "run": "base=$(git merge-base \"$BASE\" HEAD) || exit 1\nchanges=$(git diff --name-only \"$base\" HEAD -- .goreleaser.yaml .github/workflows/release.yml scripts/verify-snapshot-packages.sh) || exit 1\nif [ -n \"$changes\" ]; then ./scripts/verify-snapshot-packages.sh; else echo 'Packaging unchanged'; fi\n"
+      },
+      "title": "Packaging change verification"
     }
   ],
   "profiles": {
@@ -205,7 +352,33 @@
         {
           "uses": "actions/checkout@v7",
           "with": {
+            "fetch-depth": "0",
             "persist-credentials": "false"
+          }
+        }
+      ]
+    },
+    "docs": {
+      "env": {},
+      "permissions": {
+        "contents": "read"
+      },
+      "runner": "ubuntu-latest",
+      "services": {},
+      "setup": [
+        {
+          "uses": "actions/checkout@v7",
+          "with": {
+            "fetch-depth": "0",
+            "persist-credentials": "false"
+          }
+        },
+        {
+          "uses": "actions/setup-node@v7",
+          "with": {
+            "cache": "npm",
+            "cache-dependency-path": "docs/package-lock.json",
+            "node-version": "26"
           }
         }
       ]
@@ -221,6 +394,7 @@
         {
           "uses": "actions/checkout@v7",
           "with": {
+            "fetch-depth": "0",
             "persist-credentials": "false"
           }
         },
@@ -243,6 +417,7 @@
         {
           "uses": "actions/checkout@v7",
           "with": {
+            "fetch-depth": "0",
             "persist-credentials": "false"
           }
         },
@@ -269,6 +444,7 @@
         {
           "uses": "actions/checkout@v7",
           "with": {
+            "fetch-depth": "0",
             "persist-credentials": "false"
           }
         },
