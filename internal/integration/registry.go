@@ -8,7 +8,10 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 )
 
-var errAgentDisabled = errors.New("agent integration is disabled; automatic resume skipped")
+var (
+	errAgentDisabled   = errors.New("agent integration is disabled; automatic resume skipped")
+	errNoResumeCommand = errors.New("agent has no verified resume command")
+)
 
 type Registry struct {
 	items []Integration
@@ -45,7 +48,7 @@ func (r *Registry) Enrich(snap *snapshot.SessionSnapshot) {
 
 	for wi := range snap.Windows {
 		for pi := range snap.Windows[wi].Panes {
-			r.enrichPane(&snap.Windows[wi].Panes[pi])
+			_ = r.enrichPane(&snap.Windows[wi].Panes[pi])
 		}
 	}
 }
@@ -143,15 +146,66 @@ func (r *Registry) HasVerifiedNativeSession(pane snapshot.Pane) bool {
 	return verified
 }
 
-func (r *Registry) enrichPane(pane *snapshot.Pane) {
+// EnrichForSave refuses incomplete agent captures before storage is mutated.
+// Unlike picker enrichment, saving must surface failures: Sleep closes the live
+// session only after this operation succeeds. Disabled integrations remain opt-outs.
+func (r *Registry) EnrichForSave(snap *snapshot.SessionSnapshot) error {
+	if r == nil || snap == nil {
+		return nil
+	}
+	var failures []error
+	for wi := range snap.Windows {
+		window := &snap.Windows[wi]
+		for pi := range window.Panes {
+			pane := &window.Panes[pi]
+			err := r.enrichSavePane(pane)
+			if err != nil {
+				failures = append(failures, fmt.Errorf(
+					"session %q window %d (%q) pane %d: %w",
+					snap.SessionName, window.Index, window.Name, pane.Index, err,
+				))
+			}
+		}
+	}
+
+	return errors.Join(failures...)
+}
+
+func (r *Registry) enrichSavePane(pane *snapshot.Pane) error {
 	integ := r.match(*pane)
 	if integ == nil {
-		return
+		return nil
+	}
+	err := r.enrichPane(pane)
+	if err != nil {
+		return fmt.Errorf("capture %s: %w", integ.Name(), err)
+	}
+	if CommandAgent(integ.Name()) == "" {
+		return nil
+	}
+	command, err := r.ResolveChecked(*pane)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(command) == "" {
+		return fmt.Errorf("%s: %w", integ.Name(), errNoResumeCommand)
+	}
+
+	return nil
+}
+
+func (r *Registry) enrichPane(pane *snapshot.Pane) error {
+	integ := r.match(*pane)
+	if integ == nil {
+		return nil
 	}
 
 	meta, err := integ.Capture(*pane)
-	if err != nil || len(meta) == 0 {
-		return
+	if err != nil {
+		return fmt.Errorf("capture integration %s: %w", integ.Name(), err)
+	}
+	if len(meta) == 0 {
+		return nil
 	}
 
 	if pane.Meta == nil {
@@ -161,6 +215,8 @@ func (r *Registry) enrichPane(pane *snapshot.Pane) {
 	for key, value := range meta {
 		pane.Meta[integ.Name()+"."+key] = value
 	}
+
+	return nil
 }
 
 func (r *Registry) match(pane snapshot.Pane) Integration {

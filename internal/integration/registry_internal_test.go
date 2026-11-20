@@ -2,6 +2,7 @@ package integration
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
@@ -211,5 +212,38 @@ func TestDisabledAgentCannotFallBackToStartingNewConversation(t *testing.T) {
 		if command != "" || err == nil {
 			t.Fatalf("disabled %s allowed fallback: %q %v", kind, command, err)
 		}
+	}
+}
+
+func TestEnrichForSaveReportsEveryFailedPane(t *testing.T) {
+	t.Parallel()
+	registry := NewRegistry(
+		fakeIntegration{name: "pi", matchCmd: "pi", captureErr: errBoom},
+		fakeIntegration{name: "claude", matchCmd: "claude"},
+	)
+	state := paneSnap(
+		snapshot.Pane{Index: 1, CurrentCmd: "pi"},
+		snapshot.Pane{Index: 2, CurrentCmd: "claude"},
+	)
+	state.SessionName = "kit"
+	state.Windows[0].Name = "work"
+	err := registry.EnrichForSave(state)
+	if !errors.Is(err, errBoom) || !errors.Is(err, errNoResumeCommand) {
+		t.Fatalf("missing pane failures: %v", err)
+	}
+	for _, want := range []string{"pane 1", "pane 2", "kit", "work"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("missing %q: %v", want, err)
+		}
+	}
+	// Display-only enrichment must remain best-effort.
+	registry.Enrich(state)
+}
+
+func TestEnrichForSaveAllowsDisabledIntegrationsAndShells(t *testing.T) {
+	t.Parallel()
+	state := paneSnap(snapshot.Pane{CurrentCmd: "pi"}, snapshot.Pane{CurrentCmd: "zsh"})
+	if err := NewRegistry().EnrichForSave(state); err != nil {
+		t.Fatal(err)
 	}
 }

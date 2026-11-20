@@ -259,7 +259,10 @@ func (a *App) saveSession(session string, integrationScope *integration.Registry
 		a.captureShellScrollback(&snap)
 	}
 
-	integrationScope.Enrich(&snap)
+	err = integrationScope.EnrichForSave(&snap)
+	if err != nil {
+		return fmt.Errorf("incomplete agent capture; snapshot not saved: %w", err)
+	}
 
 	err = a.store.SaveSession(snap)
 	if err != nil {
