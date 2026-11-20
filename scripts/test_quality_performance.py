@@ -10,3 +10,4 @@ class RegressionTest(unittest.TestCase):
     def test_outlier_or_small_drift(self):
         self.assertFalse(regression([1.01, 1.02, 2.5, 0.99, 1.0]))
         self.assertFalse(regression([1.14] * 5))
+        self.assertFalse(regression([1.30, 1.30, 1.30, 1.00, 1.00]))

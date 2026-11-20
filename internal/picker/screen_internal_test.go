@@ -14,19 +14,24 @@ import (
 
 func TestPickerScreens(t *testing.T) {
 	t.Parallel()
-	alpha := makeSession("alpha", true, "editor", "shell")
-	beta := makeSession("studio", false, "notes")
-	alpha.Record.CapturedAt = time.Time{}
-	beta.Record.CapturedAt = time.Time{}
-	model := newTestModel(t, &recordingActions{}, alpha, beta)
-	for name, frame := range map[string]string{
-		"sessions-100x24": model.View().Content,
-		"sessions-46x12":  feed(t, model, tea.WindowSizeMsg{Width: 46, Height: 12}).View().Content,
-		"empty-100x24":    newTestModel(t, &recordingActions{}).View().Content,
-	} {
+	for _, name := range []string{"sessions-100x24", "sessions-46x12", "empty-100x24"} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			actual := ansi.Strip(frame) + "\n"
+			var sessions []Session
+			if name != "empty-100x24" {
+				sessions = []Session{
+					makeSession("alpha", true, "editor", "shell"),
+					makeSession("studio", false, "notes"),
+				}
+				for i := range sessions {
+					sessions[i].Record.CapturedAt = time.Time{}
+				}
+			}
+			model := newTestModel(t, &recordingActions{}, sessions...)
+			if name == "sessions-46x12" {
+				model = feed(t, model, tea.WindowSizeMsg{Width: 46, Height: 12})
+			}
+			actual := ansi.Strip(model.View().Content) + "\n"
 			path := filepath.Join("testdata", "screens", name+".txt")
 			if os.Getenv("UPDATE_PICKER_SCREENS") == "1" {
 				if os.Getenv("CI") != "" {

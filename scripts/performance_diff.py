@@ -15,8 +15,12 @@ def sample(root):
     out = subprocess.check_output(['go', 'test', '-run=^$', '-bench=^(' + '|'.join(sorted(CASES)) + ')$',
                                    '-cpu=1', '-benchtime=350ms', '-count=1', '-benchmem', '-p=1',
                                    './internal/picker', './internal/tmux'], cwd=root, text=True)
-    rows = dict((name, float(ns)) for name, ns in re.findall(
-        r'^(Benchmark\w+)(?:-\d+)?\s+\d+\s+([\d.]+) ns/op', out, re.M))
+    rows = {}
+    for name, ns in re.findall(
+        r'^(Benchmark\w+)(?:-\d+)?\s+\d+\s+([\d.]+) ns/op', out, re.M):
+        if name in rows or float(ns) <= 0:
+            raise ValueError(f'duplicate or nonpositive result for {name}')
+        rows[name] = float(ns)
     if set(rows) != CASES:
         raise ValueError('missing benchmark results: ' + out)
     return rows
