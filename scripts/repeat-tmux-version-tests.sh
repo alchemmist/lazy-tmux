@@ -52,42 +52,7 @@ normalize_results() {
 }
 
 fetch_supported_tmux_versions() {
-    local payload attempt filtered
-    attempt=1
-    while [[ $attempt -le 3 ]]; do
-        if payload=$(curl -sf "https://api.github.com/repos/tmux/tmux/releases?per_page=100"); then
-            break
-        fi
-        payload=
-        if [[ $attempt -eq 3 ]]; then
-            fail "failed to fetch tmux releases from GitHub"
-        fi
-        attempt=$((attempt + 1))
-        sleep 2
-    done
-    if [[ -z $payload ]]; then
-        fail "failed to fetch tmux releases from GitHub"
-    fi
-
-    filtered=$(printf '%s\n' "$payload" \
-        | grep -o '"tag_name": *"[^"]*"' \
-        | sed 's/"tag_name": *"//;s/"//g' \
-        | sort -V \
-        | while IFS= read -r version; do
-            case $version in
-                *-*) continue ;;
-            esac
-            major=$(printf '%s\n' "$version" | cut -d. -f1)
-            minor=$(printf '%s\n' "$version" | cut -d. -f2 | sed 's/[^0-9]//g')
-            minor=${minor:-0}
-            if [[ $major -ge 2 ]] && { [[ $major -gt 2 ]] || [[ $minor -ge 9 ]]; }; then
-                printf '%s\n' "$version"
-            fi
-        done) || fail "could not parse tmux releases from GitHub"
-    if [[ -z $filtered ]]; then
-        fail "upstream tmux release list was empty"
-    fi
-    printf '%s\n' "$filtered"
+    "$root/scripts/tmux-release-tags.sh"
 }
 
 run_repeats() {
@@ -270,11 +235,11 @@ fi
 printf 'unexpected docker invocation: %s\n' "$*" >&2
 exit 1
 EOF
-    cat >"$mock/curl" <<'EOF'
+    cat >"$mock/git" <<'EOF'
 #!/bin/sh
-printf '%s\n' '[{"tag_name":"3.7-rc"},{"tag_name":"2.8"},{"tag_name":"2.9"},{"tag_name":"3.6a"}]'
+printf 'mock refs/tags/%s\n' 3.7-rc 2.8 2.9 3.6a
 EOF
-    chmod +x "$mock/docker" "$mock/curl"
+    chmod +x "$mock/docker" "$mock/git"
 
     out=$(mktemp)
     err=$(mktemp)

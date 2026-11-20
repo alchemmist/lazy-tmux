@@ -15,6 +15,10 @@ failure_kind=
 exit_code=0
 
 if [[ ${GITHUB_EVENT_NAME:-} == pull_request ]]; then
+    TMUX_RELEASES_FILE=$(cd "$CACHE_DIR" && pwd)/versions.txt
+    export TMUX_RELEASES_FILE
+    inventory_rc=0
+    scripts/tmux-release-tags.sh >"$TMUX_RELEASES_FILE" || inventory_rc=$?
     head_rc=0
     TMUX_COMPARE_BASE=1 make test-sup-versions >"$RESULTS" || head_rc=$?
 
@@ -25,6 +29,10 @@ if [[ ${GITHUB_EVENT_NAME:-} == pull_request ]]; then
         trap 'rm -rf "$base_dir"' EXIT
         base_sha=$(jq -r '.pull_request.base.sha' "${GITHUB_EVENT_PATH:?}")
         git archive "$base_sha" | tar -x -C "$base_dir"
+        # Exercise the base application with the same inventory, test fixture,
+        # and exit-code protocol as head, not the old rate-limited driver.
+        cp scripts/test-tmux-versions.sh "$base_dir/scripts/"
+        cp docker/test-versions-inner.sh "$base_dir/docker/"
     fi
 
     base_rc=0
@@ -33,11 +41,11 @@ if [[ ${GITHUB_EVENT_NAME:-} == pull_request ]]; then
     {
         printf '| tmux version | Status |\n| --- | --- |\n'
         awk '$1 == "tmux" { printf "| `%s` | %s |\n", $2, $3 }' "$RESULTS"
-        if ! curl -fsSL --retry 2 'https://api.github.com/repos/tmux/tmux/releases?per_page=100' >"$CACHE_DIR/releases.json"; then
+        if (( inventory_rc )) || [[ ! -s $TMUX_RELEASES_FILE ]]; then
             matrix_rc=2
             echo 'Cannot validate expected releases.'
         else
-            python3 scripts/tmux_matrix_check.py "$BASE_RESULTS" "$RESULTS" "$CACHE_DIR/releases.json" || matrix_rc=$?
+            python3 scripts/tmux_matrix_check.py "$BASE_RESULTS" "$RESULTS" "$TMUX_RELEASES_FILE" || matrix_rc=$?
         fi
         if (( head_rc || base_rc )); then
             matrix_rc=2

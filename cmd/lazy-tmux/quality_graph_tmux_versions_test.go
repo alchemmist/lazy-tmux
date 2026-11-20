@@ -92,10 +92,10 @@ printf '%s\n' "$results"
 	}
 
 	// Serve the expected inventory independently of the head transcript.
-	fakeCurl := `#!/bin/sh
-printf '%s\n' "$FAKE_BASE_RESULTS" | awk '$1 == "tmux" {print $2}' | jq -Rn '[inputs | {tag_name: .}]'
+	fakeGit := `#!/bin/sh
+printf '%s\n' "$FAKE_BASE_RESULTS" | awk '$1 == "tmux" {print "ref refs/tags/" $2}'
 `
-	if err := os.WriteFile(filepath.Join(temp, "curl"), []byte(fakeCurl), 0o755); err != nil {
+	if err := os.WriteFile(filepath.Join(temp, "git"), []byte(fakeGit), 0o755); err != nil {
 		t.Fatal(err)
 	}
 

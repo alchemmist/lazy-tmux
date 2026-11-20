@@ -1,5 +1,4 @@
 """Compare complete matrix transcripts; exit 1 for regression, 2 for bad data."""
-import json
 import re
 import sys
 from pathlib import Path
@@ -40,7 +39,7 @@ def compare(base, head, versions):
 if __name__ == '__main__':
     try:
         base, head, releases = map(Path, sys.argv[1:])
-        missing = compare(base.read_text(), head.read_text(), expected(json.loads(releases.read_text())))
+        missing = compare(base.read_text(), head.read_text(), expected({"tag_name": v} for v in releases.read_text().splitlines()))
     except (ValueError, KeyError, TypeError, OSError) as err:
         print(f'Matrix infrastructure failure: {err}')
         sys.exit(2)
