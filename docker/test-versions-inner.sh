@@ -154,6 +154,12 @@ check_version() {
     check_roundtrip
 }
 
+# This fixture exercises tmux, not Pi. Keep first-run integration setup from
+# writing an informational notice during the first version's strict stderr check.
+export XDG_CONFIG_HOME="$HOME/.config"
+mkdir -p "$XDG_CONFIG_HOME/lazy-tmux" || exit 1
+printf '[integrations.pi]\nenabled = false\n' >"$XDG_CONFIG_HOME/lazy-tmux/lazy-tmux.toml" || exit 1
+
 failed=0
 for version in "$@"; do
     if check_version "$version"; then

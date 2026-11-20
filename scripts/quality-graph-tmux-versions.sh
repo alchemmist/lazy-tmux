@@ -40,7 +40,7 @@ if [[ ${GITHUB_EVENT_NAME:-} == pull_request ]]; then
     matrix_rc=0
     {
         printf '| tmux version | Status |\n| --- | --- |\n'
-        awk '$1 == "tmux" { printf "| `%s` | %s |\n", $2, $3 }' "$RESULTS"
+        awk '/^  tmux / && $1 == "tmux" { printf "| `%s` | %s |\n", $2, $3 }' "$RESULTS"
         if (( inventory_rc )) || [[ ! -s $TMUX_RELEASES_FILE ]]; then
             matrix_rc=2
             echo 'Cannot validate expected releases.'
