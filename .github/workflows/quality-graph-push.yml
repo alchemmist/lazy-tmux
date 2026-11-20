@@ -36,7 +36,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 4ea0bd949fae479e4e42dd0e37daa240a11b8968b421a79748f04a2292fae415
+          graph-digest: ba4e07ecfa8b5dc191fb2436b23051861336193f21008f04f308323bab60dcdb
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -66,7 +66,7 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      - run: make build
+      - run: make build-all
         name: Run Build
         id: quality-command
         continue-on-error: true
@@ -81,7 +81,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 4ea0bd949fae479e4e42dd0e37daa240a11b8968b421a79748f04a2292fae415
+          graph-digest: ba4e07ecfa8b5dc191fb2436b23051861336193f21008f04f308323bab60dcdb
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -130,7 +130,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 4ea0bd949fae479e4e42dd0e37daa240a11b8968b421a79748f04a2292fae415
+          graph-digest: ba4e07ecfa8b5dc191fb2436b23051861336193f21008f04f308323bab60dcdb
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -179,7 +179,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 4ea0bd949fae479e4e42dd0e37daa240a11b8968b421a79748f04a2292fae415
+          graph-digest: ba4e07ecfa8b5dc191fb2436b23051861336193f21008f04f308323bab60dcdb
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -225,10 +225,10 @@ jobs:
           operation: collect
           node-id: test
           title: Test
-          adapter: exit-code
-          report-path: ''
+          adapter: junit
+          report-path: .cache/quality-graph/test.xml
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 4ea0bd949fae479e4e42dd0e37daa240a11b8968b421a79748f04a2292fae415
+          graph-digest: ba4e07ecfa8b5dc191fb2436b23051861336193f21008f04f308323bab60dcdb
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -248,8 +248,8 @@ jobs:
         run: exit "${EXIT_CODE:-2}"
     needs:
       - workflow-graph
-  integration:
-    name: Integration tests
+  test-fzf:
+    name: Test (fzf)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -262,6 +262,99 @@ jobs:
           go-version-file: go.mod
       - name: Setup tools
         run: make setup-env
+      - run: make test-fzf
+        name: Run Test (fzf)
+        id: quality-command
+        continue-on-error: true
+      - name: Collect Test (fzf) result
+        id: quality-result
+        if: always()
+        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        with:
+          operation: collect
+          node-id: test-fzf
+          title: Test (fzf)
+          adapter: junit
+          report-path: .cache/quality-graph/test-fzf.xml
+          command-outcome: ${{ steps.quality-command.outcome }}
+          graph-digest: ba4e07ecfa8b5dc191fb2436b23051861336193f21008f04f308323bab60dcdb
+          approval-findings: 'true'
+          approval-files: 'false'
+          approval-node: 'false'
+      - name: Upload Test (fzf) result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-result-test-fzf-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/quality-graph/test-fzf.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce Test (fzf) result
+        if: always()
+        shell: bash
+        env:
+          EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
+        run: exit "${EXIT_CODE:-2}"
+    needs:
+      - workflow-graph
+  docs-build:
+    name: Docs build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: 'false'
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '26'
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+      - run: make docs-install && make docs-build
+        name: Run Docs build
+        id: quality-command
+        continue-on-error: true
+      - name: Collect Docs build result
+        id: quality-result
+        if: always()
+        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        with:
+          operation: collect
+          node-id: docs-build
+          title: Docs build
+          adapter: exit-code
+          report-path: ''
+          command-outcome: ${{ steps.quality-command.outcome }}
+          graph-digest: ba4e07ecfa8b5dc191fb2436b23051861336193f21008f04f308323bab60dcdb
+          approval-findings: 'true'
+          approval-files: 'false'
+          approval-node: 'false'
+      - name: Upload Docs build result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-result-docs-build-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/quality-graph/docs-build.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce Docs build result
+        if: always()
+        shell: bash
+        env:
+          EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
+        run: exit "${EXIT_CODE:-2}"
+    needs:
+      - workflow-graph
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: 'false'
       - run: make integration-test
         name: Run Integration tests
         id: quality-command
@@ -277,7 +370,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 4ea0bd949fae479e4e42dd0e37daa240a11b8968b421a79748f04a2292fae415
+          graph-digest: ba4e07ecfa8b5dc191fb2436b23051861336193f21008f04f308323bab60dcdb
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -322,7 +415,7 @@ jobs:
           adapter: native
           report-path: .cache/quality-graph/tmux-versions.json
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 4ea0bd949fae479e4e42dd0e37daa240a11b8968b421a79748f04a2292fae415
+          graph-digest: ba4e07ecfa8b5dc191fb2436b23051861336193f21008f04f308323bab60dcdb
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'

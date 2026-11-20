@@ -5,7 +5,7 @@
       "admin"
     ]
   },
-  "graphDigest": "4ea0bd949fae479e4e42dd0e37daa240a11b8968b421a79748f04a2292fae415",
+  "graphDigest": "ba4e07ecfa8b5dc191fb2436b23051861336193f21008f04f308323bab60dcdb",
   "graphVersion": 0,
   "labels": {
     "enabled": false
@@ -58,7 +58,7 @@
         "adapter": "exit-code"
       },
       "step": {
-        "run": "make build"
+        "run": "make build-all"
       },
       "title": "Build"
     },
@@ -133,12 +133,66 @@
       },
       "profile": "go-tools",
       "result": {
-        "adapter": "exit-code"
+        "adapter": "junit",
+        "path": ".cache/quality-graph/test.xml"
       },
       "step": {
         "run": "make test"
       },
       "title": "Test"
+    },
+    {
+      "env": {},
+      "id": "test-fzf",
+      "needs": [
+        "workflow-graph"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "go-tools",
+      "result": {
+        "adapter": "junit",
+        "path": ".cache/quality-graph/test-fzf.xml"
+      },
+      "step": {
+        "run": "make test-fzf"
+      },
+      "title": "Test (fzf)"
+    },
+    {
+      "env": {},
+      "id": "docs-build",
+      "needs": [
+        "workflow-graph"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "docs",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "make docs-install && make docs-build"
+      },
+      "title": "Docs build"
     },
     {
       "env": {},
@@ -157,7 +211,7 @@
           "error"
         ]
       },
-      "profile": "go-tools",
+      "profile": "default",
       "result": {
         "adapter": "exit-code"
       },
@@ -206,6 +260,30 @@
           "uses": "actions/checkout@v7",
           "with": {
             "persist-credentials": "false"
+          }
+        }
+      ]
+    },
+    "docs": {
+      "env": {},
+      "permissions": {
+        "contents": "read"
+      },
+      "runner": "ubuntu-latest",
+      "services": {},
+      "setup": [
+        {
+          "uses": "actions/checkout@v7",
+          "with": {
+            "persist-credentials": "false"
+          }
+        },
+        {
+          "uses": "actions/setup-node@v7",
+          "with": {
+            "cache": "npm",
+            "cache-dependency-path": "docs/package-lock.json",
+            "node-version": "26"
           }
         }
       ]

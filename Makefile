@@ -9,9 +9,11 @@ BINARY := lazy-tmux
 GOLANGCI_LINT_CACHE ?= $(CURDIR)/.cache/golangci-lint
 export GOLANGCI_LINT_CACHE
 
-.PHONY: check build build-fzf build-all test test-cov integration-test fmt install clean dist dist-tui dist-fzf release-patch release-minor release-major sandbox test-sup-versions docker-hub vet setup-env golangci-lint docs-install docs-dev docs-build docs-preview gifs
+.PHONY: check build build-fzf build-all test test-fzf test-cov integration-test fmt install clean dist dist-tui dist-fzf release-patch release-minor release-major sandbox test-sup-versions docker-hub vet setup-env golangci-lint docs-install docs-dev docs-build docs-preview gifs
 
-check: build vet golangci-lint test integration-test
+QG_REPORT_DIR := .cache/quality-graph
+
+check: build-all vet golangci-lint test test-fzf integration-test
 
 integration-test:
 	podman build -f ./docker/test.Dockerfile -t lazy-tmux-test . && podman run --rm lazy-tmux-test
@@ -29,7 +31,12 @@ build-fzf:
 build-all: build build-fzf
 
 test:
-	gotestsum --format testname -- -race ./...
+	mkdir -p $(QG_REPORT_DIR)
+	gotestsum --format testname --junitfile $(QG_REPORT_DIR)/test.xml -- -race ./...
+
+test-fzf:
+	mkdir -p $(QG_REPORT_DIR)
+	gotestsum --format testname --junitfile $(QG_REPORT_DIR)/test-fzf.xml -- -race -tags lazy_fzf ./...
 
 test-cov:
 	podman build -f ./docker/test.Dockerfile -t lazy-tmux-test .
