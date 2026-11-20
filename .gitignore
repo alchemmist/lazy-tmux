@@ -14,3 +14,5 @@ node_modules/
 
 # local sandbox binary (make sandbox)
 docker/local-bin/lazy-tmux
+
+__pycache__/

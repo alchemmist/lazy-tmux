@@ -5,7 +5,7 @@
       "admin"
     ]
   },
-  "graphDigest": "ba4e07ecfa8b5dc191fb2436b23051861336193f21008f04f308323bab60dcdb",
+  "graphDigest": "3290886a82023d91aa250d02a10b448d4df52615c02b7c30e1336ac3b31ccb3f",
   "graphVersion": 0,
   "labels": {
     "enabled": false
@@ -63,7 +63,9 @@
       "title": "Build"
     },
     {
-      "env": {},
+      "env": {
+        "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+      },
       "id": "coverage",
       "needs": [
         "workflow-graph"
@@ -84,7 +86,10 @@
         "adapter": "exit-code"
       },
       "step": {
-        "run": "make test-cov"
+        "env": {
+          "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+        },
+        "run": "make test-cov && python3 scripts/quality_diff.py coverage --base \"$BASE\""
       },
       "title": "Coverage"
     },
@@ -245,6 +250,94 @@
       },
       "timeoutMinutes": 60,
       "title": "Tmux version test"
+    },
+    {
+      "env": {},
+      "id": "workflow-shell-lint",
+      "needs": [
+        "workflow-graph"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "default",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "make test-lint-actions-shell && python3 -m unittest discover -s scripts -p 'test_quality*.py'"
+      },
+      "title": "Workflow and shell lint"
+    },
+    {
+      "env": {
+        "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+      },
+      "id": "nolint-exclusions",
+      "needs": [
+        "workflow-graph"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "quality-graph",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "env": {
+          "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+        },
+        "run": "uv run --no-project --with PyYAML==6.0.3 python scripts/quality_diff.py suppressions --base \"$BASE\""
+      },
+      "title": "New Go lint exceptions"
+    },
+    {
+      "env": {
+        "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+      },
+      "id": "packaging",
+      "needs": [
+        "workflow-graph"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "go",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "env": {
+          "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+        },
+        "run": "base=$(git merge-base \"$BASE\" HEAD) || exit 1\nchanges=$(git diff --name-only \"$base\" HEAD -- .goreleaser.yaml .github/workflows/release.yml scripts/verify-snapshot-packages.sh) || exit 1\nif [ -n \"$changes\" ]; then ./scripts/verify-snapshot-packages.sh; else echo 'Packaging unchanged'; fi\n"
+      },
+      "title": "Packaging change verification"
     }
   ],
   "profiles": {
@@ -259,6 +352,7 @@
         {
           "uses": "actions/checkout@v7",
           "with": {
+            "fetch-depth": "0",
             "persist-credentials": "false"
           }
         }
@@ -275,6 +369,7 @@
         {
           "uses": "actions/checkout@v7",
           "with": {
+            "fetch-depth": "0",
             "persist-credentials": "false"
           }
         },
@@ -299,6 +394,7 @@
         {
           "uses": "actions/checkout@v7",
           "with": {
+            "fetch-depth": "0",
             "persist-credentials": "false"
           }
         },
@@ -321,6 +417,7 @@
         {
           "uses": "actions/checkout@v7",
           "with": {
+            "fetch-depth": "0",
             "persist-credentials": "false"
           }
         },
@@ -347,6 +444,7 @@
         {
           "uses": "actions/checkout@v7",
           "with": {
+            "fetch-depth": "0",
             "persist-credentials": "false"
           }
         },

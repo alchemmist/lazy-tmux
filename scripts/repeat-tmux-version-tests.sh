@@ -2,7 +2,7 @@
 # Run the tmux version matrix more than once and require the same full pass.
 #
 # scripts/test-tmux-versions.sh prints one "  tmux <version>  ✓|✗" line per
-# supported upstream release, but a later printf hides the docker exit code.
+# supported upstream release.
 # This wrapper treats a non-zero exit, a missing version, a ✗, a duplicate,
 # or a difference between repeats as failure. When the default matrix script
 # is used, the reported versions must also match a fresh GitHub release list

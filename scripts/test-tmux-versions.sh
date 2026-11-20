@@ -46,6 +46,11 @@ done
 
 printf "\ntmux version support:\n\n"
 
-docker run --rm --entrypoint "" "$IMAGE" /bin/sh /test-versions-inner.sh "$@"
+rc=0
+docker run --rm --entrypoint "" "$IMAGE" /bin/sh /test-versions-inner.sh "$@" || rc=$?
+if [ "$rc" -eq 42 ] && [ "${TMUX_COMPARE_BASE:-0}" = 1 ]; then
+    rc=0
+fi
 
 printf "\n"
+exit "$rc"

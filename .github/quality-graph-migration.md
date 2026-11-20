@@ -36,7 +36,16 @@ Rollback is restoring the standalone workflow and its required check.
 
 ## Workflow and script lint
 
-`actionlint-shellcheck.yml` is a standalone check, not a Quality Graph node.
+`workflow-shell-lint` runs inside Quality Graph.
 `make test-lint-actions-shell` downloads checksum-pinned actionlint and
 shellcheck, then lints workflows and shell scripts. Generated Quality Graph
 workflows stay owned by `qg generate`.
+
+`coverage` reuses `cover.out` for an informational changed-line summary (Go
+cover block spans, not a statement-by-statement measurement). The existing
+50% repository threshold still blocks. `nolint-exclusions` compares against
+merge-base, requiring a named linter and reason on new directives. Added or
+modified exclusion entries fail conservatively and need explicit policy review.
+`packaging` exercises the snapshot on packaging configuration changes. Daily
+and manual scheduled verification also tests snapshots and repeats the full
+compatibility matrix. Neither workflow publishes release artifacts.

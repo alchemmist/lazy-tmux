@@ -166,4 +166,5 @@ for version in "$@"; do
     rm -rf "$HOME/.local/share/lazy-tmux"
 done
 
-exit "$failed"
+# 42 means a complete matrix with unsupported versions (not a runner error).
+exit "$((failed * 42))"

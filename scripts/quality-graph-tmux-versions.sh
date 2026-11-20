@@ -15,7 +15,8 @@ failure_kind=
 exit_code=0
 
 if [[ ${GITHUB_EVENT_NAME:-} == pull_request ]]; then
-    make test-sup-versions | tee "$RESULTS" || true
+    head_rc=0
+    TMUX_COMPARE_BASE=1 make test-sup-versions >"$RESULTS" || head_rc=$?
 
     if [[ -n ${QUALITY_GRAPH_BASE_DIR:-} ]]; then
         base_dir=$QUALITY_GRAPH_BASE_DIR
@@ -26,28 +27,29 @@ if [[ ${GITHUB_EVENT_NAME:-} == pull_request ]]; then
         git archive "$base_sha" | tar -x -C "$base_dir"
     fi
 
-    make -C "$base_dir" test-sup-versions | tee "$BASE_RESULTS" || true
-
-    awk '$1 == "tmux" && $3 == "✓" { print $2 }' "$RESULTS" | LC_ALL=C sort -u >"$CACHE_DIR/head-supported.txt"
-    awk '$1 == "tmux" && $3 == "✓" { print $2 }' "$BASE_RESULTS" | LC_ALL=C sort -u >"$CACHE_DIR/base-supported.txt"
-    LC_ALL=C comm -23 "$CACHE_DIR/base-supported.txt" "$CACHE_DIR/head-supported.txt" >"$CACHE_DIR/missing.txt"
-
+    base_rc=0
+    TMUX_COMPARE_BASE=1 make -C "$base_dir" test-sup-versions >"$BASE_RESULTS" || base_rc=$?
+    matrix_rc=0
     {
-        printf '| tmux version | Status |\n'
-        printf '| --- | --- |\n'
+        printf '| tmux version | Status |\n| --- | --- |\n'
         awk '$1 == "tmux" { printf "| `%s` | %s |\n", $2, $3 }' "$RESULTS"
-
-        if [[ -s $CACHE_DIR/missing.txt ]]; then
-            printf '\nVersions supported on the base branch but missing from this change:\n\n'
-            sed 's/^/- `/' "$CACHE_DIR/missing.txt" | sed 's/$/`/'
+        if ! curl -fsSL --retry 2 'https://api.github.com/repos/tmux/tmux/releases?per_page=100' >"$CACHE_DIR/releases.json"; then
+            matrix_rc=2
+            echo 'Cannot validate expected releases.'
+        else
+            python3 scripts/tmux_matrix_check.py "$BASE_RESULTS" "$RESULTS" "$CACHE_DIR/releases.json" || matrix_rc=$?
+        fi
+        if (( head_rc || base_rc )); then
+            matrix_rc=2
+            echo 'A matrix command did not complete.'
         fi
     } >"$SUMMARY"
 
-    if ! grep -q '^  tmux ' "$RESULTS" || ! grep -q '^  tmux ' "$BASE_RESULTS"; then
+    if (( matrix_rc > 1 )); then
         status=failed
         failure_kind=infrastructure
         exit_code=1
-    elif [[ -s $CACHE_DIR/missing.txt ]]; then
+    elif (( matrix_rc == 1 )); then
         status=failed
         failure_kind=quality
         exit_code=1
