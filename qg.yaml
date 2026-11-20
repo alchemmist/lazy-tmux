@@ -136,3 +136,34 @@ nodes:
       base=$(git merge-base "$BASE" HEAD) || exit 1
       changes=$(git diff --name-only "$base" HEAD -- .goreleaser.yaml .github/workflows/release.yml scripts/verify-snapshot-packages.sh) || exit 1
       if [ -n "$changes" ]; then ./scripts/verify-snapshot-packages.sh; else echo 'Packaging unchanged'; fi
+
+  fast-tests:
+    title: Fast Go tests and picker screens
+    needs: [workflow-graph]
+    profile: go
+    run: go test -short ./internal/picker ./internal/config ./internal/snapshot ./internal/store
+
+  performance:
+    title: Go workload regression
+    needs: [fast-tests]
+    profile: go
+    env:
+      BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
+    run: python3 scripts/performance-diff.py "$BASE"
+
+  go-audit:
+    title: Go dependency integrity and reachable vulnerabilities
+    needs: [workflow-graph]
+    profile: go
+    run: scripts/audit-quality.sh go
+
+  npm-audit:
+    title: Docs dependency audit
+    needs: [workflow-graph]
+    profile: docs
+    run: scripts/audit-quality.sh npm
+
+  secrets:
+    title: Tracked tree secret scan
+    needs: [workflow-graph]
+    run: scripts/audit-quality.sh secrets

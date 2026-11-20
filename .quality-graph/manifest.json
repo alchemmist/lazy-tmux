@@ -5,7 +5,7 @@
       "admin"
     ]
   },
-  "graphDigest": "3290886a82023d91aa250d02a10b448d4df52615c02b7c30e1336ac3b31ccb3f",
+  "graphDigest": "535fc8df20930ebac35d024c8f193184b9903064a6e4b5708679df86db2ae884",
   "graphVersion": 0,
   "labels": {
     "enabled": false
@@ -338,6 +338,141 @@
         "run": "base=$(git merge-base \"$BASE\" HEAD) || exit 1\nchanges=$(git diff --name-only \"$base\" HEAD -- .goreleaser.yaml .github/workflows/release.yml scripts/verify-snapshot-packages.sh) || exit 1\nif [ -n \"$changes\" ]; then ./scripts/verify-snapshot-packages.sh; else echo 'Packaging unchanged'; fi\n"
       },
       "title": "Packaging change verification"
+    },
+    {
+      "env": {},
+      "id": "fast-tests",
+      "needs": [
+        "workflow-graph"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "go",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "go test -short ./internal/picker ./internal/config ./internal/snapshot ./internal/store"
+      },
+      "title": "Fast Go tests and picker screens"
+    },
+    {
+      "env": {
+        "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+      },
+      "id": "performance",
+      "needs": [
+        "fast-tests"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "go",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "env": {
+          "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+        },
+        "run": "python3 scripts/performance-diff.py \"$BASE\""
+      },
+      "title": "Go workload regression"
+    },
+    {
+      "env": {},
+      "id": "go-audit",
+      "needs": [
+        "workflow-graph"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "go",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "scripts/audit-quality.sh go"
+      },
+      "title": "Go dependency integrity and reachable vulnerabilities"
+    },
+    {
+      "env": {},
+      "id": "npm-audit",
+      "needs": [
+        "workflow-graph"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "docs",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "scripts/audit-quality.sh npm"
+      },
+      "title": "Docs dependency audit"
+    },
+    {
+      "env": {},
+      "id": "secrets",
+      "needs": [
+        "workflow-graph"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "default",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "scripts/audit-quality.sh secrets"
+      },
+      "title": "Tracked tree secret scan"
     }
   ],
   "profiles": {
