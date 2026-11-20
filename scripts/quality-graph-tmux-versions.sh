@@ -44,12 +44,11 @@ if [[ ${GITHUB_EVENT_NAME:-} == pull_request ]]; then
         if (( inventory_rc )) || [[ ! -s $TMUX_RELEASES_FILE ]]; then
             matrix_rc=2
             echo 'Cannot validate expected releases.'
-        else
-            python3 scripts/tmux_matrix_check.py "$BASE_RESULTS" "$RESULTS" "$TMUX_RELEASES_FILE" || matrix_rc=$?
-        fi
-        if (( head_rc || base_rc )); then
+        elif (( head_rc || base_rc )); then
             matrix_rc=2
             echo 'A matrix command did not complete.'
+        else
+            python3 scripts/tmux_matrix_check.py "$BASE_RESULTS" "$RESULTS" "$TMUX_RELEASES_FILE" || matrix_rc=$?
         fi
     } >"$SUMMARY"
 

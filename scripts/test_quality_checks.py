@@ -30,3 +30,12 @@ class DiffTest(unittest.TestCase):
         for invalid in ['//nolint', '//nolint:gosec', '//nolint:gosec,all // why']:
             self.assertTrue(invalid_directive(invalid))
         self.assertFalse(invalid_directive('call() //nolint:gosec // test fixture'))
+
+    def test_comment_tokens(self):
+        from quality_diff import comments
+        code = 'var a = `line\n//nolint`\nf("//nolint") //nolint:demo // justified\n/* //nolint */'
+        self.assertEqual(list(comments(code)), [(3, '//nolint:demo // justified')])
+
+    def test_quoted_path(self):
+        diff = 'diff --git a/file b/file\n+++ "b/space\\tfile.go"\n@@ -0,0 +1 @@\n+package example'
+        self.assertEqual(list(added(diff)), [('space\tfile.go', 1, 'package example')])

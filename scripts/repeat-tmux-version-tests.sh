@@ -152,7 +152,10 @@ run_repeats() {
     printf 'Repeated tmux version tests passed (%s identical runs)\n' "$repeats"
 }
 
-self_test() {
+self_test() (
+    TMPDIR=$(mktemp -d)
+    export TMPDIR
+    trap 'rm -rf "$TMPDIR"' EXIT
     local mark mock out err rc
 
     run_case() {
@@ -267,7 +270,7 @@ EOF
     rm -rf "$mock"
 
     printf 'repeat-tmux-version-tests self-test passed\n'
-}
+)
 
 if [[ ${1:-} == "--self-test" ]]; then
     self_test

@@ -115,6 +115,7 @@ main() {
     command -v git >/dev/null 2>&1 || fail "git is required"
     command -v curl >/dev/null 2>&1 || fail "curl is required"
 
+    if ! git diff --quiet || ! git diff --cached --quiet; then fail "snapshot verification requires a clean tracked worktree"; fi
     goreleaser=$(install_goreleaser)
     dist=$root/dist
     log=$(mktemp)

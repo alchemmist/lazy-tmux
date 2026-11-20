@@ -1,5 +1,6 @@
 """PR guardrails. Run coverage with Python 3; exclusions also needs PyYAML."""
 import argparse
+import ast
 import collections
 import json
 import os
@@ -17,8 +18,12 @@ def added(diff):
     for row in diff.splitlines():
         if row.startswith('diff --git '):
             path = None
-        elif row.startswith('+++ b/') and path is None:
-            path = row[6:]
+        elif row.startswith('+++ ') and path is None:
+            raw = row[4:].rstrip('\t')
+            if raw.startswith('"'):
+                raw = ast.literal_eval(raw)
+            if raw.startswith('b/'):
+                path = raw[2:]
         elif row.startswith('@@ '):
             line = int(re.search(r' \+(\d+)', row)[1])
         elif path and row.startswith('+'):
@@ -58,11 +63,24 @@ def coverage(changes, profile, module):
 
 
 def invalid_directive(text):
-    match = re.search(r'//\s*nolint\b', text)
+    match = re.match(r'//\s*nolint\b', text)
     if not match:
         return False
     directive = re.fullmatch(r'//nolint:([\w-]+(?:,[\w-]+)*)\s+//\s*(\S.*)', text[match.start():])
     return not directive or 'all' in directive[1].split(',')
+
+
+def comments(source):
+    # Consume complete Go literals and block comments before looking for line
+    # comments, including raw strings spanning multiple changed lines.
+    token = re.compile(r'`[^`]*`|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'|/\*[\s\S]*?\*/|//[^\n]*')
+    line, end = 1, 0
+    for match in token.finditer(source):
+        line += source.count('\n', end, match.start())
+        if match[0].startswith('//'):
+            yield line, match[0]
+        line += match[0].count('\n')
+        end = match.end()
 
 
 def main():
@@ -71,7 +89,7 @@ def main():
     parser.add_argument('--base', required=True)
     args = parser.parse_args()
     base = git('merge-base', args.base, 'HEAD').strip()
-    changes = list(added(git('diff', '--no-ext-diff', '--no-color', '-U0', base, '--', '*.go')))
+    changes = list(added(git('-c', 'core.quotePath=false', 'diff', '--no-ext-diff', '--no-color', '-U0', base, '--', '*.go')))
     if args.mode == 'coverage':
         report = coverage(changes, Path('cover.out').read_text(), subprocess.check_output(['go', 'list', '-m'], text=True).strip())
         print(report)
@@ -80,10 +98,12 @@ def main():
                 print('```text', report, '```', sep='\n', file=out)
         return 0
     errors = []
-    for path, line, text in changes:
-        if invalid_directive(text):
-            errors.append(f'{path}:{line}: name specific linters and explain the exception')
-    previous = git('show', base + ':.golangci.yml')
+    for path in sorted({p for p, _, _ in changes}):
+        touched = {line for p, line, _ in changes if p == path}
+        for line, comment in comments(Path(path).read_text()):
+            if line in touched and invalid_directive(comment):
+                errors.append(f'{path}:{line}: name specific linters and explain the exception')
+    previous = git('show', base + ':.golangci.yml') if git('ls-tree', base, '--', '.golangci.yml').strip() else ''
     for item in exclusions(Path('.golangci.yml').read_text()) - exclusions(previous):
         errors.append(f'New or modified exclusion requires policy review: {item}')
     for error in errors:

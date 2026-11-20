@@ -18,6 +18,7 @@ ROOT=$(
   pwd
 )
 TOOL_DIR=${LINT_TOOLS_DIR:-$ROOT/.cache/lint-tools}
+if [[ $TOOL_DIR != /* ]]; then TOOL_DIR=$PWD/$TOOL_DIR; fi
 TMP_DIRS=()
 
 cleanup() {
