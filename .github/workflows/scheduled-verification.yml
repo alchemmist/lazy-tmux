@@ -1,0 +1,57 @@
+name: scheduled verification
+
+# Repeats the tmux version matrix and checks snapshot archives for the TUI and
+# fzf builds. This workflow has read-only contents permission, checks out
+# without credentials, and must not gain secrets or a publish step.
+
+permissions:
+  contents: read
+
+on:
+  schedule:
+    - cron: "30 5 * * *"
+  workflow_dispatch:
+    inputs:
+      tmux_repeats:
+        description: Times to run the tmux version matrix (2-5)
+        default: "2"
+        required: false
+
+concurrency:
+  group: scheduled-verification
+  cancel-in-progress: false
+
+jobs:
+  tmux-versions:
+    name: Repeated tmux version tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Self-test the repeat harness
+        run: ./scripts/repeat-tmux-version-tests.sh --self-test
+
+      - name: Repeat the tmux version matrix
+        env:
+          TMUX_TEST_REPEATS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tmux_repeats || '2' }}
+        run: ./scripts/repeat-tmux-version-tests.sh
+
+  snapshot-packages:
+    name: Snapshot package verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Verify TUI and fzf snapshot archives
+        run: ./scripts/verify-snapshot-packages.sh
