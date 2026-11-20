@@ -22,7 +22,7 @@ jobs:
         with:
           persist-credentials: 'false'
           fetch-depth: '0'
-      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: astral-sh/setup-uv@v10.4.0
       - run: uvx --from quality-graph-cli==0.1.8 --with quality-graph-github==0.1.8 qg validate
         name: Run Workflow graph validation
         id: quality-command
@@ -502,7 +502,7 @@ jobs:
         with:
           persist-credentials: 'false'
           fetch-depth: '0'
-      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: astral-sh/setup-uv@v10.4.0
       - run: uv run --no-project --with PyYAML==6.0.3 python scripts/quality_diff.py suppressions --base "$BASE"
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
