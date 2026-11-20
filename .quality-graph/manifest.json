@@ -5,7 +5,7 @@
       "admin"
     ]
   },
-  "graphDigest": "535fc8df20930ebac35d024c8f193184b9903064a6e4b5708679df86db2ae884",
+  "graphDigest": "7ef8bbbca49b0a2d9de140dbced6f12230462769e79b5d950e1b86a300a12a98",
   "graphVersion": 0,
   "labels": {
     "enabled": false
@@ -392,7 +392,7 @@
         "env": {
           "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
         },
-        "run": "python3 scripts/performance-diff.py \"$BASE\""
+        "run": "python3 scripts/performance_diff.py \"$BASE\""
       },
       "title": "Go workload regression"
     },

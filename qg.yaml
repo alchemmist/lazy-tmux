@@ -149,7 +149,7 @@ nodes:
     profile: go
     env:
       BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
-    run: python3 scripts/performance-diff.py "$BASE"
+    run: python3 scripts/performance_diff.py "$BASE"
 
   go-audit:
     title: Go dependency integrity and reachable vulnerabilities

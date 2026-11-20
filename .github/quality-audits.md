@@ -18,7 +18,7 @@ rather than passing it as a clean audit. No deployment credentials are used.
 ## Performance and screen regression
 
 Instead of copying monori's browser performance score or comparing timings
-from different machines, run `python3 scripts/performance-diff.py origin/main`.
+from different machines, run `python3 scripts/performance_diff.py origin/main`.
 It measures the real process snapshot/foreground lookup for 2,000 processes
 and the large picker's spinner update. After warmup it alternates base/head
 on the same runner. A median paired increase over 25% blocks only when at
