@@ -4,55 +4,47 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"testing"
 	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
 
-var errFakeRunner = errors.New("fake runner failure")
-
-type errRunner struct{ msg string }
-
-func (r errRunner) runCommand(_ ...string) commandResult {
-	return commandResult{err: fmt.Errorf("%s: %w", r.msg, errFakeRunner)}
+func TestListSessionsTreatsNoServerAsEmpty(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	testutil.IsolatedTmux(t)
+	testutil.Tmux(t, "kill-server")
+	got, err := NewClient("tmux").ListSessions()
+	if err != nil || got != nil {
+		t.Fatalf("list after shutdown: got %#v, %v", got, err)
+	}
 }
 
-func TestListSessionsTreatsNoServerAsEmpty(t *testing.T) {
+var (
+	errLinuxNoServer    = errors.New("no server running on /tmp/tmux-1000/default")
+	errMacMissingSocket = errors.New(
+		"error connecting to /private/tmp/tmux-501/default (No such file or directory)",
+	)
+)
+
+func TestNoServerErrorPlatformMessages(t *testing.T) {
 	t.Parallel()
-	cases := map[string]string{
-		"linux no server running": "tmux list-sessions: exit status 1 (no server running on /tmp/tmux-1000/default)",
-		"macos socket missing": "tmux list-sessions -F #{session_name}: exit status 1 " +
-			"(error connecting to /private/tmp/tmux-501/default (No such file or directory))",
-	}
-
-	for name, msg := range cases {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			client := NewClientWithRunner("tmux", errRunner{msg: msg})
-
-			got, err := client.ListSessions()
-			if err != nil {
-				t.Fatalf("no-server error must be swallowed, got %v", err)
-			}
-
-			if got != nil {
-				t.Fatalf("expected nil sessions, got %#v", got)
-			}
-		})
+	for _, err := range []error{errLinuxNoServer, errMacMissingSocket} {
+		if !isNoServerError(err) {
+			t.Errorf("not recognized: %v", err)
+		}
 	}
 }
 
 func TestListSessionsPropagatesRealErrors(t *testing.T) {
 	t.Parallel()
-
-	client := NewClientWithRunner("tmux", errRunner{msg: "tmux: command not found"})
-
+	client := NewClient(filepath.Join(t.TempDir(), "missing-tmux"))
 	if _, err := client.ListSessions(); err == nil {
-		t.Fatal("a real error must propagate, not be swallowed as no-server")
+		t.Fatal("missing executable must propagate an error")
 	}
 }
 

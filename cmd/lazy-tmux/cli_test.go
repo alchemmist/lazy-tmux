@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 	"github.com/alchemmist/lazy-tmux/internal/store"
+	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
 
 func run(t *testing.T, args ...string) (int, string, string) {
@@ -160,6 +160,15 @@ func TestCLIPickerStartNextRequiresSessionsOnly(t *testing.T) {
 }
 
 func TestCLIAntexForkRejectsBackgroundBinding(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	testutil.IsolatedTmux(t)
+	pane := strings.TrimSpace(
+		testutil.Tmux(t, "new-session", "-d", "-P", "-F", "#{pane_id}", "-s", "fork-test"),
+	)
+	socket := strings.TrimSpace(
+		testutil.Tmux(t, "display-message", "-p", "-t", pane, "#{socket_path}"),
+	)
+	before := testutil.Tmux(t, "list-windows", "-a", "-F", "#{window_id}")
 	process := exec.CommandContext(context.Background(), "sleep", "60")
 	process.Args[0] = "antex"
 	if err := process.Start(); err != nil {
@@ -184,46 +193,29 @@ func TestCLIAntexForkRejectsBackgroundBinding(t *testing.T) {
 		"thread_id":          "019fc30a-6732-7c63-9732-c76949907c98",
 		"pid":                process.Process.Pid,
 		"process_started_at": strings.Join(strings.Fields(string(started)), " "),
-		"pane_id":            "%7",
-		"socket_path":        "/tmp/test-socket",
+		"pane_id":            pane,
+		"socket_path":        socket,
 		"home":               "/tmp/antex",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv(
-		"LAZY_TMUX_TEST_PANE",
-		fmt.Sprintf("antex|/work tree|%d|%%7|/tmp/test-socket||%s|", os.Getpid(), binding),
-	)
-	tmuxBin := filepath.Join(t.TempDir(), "tmux")
-	logPath := filepath.Join(t.TempDir(), "tmux-args")
-	script := `#!/bin/sh
-if [ "$1" = "display-message" ]; then
-  printf '%s\n' "$LAZY_TMUX_TEST_PANE"
-  exit 0
-fi
-printf '%s\n' "$@" > "$LAZY_TMUX_TEST_LOG"
-`
-	if err := os.WriteFile(tmuxBin, []byte(script), 0o755); err != nil {
-		t.Fatalf("write fake tmux: %v", err)
-	}
-	t.Setenv("LAZY_TMUX_TEST_LOG", logPath)
-
+	testutil.Tmux(t, "set-option", "-p", "-t", pane, "@antex_binding", string(binding))
 	code, _, errOut := run(
 		t,
 		"antex-fork",
 		"--pane",
-		"%7",
+		pane,
 		"--tmux-bin",
-		tmuxBin,
+		"tmux",
 		"--antex-bin",
 		"/custom/antex",
 	)
 	if code != 1 || !strings.Contains(errOut, "antex session not found") {
 		t.Fatalf("expected stale binding refusal, got %d: %s", code, errOut)
 	}
-	if _, err := os.Stat(logPath); !os.IsNotExist(err) {
-		t.Fatalf("must not open a fork window for an unowned binding: %v", err)
+	if after := testutil.Tmux(t, "list-windows", "-a", "-F", "#{window_id}"); after != before {
+		t.Fatalf("windows changed: %q -> %q", before, after)
 	}
 }
 
