@@ -1,0 +1,12 @@
+╭─ lazy-tmux ─────── 2 sessions · 3 windows ─╮
+│ ❯                                          │
+│   Session ...  Cmd              Captured   │
+│   alpha                                    │
+│ ▌   ├─ [1]...  zsh                         │
+│     ╰─ [2]...  zsh                         │
+│   studio                                   │
+│     ╰─ [1]...  zsh                         │
+│                                            │
+│                                            │
+│                                            │
+╰─ ↵ select  ·  ^j/^k move  ·  option/alt+d ─╯

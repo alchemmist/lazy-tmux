@@ -1,0 +1,5 @@
+╭─ lazy-tmux ───────────────────────────────────────────────────────────── 0 sessions · 0 windows ─╮
+│ ❯                                                                                                │
+│   Session / Window                  Cmd                                  Captured    Wins  State │
+│ No sessions or windows match query                                                               │
+╰─ ↵ select  ·  ^j/^k move  ·  option/alt+digit jump  ·  / commands  ·  ? help  ·  esc quit ───────╯

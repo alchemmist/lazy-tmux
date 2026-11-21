@@ -5,7 +5,7 @@
       "admin"
     ]
   },
-  "graphDigest": "3290886a82023d91aa250d02a10b448d4df52615c02b7c30e1336ac3b31ccb3f",
+  "graphDigest": "392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3",
   "graphVersion": 0,
   "labels": {
     "enabled": false
@@ -68,7 +68,8 @@
       },
       "id": "coverage",
       "needs": [
-        "workflow-graph"
+        "test",
+        "integration"
       ],
       "policy": {
         "approvals": {
@@ -97,7 +98,7 @@
       "env": {},
       "id": "golangci-lint",
       "needs": [
-        "workflow-graph"
+        "nolint-exclusions"
       ],
       "policy": {
         "approvals": {
@@ -123,7 +124,8 @@
       "env": {},
       "id": "test",
       "needs": [
-        "workflow-graph"
+        "build",
+        "fast-tests"
       ],
       "policy": {
         "approvals": {
@@ -150,7 +152,7 @@
       "env": {},
       "id": "test-fzf",
       "needs": [
-        "workflow-graph"
+        "build"
       ],
       "policy": {
         "approvals": {
@@ -177,7 +179,7 @@
       "env": {},
       "id": "docs-build",
       "needs": [
-        "workflow-graph"
+        "npm-audit"
       ],
       "policy": {
         "approvals": {
@@ -203,7 +205,9 @@
       "env": {},
       "id": "integration",
       "needs": [
-        "workflow-graph"
+        "workflow-shell-lint",
+        "build",
+        "fast-tests"
       ],
       "policy": {
         "approvals": {
@@ -228,7 +232,9 @@
     {
       "env": {},
       "id": "tmux-versions",
-      "needs": [],
+      "needs": [
+        "integration"
+      ],
       "policy": {
         "approvals": {
           "files": false,
@@ -248,7 +254,7 @@
       "step": {
         "run": "./scripts/quality-graph-tmux-versions.sh"
       },
-      "timeoutMinutes": 60,
+      "timeoutMinutes": 180,
       "title": "Tmux version test"
     },
     {
@@ -314,7 +320,11 @@
       },
       "id": "packaging",
       "needs": [
-        "workflow-graph"
+        "test",
+        "test-fzf",
+        "golangci-lint",
+        "go-audit",
+        "secrets"
       ],
       "policy": {
         "approvals": {
@@ -335,9 +345,145 @@
         "env": {
           "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
         },
-        "run": "base=$(git merge-base \"$BASE\" HEAD) || exit 1\nchanges=$(git diff --name-only \"$base\" HEAD -- .goreleaser.yaml .github/workflows/release.yml scripts/verify-snapshot-packages.sh) || exit 1\nif [ -n \"$changes\" ]; then ./scripts/verify-snapshot-packages.sh; else echo 'Packaging unchanged'; fi\n"
+        "run": "base=$(git merge-base \"$BASE\" HEAD) || exit 1\nchanges=$(git diff --name-only \"$base\" HEAD -- .goreleaser.yaml .github/workflows/release.yml scripts/verify-snapshot-packages.sh) || exit 1\nif [ \"$GITHUB_EVENT_NAME\" = workflow_dispatch ] || [ -n \"$changes\" ]; then ./scripts/verify-snapshot-packages.sh; else echo 'Packaging unchanged'; fi\n"
       },
       "title": "Packaging change verification"
+    },
+    {
+      "env": {},
+      "id": "fast-tests",
+      "needs": [
+        "workflow-graph"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "go",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "go test -short ./internal/picker ./internal/config ./internal/snapshot ./internal/store"
+      },
+      "title": "Fast Go tests and picker screens"
+    },
+    {
+      "env": {
+        "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+      },
+      "id": "performance",
+      "needs": [
+        "test",
+        "workflow-shell-lint"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "go",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "env": {
+          "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+        },
+        "run": "python3 scripts/performance_diff.py \"$BASE\""
+      },
+      "title": "Go workload regression"
+    },
+    {
+      "env": {},
+      "id": "go-audit",
+      "needs": [
+        "workflow-shell-lint"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "go",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "scripts/audit-quality.sh go"
+      },
+      "title": "Go dependency integrity and reachable vulnerabilities"
+    },
+    {
+      "env": {},
+      "id": "npm-audit",
+      "needs": [
+        "workflow-shell-lint"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "docs",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "scripts/audit-quality.sh npm"
+      },
+      "title": "Docs dependency audit"
+    },
+    {
+      "env": {},
+      "id": "secrets",
+      "needs": [
+        "workflow-graph"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "default",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "scripts/audit-quality.sh secrets"
+      },
+      "title": "Tracked tree secret scan"
     }
   ],
   "profiles": {
