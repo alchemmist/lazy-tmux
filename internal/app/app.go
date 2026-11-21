@@ -78,7 +78,6 @@ type App struct {
 	store             *store.Store
 	tmux              tmuxClient
 	integrations      *integration.Registry
-	saveAllFn         func() error
 	pickerCacheMu     sync.Mutex
 	pickerCache       map[string]cachedPickerSnapshot
 	pickerLoads       map[pickerCacheKey]*pickerSnapshotLoad
@@ -339,16 +338,6 @@ func (a *App) handoffToTarget(
 	}
 
 	return nil
-}
-
-func (a *App) runDaemonSaveAll() error {
-	if a.saveAllFn != nil {
-		return a.saveAllFn()
-	}
-
-	_, err := a.SaveAll()
-
-	return err
 }
 
 func (a *App) captureShellScrollback(snap *snapshot.SessionSnapshot) {

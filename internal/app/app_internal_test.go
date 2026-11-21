@@ -541,52 +541,51 @@ func TestBootstrapEmptyStoreNoError(t *testing.T) {
 	}
 }
 
-type fakeTicker struct {
-	ch chan time.Time
-}
-
-func (f *fakeTicker) Chan() <-chan time.Time { return f.ch }
-func (f *fakeTicker) Stop()                  {}
-
-//nolint:paralleltest // stubs the package-level newDaemonTicker seam
-func TestRunDaemonSavesAll(
-	t *testing.T,
-) {
+func TestRunDaemonSavesAll(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_RUNTIME_DIR", t.TempDir())
 	testutil.IsolatedTmux(t)
-
 	a, dir := newTestApp(t)
+	testutil.Tmux(t, "new-session", "-d", "-s", "first")
+	run := func(interval time.Duration) context.CancelFunc {
+		ctx, cancel := context.WithCancel(t.Context())
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			if err := a.RunDaemon(ctx, interval); err != nil {
+				t.Errorf("daemon: %v", err)
+			}
+		}()
+		stop := func() {
+			cancel()
+			select {
+			case <-done:
+			case <-time.After(5 * time.Second):
+				t.Fatal("daemon did not stop")
+			}
+		}
+		t.Cleanup(stop)
 
-	testutil.Tmux(t, "new-session", "-d", "-s", "d1")
-	testutil.Tmux(t, "new-session", "-d", "-s", "d2")
-
-	orig := newDaemonTicker
-	defer func() { newDaemonTicker = orig }()
-
-	saves := 0
-	a.saveAllFn = func() error {
-		saves++
-		_, err := a.SaveAll()
-
-		return err
+		return stop
 	}
-
-	ch := make(chan time.Time, 1)
-	ch <- time.Time{}
-	close(ch)
-
-	newDaemonTicker = func(time.Duration) daemonTicker { return &fakeTicker{ch: ch} }
-
-	if err := a.RunDaemon(time.Minute); err != nil {
-		t.Fatalf("run daemon: %v", err)
+	waitForSnapshot := func(name string) {
+		t.Helper()
+		for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
+			if snapshotExists(dir, name) {
+				return
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+		t.Fatalf("missing snapshot: %s", name)
 	}
-
-	if saves != 2 {
-		t.Fatalf("expected 2 daemon saves, got %d", saves)
-	}
-
-	if !snapshotExists(dir, "d1") || !snapshotExists(dir, "d2") {
-		t.Fatal("daemon should have saved both sessions")
-	}
+	stop := run(time.Hour)
+	waitForSnapshot("first")
+	stop()
+	testutil.Tmux(t, "new-session", "-d", "-s", "second")
+	run(50 * time.Millisecond)
+	waitForSnapshot("second")
+	testutil.Tmux(t, "new-session", "-d", "-s", "third")
+	waitForSnapshot("third")
 }
 
 //nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
