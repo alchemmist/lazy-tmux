@@ -23,14 +23,14 @@ jobs:
           persist-credentials: 'false'
           fetch-depth: '0'
       - uses: astral-sh/setup-uv@v10.4.0
-      - run: uvx --from quality-graph-cli==0.1.8 --with quality-graph-github==0.1.8 qg validate
+      - run: uvx --from quality-graph-cli==0.2.1 --with quality-graph-github==0.2.1 qg validate
         name: Run Workflow graph validation
         id: quality-command
         continue-on-error: true
       - name: Collect Workflow graph validation result
         id: quality-result
         if: always()
-        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        uses: alchemmist/quality-graph@7d3770827f241e66be9619a2a6c187690386c3b6
         with:
           operation: collect
           node-id: workflow-graph
@@ -38,7 +38,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c1ce4199692abf9ef8966689c9eec6a422fe849835e682628a0ecd4b29ad0bb5
+          graph-digest: 81d4073518a544922225e3b187830affb5da1cf41616ff509dcefca4fac1d12d
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -76,7 +76,7 @@ jobs:
       - name: Collect Build result
         id: quality-result
         if: always()
-        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        uses: alchemmist/quality-graph@7d3770827f241e66be9619a2a6c187690386c3b6
         with:
           operation: collect
           node-id: build
@@ -84,7 +84,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c1ce4199692abf9ef8966689c9eec6a422fe849835e682628a0ecd4b29ad0bb5
+          graph-digest: 81d4073518a544922225e3b187830affb5da1cf41616ff509dcefca4fac1d12d
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -128,7 +128,7 @@ jobs:
       - name: Collect Coverage result
         id: quality-result
         if: always()
-        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        uses: alchemmist/quality-graph@7d3770827f241e66be9619a2a6c187690386c3b6
         with:
           operation: collect
           node-id: coverage
@@ -136,7 +136,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c1ce4199692abf9ef8966689c9eec6a422fe849835e682628a0ecd4b29ad0bb5
+          graph-digest: 81d4073518a544922225e3b187830affb5da1cf41616ff509dcefca4fac1d12d
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -181,7 +181,7 @@ jobs:
       - name: Collect GolangCI-Lint result
         id: quality-result
         if: always()
-        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        uses: alchemmist/quality-graph@7d3770827f241e66be9619a2a6c187690386c3b6
         with:
           operation: collect
           node-id: golangci-lint
@@ -189,7 +189,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c1ce4199692abf9ef8966689c9eec6a422fe849835e682628a0ecd4b29ad0bb5
+          graph-digest: 81d4073518a544922225e3b187830affb5da1cf41616ff509dcefca4fac1d12d
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -231,7 +231,7 @@ jobs:
       - name: Collect Test result
         id: quality-result
         if: always()
-        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        uses: alchemmist/quality-graph@7d3770827f241e66be9619a2a6c187690386c3b6
         with:
           operation: collect
           node-id: test
@@ -239,7 +239,7 @@ jobs:
           adapter: junit
           report-path: .cache/quality-graph/test.xml
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c1ce4199692abf9ef8966689c9eec6a422fe849835e682628a0ecd4b29ad0bb5
+          graph-digest: 81d4073518a544922225e3b187830affb5da1cf41616ff509dcefca4fac1d12d
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -282,7 +282,7 @@ jobs:
       - name: Collect Test (fzf) result
         id: quality-result
         if: always()
-        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        uses: alchemmist/quality-graph@7d3770827f241e66be9619a2a6c187690386c3b6
         with:
           operation: collect
           node-id: test-fzf
@@ -290,7 +290,7 @@ jobs:
           adapter: junit
           report-path: .cache/quality-graph/test-fzf.xml
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c1ce4199692abf9ef8966689c9eec6a422fe849835e682628a0ecd4b29ad0bb5
+          graph-digest: 81d4073518a544922225e3b187830affb5da1cf41616ff509dcefca4fac1d12d
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -332,7 +332,7 @@ jobs:
       - name: Collect Docs build result
         id: quality-result
         if: always()
-        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        uses: alchemmist/quality-graph@7d3770827f241e66be9619a2a6c187690386c3b6
         with:
           operation: collect
           node-id: docs-build
@@ -340,7 +340,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c1ce4199692abf9ef8966689c9eec6a422fe849835e682628a0ecd4b29ad0bb5
+          graph-digest: 81d4073518a544922225e3b187830affb5da1cf41616ff509dcefca4fac1d12d
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -377,7 +377,7 @@ jobs:
       - name: Collect Integration tests result
         id: quality-result
         if: always()
-        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        uses: alchemmist/quality-graph@7d3770827f241e66be9619a2a6c187690386c3b6
         with:
           operation: collect
           node-id: integration
@@ -385,7 +385,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c1ce4199692abf9ef8966689c9eec6a422fe849835e682628a0ecd4b29ad0bb5
+          graph-digest: 81d4073518a544922225e3b187830affb5da1cf41616ff509dcefca4fac1d12d
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -424,7 +424,7 @@ jobs:
       - name: Collect Tmux version test result
         id: quality-result
         if: always()
-        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        uses: alchemmist/quality-graph@7d3770827f241e66be9619a2a6c187690386c3b6
         with:
           operation: collect
           node-id: tmux-versions
@@ -432,7 +432,7 @@ jobs:
           adapter: native
           report-path: .cache/quality-graph/tmux-versions.json
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c1ce4199692abf9ef8966689c9eec6a422fe849835e682628a0ecd4b29ad0bb5
+          graph-digest: 81d4073518a544922225e3b187830affb5da1cf41616ff509dcefca4fac1d12d
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -470,7 +470,7 @@ jobs:
       - name: Collect Workflow and shell lint result
         id: quality-result
         if: always()
-        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        uses: alchemmist/quality-graph@7d3770827f241e66be9619a2a6c187690386c3b6
         with:
           operation: collect
           node-id: workflow-shell-lint
@@ -478,7 +478,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c1ce4199692abf9ef8966689c9eec6a422fe849835e682628a0ecd4b29ad0bb5
+          graph-digest: 81d4073518a544922225e3b187830affb5da1cf41616ff509dcefca4fac1d12d
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -518,7 +518,7 @@ jobs:
       - name: Collect New Go lint exceptions result
         id: quality-result
         if: always()
-        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        uses: alchemmist/quality-graph@7d3770827f241e66be9619a2a6c187690386c3b6
         with:
           operation: collect
           node-id: nolint-exclusions
@@ -526,7 +526,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c1ce4199692abf9ef8966689c9eec6a422fe849835e682628a0ecd4b29ad0bb5
+          graph-digest: 81d4073518a544922225e3b187830affb5da1cf41616ff509dcefca4fac1d12d
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -576,7 +576,7 @@ jobs:
       - name: Collect Packaging change verification result
         id: quality-result
         if: always()
-        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        uses: alchemmist/quality-graph@7d3770827f241e66be9619a2a6c187690386c3b6
         with:
           operation: collect
           node-id: packaging
@@ -584,7 +584,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c1ce4199692abf9ef8966689c9eec6a422fe849835e682628a0ecd4b29ad0bb5
+          graph-digest: 81d4073518a544922225e3b187830affb5da1cf41616ff509dcefca4fac1d12d
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -630,7 +630,7 @@ jobs:
       - name: Collect Fast Go tests and picker screens result
         id: quality-result
         if: always()
-        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        uses: alchemmist/quality-graph@7d3770827f241e66be9619a2a6c187690386c3b6
         with:
           operation: collect
           node-id: fast-tests
@@ -638,7 +638,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c1ce4199692abf9ef8966689c9eec6a422fe849835e682628a0ecd4b29ad0bb5
+          graph-digest: 81d4073518a544922225e3b187830affb5da1cf41616ff509dcefca4fac1d12d
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -680,7 +680,7 @@ jobs:
       - name: Collect Go workload regression result
         id: quality-result
         if: always()
-        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        uses: alchemmist/quality-graph@7d3770827f241e66be9619a2a6c187690386c3b6
         with:
           operation: collect
           node-id: performance
@@ -688,7 +688,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c1ce4199692abf9ef8966689c9eec6a422fe849835e682628a0ecd4b29ad0bb5
+          graph-digest: 81d4073518a544922225e3b187830affb5da1cf41616ff509dcefca4fac1d12d
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -731,7 +731,7 @@ jobs:
       - name: Collect Go dependency integrity and reachable vulnerabilities result
         id: quality-result
         if: always()
-        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        uses: alchemmist/quality-graph@7d3770827f241e66be9619a2a6c187690386c3b6
         with:
           operation: collect
           node-id: go-audit
@@ -739,7 +739,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c1ce4199692abf9ef8966689c9eec6a422fe849835e682628a0ecd4b29ad0bb5
+          graph-digest: 81d4073518a544922225e3b187830affb5da1cf41616ff509dcefca4fac1d12d
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -781,7 +781,7 @@ jobs:
       - name: Collect Docs dependency audit result
         id: quality-result
         if: always()
-        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        uses: alchemmist/quality-graph@7d3770827f241e66be9619a2a6c187690386c3b6
         with:
           operation: collect
           node-id: npm-audit
@@ -789,7 +789,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c1ce4199692abf9ef8966689c9eec6a422fe849835e682628a0ecd4b29ad0bb5
+          graph-digest: 81d4073518a544922225e3b187830affb5da1cf41616ff509dcefca4fac1d12d
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -826,7 +826,7 @@ jobs:
       - name: Collect Tracked tree secret scan result
         id: quality-result
         if: always()
-        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        uses: alchemmist/quality-graph@7d3770827f241e66be9619a2a6c187690386c3b6
         with:
           operation: collect
           node-id: secrets
@@ -834,7 +834,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: c1ce4199692abf9ef8966689c9eec6a422fe849835e682628a0ecd4b29ad0bb5
+          graph-digest: 81d4073518a544922225e3b187830affb5da1cf41616ff509dcefca4fac1d12d
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
