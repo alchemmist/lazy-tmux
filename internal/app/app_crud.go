@@ -129,6 +129,12 @@ func (a *App) RenameWindow(session string, windowIndex int, name string) error {
 		if err != nil {
 			return fmt.Errorf("rename window: %w", err)
 		}
+		err = a.SaveSession(session)
+		if err != nil {
+			return fmt.Errorf("window renamed; save warning: %w", err)
+		}
+
+		return nil
 	}
 
 	snap, err := a.store.LoadSession(session)
@@ -256,7 +262,7 @@ func (a *App) NewSession(name string) error {
 	return nil
 }
 
-func (a *App) NewWindow(session, name string) error { //nolint:funlen
+func (a *App) NewWindow(session, name string) error {
 	if strings.TrimSpace(session) == "" {
 		return errSessionNameEmpty
 	}
@@ -267,14 +273,9 @@ func (a *App) NewWindow(session, name string) error { //nolint:funlen
 			return fmt.Errorf("create new window: %w", err)
 		}
 
-		snap, err := a.tmux.CaptureSession(session)
+		err = a.SaveSession(session)
 		if err != nil {
-			return fmt.Errorf("capture session: %w", err)
-		}
-
-		err = a.store.SaveSession(snap)
-		if err != nil {
-			return fmt.Errorf("save session: %w", err)
+			return fmt.Errorf("window created; save warning: %w", err)
 		}
 
 		return nil
