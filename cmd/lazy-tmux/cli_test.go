@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,14 +22,21 @@ func run(t *testing.T, args ...string) (int, string, string) {
 
 	var out, errOut bytes.Buffer
 
-	code := runCLIWithPreparation(
-		args,
-		&out,
-		&errOut,
-		func(string, []string, io.Writer) error { return nil },
-	)
+	code := runCLI(args, &out, &errOut)
 
 	return code, out.String(), errOut.String()
+}
+
+func isolateCLIPaths(t *testing.T) {
+	t.Helper()
+	home := os.Getenv("HOME")
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, "data"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, "state"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, "cache"))
+	t.Setenv("LAZY_TMUX_CONFIG", filepath.Join(home, "config.toml"))
+	t.Setenv("PI_CODING_AGENT_DIR", filepath.Join(home, "pi"))
+	t.Setenv("PI_CODING_AGENT_SESSION_DIR", filepath.Join(home, "pi", "sessions"))
 }
 
 func TestIntegrationDockerfileUsesDistributionTmux(t *testing.T) {
@@ -136,7 +142,8 @@ func TestCLIPickerHelpIncludesSessionsOnly(t *testing.T) {
 }
 
 func TestCLIPickerSessionsOnlyRejectsFZF(t *testing.T) {
-	t.Parallel()
+	t.Setenv("HOME", t.TempDir())
+	isolateCLIPaths(t)
 
 	code, _, errOut := run(t, "picker", "--sessions-only", "--fzf-engine")
 	if code != 1 {
@@ -148,7 +155,8 @@ func TestCLIPickerSessionsOnlyRejectsFZF(t *testing.T) {
 }
 
 func TestCLIPickerStartNextRequiresSessionsOnly(t *testing.T) {
-	t.Parallel()
+	t.Setenv("HOME", t.TempDir())
+	isolateCLIPaths(t)
 
 	code, _, errOut := run(t, "picker", "--start-next")
 	if code != 1 {
@@ -246,7 +254,8 @@ func TestCLIUnknownCommand(t *testing.T) {
 }
 
 func TestCLISessionCommandsRequireSession(t *testing.T) {
-	t.Parallel()
+	t.Setenv("HOME", t.TempDir())
+	isolateCLIPaths(t)
 
 	for _, cmd := range []string{"restore", "wakeup", "sleep"} {
 		code, _, errOut := run(t, cmd)
@@ -261,7 +270,8 @@ func TestCLISessionCommandsRequireSession(t *testing.T) {
 }
 
 func TestCLIFlagParseError(t *testing.T) {
-	t.Parallel()
+	t.Setenv("HOME", t.TempDir())
+	isolateCLIPaths(t)
 
 	code, _, errOut := run(t, "save", "--definitely-not-a-flag")
 	if code != 1 {
@@ -274,7 +284,8 @@ func TestCLIFlagParseError(t *testing.T) {
 }
 
 func TestCLISaveScrollbackLinesValidation(t *testing.T) {
-	t.Parallel()
+	t.Setenv("HOME", t.TempDir())
+	isolateCLIPaths(t)
 
 	code, _, errOut := run(
 		t,
@@ -295,7 +306,8 @@ func TestCLISaveScrollbackLinesValidation(t *testing.T) {
 }
 
 func TestCLITmuxBinFlagExpandsHome(t *testing.T) {
-	t.Parallel()
+	t.Setenv("HOME", t.TempDir())
+	isolateCLIPaths(t)
 
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -319,7 +331,8 @@ func TestCLITmuxBinFlagExpandsHome(t *testing.T) {
 }
 
 func TestCLISetupPrintsKeybinds(t *testing.T) {
-	t.Parallel()
+	t.Setenv("HOME", t.TempDir())
+	isolateCLIPaths(t)
 
 	code, out, _ := run(t, "setup")
 	if code != 0 {
@@ -469,7 +482,8 @@ func TestCLIMalformedConfigFails(t *testing.T) {
 }
 
 func TestCLIBootstrapLastOnEmptyStore(t *testing.T) {
-	t.Parallel()
+	t.Setenv("HOME", t.TempDir())
+	isolateCLIPaths(t)
 
 	code, _, errOut := run(t, "bootstrap", "--session", "last", "--data-dir", t.TempDir())
 	if code != 0 {

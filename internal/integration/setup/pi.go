@@ -37,7 +37,11 @@ func applyPi(home string, uninstall, automatic bool) (bool, error) {
 		return false, fmt.Errorf("open Pi home: %w", err)
 	}
 	defer func() { _ = root.Close() }()
-	lock, err := root.OpenFile(".lazy-tmux-pi.lock", os.O_CREATE|os.O_RDWR, 0o600)
+	const lockName = ".lazy-tmux-pi.lock"
+	lock, err := root.OpenFile(lockName, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0o600)
+	if errors.Is(err, os.ErrExist) {
+		lock, err = root.OpenFile(lockName, os.O_RDWR, 0)
+	}
 	if err != nil {
 		return false, fmt.Errorf("open Pi lock: %w", err)
 	}
