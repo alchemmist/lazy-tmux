@@ -63,6 +63,16 @@ if [[ ${GITHUB_EVENT_NAME:-} == pull_request ]]; then
     else
         status=passed
     fi
+elif [[ ${GITHUB_EVENT_NAME:-} == workflow_dispatch ]]; then
+    if scripts/repeat-tmux-version-tests.sh --self-test && scripts/repeat-tmux-version-tests.sh; then
+        status=passed
+        echo 'Two complete tmux matrix runs passed.' >"$SUMMARY"
+    else
+        status=failed
+        failure_kind='command'
+        exit_code=1
+        echo 'Repeated tmux verification failed; see the job log.' >"$SUMMARY"
+    fi
 else
     printf 'The tmux version matrix runs on pull requests.\n' >"$SUMMARY"
 fi
