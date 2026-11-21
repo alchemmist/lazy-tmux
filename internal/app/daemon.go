@@ -25,7 +25,7 @@ func (a *App) RunDaemon(ctx context.Context, interval time.Duration) error {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	for {
+	for ctx.Err() == nil {
 		_, err := a.SaveAll()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "lazy-tmux daemon save error: %v\n", err)
@@ -36,6 +36,8 @@ func (a *App) RunDaemon(ctx context.Context, interval time.Duration) error {
 		case <-ticker.C:
 		}
 	}
+
+	return nil
 }
 
 func acquireLock(socketPath string) (func(), error) {
