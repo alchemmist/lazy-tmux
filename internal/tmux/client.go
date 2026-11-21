@@ -324,6 +324,9 @@ func (client *Client) SwitchClient(session string) error {
 
 func (client *Client) SynchronizeWindowSize(target string) error {
 	tmuxTarget := sessionTarget(target)
+	if !strings.Contains(tmuxTarget, ":") {
+		tmuxTarget += ":"
+	}
 	_, err := client.Output("resize-window", "-A", "-t", tmuxTarget)
 	if err != nil {
 		return err

@@ -2,9 +2,12 @@ package app
 
 import (
 	"context"
+	"flag"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -15,34 +18,6 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
 	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
-
-type recordingTmux struct {
-	tmuxClient
-
-	inside   bool
-	exists   bool
-	switched string
-	synced   string
-	attached string
-}
-
-func (r *recordingTmux) RestoreSession(context.Context, snapshot.SessionSnapshot) error {
-	return nil
-}
-func (r *recordingTmux) InsideTmux() bool          { return r.inside }
-func (r *recordingTmux) SessionExists(string) bool { return r.exists }
-
-type quickRecordingTmux struct {
-	recordingTmux
-
-	sessions []string
-	current  string
-	attached map[string]time.Time
-}
-
-func (r *quickRecordingTmux) ListSessions() ([]string, error)            { return r.sessions, nil }
-func (r *quickRecordingTmux) CurrentSession() (string, error)            { return r.current, nil }
-func (r *quickRecordingTmux) SessionsLastAttached() map[string]time.Time { return r.attached }
 
 type workingAntexIntegration struct{}
 
@@ -59,122 +34,159 @@ func (workingAntexIntegration) Status(snapshot.Pane) (integration.Status, bool) 
 	return integration.StatusWorking, true
 }
 
-func (r *recordingTmux) SwitchClient(
-	target string,
-) error {
-	r.switched = target
-
-	return nil
+func waitClient(t *testing.T, want string) {
+	t.Helper()
+	for deadline := time.Now().Add(5 * time.Second); ; {
+		got := strings.TrimSpace(
+			testutil.Tmux(t, "list-clients", "-F", "#{session_name}:#{window_index}"),
+		)
+		if got == want {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("clients %q, want %q", got, want)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
 }
 
-func (r *recordingTmux) AttachSession(
-	target string,
-) error {
-	r.attached = target
-
-	return nil
+func attachControl(t *testing.T, name string) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(t.Context())
+	cmd := exec.CommandContext(ctx, "tmux", "-C", "attach-session", "-t", "="+name)
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		cancel()
+		t.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		cancel()
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = stdin.Close(); cancel(); _ = cmd.Wait() })
+	waitClient(t, name+":0")
 }
 
-func (r *recordingTmux) SynchronizeWindowSize(target string) error {
-	r.synced = target
-
-	return nil
+func TestRestoreTargetInsideTmux(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("SHELL", "/bin/sh")
+	testutil.IsolatedTmux(t)
+	a, _ := newTestApp(t)
+	testutil.Tmux(t, "new-session", "-d", "-s", "driver")
+	attachControl(t, "driver")
+	t.Setenv(
+		"TMUX",
+		strings.TrimSpace(
+			testutil.Tmux(t, "display-message", "-p", "-t", "=driver:0", "#{socket_path},#{pid},0"),
+		),
+	)
+	target := PickerTarget{SessionName: "saved"}
+	if err := a.NewSession("saved"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Sleep("saved"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.RestoreTarget(target, true); err != nil {
+		t.Fatal(err)
+	}
+	waitClient(t, "saved:0")
+	testutil.Tmux(t, "switch-client", "-t", "=driver")
+	testutil.Tmux(t, "set-option", "-w", "-t", "=saved:0", "window-size", "manual")
+	if err := a.RestoreTargetInteractive(target); err != nil {
+		t.Fatal(err)
+	}
+	waitClient(t, "saved:0")
+	if got := strings.TrimSpace(
+		testutil.Tmux(t, "show-options", "-wv", "-t", "=saved:0", "window-size"),
+	); got != "manual" {
+		t.Fatalf("live size mode: %q", got)
+	}
 }
 
-func TestRestoreTargetHandsOff(t *testing.T) {
+func TestRestoreTargetChild(t *testing.T) {
 	t.Parallel()
-
-	idx := 2
-
-	cases := []struct {
-		name         string
-		interactive  bool
-		inside       bool
-		windowIndex  *int
-		wantSwitched string
-		wantSynced   string
-		wantAttached string
-		exists       bool
-	}{
-		{name: "cli inside tmux switches", inside: true, wantSwitched: "s1", wantSynced: "s1"},
-		{
-			name:         "picker inside tmux switches",
-			interactive:  true,
-			inside:       true,
-			wantSwitched: "s1",
-			wantSynced:   "s1",
-		},
-		{name: "live session keeps its size mode", inside: true, exists: true, wantSwitched: "s1"},
-
-		{name: "cli outside tmux does not attach", inside: false},
-		{
-			name:         "picker outside tmux attaches",
-			interactive:  true,
-			inside:       false,
-			wantAttached: "s1",
-		},
-		{
-			name:         "picker outside tmux attaches to window",
-			interactive:  true,
-			inside:       false,
-			windowIndex:  &idx,
-			wantAttached: "s1:2",
-		},
+	args := flag.Args()
+	if len(args) != 3 || args[0] != "handoff" {
+		t.Skip("subprocess entry point")
 	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			a, _ := newTestApp(t)
-
-			if err := a.store.SaveSession(snapshot.SessionSnapshot{SessionName: "s1"}); err != nil {
-				t.Fatalf("save snapshot: %v", err)
-			}
-
-			fake := &recordingTmux{inside: tc.inside, exists: tc.exists}
-			a.tmux = fake
-
-			target := PickerTarget{SessionName: "s1", WindowIndex: tc.windowIndex}
-
-			var err error
-			if tc.interactive {
-				err = a.RestoreTargetInteractive(target)
-			} else {
-				err = a.RestoreTarget(target, true)
-			}
-
-			if err != nil {
-				t.Fatalf("restore target: %v", err)
-			}
-
-			if fake.switched != tc.wantSwitched {
-				t.Fatalf("switched = %q, want %q", fake.switched, tc.wantSwitched)
-			}
-			if fake.synced != tc.wantSynced {
-				t.Fatalf("synced = %q, want %q", fake.synced, tc.wantSynced)
-			}
-
-			if fake.attached != tc.wantAttached {
-				t.Fatalf("attached = %q, want %q", fake.attached, tc.wantAttached)
-			}
-		})
+	a := New(config.Config{TmuxBin: "tmux", DataDir: args[1]})
+	index := 1
+	target := PickerTarget{SessionName: "saved", WindowIndex: &index}
+	var err error
+	if args[2] == "interactive" {
+		err = a.RestoreTargetInteractive(target)
+	} else {
+		err = a.RestoreTarget(target, true)
 	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(args[1], "returned"), []byte("ok"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRestoreTargetOutsideTmux(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("SHELL", "/bin/sh")
+	testutil.IsolatedTmux(t)
+	a, dir := newTestApp(t)
+	if err := a.NewSession("saved"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.NewWindow("saved", "second"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Sleep("saved"); err != nil {
+		t.Fatal(err)
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := func(mode string) {
+		testutil.Tmux(
+			t,
+			"new-session",
+			"-d",
+			"-s",
+			mode,
+			"env",
+			"-u",
+			"TMUX",
+			exe,
+			"-test.run=^TestRestoreTargetChild$",
+			"--",
+			"handoff",
+			dir,
+			mode,
+		)
+	}
+	start("cli")
+	for deadline := time.Now().Add(5 * time.Second); ; {
+		if _, err := os.Stat(filepath.Join(dir, "returned")); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("CLI did not return after restore")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	waitClient(t, "")
+	start("interactive")
+	waitClient(t, "saved:1")
 }
 
 func TestQuickPickerSessionsIncludesLiveWithoutSnapshot(t *testing.T) {
-	t.Parallel()
+	t.Setenv("HOME", t.TempDir())
+	testutil.IsolatedTmux(t)
 
 	a, _ := newTestApp(t)
 	if err := a.store.SaveSession(snapshot.SessionSnapshot{SessionName: "saved"}); err != nil {
 		t.Fatalf("save snapshot: %v", err)
 	}
-	a.tmux = &quickRecordingTmux{
-		recordingTmux: recordingTmux{},
-		sessions:      []string{"live-only"},
-		current:       "live-only",
-		attached:      nil,
-	}
+	testutil.Tmux(t, "new-session", "-d", "-s", "live-only")
 
 	sessions, err := a.quickPickerSessions()
 	if err != nil {
@@ -197,7 +209,8 @@ func TestQuickPickerSessionsIncludesLiveWithoutSnapshot(t *testing.T) {
 }
 
 func TestQuickPickerSessionsHaveStableNameOrder(t *testing.T) {
-	t.Parallel()
+	t.Setenv("HOME", t.TempDir())
+	testutil.IsolatedTmux(t)
 
 	a, _ := newTestApp(t)
 	for _, session := range []snapshot.SessionSnapshot{
@@ -208,15 +221,9 @@ func TestQuickPickerSessionsHaveStableNameOrder(t *testing.T) {
 			t.Fatalf("save snapshot: %v", err)
 		}
 	}
-	a.tmux = &quickRecordingTmux{
-		recordingTmux: recordingTmux{},
-		sessions:      []string{"delta", "bravo"},
-		current:       "delta",
-		attached: map[string]time.Time{
-			"bravo": time.Now(),
-			"delta": time.Now().Add(time.Hour),
-		},
-	}
+	testutil.Tmux(t, "new-session", "-d", "-s", "bravo")
+	testutil.Tmux(t, "new-session", "-d", "-s", "delta")
+	attachControl(t, "delta")
 
 	sessions, err := a.quickPickerSessions()
 	if err != nil {
@@ -232,28 +239,42 @@ func TestQuickPickerSessionsHaveStableNameOrder(t *testing.T) {
 }
 
 func TestOpenQuickSessionSwitchesLiveSessionWithoutSnapshot(t *testing.T) {
-	t.Parallel()
+	t.Setenv("HOME", t.TempDir())
+	testutil.IsolatedTmux(t)
 
 	a, _ := newTestApp(t)
-	fake := &recordingTmux{inside: true, exists: true}
-	a.tmux = fake
+	testutil.Tmux(t, "new-session", "-d", "-s", "driver")
+	testutil.Tmux(t, "new-session", "-d", "-s", "live-only")
+	attachControl(t, "driver")
+	t.Setenv(
+		"TMUX",
+		strings.TrimSpace(
+			testutil.Tmux(t, "display-message", "-p", "-t", "=driver:0", "#{socket_path},#{pid},0"),
+		),
+	)
 
 	if err := a.OpenQuickSession("live-only"); err != nil {
 		t.Fatalf("open quick session: %v", err)
 	}
-	if fake.switched != "live-only" {
-		t.Fatalf("switched = %q, want live-only", fake.switched)
-	}
+	waitClient(t, "live-only:0")
 }
 
 func TestOpenQuickSessionUpdatesLastUsed(t *testing.T) {
-	t.Parallel()
+	t.Setenv("HOME", t.TempDir())
+	testutil.IsolatedTmux(t)
 
 	a, _ := newTestApp(t)
 	if err := a.store.SaveSession(snapshot.SessionSnapshot{SessionName: "live"}); err != nil {
 		t.Fatalf("save snapshot: %v", err)
 	}
-	a.tmux = &recordingTmux{inside: true, exists: true}
+	testutil.Tmux(t, "new-session", "-d", "-s", "live")
+	attachControl(t, "live")
+	t.Setenv(
+		"TMUX",
+		strings.TrimSpace(
+			testutil.Tmux(t, "display-message", "-p", "-t", "=live:0", "#{socket_path},#{pid},0"),
+		),
+	)
 
 	if err := a.OpenQuickSession("live"); err != nil {
 		t.Fatalf("open quick session: %v", err)
@@ -268,7 +289,8 @@ func TestOpenQuickSessionUpdatesLastUsed(t *testing.T) {
 }
 
 func TestQuickPickerSessionMarksWorkingAntex(t *testing.T) {
-	t.Parallel()
+	t.Setenv("HOME", t.TempDir())
+	testutil.IsolatedTmux(t)
 
 	a, _ := newTestApp(t)
 	a.integrations = integration.NewRegistry(workingAntexIntegration{})
@@ -297,12 +319,7 @@ func TestQuickPickerSessionMarksWorkingAntex(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("save snapshot: %v", err)
 	}
-	a.tmux = &quickRecordingTmux{
-		recordingTmux: recordingTmux{},
-		sessions:      []string{"working"},
-		current:       "working",
-		attached:      nil,
-	}
+	testutil.Tmux(t, "new-session", "-d", "-s", "working")
 
 	sessions, err := a.quickPickerSessions()
 	if err != nil {
