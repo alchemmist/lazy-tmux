@@ -44,6 +44,7 @@ type tmuxSessionManager interface {
 }
 
 type tmuxSessionCapturer interface {
+	InspectSession(name string) (snapshot.SessionSnapshot, error)
 	CaptureSession(name string) (snapshot.SessionSnapshot, error)
 	CapturePaneScrollback(target string, lines int) (string, error)
 }
@@ -261,7 +262,12 @@ func (a *App) saveSession(session string, integrationScope *integration.Registry
 
 	err = integrationScope.EnrichForSave(&snap)
 	if err != nil {
-		return fmt.Errorf("incomplete agent capture; snapshot not saved: %w", err)
+		path, checkpointErr := a.store.SaveLayoutCheckpoint(snap, err.Error())
+		if checkpointErr != nil {
+			return errors.Join(err, fmt.Errorf("save layout checkpoint: %w", checkpointErr))
+		}
+
+		return fmt.Errorf("layout saved to %s; resumable snapshot not updated: %w", path, err)
 	}
 
 	err = a.store.SaveSession(snap)
