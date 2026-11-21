@@ -99,6 +99,13 @@ func TestRealPiLiveWorkingCompletionAndError(t *testing.T) {
 	)
 	saved := waitForPiSnapshot(t, client, registry, "pi-status", file, "status-session").Windows[0].Panes[0]
 	waitForPiState(t, registry, saved, integration.StatusIdle)
+	scoped := registry.Scope()
+	if got, ok := scoped.StatusFor("pi", saved); !ok || got != integration.StatusIdle {
+		t.Fatalf("named Pi status: %v %v", got, ok)
+	}
+	if got, ok := scoped.StatusFor("claude", saved); ok || got != integration.StatusUnknown {
+		t.Fatalf("wrong provider returned Pi status: %v %v", got, ok)
+	}
 	testutil.Tmux(t, "send-keys", "-t", "pi-status:0.0", "-l", "fixture input")
 	testutil.Tmux(t, "send-keys", "-t", "pi-status:0.0", "Enter")
 	select {
