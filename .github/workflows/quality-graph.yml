@@ -38,7 +38,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 7ef8bbbca49b0a2d9de140dbced6f12230462769e79b5d950e1b86a300a12a98
+          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -84,7 +84,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 7ef8bbbca49b0a2d9de140dbced6f12230462769e79b5d950e1b86a300a12a98
+          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -136,7 +136,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 7ef8bbbca49b0a2d9de140dbced6f12230462769e79b5d950e1b86a300a12a98
+          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -188,7 +188,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 7ef8bbbca49b0a2d9de140dbced6f12230462769e79b5d950e1b86a300a12a98
+          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -238,7 +238,7 @@ jobs:
           adapter: junit
           report-path: .cache/quality-graph/test.xml
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 7ef8bbbca49b0a2d9de140dbced6f12230462769e79b5d950e1b86a300a12a98
+          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -288,7 +288,7 @@ jobs:
           adapter: junit
           report-path: .cache/quality-graph/test-fzf.xml
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 7ef8bbbca49b0a2d9de140dbced6f12230462769e79b5d950e1b86a300a12a98
+          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -338,7 +338,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 7ef8bbbca49b0a2d9de140dbced6f12230462769e79b5d950e1b86a300a12a98
+          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -383,7 +383,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 7ef8bbbca49b0a2d9de140dbced6f12230462769e79b5d950e1b86a300a12a98
+          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -428,7 +428,7 @@ jobs:
           adapter: native
           report-path: .cache/quality-graph/tmux-versions.json
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 7ef8bbbca49b0a2d9de140dbced6f12230462769e79b5d950e1b86a300a12a98
+          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -446,7 +446,7 @@ jobs:
         env:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
-    timeout-minutes: 60
+    timeout-minutes: 180
   workflow-shell-lint:
     name: Workflow and shell lint
     runs-on: ubuntu-latest
@@ -472,7 +472,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 7ef8bbbca49b0a2d9de140dbced6f12230462769e79b5d950e1b86a300a12a98
+          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -520,7 +520,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 7ef8bbbca49b0a2d9de140dbced6f12230462769e79b5d950e1b86a300a12a98
+          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -559,7 +559,7 @@ jobs:
 
           changes=$(git diff --name-only "$base" HEAD -- .goreleaser.yaml .github/workflows/release.yml scripts/verify-snapshot-packages.sh) || exit 1
 
-          if [ -n "$changes" ]; then ./scripts/verify-snapshot-packages.sh; else echo ''Packaging unchanged''; fi
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] || [ -n "$changes" ]; then ./scripts/verify-snapshot-packages.sh; else echo ''Packaging unchanged''; fi
 
           '
         env:
@@ -578,7 +578,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 7ef8bbbca49b0a2d9de140dbced6f12230462769e79b5d950e1b86a300a12a98
+          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -628,7 +628,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 7ef8bbbca49b0a2d9de140dbced6f12230462769e79b5d950e1b86a300a12a98
+          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -678,7 +678,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 7ef8bbbca49b0a2d9de140dbced6f12230462769e79b5d950e1b86a300a12a98
+          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -728,7 +728,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 7ef8bbbca49b0a2d9de140dbced6f12230462769e79b5d950e1b86a300a12a98
+          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -778,7 +778,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 7ef8bbbca49b0a2d9de140dbced6f12230462769e79b5d950e1b86a300a12a98
+          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -823,7 +823,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 7ef8bbbca49b0a2d9de140dbced6f12230462769e79b5d950e1b86a300a12a98
+          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'

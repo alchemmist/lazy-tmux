@@ -1,7 +1,8 @@
 # Quality Graph migration inventory
 
-This document records the mapping from the repository's existing GitHub Actions
-workflows to Quality Graph.
+All repository-owned quality jobs are declared in `qg.yaml`. The legacy build,
+coverage, golangci-lint and test workflows have been removed; the old check
+names below are historical. Do not add parallel standalone CI jobs.
 
 | Existing check | Command | Runner and setup | Quality Graph node |
 | --- | --- | --- | --- |
@@ -26,13 +27,16 @@ stays in `pages.yml`.
 - `release.yml` remains the tag-triggered publication workflow and keeps its
   release credentials and write permissions.
 
-Quality Graph 0.1.6 does not support event-specific nodes. The `tmux-versions`
-node emits a skipped result on pushes and runs the Docker matrix only for pull
-requests. Its native result publishes the complete version table in the job
+Quality Graph 0.1.8 does not support event-specific nodes. The `tmux-versions`
+node emits a skipped result on pushes and compares the Docker matrix on pull
+requests. On workflow dispatch it runs the full repeated matrix instead. Its native result publishes the complete version table in the job
 summary. The node compares supported versions with the pull request's base and
 fails when a version previously supported on the base is no longer supported.
 
-Rollback is restoring the standalone workflow and its required check.
+`scheduled-verification.yml` is a timer only: it dispatches the generated graph
+on main and never checks out or runs project code. For a manual full run use
+the Quality Graph workflow itself. GitHub CodeQL default setup is a separately
+managed platform security service, not a repository workflow.
 
 ## Workflow and script lint
 

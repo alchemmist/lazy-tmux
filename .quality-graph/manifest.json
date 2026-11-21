@@ -5,7 +5,7 @@
       "admin"
     ]
   },
-  "graphDigest": "7ef8bbbca49b0a2d9de140dbced6f12230462769e79b5d950e1b86a300a12a98",
+  "graphDigest": "f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1",
   "graphVersion": 0,
   "labels": {
     "enabled": false
@@ -248,7 +248,7 @@
       "step": {
         "run": "./scripts/quality-graph-tmux-versions.sh"
       },
-      "timeoutMinutes": 60,
+      "timeoutMinutes": 180,
       "title": "Tmux version test"
     },
     {
@@ -335,7 +335,7 @@
         "env": {
           "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
         },
-        "run": "base=$(git merge-base \"$BASE\" HEAD) || exit 1\nchanges=$(git diff --name-only \"$base\" HEAD -- .goreleaser.yaml .github/workflows/release.yml scripts/verify-snapshot-packages.sh) || exit 1\nif [ -n \"$changes\" ]; then ./scripts/verify-snapshot-packages.sh; else echo 'Packaging unchanged'; fi\n"
+        "run": "base=$(git merge-base \"$BASE\" HEAD) || exit 1\nchanges=$(git diff --name-only \"$base\" HEAD -- .goreleaser.yaml .github/workflows/release.yml scripts/verify-snapshot-packages.sh) || exit 1\nif [ \"$GITHUB_EVENT_NAME\" = workflow_dispatch ] || [ -n \"$changes\" ]; then ./scripts/verify-snapshot-packages.sh; else echo 'Packaging unchanged'; fi\n"
       },
       "title": "Packaging change verification"
     },

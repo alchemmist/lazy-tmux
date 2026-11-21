@@ -108,7 +108,7 @@ nodes:
   tmux-versions:
     title: Tmux version test
     profile: tmux
-    timeout-minutes: 60
+    timeout-minutes: 180
     run: ./scripts/quality-graph-tmux-versions.sh
     results:
       native: .cache/quality-graph/tmux-versions.json
@@ -135,7 +135,7 @@ nodes:
     run: |
       base=$(git merge-base "$BASE" HEAD) || exit 1
       changes=$(git diff --name-only "$base" HEAD -- .goreleaser.yaml .github/workflows/release.yml scripts/verify-snapshot-packages.sh) || exit 1
-      if [ -n "$changes" ]; then ./scripts/verify-snapshot-packages.sh; else echo 'Packaging unchanged'; fi
+      if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] || [ -n "$changes" ]; then ./scripts/verify-snapshot-packages.sh; else echo 'Packaging unchanged'; fi
 
   fast-tests:
     title: Fast Go tests and picker screens
