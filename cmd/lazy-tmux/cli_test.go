@@ -160,8 +160,8 @@ func TestCLIPickerStartNextRequiresSessionsOnly(t *testing.T) {
 }
 
 func TestCLIAntexForkRejectsBackgroundBinding(t *testing.T) {
-	testutil.IsolatedTmux(t)
 	t.Setenv("HOME", t.TempDir())
+	testutil.IsolatedTmux(t)
 	pane := strings.TrimSpace(
 		testutil.Tmux(t, "new-session", "-d", "-P", "-F", "#{pane_id}", "-s", "fork-test"),
 	)
