@@ -125,7 +125,8 @@ func TestWindowStatusOrderingWithLiveBindings(t *testing.T) {
 		panes = append(panes, saved)
 	}
 	pending := panes[1]
-	pending.Meta = map[string]string{"agent.restore_pending": "1"}
+	pending.Meta = maps.Clone(pending.Meta)
+	pending.Meta["agent.restore_pending"] = "1"
 	panes = append(panes, pending)
 	for i, first := range panes {
 		for j, second := range panes {
@@ -142,12 +143,10 @@ func TestWindowStatusOrderingWithLiveBindings(t *testing.T) {
 		}
 	}
 	for _, key := range []string{"agent.restore_pending", "antex.restore_pending"} {
-		for _, verified := range panes[1:] {
-			if verified.Meta == nil {
-				continue
-			}
+		for _, verified := range panes {
 			waiting := verified
-			waiting.Meta = maps.Clone(verified.Meta)
+			waiting.Meta = make(map[string]string, len(verified.Meta)+1)
+			maps.Copy(waiting.Meta, verified.Meta)
 			waiting.Meta[key] = "1"
 			if got := panePickerStatus(reg, waiting); got != picker.StatusRestorePending {
 				t.Fatalf("%s on %s: %v", key, verified.CurrentCmd, got)
@@ -161,5 +160,15 @@ func TestWindowStatusOrderingWithLiveBindings(t *testing.T) {
 		if windowStatuses(reg, []snapshot.Window{{Index: 1, Panes: rotated}})[1] != picker.StatusRestorePending {
 			t.Fatalf("rotation %d lost pending status", offset)
 		}
+	}
+}
+
+func TestWindowStatusesWithoutActivity(t *testing.T) {
+	t.Parallel()
+	windows := []snapshot.Window{{Index: 1, Panes: []snapshot.Pane{{CurrentCmd: "sh"}}}, {Index: 2}}
+	if len(windowStatuses(nil, nil)) != 0 || windowStatuses(nil, windows)[1] != picker.StatusNone ||
+		windowStatuses(integration.NewRegistry(), windows)[2] != picker.StatusNone ||
+		toPickerStatus(integration.StatusUnknown) != picker.StatusNone {
+		t.Fatal("empty inputs reported activity")
 	}
 }
