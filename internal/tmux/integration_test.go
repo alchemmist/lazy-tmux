@@ -2,12 +2,15 @@ package tmux_test
 
 import (
 	"context"
+	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -458,6 +461,11 @@ func TestSynchronizeWindowSizeUsesAttachedClient(t *testing.T) {
 		t.Fatalf("synchronize window size: %v", err)
 	}
 
+	local := testutil.Tmux(t, "show-options", "-w", "-t", "=restored:0", "window-size")
+	if strings.TrimSpace(local) != "" {
+		t.Fatalf("window-size override was not cleared: %s", local)
+	}
+
 	after := strings.TrimSpace(
 		testutil.Tmux(
 			t,
@@ -471,4 +479,90 @@ func TestSynchronizeWindowSizeUsesAttachedClient(t *testing.T) {
 	if after != "180x55" && after != "180x56" {
 		t.Fatalf("pane should fit attached client: got %s, want 180x55 or 180x56", after)
 	}
+}
+
+func TestAttachSessionChild(t *testing.T) {
+	t.Parallel()
+	args := flag.Args()
+	if len(args) != 2 || args[0] != "attach-child" {
+		t.Skip("subprocess entry point")
+	}
+	client := tmux.NewClient("tmux")
+	if args[1] == "proj:2" {
+		err := client.AttachSession("invalid\x00target")
+		if !errors.Is(err, syscall.EINVAL) || !strings.Contains(err.Error(), "attach tmux client") {
+			t.Fatalf("attach with invalid argv: got %v, want wrapped EINVAL", err)
+		}
+	}
+	if err := client.AttachSession(args[1]); err != nil {
+		t.Fatal(err)
+	}
+	t.Log("attach returned without exec")
+}
+
+func isolateAttachXDG(t *testing.T) {
+	t.Helper()
+	for _, key := range []string{
+		"XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_RUNTIME_DIR",
+	} {
+		t.Setenv(key, t.TempDir())
+	}
+}
+
+func TestAttachSessionWithoutTTY(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	isolateAttachXDG(t)
+	testutil.IsolatedTmux(t)
+	testutil.Tmux(t, "new-session", "-d", "-s", "proj")
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(
+		ctx,
+		exe,
+		"-test.run=^TestAttachSessionChild$",
+		"-test.v",
+		"--",
+		"attach-child",
+		"proj",
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil || !strings.Contains(string(out), "attach returned without exec") {
+		t.Fatalf("noninteractive attach: %v: %s", err, out)
+	}
+}
+
+func TestAttachSessionWithTTY(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	isolateAttachXDG(t)
+	testutil.IsolatedTmux(t)
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	testutil.Tmux(t, "new-session", "-d", "-s", "proj")
+	testutil.Tmux(t, "new-window", "-d", "-t", "proj:2")
+	testutil.Tmux(
+		t,
+		"new-session",
+		"-d",
+		"-s",
+		"driver",
+		"env",
+		"-u",
+		"TMUX",
+		exe,
+		"-test.run=^TestAttachSessionChild$", "--", "attach-child", "proj:2",
+	)
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
+		out := testutil.Tmux(t, "list-clients", "-F", "#{session_name}:#{window_index}")
+		if strings.TrimSpace(out) == "proj:2" {
+			return
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	t.Fatal("client did not attach to proj:2")
 }
