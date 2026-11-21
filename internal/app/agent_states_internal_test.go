@@ -2,14 +2,16 @@ package app
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/alchemmist/lazy-tmux/internal/integration"
 	"github.com/alchemmist/lazy-tmux/internal/integration/claude"
 	"github.com/alchemmist/lazy-tmux/internal/integration/pi"
+	"github.com/alchemmist/lazy-tmux/internal/integration/setup"
 	"github.com/alchemmist/lazy-tmux/internal/picker"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+	"github.com/alchemmist/lazy-tmux/internal/testutil"
+	"github.com/alchemmist/lazy-tmux/internal/tmux"
 )
 
 func TestPickerDistinguishesUnverifiedAndPendingAgents(t *testing.T) {
@@ -73,31 +75,19 @@ func TestQuickPickerIncludesClaudeActivity(t *testing.T) {
 }
 
 func TestPiPickerStatusRefreshWithoutAutosave(t *testing.T) {
-	t.Parallel()
+	if os.Getenv("ENABLE_REAL_PI_TESTS") != "true" {
+		t.Skip("requires real Pi")
+	}
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("SHELL", "/bin/sh")
+	testutil.IsolatedTmux(t)
 	home := t.TempDir()
-	file := filepath.Join(home, "history.jsonl")
-	if err := os.WriteFile(
-		file,
-		[]byte(`{"type":"session","id":"pi-session","cwd":"`+home+`"}`+"\n"),
-		0o600,
-	); err != nil {
+	if _, err := setup.EnsurePi(home); err != nil {
 		t.Fatal(err)
 	}
-	pane := snapshot.Pane{
-		CurrentCmd:  "node",
-		RestoreCmd:  "pi",
-		CurrentPath: home,
-		Meta:        map[string]string{"pi.session_file": file, "pi.session_id": "pi-session"},
-	}
-	live := snapshot.Pane{
-		CurrentPath:  home,
-		LiveStatusID: "pi-session",
-		LiveStatus:   "working",
-		Meta:         map[string]string{"pi.session_file": file},
-	}
+	pane, live := startStatusPi(t, "pi-session", home)
 	registry := integration.NewRegistry(
-		pi.New(home, home).
-			WithStatusLoader(func() ([]snapshot.Pane, error) { return []snapshot.Pane{live}, nil }),
+		pi.New(home, home).WithStatusLoader(tmux.NewClient("tmux").CapturePiPanes),
 	)
 	app, _ := newTestApp(t)
 	windows := []snapshot.Window{{Index: 1, Panes: []snapshot.Pane{pane}}}
@@ -110,7 +100,7 @@ func TestPiPickerStatusRefreshWithoutAutosave(t *testing.T) {
 		"working": picker.StatusWorking, "awaiting_input": picker.StatusAwaitingInput,
 		"awaiting_decision": picker.StatusAwaitingDecision, "idle": picker.StatusIdle, "error": picker.StatusError,
 	} {
-		live.LiveStatus = state
+		setStatusInput(t, live, state)
 		scope := registry.Scope()
 		if got := windowStatuses(scope, windows)[1]; got != want {
 			t.Fatalf("%s: got %v, want %v", state, got, want)
@@ -122,7 +112,7 @@ func TestPiPickerStatusRefreshWithoutAutosave(t *testing.T) {
 			t.Fatal("offline Pi animated")
 		}
 	}
-	live.LiveStatus = ""
+	setStatusInput(t, live, "")
 	if got := windowStatuses(registry.Scope(), windows)[1]; got != picker.StatusNone {
 		t.Fatalf("verified legacy Pi incorrectly needs setup: %v", got)
 	}
