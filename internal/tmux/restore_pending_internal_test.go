@@ -9,6 +9,7 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/integration"
 	"github.com/alchemmist/lazy-tmux/internal/integration/antex"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
 
 func TestFailedAntexBootstrapKeepsRestoreIntent(t *testing.T) {
@@ -42,9 +43,10 @@ func TestFailedAntexBootstrapKeepsRestoreIntent(t *testing.T) {
 }
 
 func TestAntexRestoreStagesIntentBeforeLaunch(t *testing.T) {
-	t.Parallel()
-	runner := &recordingRunner{}
-	client := NewClientWithRunner("tmux", runner)
+	t.Setenv("HOME", t.TempDir())
+	testutil.IsolatedTmux(t)
+	testutil.Tmux(t, "new-session", "-d", "-s", "work")
+	client := NewClient("tmux")
 	client.SetRestoreResolver(integration.NewRegistry(antex.New(t.TempDir())))
 	pane := snapshot.Pane{CurrentCmd: "antex"}
 	if err := client.restoreWindowCommands(
@@ -54,12 +56,13 @@ func TestAntexRestoreStagesIntentBeforeLaunch(t *testing.T) {
 	); err != nil {
 		t.Fatal(err)
 	}
-	for _, call := range runner.calls {
-		if strings.Contains(strings.Join(call, " "), "@lazy_tmux_restore_pending") {
-			return
-		}
+	raw := strings.TrimSpace(
+		testutil.Tmux(t, "show-options", "-pv", "-t", "=work:0.0", pendingRestoreOption),
+	)
+	intent, ok := decodeRestoreIntent(raw)
+	if !ok || intent.Pane.CurrentCmd != "antex" || intent.Token == "" {
+		t.Fatalf("invalid staged intent: %+v", intent)
 	}
-	t.Fatal("restore did not preserve its intent before reporting an unverified session")
 }
 
 func TestRestoreReceiptDistinguishesSuccessfulExitFromFailedStartup(t *testing.T) {
