@@ -90,7 +90,7 @@ func TestWaitForUnstartedCommand(t *testing.T) {
 	client.SetRestoreTimeout(timeout)
 	start := time.Now()
 	client.waitForRestoredCommands(t.Context(), "sess", windows)
-	if elapsed := time.Since(start); elapsed < timeout || elapsed > 2*time.Second {
+	if elapsed := time.Since(start); elapsed < timeout || elapsed > time.Second {
 		t.Fatalf("timeout wait: %v", elapsed)
 	}
 	client.SetRestoreTimeout(10 * time.Second)
@@ -557,20 +557,23 @@ func TestCapturePaneAndScrollback(t *testing.T) {
 		),
 	)
 	client := NewClient("tmux")
-	var got snapshot.Pane
-	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
-		got, err = client.CapturePane(pane)
+	for deadline := time.Now().Add(5 * time.Second); ; {
+		got, err := client.CapturePane(pane)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got.CurrentCmd == "cat" {
+		screen := testutil.Tmux(t, "capture-pane", "-p", "-t", pane)
+		if got.CurrentCmd == "cat" && strings.Contains(screen, "40") {
+			if got.CurrentPath != dir || got.ProcessPID <= 0 || !got.IsActive || got.Meta != nil {
+				t.Fatalf("captured pane: %+v", got)
+			}
+
 			break
 		}
+		if time.Now().After(deadline) {
+			t.Fatalf("pane never became ready: %+v, screen %q", got, screen)
+		}
 		time.Sleep(20 * time.Millisecond)
-	}
-	if got.CurrentCmd != "cat" || got.CurrentPath != dir || got.ProcessPID <= 0 || !got.IsActive ||
-		got.Meta != nil {
-		t.Fatalf("captured pane: %+v", got)
 	}
 	all, err := client.CapturePaneScrollback(pane, 0)
 	if err != nil {
