@@ -458,6 +458,10 @@ func TestSynchronizeWindowSizeUsesAttachedClient(t *testing.T) {
 		t.Fatalf("synchronize window size: %v", err)
 	}
 
+	if local := testutil.Tmux(t, "show-options", "-w", "-t", "=restored:0", "window-size"); strings.TrimSpace(local) != "" {
+		t.Fatalf("window-size override was not cleared: %s", local)
+	}
+
 	after := strings.TrimSpace(
 		testutil.Tmux(
 			t,
@@ -471,4 +475,54 @@ func TestSynchronizeWindowSizeUsesAttachedClient(t *testing.T) {
 	if after != "180x55" && after != "180x56" {
 		t.Fatalf("pane should fit attached client: got %s, want 180x55 or 180x56", after)
 	}
+}
+
+// The test process must never call a successful AttachSession itself: exec
+// replaces the caller. Run just this entry point in a child with known stdio.
+func TestAttachSessionChild(t *testing.T) {
+	t.Parallel()
+	target := os.Getenv("LAZY_TMUX_TEST_ATTACH_TARGET")
+	if target == "" {
+		t.Skip("subprocess entry point")
+	}
+	if err := tmux.NewClient("tmux").AttachSession(target); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAttachSessionWithoutTTY(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	testutil.IsolatedTmux(t)
+	t.Setenv("LAZY_TMUX_TEST_ATTACH_TARGET", "nonexistent")
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	// A real attach to this target would fail. With piped stdout it must return success.
+	if out, err := exec.CommandContext(ctx, exe, "-test.run=^TestAttachSessionChild$").CombinedOutput(); err != nil {
+		t.Fatalf("noninteractive attach: %v: %s", err, out)
+	}
+}
+
+func TestAttachSessionWithTTY(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	testutil.IsolatedTmux(t)
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	testutil.Tmux(t, "new-session", "-d", "-s", "proj")
+	testutil.Tmux(t, "new-window", "-d", "-t", "proj:2")
+	// A second session supplies a real PTY without depending on the CI terminal.
+	testutil.Tmux(t, "new-session", "-d", "-s", "driver", "env", "-u", "TMUX", "LAZY_TMUX_TEST_ATTACH_TARGET=proj:2", exe, "-test.run=^TestAttachSessionChild$")
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
+		out := testutil.Tmux(t, "list-clients", "-F", "#{session_name}:#{window_index}")
+		if strings.TrimSpace(out) == "proj:2" {
+			return
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	t.Fatal("client did not attach to proj:2")
 }

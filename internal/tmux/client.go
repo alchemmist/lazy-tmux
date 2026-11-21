@@ -338,16 +338,8 @@ func (client *Client) InsideTmux() bool {
 	return strings.TrimSpace(os.Getenv("TMUX")) != ""
 }
 
-//nolint:gochecknoglobals // test seam, see comment above
-var attachExec = syscall.Exec
-
-//nolint:gochecknoglobals // test seam, see comment above
-var hasControllingTTY = func() bool {
-	return term.IsTerminal(os.Stdout.Fd())
-}
-
 func (client *Client) AttachSession(target string) error {
-	if !hasControllingTTY() {
+	if !term.IsTerminal(os.Stdout.Fd()) {
 		return nil
 	}
 
@@ -358,7 +350,7 @@ func (client *Client) AttachSession(target string) error {
 
 	args := []string{bin, "attach-session", "-t", sessionTarget(target)}
 
-	return attachExec(bin, args, os.Environ())
+	return syscall.Exec(bin, args, os.Environ())
 }
 
 func (client *Client) KillWindow(session string, windowIndex int) error {
