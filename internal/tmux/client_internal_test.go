@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os/exec"
 	"path/filepath"
-	"reflect"
-	"slices"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -48,147 +49,63 @@ func TestListSessionsPropagatesRealErrors(t *testing.T) {
 	}
 }
 
-type stdoutRunner struct {
-	out string
-	err error
-}
-
-func (r stdoutRunner) runCommand(_ ...string) commandResult {
-	return commandResult{stdout: r.out, err: r.err}
-}
-
-var errFakeNoServer = errors.New("no server running")
-
 func TestSessionsLastAttached(t *testing.T) {
-	t.Parallel()
-
-	out := "1751385600" + fieldSep + "work\n" +
-		"0" + fieldSep + "never\n" +
-		"1751472000" + fieldSep + "a" + fieldSep + "b\n"
-
-	got := NewClientWithRunner("tmux", stdoutRunner{out: out}).SessionsLastAttached()
-
-	if len(got) != 2 {
-		t.Fatalf("expected 2 attached sessions (never-attached dropped), got %#v", got)
+	t.Setenv("HOME", t.TempDir())
+	testutil.IsolatedTmux(t)
+	const name = "a|b"
+	testutil.Tmux(t, "new-session", "-d", "-s", name)
+	testutil.Tmux(t, "new-session", "-d", "-s", "never")
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "tmux", "-C", "attach-session", "-t", "="+name)
+	cmd.Stdin = strings.NewReader("detach-client\n")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("control client: %v: %s", err, out)
 	}
-
-	if want := time.Unix(1751385600, 0).UTC(); !got["work"].Equal(want) {
-		t.Fatalf("work: got %v want %v", got["work"], want)
+	stamp := strings.TrimSpace(
+		testutil.Tmux(t, "display-message", "-p", "-t", "="+name+":", "#{session_last_attached}"),
+	)
+	seconds, err := strconv.ParseInt(stamp, 10, 64)
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	if _, ok := got["a"+fieldSep+"b"]; !ok {
-		t.Fatalf("expected name with separator preserved, got %#v", got)
+	client := NewClient("tmux")
+	got := client.SessionsLastAttached()
+	if len(got) != 1 || !got[name].Equal(time.Unix(seconds, 0)) {
+		t.Fatalf("last attached=%v; want only %q at %d", got, name, seconds)
 	}
-
-	if _, ok := got["never"]; ok {
-		t.Fatal("a never-attached session (epoch 0) must be omitted")
-	}
-}
-
-func TestSessionsLastAttachedBestEffortOnError(t *testing.T) {
-	t.Parallel()
-
-	got := NewClientWithRunner(
-		"tmux",
-		stdoutRunner{err: errFakeNoServer},
-	).
-		SessionsLastAttached()
-
-	if got != nil {
-		t.Fatalf("expected nil on error, got %#v", got)
+	testutil.Tmux(t, "kill-server")
+	if got := client.SessionsLastAttached(); got != nil {
+		t.Fatalf("missing server: %v", got)
 	}
 }
 
-type pollRunner struct {
-	calls    int
-	settleOn int
-	before   string
-	after    string
-}
-
-func (r *pollRunner) runCommand(args ...string) commandResult {
-	if len(args) > 1 && args[1] == "list-panes" {
-		r.calls++
-
-		cmd := r.before
-		if r.calls >= r.settleOn {
-			cmd = r.after
-		}
-
-		return commandResult{stdout: "1 0 " + cmd + "\n"}
-	}
-
-	return commandResult{}
-}
-
-func waitTestWindows() []snapshot.Window {
-	return []snapshot.Window{
-		{Index: 1, Panes: []snapshot.Pane{{Index: 0, RestoreCmd: "cat"}}},
-	}
-}
-
-func TestWaitForRestoredCommandsBlocksUntilStarted(t *testing.T) {
-	t.Parallel()
-
-	runner := &pollRunner{settleOn: 3, before: "zsh", after: "cat"}
-	client := NewClientWithRunner("tmux", runner)
-	client.SetRestoreTimeout(2 * time.Second)
-
-	client.waitForRestoredCommands(context.Background(), "sess", waitTestWindows())
-
-	if runner.calls < 3 {
-		t.Fatalf("expected to poll until command started, polled %d times", runner.calls)
-	}
-}
-
-func TestWaitForRestoredCommandsRespectsTimeout(t *testing.T) {
-	t.Parallel()
-
-	runner := &pollRunner{settleOn: 1 << 30, before: "zsh", after: "cat"}
-	client := NewClientWithRunner("tmux", runner)
-	client.SetRestoreTimeout(150 * time.Millisecond)
-
+func TestWaitForUnstartedCommand(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	testutil.IsolatedTmux(t)
+	testutil.Tmux(t, "new-session", "-d", "-s", "sess", "sleep 60")
+	client := NewClient("tmux")
+	windows := []snapshot.Window{{Index: 0, Panes: []snapshot.Pane{{Index: 0, RestoreCmd: "cat"}}}}
+	const timeout = 150 * time.Millisecond
+	client.SetRestoreTimeout(timeout)
 	start := time.Now()
-	client.waitForRestoredCommands(context.Background(), "sess", waitTestWindows())
-
-	if elapsed := time.Since(start); elapsed > 2*time.Second {
-		t.Fatalf("wait ignored its timeout, took %v", elapsed)
+	client.waitForRestoredCommands(t.Context(), "sess", windows)
+	if elapsed := time.Since(start); elapsed < timeout || elapsed > time.Second {
+		t.Fatalf("timeout wait: %v", elapsed)
 	}
-
-	if runner.calls == 0 {
-		t.Fatal("expected at least one poll before giving up")
-	}
-}
-
-func TestWaitForRestoredCommandsCancels(t *testing.T) {
-	t.Parallel()
-
-	runner := &pollRunner{settleOn: 1 << 30, before: "zsh", after: "cat"}
-	client := NewClientWithRunner("tmux", runner)
 	client.SetRestoreTimeout(10 * time.Second)
-
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-
-	start := time.Now()
-	client.waitForRestoredCommands(ctx, "sess", waitTestWindows())
-
+	start = time.Now()
+	client.waitForRestoredCommands(ctx, "sess", windows)
 	if elapsed := time.Since(start); elapsed > time.Second {
-		t.Fatalf("cancelled wait must return promptly despite 10s timeout, took %v", elapsed)
+		t.Fatalf("cancelled wait: %v", elapsed)
 	}
-}
-
-func TestWaitForRestoredCommandsDisabled(t *testing.T) {
-	t.Parallel()
-
-	runner := &pollRunner{settleOn: 1, before: "zsh", after: "cat"}
-	client := NewClientWithRunner("tmux", runner)
 	client.SetRestoreTimeout(0)
-
-	client.waitForRestoredCommands(context.Background(), "sess", waitTestWindows())
-
-	if runner.calls != 0 {
-		t.Fatalf("a disabled timeout must not poll, polled %d times", runner.calls)
+	start = time.Now()
+	client.waitForRestoredCommands(t.Context(), "sess", windows)
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Fatalf("disabled wait: %v", elapsed)
 	}
 }
 
@@ -613,73 +530,63 @@ func TestProcessTreeLinesExcludesUnrelatedProcesses(t *testing.T) {
 	}
 }
 
-type argsRunner struct {
-	calls [][]string
-	out   string
-}
-
-func (r *argsRunner) runCommand(args ...string) commandResult {
-	r.calls = append(r.calls, args)
-
-	return commandResult{stdout: r.out}
-}
-
-func TestCapturePane(t *testing.T) {
-	t.Parallel()
-
-	// A nonpositive fixture PID cannot collide with a live CI process.
-	runner := &argsRunner{out: "antex|/workspace|-1|%7|/tmp/socket|||\n"}
-	client := NewClientWithRunner("tmux", runner)
-
-	got, err := client.CapturePane("%7")
+func TestCapturePaneAndScrollback(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	testutil.IsolatedTmux(t)
+	dir, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
-		t.Fatalf("CapturePane: %v", err)
+		t.Fatal(err)
 	}
-	want := snapshot.Pane{
-		Index:       0,
-		CurrentPath: "/workspace",
-		CurrentCmd:  "antex",
-		RestoreCmd:  "",
-		Scrollback:  nil,
-		IsActive:    true,
-		ProcessPID:  -1,
-		Meta:        nil,
-	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("CapturePane() = %#v; want %#v", got, want)
-	}
+	pane := strings.TrimSpace(
+		testutil.Tmux(
+			t,
+			"new-session",
+			"-d",
+			"-s",
+			"capture",
+			"-P",
+			"-F",
+			"#{pane_id}",
+			"-c",
+			dir,
+			"-x",
+			"40",
+			"-y",
+			"5",
+			`printf '\033[31mhistory-marker\033[0m\n'; seq 1 40; exec cat`,
+		),
+	)
+	client := NewClient("tmux")
+	for deadline := time.Now().Add(5 * time.Second); ; {
+		got, err := client.CapturePane(pane)
+		if err != nil {
+			t.Fatal(err)
+		}
+		screen := testutil.Tmux(t, "capture-pane", "-p", "-t", pane)
+		if got.CurrentCmd == "cat" && strings.Contains(screen, "40") {
+			if got.CurrentPath != dir || got.ProcessPID <= 0 || !got.IsActive || got.Meta != nil {
+				t.Fatalf("captured pane: %+v", got)
+			}
 
-	wantArgs := []string{
-		"tmux",
-		"display-message",
-		"-p",
-		"-t",
-		"%7",
-		"#{pane_current_command}|#{pane_current_path}|#{pane_pid}|#{pane_id}|" +
-			"#{socket_path}|#{@lazy_tmux_agent_binding}|#{@antex_binding}|#{@lazy_tmux_pi_binding}",
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("pane never became ready: %+v, screen %q", got, screen)
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
-	if len(runner.calls) != 1 || !slices.Equal(runner.calls[0], wantArgs) {
-		t.Fatalf("CapturePane args = %q; want %q", runner.calls, wantArgs)
+	all, err := client.CapturePaneScrollback(pane, 0)
+	if err != nil {
+		t.Fatal(err)
 	}
-}
-
-func TestCapturePaneScrollbackArgs(t *testing.T) {
-	t.Parallel()
-
-	runner := &argsRunner{}
-	client := NewClientWithRunner("tmux", runner)
-
-	if _, err := client.CapturePaneScrollback("sess:1.0", 0); err != nil {
-		t.Fatalf("CapturePaneScrollback: %v", err)
+	recent, err := client.CapturePaneScrollback(pane, 1)
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	if len(runner.calls) != 1 {
-		t.Fatalf("expected 1 tmux call, got %d", len(runner.calls))
-	}
-
-	want := []string{"tmux", "capture-pane", "-p", "-e", "-J", "-S", "-5000", "-t", "sess:1.0"}
-	if got := runner.calls[0]; !slices.Equal(got, want) {
-		t.Fatalf("capture-pane args:\n got %q\nwant %q", got, want)
+	if !strings.Contains(all, "\x1b[31mhistory-marker") ||
+		strings.Contains(recent, "history-marker") ||
+		!strings.Contains(recent, "40") {
+		t.Fatalf("default history %q; recent %q", all, recent)
 	}
 }
 

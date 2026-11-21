@@ -245,10 +245,11 @@ func TestRestoreStopsAfterRealContextCancellation(t *testing.T) {
 	}
 }
 
-//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestRestoreWaitsForCommandsToStart(
 	t *testing.T,
 ) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("SHELL", "/bin/sh")
 	testutil.IsolatedTmux(t)
 
 	client := tmux.NewClient("tmux")
