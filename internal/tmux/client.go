@@ -48,9 +48,6 @@ var (
 	ErrSessionExists   = errors.New("tmux session already exists")
 )
 
-//nolint:gochecknoglobals // test seam: tests capture pane-tty writes
-var paneTTYWriter = writePaneTTY
-
 type commandResult struct {
 	stdout string
 	err    error
@@ -102,21 +99,6 @@ func NewClient(bin string) *Client {
 	}
 
 	return &Client{bin: bin, runner: execRunner{}, settleTimeout: defaultRestoreSettleTimeout}
-}
-
-func NewClientWithRunner(bin string, cmdRunner commandRunner) *Client {
-	if strings.TrimSpace(bin) == "" {
-		bin = "tmux"
-	}
-
-	tmuxClient := &Client{bin: bin, settleTimeout: defaultRestoreSettleTimeout}
-	if cmdRunner != nil {
-		tmuxClient.runner = cmdRunner
-	} else {
-		tmuxClient.runner = execRunner{}
-	}
-
-	return tmuxClient
 }
 
 func (client *Client) SetRestoreTimeout(timeout time.Duration) {
@@ -1190,7 +1172,7 @@ func (client *Client) restoreWindowScrollback(
 			continue
 		}
 
-		err = paneTTYWriter(strings.TrimSpace(tty), pane.Scrollback.Content)
+		err = writePaneTTY(strings.TrimSpace(tty), pane.Scrollback.Content)
 		if err != nil {
 			continue
 		}
