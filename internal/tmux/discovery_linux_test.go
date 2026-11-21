@@ -36,8 +36,8 @@ func TestCaptureSessionUsesConstantDiscoveryRoundTrips(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	testutil.Tmux(t, "new-session", "-d", "-s", "discovery")
 	for _, size := range []int{1, 8} {
+		testutil.Tmux(t, "new-session", "-d", "-s", "discovery")
 		for n := 1; n < size; n++ {
 			testutil.Tmux(t, "new-window", "-d", "-t", "=discovery:")
 		}
@@ -72,5 +72,6 @@ func TestCaptureSessionUsesConstantDiscoveryRoundTrips(t *testing.T) {
 				t.Fatalf("%d windows: %s execs=%d; trace:\n%s", size, prefix, got, data)
 			}
 		}
+		testutil.Tmux(t, "kill-session", "-t", "=discovery")
 	}
 }
