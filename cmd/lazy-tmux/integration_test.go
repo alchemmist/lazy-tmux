@@ -13,8 +13,9 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
 
-//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestConcurrentSaveAllPreservesEverySession(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	isolateCLIPaths(t)
 	testutil.IsolatedTmux(t)
 
 	dir := t.TempDir()
@@ -92,10 +93,11 @@ func windowCount(t *testing.T, name string) int {
 	return count
 }
 
-//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestSaveRestoreLifecycle(
 	t *testing.T,
 ) {
+	t.Setenv("HOME", t.TempDir())
+	isolateCLIPaths(t)
 	testutil.IsolatedTmux(t)
 
 	dir := t.TempDir()
@@ -154,10 +156,11 @@ func TestSaveRestoreLifecycle(
 	}
 }
 
-//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestWakeupAndSleep(
 	t *testing.T,
 ) {
+	t.Setenv("HOME", t.TempDir())
+	isolateCLIPaths(t)
 	testutil.IsolatedTmux(t)
 
 	dir := t.TempDir()
@@ -191,10 +194,11 @@ func TestWakeupAndSleep(
 	}
 }
 
-//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestSaveAllAndForget(
 	t *testing.T,
 ) {
+	t.Setenv("HOME", t.TempDir())
+	isolateCLIPaths(t)
 	testutil.IsolatedTmux(t)
 
 	dir := t.TempDir()
@@ -232,10 +236,11 @@ func TestSaveAllAndForget(
 	}
 }
 
-//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestSaveAllNoSessionsReports(
 	t *testing.T,
 ) {
+	t.Setenv("HOME", t.TempDir())
+	isolateCLIPaths(t)
 	testutil.IsolatedTmux(t)
 
 	dir := t.TempDir()
@@ -250,10 +255,11 @@ func TestSaveAllNoSessionsReports(
 	}
 }
 
-//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestBootstrapRestoresLatest(
 	t *testing.T,
 ) {
+	t.Setenv("HOME", t.TempDir())
+	isolateCLIPaths(t)
 	testutil.IsolatedTmux(t)
 
 	dir := t.TempDir()
@@ -277,10 +283,11 @@ func TestBootstrapRestoresLatest(
 	}
 }
 
-//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestSaveWithScrollback(
 	t *testing.T,
 ) {
+	t.Setenv("HOME", t.TempDir())
+	isolateCLIPaths(t)
 	testutil.IsolatedTmux(t)
 
 	dir := t.TempDir()
@@ -308,10 +315,11 @@ func TestSaveWithScrollback(
 	}
 }
 
-//nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
 func TestPickerFZFEngineRestores(
 	t *testing.T,
 ) {
+	t.Setenv("HOME", t.TempDir())
+	isolateCLIPaths(t)
 	testutil.IsolatedTmux(t)
 	testutil.RequireFZF(t)
 
