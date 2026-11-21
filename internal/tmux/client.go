@@ -768,7 +768,8 @@ func (client *Client) captureSession(
 			"#{@antex_binding}"+fieldSep+"#{@lazy_tmux_pi_binding}",
 	)
 	if err != nil {
-		if !client.SessionExists(name) {
+		names, listErr := client.ListSessions()
+		if listErr == nil && !slices.Contains(names, name) {
 			return snapshot.SessionSnapshot{}, errors.Join(ErrSessionNotFound, err)
 		}
 
@@ -784,8 +785,6 @@ func (client *Client) captureSession(
 	if acknowledge {
 		client.acknowledgeRestoredPanes(paneOutput, windows)
 	}
-
-	sort.Slice(windows, func(i, j int) bool { return windows[i].Index < windows[j].Index })
 
 	currentWin, currentPane := currentWindowPane(windows)
 
