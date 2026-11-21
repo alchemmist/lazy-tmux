@@ -129,6 +129,7 @@ func TestFailedBootstrapSurvivesRealTmuxCapture(t *testing.T) {
 	client := NewClient("tmux")
 	client.SetRestoreTimeout(0)
 	client.SetRestoreResolver(integration.NewRegistry(antex.New(t.TempDir())))
+	client.SetRestoreAllowlist([]string{"env .*'antex' 'resume' .*"})
 	testutil.Tmux(t, "set-environment", "-g", "PATH", "/nonexistent")
 	id := "01a09f96-a7d1-75f1-b8d8-6df25aaa7e6c"
 	original := snapshot.SessionSnapshot{
