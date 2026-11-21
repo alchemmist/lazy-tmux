@@ -129,6 +129,12 @@ func (a *App) RenameWindow(session string, windowIndex int, name string) error {
 		if err != nil {
 			return fmt.Errorf("rename window: %w", err)
 		}
+		err = a.SaveSession(session)
+		if err != nil {
+			return fmt.Errorf("window renamed; save warning: %w", err)
+		}
+
+		return nil
 	}
 
 	snap, err := a.store.LoadSession(session)
