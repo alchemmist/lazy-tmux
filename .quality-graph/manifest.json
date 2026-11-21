@@ -5,7 +5,7 @@
       "admin"
     ]
   },
-  "graphDigest": "f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1",
+  "graphDigest": "392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3",
   "graphVersion": 0,
   "labels": {
     "enabled": false
@@ -68,7 +68,8 @@
       },
       "id": "coverage",
       "needs": [
-        "workflow-graph"
+        "test",
+        "integration"
       ],
       "policy": {
         "approvals": {
@@ -97,7 +98,7 @@
       "env": {},
       "id": "golangci-lint",
       "needs": [
-        "workflow-graph"
+        "nolint-exclusions"
       ],
       "policy": {
         "approvals": {
@@ -123,7 +124,8 @@
       "env": {},
       "id": "test",
       "needs": [
-        "workflow-graph"
+        "build",
+        "fast-tests"
       ],
       "policy": {
         "approvals": {
@@ -150,7 +152,7 @@
       "env": {},
       "id": "test-fzf",
       "needs": [
-        "workflow-graph"
+        "build"
       ],
       "policy": {
         "approvals": {
@@ -177,7 +179,7 @@
       "env": {},
       "id": "docs-build",
       "needs": [
-        "workflow-graph"
+        "npm-audit"
       ],
       "policy": {
         "approvals": {
@@ -203,7 +205,9 @@
       "env": {},
       "id": "integration",
       "needs": [
-        "workflow-graph"
+        "workflow-shell-lint",
+        "build",
+        "fast-tests"
       ],
       "policy": {
         "approvals": {
@@ -228,7 +232,9 @@
     {
       "env": {},
       "id": "tmux-versions",
-      "needs": [],
+      "needs": [
+        "integration"
+      ],
       "policy": {
         "approvals": {
           "files": false,
@@ -314,7 +320,11 @@
       },
       "id": "packaging",
       "needs": [
-        "workflow-graph"
+        "test",
+        "test-fzf",
+        "golangci-lint",
+        "go-audit",
+        "secrets"
       ],
       "policy": {
         "approvals": {
@@ -371,7 +381,8 @@
       },
       "id": "performance",
       "needs": [
-        "fast-tests"
+        "test",
+        "workflow-shell-lint"
       ],
       "policy": {
         "approvals": {
@@ -400,7 +411,7 @@
       "env": {},
       "id": "go-audit",
       "needs": [
-        "workflow-graph"
+        "workflow-shell-lint"
       ],
       "policy": {
         "approvals": {
@@ -426,7 +437,7 @@
       "env": {},
       "id": "npm-audit",
       "needs": [
-        "workflow-graph"
+        "workflow-shell-lint"
       ],
       "policy": {
         "approvals": {

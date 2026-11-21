@@ -37,7 +37,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -83,7 +83,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -135,7 +135,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -154,7 +154,8 @@ jobs:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
     needs:
-      - workflow-graph
+      - test
+      - integration
     env:
       BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
   golangci-lint:
@@ -187,7 +188,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -206,7 +207,7 @@ jobs:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
     needs:
-      - workflow-graph
+      - nolint-exclusions
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -237,7 +238,7 @@ jobs:
           adapter: junit
           report-path: .cache/quality-graph/test.xml
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -256,7 +257,8 @@ jobs:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
     needs:
-      - workflow-graph
+      - build
+      - fast-tests
   test-fzf:
     name: Test (fzf)
     runs-on: ubuntu-latest
@@ -287,7 +289,7 @@ jobs:
           adapter: junit
           report-path: .cache/quality-graph/test-fzf.xml
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -306,7 +308,7 @@ jobs:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
     needs:
-      - workflow-graph
+      - build
   docs-build:
     name: Docs build
     runs-on: ubuntu-latest
@@ -337,7 +339,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -356,7 +358,7 @@ jobs:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
     needs:
-      - workflow-graph
+      - npm-audit
   integration:
     name: Integration tests
     runs-on: ubuntu-latest
@@ -382,7 +384,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -401,7 +403,9 @@ jobs:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
     needs:
-      - workflow-graph
+      - workflow-shell-lint
+      - build
+      - fast-tests
   tmux-versions:
     name: Tmux version test
     runs-on: ubuntu-latest
@@ -427,7 +431,7 @@ jobs:
           adapter: native
           report-path: .cache/quality-graph/tmux-versions.json
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -445,6 +449,8 @@ jobs:
         env:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
+    needs:
+      - integration
     timeout-minutes: 180
   workflow-shell-lint:
     name: Workflow and shell lint
@@ -471,7 +477,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -519,7 +525,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -577,7 +583,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -596,7 +602,11 @@ jobs:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
     needs:
-      - workflow-graph
+      - test
+      - test-fzf
+      - golangci-lint
+      - go-audit
+      - secrets
     env:
       BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
   fast-tests:
@@ -627,7 +637,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -677,7 +687,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -696,7 +706,8 @@ jobs:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
     needs:
-      - fast-tests
+      - test
+      - workflow-shell-lint
     env:
       BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
   go-audit:
@@ -727,7 +738,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -746,7 +757,7 @@ jobs:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
     needs:
-      - workflow-graph
+      - workflow-shell-lint
   npm-audit:
     name: Docs dependency audit
     runs-on: ubuntu-latest
@@ -777,7 +788,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -796,7 +807,7 @@ jobs:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
     needs:
-      - workflow-graph
+      - workflow-shell-lint
   secrets:
     name: Tracked tree secret scan
     runs-on: ubuntu-latest
@@ -822,7 +833,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: f302039a631ec49d490c37ebb1789a550277f19f88430c862a390280beccb0f1
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'

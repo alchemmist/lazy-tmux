@@ -64,48 +64,49 @@ nodes:
     run: make build-all
 
   coverage:
+    needs: [test, integration]
     title: Coverage
     profile: go-tools
-    needs: [workflow-graph]
     env:
       BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
     run: make test-cov && python3 scripts/quality_diff.py coverage --base "$BASE"
 
   golangci-lint:
+    needs: [nolint-exclusions]
     title: GolangCI-Lint
     profile: go-tools
-    needs: [workflow-graph]
     run: make golangci-lint
 
   test:
+    needs: [build, fast-tests]
     title: Test
     profile: go-tools
-    needs: [workflow-graph]
     run: make test
     results:
       junit: .cache/quality-graph/test.xml
 
   test-fzf:
+    needs: [build]
     title: Test (fzf)
     profile: go-tools
-    needs: [workflow-graph]
     run: make test-fzf
     results:
       junit: .cache/quality-graph/test-fzf.xml
 
   docs-build:
+    needs: [npm-audit]
     title: Docs build
     profile: docs
-    needs: [workflow-graph]
     run: make docs-install && make docs-build
 
   integration:
+    needs: [workflow-shell-lint, build, fast-tests]
     title: Integration tests
     profile: default
-    needs: [workflow-graph]
     run: make integration-test
 
   tmux-versions:
+    needs: [integration]
     title: Tmux version test
     profile: tmux
     timeout-minutes: 180
@@ -127,9 +128,9 @@ nodes:
     run: uv run --no-project --with PyYAML==6.0.3 python scripts/quality_diff.py suppressions --base "$BASE"
 
   packaging:
+    needs: [test, test-fzf, golangci-lint, go-audit, secrets]
     title: Packaging change verification
     profile: go
-    needs: [workflow-graph]
     env:
       BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
     run: |
@@ -144,22 +145,22 @@ nodes:
     run: go test -short ./internal/picker ./internal/config ./internal/snapshot ./internal/store
 
   performance:
+    needs: [test, workflow-shell-lint]
     title: Go workload regression
-    needs: [fast-tests]
     profile: go
     env:
       BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
     run: python3 scripts/performance_diff.py "$BASE"
 
   go-audit:
+    needs: [workflow-shell-lint]
     title: Go dependency integrity and reachable vulnerabilities
-    needs: [workflow-graph]
     profile: go
     run: scripts/audit-quality.sh go
 
   npm-audit:
+    needs: [workflow-shell-lint]
     title: Docs dependency audit
-    needs: [workflow-graph]
     profile: docs
     run: scripts/audit-quality.sh npm
 
