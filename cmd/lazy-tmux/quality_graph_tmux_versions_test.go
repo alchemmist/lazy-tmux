@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"os"
 	"os/exec"
@@ -15,6 +14,7 @@ func TestQualityGraphTmuxVersionsResult(t *testing.T) {
 
 	cases := []struct {
 		name        string
+		releases    string
 		headResults string
 		baseResults string
 		wantStatus  string
@@ -23,14 +23,14 @@ func TestQualityGraphTmuxVersionsResult(t *testing.T) {
 		wantSummary []string
 	}{
 		{
-			name:        "known incompatibility",
+			name: "known incompatibility", releases: "3.5\n3.6",
 			headResults: "  tmux 3.5      ✓\n  tmux 3.6      ✗",
 			baseResults: "  tmux 3.5      ✓\n  tmux 3.6      ✗",
 			wantStatus:  "passed",
 			wantSummary: []string{"| `3.5` | ✓ |", "| `3.6` | ✗ |"},
 		},
 		{
-			name:        "lost version",
+			name: "lost version", releases: "3.5\n3.6",
 			headResults: "  tmux 3.5      ✓\n  tmux 3.6      ✗",
 			baseResults: "  tmux 3.5      ✓\n  tmux 3.6      ✓",
 			wantStatus:  "failed",
@@ -42,7 +42,7 @@ func TestQualityGraphTmuxVersionsResult(t *testing.T) {
 			},
 		},
 		{
-			name:        "truncated head",
+			name: "truncated head", releases: "3.9\n3.10",
 			headResults: "  tmux 3.10     ✓",
 			baseResults: "  tmux 3.9      ✓\n  tmux 3.10     ✓",
 			wantStatus:  "failed",
@@ -56,7 +56,7 @@ func TestQualityGraphTmuxVersionsResult(t *testing.T) {
 			t.Parallel()
 			runQualityGraphTmuxVersionCase(
 				t,
-				tc.headResults,
+				tc.releases, tc.headResults,
 				tc.baseResults,
 				tc.wantStatus,
 				tc.wantFailure,
@@ -68,7 +68,7 @@ func TestQualityGraphTmuxVersionsResult(t *testing.T) {
 
 func runQualityGraphTmuxVersionCase(
 	t *testing.T,
-	headResults, baseResults, wantStatus, wantFailure string,
+	releases, headResults, baseResults, wantStatus, wantFailure string,
 	wantSummary []string,
 ) {
 	t.Helper()
@@ -79,24 +79,18 @@ func runQualityGraphTmuxVersionCase(
 	}
 
 	temp := t.TempDir()
-	fakeMake := filepath.Join(temp, "make")
-	makeBody := `#!/bin/sh
-results=$FAKE_HEAD_RESULTS
-if [ "${1:-}" = "-C" ]; then
-    results=$FAKE_BASE_RESULTS
-fi
-printf '%s\n' "$results"
-`
-	if err := os.WriteFile(fakeMake, []byte(makeBody), 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	// Serve the expected inventory independently of the head transcript.
-	fakeGit := `#!/bin/sh
-printf '%s\n' "$FAKE_BASE_RESULTS" | awk '$1 == "tmux" {print "ref refs/tags/" $2}'
-`
-	if err := os.WriteFile(filepath.Join(temp, "git"), []byte(fakeGit), 0o755); err != nil {
-		t.Fatal(err)
+	for name, contents := range map[string]string{
+		"versions.txt":           releases,
+		"tmux-versions.txt":      headResults,
+		"tmux-versions-base.txt": baseResults,
+	} {
+		if err := os.WriteFile(
+			filepath.Join(temp, name),
+			[]byte(contents+"\n"),
+			0o600,
+		); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	eventPath := filepath.Join(temp, "event.json")
@@ -112,14 +106,11 @@ printf '%s\n' "$FAKE_BASE_RESULTS" | awk '$1 == "tmux" {print "ref refs/tags/" $
 	}
 
 	cmd := exec.CommandContext(
-		context.Background(),
-		filepath.Join(root, "scripts", "quality-graph-tmux-versions.sh"),
+		t.Context(),
+		filepath.Join(root, "scripts", "report-tmux-versions.sh"), "compare", "0", "0", "0",
 	)
 	cmd.Dir = root
 	cmd.Env = append(os.Environ(),
-		"PATH="+temp+":"+os.Getenv("PATH"),
-		"FAKE_HEAD_RESULTS="+headResults,
-		"FAKE_BASE_RESULTS="+baseResults,
 		"GITHUB_EVENT_NAME=pull_request",
 		"GITHUB_EVENT_PATH="+eventPath,
 		"GITHUB_REPOSITORY=alchemmist/lazy-tmux",
@@ -127,7 +118,6 @@ printf '%s\n' "$FAKE_BASE_RESULTS" | awk '$1 == "tmux" {print "ref refs/tags/" $
 		"GITHUB_RUN_ID=7",
 		"GITHUB_RUN_ATTEMPT=2",
 		"QUALITY_GRAPH_REPORT_DIR="+temp,
-		"QUALITY_GRAPH_BASE_DIR="+temp,
 	)
 
 	runErr := cmd.Run()

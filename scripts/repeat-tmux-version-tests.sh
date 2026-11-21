@@ -156,7 +156,7 @@ self_test() (
     TMPDIR=$(mktemp -d)
     export TMPDIR
     trap 'rm -rf "$TMPDIR"' EXIT
-    local mark mock out err rc
+    local mark out err rc
 
     run_case() {
         local name=$1 expect=$2 needle=$3
@@ -221,53 +221,20 @@ self_test() (
         TMUX_EXPECT_UPSTREAM=0 \
         TMUX_VERSION_TEST_CMD='printf "  tmux 3.6a    ✓\n  tmux 3.6a    ✓\n"'
 
-    mock=$(mktemp -d)
-    cat >"$mock/docker" <<'EOF'
-#!/bin/sh
-if [ "$1" = build ]; then
-    exit 0
-fi
-if [ "$1" = run ]; then
-    for arg in "$@"; do
-        case $arg in
-            [0-9]*) printf '  tmux %-7s  ✓\n' "$arg" ;;
-        esac
-    done
-    exit 0
-fi
-printf 'unexpected docker invocation: %s\n' "$*" >&2
-exit 1
-EOF
-    cat >"$mock/git" <<'EOF'
-#!/bin/sh
-printf 'mock refs/tags/%s\n' 3.7-rc 2.8 2.9 3.6a
-EOF
-    chmod +x "$mock/docker" "$mock/git"
-
-    out=$(mktemp)
-    err=$(mktemp)
-    set +e
-    env PATH="$mock:$PATH" TMUX_TEST_REPEATS=2 TMUX_EXPECT_UPSTREAM=1 "$script" >"$out" 2>"$err"
-    rc=$?
-    set -e
-    if [[ $rc -ne 0 ]]; then
-        printf 'self-test upstream wiring: expected success, exited %s\n' "$rc" >&2
-        cat "$err" >&2 || true
-        cat "$out" >&2 || true
-        exit 1
-    fi
-    if ! grep -q "Repeated tmux version tests passed" "$out" \
-        || ! grep -q "tmux 2.9" "$out" \
-        || ! grep -q "tmux 3.6a" "$out" \
-        || grep -q "2.8" "$out" \
-        || grep -q "3.7-rc" "$out"; then
-        printf 'self-test upstream wiring: unexpected version set\n' >&2
-        cat "$out" >&2 || true
-        cat "$err" >&2 || true
-        exit 1
-    fi
-    rm -f "$out" "$err"
-    rm -rf "$mock"
+    local tags=$TMPDIR/upstream
+    git init -q "$tags"
+    git -C "$tags" -c user.name=test -c user.email=test@localhost -c commit.gpgsign=false commit -q --allow-empty -m inventory
+    for tag in 3.7-rc 2.8 2.9 3.6a; do git -C "$tags" -c tag.gpgSign=false tag "$tag"; done
+    printf '  tmux 2.9    ✓\n  tmux 3.6a    ✓\n' >"$TMPDIR/results"
+    run_case upstream ok "Repeated tmux version tests passed" \
+        GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="url.file://$tags.insteadOf" \
+        GIT_CONFIG_VALUE_0=https://github.com/tmux/tmux.git \
+        TMUX_TEST_REPEATS=2 TMUX_EXPECT_UPSTREAM=1 TMUX_VERSION_TEST_CMD="cat $(printf '%q' "$TMPDIR/results")"
+    printf '  tmux 2.9    ✓\n' >"$TMPDIR/results"
+    run_case incomplete fail "do not match the upstream release list" \
+        GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="url.file://$tags.insteadOf" \
+        GIT_CONFIG_VALUE_0=https://github.com/tmux/tmux.git \
+        TMUX_TEST_REPEATS=2 TMUX_EXPECT_UPSTREAM=1 TMUX_VERSION_TEST_CMD="cat $(printf '%q' "$TMPDIR/results")"
 
     printf 'repeat-tmux-version-tests self-test passed\n'
 )
