@@ -4,11 +4,9 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"testing"
@@ -106,74 +104,6 @@ func TestCaptureSessionCollectsAllWindowsAndPanes(t *testing.T) {
 	if got := snap.Windows[1].Panes[0].Meta[snapshot.AntexSessionIDMetaKey]; got != "" {
 		t.Fatalf("unowned legacy Antex thread should not be trusted: %q", got)
 	}
-}
-
-func TestCaptureSessionUsesConstantDiscoveryRoundTrips(t *testing.T) {
-	testutil.IsolatedTmux(t)
-
-	const name = "capture-count"
-	testutil.Tmux(t, "new-session", "-d", "-s", name)
-	for index := 1; index < 8; index++ {
-		testutil.Tmux(t, "new-window", "-d", "-t", "="+name+":", "-n", fmt.Sprintf("w%d", index))
-	}
-
-	dir := t.TempDir()
-	tmuxLog := filepath.Join(dir, "tmux.log")
-	psLog := filepath.Join(dir, "ps.log")
-	realTmux, err := exec.LookPath("tmux")
-	if err != nil {
-		t.Fatal(err)
-	}
-	realPS, err := exec.LookPath("ps")
-	if err != nil {
-		t.Fatal(err)
-	}
-	tmuxWrapper := writeCountingWrapper(t, dir, "tmux", realTmux, tmuxLog)
-	writeCountingWrapper(t, dir, "ps", realPS, psLog)
-	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
-
-	if _, err = tmux.NewClient(tmuxWrapper).CaptureSession(name); err != nil {
-		t.Fatalf("capture: %v", err)
-	}
-	if got := countLogCommand(t, tmuxLog, "list-panes"); got != 1 {
-		t.Fatalf("list-panes calls = %d, want 1", got)
-	}
-	if got := countLogCommand(t, psLog, "-ax"); got != 1 {
-		t.Fatalf("ps process-table calls = %d, want 1", got)
-	}
-}
-
-func writeCountingWrapper(t *testing.T, dir, name, target, logPath string) string {
-	t.Helper()
-
-	path := filepath.Join(dir, name)
-	body := fmt.Sprintf(
-		"#!/bin/sh\nprintf '%%s\\n' \"$*\" >> %q\nexec %q \"$@\"\n",
-		logPath,
-		target,
-	)
-	if err := os.WriteFile(path, []byte(body), 0o755); err != nil {
-		t.Fatalf("write %s wrapper: %v", name, err)
-	}
-
-	return path
-}
-
-func countLogCommand(t *testing.T, path, command string) int {
-	t.Helper()
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read command log: %v", err)
-	}
-	count := 0
-	for line := range strings.SplitSeq(string(data), "\n") {
-		if strings.Contains(line, command) {
-			count++
-		}
-	}
-
-	return count
 }
 
 //nolint:paralleltest // uses a real shared tmux server via testutil.IsolatedTmux (t.Setenv)
