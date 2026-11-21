@@ -15,6 +15,7 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/integration/agent"
 	"github.com/alchemmist/lazy-tmux/internal/picker"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+	"github.com/alchemmist/lazy-tmux/internal/tmux"
 )
 
 var errNoSavedSessions = errors.New("no saved sessions found")
@@ -95,7 +96,11 @@ func (a *App) pickerSessions(opts PickerSortOptions) ([]picker.Session, error) {
 		var snap snapshot.SessionSnapshot
 		if restored {
 			snap, err = a.tmux.InspectSession(rec.SessionName)
-		} else {
+			if errors.Is(err, tmux.ErrSessionNotFound) {
+				restored = false
+			}
+		}
+		if !restored {
 			snap, err = a.pickerSnapshot(rec)
 		}
 		if err != nil {
