@@ -2,10 +2,8 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -173,38 +171,17 @@ func TestCLIAntexForkRejectsBackgroundBinding(t *testing.T) {
 	pane := strings.TrimSpace(
 		testutil.Tmux(t, "new-session", "-d", "-P", "-F", "#{pane_id}", "-s", "fork-test"),
 	)
-	socket := strings.TrimSpace(
-		testutil.Tmux(t, "display-message", "-p", "-t", pane, "#{socket_path}"),
+	_, foreign := testutil.StartAntex(
+		t,
+		t.TempDir(),
+		t.TempDir(),
+		"new-session",
+		"-s",
+		"other-owner",
 	)
 	before := testutil.Tmux(t, "list-windows", "-a", "-F", "#{window_id}")
-	process := exec.CommandContext(context.Background(), "sleep", "60")
-	process.Args[0] = "antex"
-	if err := process.Start(); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = process.Process.Kill(); _ = process.Wait() })
-	probe := exec.CommandContext(
-		context.Background(),
-		"ps",
-		"-p",
-		strconv.Itoa(process.Process.Pid),
-		"-o",
-		"lstart=",
-	)
-	probe.Env = append(os.Environ(), "LC_ALL=C")
-	started, err := probe.Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	binding, err := json.Marshal(map[string]any{
-		"version":            1,
-		"thread_id":          "019fc30a-6732-7c63-9732-c76949907c98",
-		"pid":                process.Process.Pid,
-		"process_started_at": strings.Join(strings.Fields(string(started)), " "),
-		"pane_id":            pane,
-		"socket_path":        socket,
-		"home":               "/tmp/antex",
-	})
+	foreign["pane_id"] = pane
+	binding, err := json.Marshal(foreign)
 	if err != nil {
 		t.Fatal(err)
 	}
