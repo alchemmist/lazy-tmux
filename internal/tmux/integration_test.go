@@ -2,6 +2,7 @@ package tmux_test
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -458,16 +459,8 @@ func TestSynchronizeWindowSizeUsesAttachedClient(t *testing.T) {
 		t.Fatalf("synchronize window size: %v", err)
 	}
 
-	if local := testutil.Tmux(
-		t,
-		"show-options",
-		"-w",
-		"-t",
-		"=restored:0",
-		"window-size",
-	); strings.TrimSpace(
-		local,
-	) != "" {
+	local := testutil.Tmux(t, "show-options", "-w", "-t", "=restored:0", "window-size")
+	if strings.TrimSpace(local) != "" {
 		t.Fatalf("window-size override was not cleared: %s", local)
 	}
 
@@ -486,38 +479,56 @@ func TestSynchronizeWindowSizeUsesAttachedClient(t *testing.T) {
 	}
 }
 
-// The test process must never call a successful AttachSession itself: exec
-// replaces the caller. Run just this entry point in a child with known stdio.
 func TestAttachSessionChild(t *testing.T) {
 	t.Parallel()
-	target := os.Getenv("LAZY_TMUX_TEST_ATTACH_TARGET")
-	if target == "" {
+	args := flag.Args()
+	if len(args) != 2 || args[0] != "attach-child" {
 		t.Skip("subprocess entry point")
 	}
-	if err := tmux.NewClient("tmux").AttachSession(target); err != nil {
+	if err := tmux.NewClient("tmux").AttachSession(args[1]); err != nil {
 		t.Fatal(err)
+	}
+	t.Log("attach returned without exec")
+}
+
+func isolateAttachXDG(t *testing.T) {
+	t.Helper()
+	for _, key := range []string{
+		"XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_RUNTIME_DIR",
+	} {
+		t.Setenv(key, t.TempDir())
 	}
 }
 
 func TestAttachSessionWithoutTTY(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	isolateAttachXDG(t)
 	testutil.IsolatedTmux(t)
-	t.Setenv("LAZY_TMUX_TEST_ATTACH_TARGET", "nonexistent")
+	testutil.Tmux(t, "new-session", "-d", "-s", "proj")
 	exe, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
-	// A real attach to this target would fail. With piped stdout it must return success.
-	if out, err := exec.CommandContext(ctx, exe, "-test.run=^TestAttachSessionChild$").
-		CombinedOutput(); err != nil {
+	cmd := exec.CommandContext(
+		ctx,
+		exe,
+		"-test.run=^TestAttachSessionChild$",
+		"-test.v",
+		"--",
+		"attach-child",
+		"proj",
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil || !strings.Contains(string(out), "attach returned without exec") {
 		t.Fatalf("noninteractive attach: %v: %s", err, out)
 	}
 }
 
 func TestAttachSessionWithTTY(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	isolateAttachXDG(t)
 	testutil.IsolatedTmux(t)
 	exe, err := os.Executable()
 	if err != nil {
@@ -525,7 +536,6 @@ func TestAttachSessionWithTTY(t *testing.T) {
 	}
 	testutil.Tmux(t, "new-session", "-d", "-s", "proj")
 	testutil.Tmux(t, "new-window", "-d", "-t", "proj:2")
-	// A second session supplies a real PTY without depending on the CI terminal.
 	testutil.Tmux(
 		t,
 		"new-session",
@@ -535,9 +545,8 @@ func TestAttachSessionWithTTY(t *testing.T) {
 		"env",
 		"-u",
 		"TMUX",
-		"LAZY_TMUX_TEST_ATTACH_TARGET=proj:2",
 		exe,
-		"-test.run=^TestAttachSessionChild$",
+		"-test.run=^TestAttachSessionChild$", "--", "attach-child", "proj:2",
 	)
 	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
 		out := testutil.Tmux(t, "list-clients", "-F", "#{session_name}:#{window_index}")
