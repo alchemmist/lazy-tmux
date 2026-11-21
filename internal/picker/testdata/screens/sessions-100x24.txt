@@ -1,0 +1,24 @@
+╭─ lazy-tmux ───────────────────────────────────────────────────────────── 2 sessions · 3 windows ─╮
+│ ❯                                                                                                │
+│   Session / Window                  Cmd                                  Captured    Wins  State │
+│   alpha                                                                              2     ✓     │
+│ ▌   ├─ [1] editor                   zsh                                                          │
+│     ╰─ [2] shell                    zsh                                                          │
+│   studio                                                                             1          │
+│     ╰─ [1] notes                    zsh                                                          │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+╰─ ↵ select  ·  ^j/^k move  ·  option/alt+digit jump  ·  / commands  ·  ? help  ·  esc quit ───────╯

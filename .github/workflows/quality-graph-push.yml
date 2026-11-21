@@ -20,6 +20,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: 'false'
+          fetch-depth: '0'
       - uses: astral-sh/setup-uv@v10.3.3
       - run: uvx --from quality-graph-cli==0.1.8 --with quality-graph-github==0.1.8 qg validate
         name: Run Workflow graph validation
@@ -36,7 +37,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 4ea0bd949fae479e4e42dd0e37daa240a11b8968b421a79748f04a2292fae415
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -63,10 +64,11 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: 'false'
+          fetch-depth: '0'
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      - run: make build
+      - run: make build-all
         name: Run Build
         id: quality-command
         continue-on-error: true
@@ -81,7 +83,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 4ea0bd949fae479e4e42dd0e37daa240a11b8968b421a79748f04a2292fae415
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -110,12 +112,15 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: 'false'
+          fetch-depth: '0'
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Setup tools
         run: make setup-env
-      - run: make test-cov
+      - run: make test-cov && python3 scripts/quality_diff.py coverage --base "$BASE"
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
         name: Run Coverage
         id: quality-command
         continue-on-error: true
@@ -130,7 +135,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 4ea0bd949fae479e4e42dd0e37daa240a11b8968b421a79748f04a2292fae415
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -149,7 +154,10 @@ jobs:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
     needs:
-      - workflow-graph
+      - test
+      - integration
+    env:
+      BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
   golangci-lint:
     name: GolangCI-Lint
     runs-on: ubuntu-latest
@@ -159,6 +167,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: 'false'
+          fetch-depth: '0'
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
@@ -179,7 +188,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 4ea0bd949fae479e4e42dd0e37daa240a11b8968b421a79748f04a2292fae415
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -198,7 +207,7 @@ jobs:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
     needs:
-      - workflow-graph
+      - nolint-exclusions
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -208,6 +217,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: 'false'
+          fetch-depth: '0'
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
@@ -225,10 +235,10 @@ jobs:
           operation: collect
           node-id: test
           title: Test
-          adapter: exit-code
-          report-path: ''
+          adapter: junit
+          report-path: .cache/quality-graph/test.xml
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 4ea0bd949fae479e4e42dd0e37daa240a11b8968b421a79748f04a2292fae415
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -247,7 +257,108 @@ jobs:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
     needs:
-      - workflow-graph
+      - build
+      - fast-tests
+  test-fzf:
+    name: Test (fzf)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: 'false'
+          fetch-depth: '0'
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Setup tools
+        run: make setup-env
+      - run: make test-fzf
+        name: Run Test (fzf)
+        id: quality-command
+        continue-on-error: true
+      - name: Collect Test (fzf) result
+        id: quality-result
+        if: always()
+        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        with:
+          operation: collect
+          node-id: test-fzf
+          title: Test (fzf)
+          adapter: junit
+          report-path: .cache/quality-graph/test-fzf.xml
+          command-outcome: ${{ steps.quality-command.outcome }}
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
+          approval-findings: 'true'
+          approval-files: 'false'
+          approval-node: 'false'
+      - name: Upload Test (fzf) result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-result-test-fzf-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/quality-graph/test-fzf.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce Test (fzf) result
+        if: always()
+        shell: bash
+        env:
+          EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
+        run: exit "${EXIT_CODE:-2}"
+    needs:
+      - build
+  docs-build:
+    name: Docs build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: 'false'
+          fetch-depth: '0'
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '26'
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+      - run: make docs-install && make docs-build
+        name: Run Docs build
+        id: quality-command
+        continue-on-error: true
+      - name: Collect Docs build result
+        id: quality-result
+        if: always()
+        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        with:
+          operation: collect
+          node-id: docs-build
+          title: Docs build
+          adapter: exit-code
+          report-path: ''
+          command-outcome: ${{ steps.quality-command.outcome }}
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
+          approval-findings: 'true'
+          approval-files: 'false'
+          approval-node: 'false'
+      - name: Upload Docs build result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-result-docs-build-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/quality-graph/docs-build.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce Docs build result
+        if: always()
+        shell: bash
+        env:
+          EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
+        run: exit "${EXIT_CODE:-2}"
+    needs:
+      - npm-audit
   integration:
     name: Integration tests
     runs-on: ubuntu-latest
@@ -257,11 +368,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: 'false'
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-      - name: Setup tools
-        run: make setup-env
+          fetch-depth: '0'
       - run: make integration-test
         name: Run Integration tests
         id: quality-command
@@ -277,7 +384,7 @@ jobs:
           adapter: exit-code
           report-path: ''
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 4ea0bd949fae479e4e42dd0e37daa240a11b8968b421a79748f04a2292fae415
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -296,7 +403,9 @@ jobs:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
     needs:
-      - workflow-graph
+      - workflow-shell-lint
+      - build
+      - fast-tests
   tmux-versions:
     name: Tmux version test
     runs-on: ubuntu-latest
@@ -322,7 +431,7 @@ jobs:
           adapter: native
           report-path: .cache/quality-graph/tmux-versions.json
           command-outcome: ${{ steps.quality-command.outcome }}
-          graph-digest: 4ea0bd949fae479e4e42dd0e37daa240a11b8968b421a79748f04a2292fae415
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
           approval-findings: 'true'
           approval-files: 'false'
           approval-node: 'false'
@@ -340,4 +449,407 @@ jobs:
         env:
           EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
         run: exit "${EXIT_CODE:-2}"
-    timeout-minutes: 60
+    needs:
+      - integration
+    timeout-minutes: 180
+  workflow-shell-lint:
+    name: Workflow and shell lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: 'false'
+          fetch-depth: '0'
+      - run: make test-lint-actions-shell && python3 -m unittest discover -s scripts -p 'test_quality*.py'
+        name: Run Workflow and shell lint
+        id: quality-command
+        continue-on-error: true
+      - name: Collect Workflow and shell lint result
+        id: quality-result
+        if: always()
+        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        with:
+          operation: collect
+          node-id: workflow-shell-lint
+          title: Workflow and shell lint
+          adapter: exit-code
+          report-path: ''
+          command-outcome: ${{ steps.quality-command.outcome }}
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
+          approval-findings: 'true'
+          approval-files: 'false'
+          approval-node: 'false'
+      - name: Upload Workflow and shell lint result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-result-workflow-shell-lint-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/quality-graph/workflow-shell-lint.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce Workflow and shell lint result
+        if: always()
+        shell: bash
+        env:
+          EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
+        run: exit "${EXIT_CODE:-2}"
+    needs:
+      - workflow-graph
+  nolint-exclusions:
+    name: New Go lint exceptions
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: 'false'
+          fetch-depth: '0'
+      - uses: astral-sh/setup-uv@v10.3.3
+      - run: uv run --no-project --with PyYAML==6.0.3 python scripts/quality_diff.py suppressions --base "$BASE"
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
+        name: Run New Go lint exceptions
+        id: quality-command
+        continue-on-error: true
+      - name: Collect New Go lint exceptions result
+        id: quality-result
+        if: always()
+        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        with:
+          operation: collect
+          node-id: nolint-exclusions
+          title: New Go lint exceptions
+          adapter: exit-code
+          report-path: ''
+          command-outcome: ${{ steps.quality-command.outcome }}
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
+          approval-findings: 'true'
+          approval-files: 'false'
+          approval-node: 'false'
+      - name: Upload New Go lint exceptions result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-result-nolint-exclusions-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/quality-graph/nolint-exclusions.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce New Go lint exceptions result
+        if: always()
+        shell: bash
+        env:
+          EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
+        run: exit "${EXIT_CODE:-2}"
+    needs:
+      - workflow-graph
+    env:
+      BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
+  packaging:
+    name: Packaging change verification
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: 'false'
+          fetch-depth: '0'
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: 'base=$(git merge-base "$BASE" HEAD) || exit 1
+
+          changes=$(git diff --name-only "$base" HEAD -- .goreleaser.yaml .github/workflows/release.yml scripts/verify-snapshot-packages.sh) || exit 1
+
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] || [ -n "$changes" ]; then ./scripts/verify-snapshot-packages.sh; else echo ''Packaging unchanged''; fi
+
+          '
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
+        name: Run Packaging change verification
+        id: quality-command
+        continue-on-error: true
+      - name: Collect Packaging change verification result
+        id: quality-result
+        if: always()
+        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        with:
+          operation: collect
+          node-id: packaging
+          title: Packaging change verification
+          adapter: exit-code
+          report-path: ''
+          command-outcome: ${{ steps.quality-command.outcome }}
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
+          approval-findings: 'true'
+          approval-files: 'false'
+          approval-node: 'false'
+      - name: Upload Packaging change verification result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-result-packaging-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/quality-graph/packaging.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce Packaging change verification result
+        if: always()
+        shell: bash
+        env:
+          EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
+        run: exit "${EXIT_CODE:-2}"
+    needs:
+      - test
+      - test-fzf
+      - golangci-lint
+      - go-audit
+      - secrets
+    env:
+      BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
+  fast-tests:
+    name: Fast Go tests and picker screens
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: 'false'
+          fetch-depth: '0'
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: go test -short ./internal/picker ./internal/config ./internal/snapshot ./internal/store
+        name: Run Fast Go tests and picker screens
+        id: quality-command
+        continue-on-error: true
+      - name: Collect Fast Go tests and picker screens result
+        id: quality-result
+        if: always()
+        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        with:
+          operation: collect
+          node-id: fast-tests
+          title: Fast Go tests and picker screens
+          adapter: exit-code
+          report-path: ''
+          command-outcome: ${{ steps.quality-command.outcome }}
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
+          approval-findings: 'true'
+          approval-files: 'false'
+          approval-node: 'false'
+      - name: Upload Fast Go tests and picker screens result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-result-fast-tests-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/quality-graph/fast-tests.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce Fast Go tests and picker screens result
+        if: always()
+        shell: bash
+        env:
+          EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
+        run: exit "${EXIT_CODE:-2}"
+    needs:
+      - workflow-graph
+  performance:
+    name: Go workload regression
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: 'false'
+          fetch-depth: '0'
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: python3 scripts/performance_diff.py "$BASE"
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
+        name: Run Go workload regression
+        id: quality-command
+        continue-on-error: true
+      - name: Collect Go workload regression result
+        id: quality-result
+        if: always()
+        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        with:
+          operation: collect
+          node-id: performance
+          title: Go workload regression
+          adapter: exit-code
+          report-path: ''
+          command-outcome: ${{ steps.quality-command.outcome }}
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
+          approval-findings: 'true'
+          approval-files: 'false'
+          approval-node: 'false'
+      - name: Upload Go workload regression result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-result-performance-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/quality-graph/performance.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce Go workload regression result
+        if: always()
+        shell: bash
+        env:
+          EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
+        run: exit "${EXIT_CODE:-2}"
+    needs:
+      - test
+      - workflow-shell-lint
+    env:
+      BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
+  go-audit:
+    name: Go dependency integrity and reachable vulnerabilities
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: 'false'
+          fetch-depth: '0'
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: scripts/audit-quality.sh go
+        name: Run Go dependency integrity and reachable vulnerabilities
+        id: quality-command
+        continue-on-error: true
+      - name: Collect Go dependency integrity and reachable vulnerabilities result
+        id: quality-result
+        if: always()
+        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        with:
+          operation: collect
+          node-id: go-audit
+          title: Go dependency integrity and reachable vulnerabilities
+          adapter: exit-code
+          report-path: ''
+          command-outcome: ${{ steps.quality-command.outcome }}
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
+          approval-findings: 'true'
+          approval-files: 'false'
+          approval-node: 'false'
+      - name: Upload Go dependency integrity and reachable vulnerabilities result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-result-go-audit-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/quality-graph/go-audit.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce Go dependency integrity and reachable vulnerabilities result
+        if: always()
+        shell: bash
+        env:
+          EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
+        run: exit "${EXIT_CODE:-2}"
+    needs:
+      - workflow-shell-lint
+  npm-audit:
+    name: Docs dependency audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: 'false'
+          fetch-depth: '0'
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '26'
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+      - run: scripts/audit-quality.sh npm
+        name: Run Docs dependency audit
+        id: quality-command
+        continue-on-error: true
+      - name: Collect Docs dependency audit result
+        id: quality-result
+        if: always()
+        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        with:
+          operation: collect
+          node-id: npm-audit
+          title: Docs dependency audit
+          adapter: exit-code
+          report-path: ''
+          command-outcome: ${{ steps.quality-command.outcome }}
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
+          approval-findings: 'true'
+          approval-files: 'false'
+          approval-node: 'false'
+      - name: Upload Docs dependency audit result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-result-npm-audit-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/quality-graph/npm-audit.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce Docs dependency audit result
+        if: always()
+        shell: bash
+        env:
+          EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
+        run: exit "${EXIT_CODE:-2}"
+    needs:
+      - workflow-shell-lint
+  secrets:
+    name: Tracked tree secret scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: 'false'
+          fetch-depth: '0'
+      - run: scripts/audit-quality.sh secrets
+        name: Run Tracked tree secret scan
+        id: quality-command
+        continue-on-error: true
+      - name: Collect Tracked tree secret scan result
+        id: quality-result
+        if: always()
+        uses: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+        with:
+          operation: collect
+          node-id: secrets
+          title: Tracked tree secret scan
+          adapter: exit-code
+          report-path: ''
+          command-outcome: ${{ steps.quality-command.outcome }}
+          graph-digest: 392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3
+          approval-findings: 'true'
+          approval-files: 'false'
+          approval-node: 'false'
+      - name: Upload Tracked tree secret scan result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-result-secrets-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/quality-graph/secrets.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce Tracked tree secret scan result
+        if: always()
+        shell: bash
+        env:
+          EXIT_CODE: ${{ steps.quality-result.outputs.exit-code }}
+        run: exit "${EXIT_CODE:-2}"
+    needs:
+      - workflow-graph

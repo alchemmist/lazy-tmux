@@ -5,7 +5,7 @@
       "admin"
     ]
   },
-  "graphDigest": "4ea0bd949fae479e4e42dd0e37daa240a11b8968b421a79748f04a2292fae415",
+  "graphDigest": "392b00cb3cd314cadbd08edec556d1a726d745b32314fd268eef6e27cb7a58e3",
   "graphVersion": 0,
   "labels": {
     "enabled": false
@@ -58,15 +58,18 @@
         "adapter": "exit-code"
       },
       "step": {
-        "run": "make build"
+        "run": "make build-all"
       },
       "title": "Build"
     },
     {
-      "env": {},
+      "env": {
+        "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+      },
       "id": "coverage",
       "needs": [
-        "workflow-graph"
+        "test",
+        "integration"
       ],
       "policy": {
         "approvals": {
@@ -84,7 +87,10 @@
         "adapter": "exit-code"
       },
       "step": {
-        "run": "make test-cov"
+        "env": {
+          "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+        },
+        "run": "make test-cov && python3 scripts/quality_diff.py coverage --base \"$BASE\""
       },
       "title": "Coverage"
     },
@@ -92,7 +98,7 @@
       "env": {},
       "id": "golangci-lint",
       "needs": [
-        "workflow-graph"
+        "nolint-exclusions"
       ],
       "policy": {
         "approvals": {
@@ -118,7 +124,8 @@
       "env": {},
       "id": "test",
       "needs": [
-        "workflow-graph"
+        "build",
+        "fast-tests"
       ],
       "policy": {
         "approvals": {
@@ -133,7 +140,8 @@
       },
       "profile": "go-tools",
       "result": {
-        "adapter": "exit-code"
+        "adapter": "junit",
+        "path": ".cache/quality-graph/test.xml"
       },
       "step": {
         "run": "make test"
@@ -142,9 +150,9 @@
     },
     {
       "env": {},
-      "id": "integration",
+      "id": "test-fzf",
       "needs": [
-        "workflow-graph"
+        "build"
       ],
       "policy": {
         "approvals": {
@@ -158,6 +166,61 @@
         ]
       },
       "profile": "go-tools",
+      "result": {
+        "adapter": "junit",
+        "path": ".cache/quality-graph/test-fzf.xml"
+      },
+      "step": {
+        "run": "make test-fzf"
+      },
+      "title": "Test (fzf)"
+    },
+    {
+      "env": {},
+      "id": "docs-build",
+      "needs": [
+        "npm-audit"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "docs",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "make docs-install && make docs-build"
+      },
+      "title": "Docs build"
+    },
+    {
+      "env": {},
+      "id": "integration",
+      "needs": [
+        "workflow-shell-lint",
+        "build",
+        "fast-tests"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "default",
       "result": {
         "adapter": "exit-code"
       },
@@ -169,7 +232,9 @@
     {
       "env": {},
       "id": "tmux-versions",
-      "needs": [],
+      "needs": [
+        "integration"
+      ],
       "policy": {
         "approvals": {
           "files": false,
@@ -189,8 +254,236 @@
       "step": {
         "run": "./scripts/quality-graph-tmux-versions.sh"
       },
-      "timeoutMinutes": 60,
+      "timeoutMinutes": 180,
       "title": "Tmux version test"
+    },
+    {
+      "env": {},
+      "id": "workflow-shell-lint",
+      "needs": [
+        "workflow-graph"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "default",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "make test-lint-actions-shell && python3 -m unittest discover -s scripts -p 'test_quality*.py'"
+      },
+      "title": "Workflow and shell lint"
+    },
+    {
+      "env": {
+        "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+      },
+      "id": "nolint-exclusions",
+      "needs": [
+        "workflow-graph"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "quality-graph",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "env": {
+          "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+        },
+        "run": "uv run --no-project --with PyYAML==6.0.3 python scripts/quality_diff.py suppressions --base \"$BASE\""
+      },
+      "title": "New Go lint exceptions"
+    },
+    {
+      "env": {
+        "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+      },
+      "id": "packaging",
+      "needs": [
+        "test",
+        "test-fzf",
+        "golangci-lint",
+        "go-audit",
+        "secrets"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "go",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "env": {
+          "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+        },
+        "run": "base=$(git merge-base \"$BASE\" HEAD) || exit 1\nchanges=$(git diff --name-only \"$base\" HEAD -- .goreleaser.yaml .github/workflows/release.yml scripts/verify-snapshot-packages.sh) || exit 1\nif [ \"$GITHUB_EVENT_NAME\" = workflow_dispatch ] || [ -n \"$changes\" ]; then ./scripts/verify-snapshot-packages.sh; else echo 'Packaging unchanged'; fi\n"
+      },
+      "title": "Packaging change verification"
+    },
+    {
+      "env": {},
+      "id": "fast-tests",
+      "needs": [
+        "workflow-graph"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "go",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "go test -short ./internal/picker ./internal/config ./internal/snapshot ./internal/store"
+      },
+      "title": "Fast Go tests and picker screens"
+    },
+    {
+      "env": {
+        "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+      },
+      "id": "performance",
+      "needs": [
+        "test",
+        "workflow-shell-lint"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "go",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "env": {
+          "BASE": "${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}"
+        },
+        "run": "python3 scripts/performance_diff.py \"$BASE\""
+      },
+      "title": "Go workload regression"
+    },
+    {
+      "env": {},
+      "id": "go-audit",
+      "needs": [
+        "workflow-shell-lint"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "go",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "scripts/audit-quality.sh go"
+      },
+      "title": "Go dependency integrity and reachable vulnerabilities"
+    },
+    {
+      "env": {},
+      "id": "npm-audit",
+      "needs": [
+        "workflow-shell-lint"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "docs",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "scripts/audit-quality.sh npm"
+      },
+      "title": "Docs dependency audit"
+    },
+    {
+      "env": {},
+      "id": "secrets",
+      "needs": [
+        "workflow-graph"
+      ],
+      "policy": {
+        "approvals": {
+          "files": false,
+          "findings": true,
+          "node": false
+        },
+        "blocking": true,
+        "blockingSeverities": [
+          "error"
+        ]
+      },
+      "profile": "default",
+      "result": {
+        "adapter": "exit-code"
+      },
+      "step": {
+        "run": "scripts/audit-quality.sh secrets"
+      },
+      "title": "Tracked tree secret scan"
     }
   ],
   "profiles": {
@@ -205,7 +498,33 @@
         {
           "uses": "actions/checkout@v7",
           "with": {
+            "fetch-depth": "0",
             "persist-credentials": "false"
+          }
+        }
+      ]
+    },
+    "docs": {
+      "env": {},
+      "permissions": {
+        "contents": "read"
+      },
+      "runner": "ubuntu-latest",
+      "services": {},
+      "setup": [
+        {
+          "uses": "actions/checkout@v7",
+          "with": {
+            "fetch-depth": "0",
+            "persist-credentials": "false"
+          }
+        },
+        {
+          "uses": "actions/setup-node@v7",
+          "with": {
+            "cache": "npm",
+            "cache-dependency-path": "docs/package-lock.json",
+            "node-version": "26"
           }
         }
       ]
@@ -221,6 +540,7 @@
         {
           "uses": "actions/checkout@v7",
           "with": {
+            "fetch-depth": "0",
             "persist-credentials": "false"
           }
         },
@@ -243,6 +563,7 @@
         {
           "uses": "actions/checkout@v7",
           "with": {
+            "fetch-depth": "0",
             "persist-credentials": "false"
           }
         },
@@ -269,6 +590,7 @@
         {
           "uses": "actions/checkout@v7",
           "with": {
+            "fetch-depth": "0",
             "persist-credentials": "false"
           }
         },

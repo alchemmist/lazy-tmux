@@ -1,0 +1,17 @@
+name: Schedule Quality Graph
+on:
+  schedule:
+    - cron: '30 5 * * *'
+permissions: {}
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      # Scheduler only: no checkout, no project code or quality commands.
+      - name: Dispatch the generated Quality Graph workflow on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run quality-graph.yml --ref main

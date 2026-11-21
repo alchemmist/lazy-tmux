@@ -19,7 +19,7 @@ func TestQualityGraphTmuxVersionsResult(t *testing.T) {
 		baseResults string
 		wantStatus  string
 		wantFailure string
-		wantMissing string
+
 		wantSummary []string
 	}{
 		{
@@ -35,16 +35,18 @@ func TestQualityGraphTmuxVersionsResult(t *testing.T) {
 			baseResults: "  tmux 3.5      ✓\n  tmux 3.6      ✓",
 			wantStatus:  "failed",
 			wantFailure: "quality",
-			wantMissing: "3.6\n",
-			wantSummary: []string{"| `3.5` | ✓ |", "| `3.6` | ✗ |"},
+			wantSummary: []string{
+				"| `3.5` | ✓ |",
+				"| `3.6` | ✗ |",
+				"Previously supported versions lost: 3.6",
+			},
 		},
 		{
-			name:        "lexical version ordering",
+			name:        "truncated head",
 			headResults: "  tmux 3.10     ✓",
 			baseResults: "  tmux 3.9      ✓\n  tmux 3.10     ✓",
 			wantStatus:  "failed",
-			wantFailure: "quality",
-			wantMissing: "3.9\n",
+			wantFailure: "infrastructure",
 			wantSummary: []string{"| `3.10` | ✓ |"},
 		},
 	}
@@ -58,7 +60,6 @@ func TestQualityGraphTmuxVersionsResult(t *testing.T) {
 				tc.baseResults,
 				tc.wantStatus,
 				tc.wantFailure,
-				tc.wantMissing,
 				tc.wantSummary,
 			)
 		})
@@ -67,7 +68,7 @@ func TestQualityGraphTmuxVersionsResult(t *testing.T) {
 
 func runQualityGraphTmuxVersionCase(
 	t *testing.T,
-	headResults, baseResults, wantStatus, wantFailure, wantMissing string,
+	headResults, baseResults, wantStatus, wantFailure string,
 	wantSummary []string,
 ) {
 	t.Helper()
@@ -85,9 +86,16 @@ if [ "${1:-}" = "-C" ]; then
     results=$FAKE_BASE_RESULTS
 fi
 printf '%s\n' "$results"
-exit 1
 `
 	if err := os.WriteFile(fakeMake, []byte(makeBody), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Serve the expected inventory independently of the head transcript.
+	fakeGit := `#!/bin/sh
+printf '%s\n' "$FAKE_BASE_RESULTS" | awk '$1 == "tmux" {print "ref refs/tags/" $2}'
+`
+	if err := os.WriteFile(filepath.Join(temp, "git"), []byte(fakeGit), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -137,14 +145,6 @@ exit 1
 		wantFailure,
 		wantSummary,
 	)
-
-	missing, err := os.ReadFile(filepath.Join(temp, "missing.txt"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(missing) != wantMissing {
-		t.Fatalf("missing versions = %q, want %q", missing, wantMissing)
-	}
 }
 
 func assertQualityGraphTmuxReport(
