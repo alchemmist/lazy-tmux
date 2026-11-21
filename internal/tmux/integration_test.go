@@ -2,6 +2,7 @@ package tmux_test
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -485,7 +487,14 @@ func TestAttachSessionChild(t *testing.T) {
 	if len(args) != 2 || args[0] != "attach-child" {
 		t.Skip("subprocess entry point")
 	}
-	if err := tmux.NewClient("tmux").AttachSession(args[1]); err != nil {
+	client := tmux.NewClient("tmux")
+	if args[1] == "proj:2" {
+		err := client.AttachSession("invalid\x00target")
+		if !errors.Is(err, syscall.EINVAL) || !strings.Contains(err.Error(), "attach tmux client") {
+			t.Fatalf("attach with invalid argv: got %v, want wrapped EINVAL", err)
+		}
+	}
+	if err := client.AttachSession(args[1]); err != nil {
 		t.Fatal(err)
 	}
 	t.Log("attach returned without exec")
