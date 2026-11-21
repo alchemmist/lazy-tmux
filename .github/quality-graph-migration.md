@@ -47,7 +47,7 @@ spending the entire version matrix on a known broken integration environment.
 - `release.yml` remains the tag-triggered publication workflow and keeps its
   release credentials and write permissions.
 
-Quality Graph 0.1.8 does not support event-specific nodes. The `tmux-versions`
+This graph retains the same nodes across events. The `tmux-versions`
 node emits a skipped result on pushes and compares the Docker matrix on pull
 requests. On workflow dispatch it runs the full repeated matrix instead. Its native result publishes the complete version table in the job
 summary. The node compares supported versions with the pull request's base and

@@ -4,8 +4,8 @@ provider:
   name: github
   configuration:
     runtime:
-      action: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
-      publisher-action: alchemmist/quality-graph@b947f26e97ccf1c755050dfe38d98cbb688edb69
+      action: alchemmist/quality-graph@7d3770827f241e66be9619a2a6c187690386c3b6
+      publisher-action: alchemmist/quality-graph@7d3770827f241e66be9619a2a6c187690386c3b6
 
 profiles:
   default:
@@ -55,7 +55,7 @@ nodes:
   workflow-graph:
     title: Workflow graph validation
     profile: quality-graph
-    run: uvx --from quality-graph-cli==0.1.8 --with quality-graph-github==0.1.8 qg validate
+    run: uvx --from quality-graph-cli==0.2.1 --with quality-graph-github==0.2.1 qg validate
 
   build:
     title: Build
