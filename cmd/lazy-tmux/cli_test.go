@@ -162,8 +162,12 @@ func TestCLIPickerStartNextRequiresSessionsOnly(t *testing.T) {
 func TestCLIAntexForkRejectsBackgroundBinding(t *testing.T) {
 	testutil.IsolatedTmux(t)
 	t.Setenv("HOME", t.TempDir())
-	pane := strings.TrimSpace(testutil.Tmux(t, "new-session", "-d", "-P", "-F", "#{pane_id}", "-s", "fork-test"))
-	socket := strings.TrimSpace(testutil.Tmux(t, "display-message", "-p", "-t", pane, "#{socket_path}"))
+	pane := strings.TrimSpace(
+		testutil.Tmux(t, "new-session", "-d", "-P", "-F", "#{pane_id}", "-s", "fork-test"),
+	)
+	socket := strings.TrimSpace(
+		testutil.Tmux(t, "display-message", "-p", "-t", pane, "#{socket_path}"),
+	)
 	before := testutil.Tmux(t, "list-windows", "-a", "-F", "#{window_id}")
 	process := exec.CommandContext(context.Background(), "sleep", "60")
 	process.Args[0] = "antex"

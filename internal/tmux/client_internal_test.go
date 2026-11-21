@@ -15,6 +15,7 @@ import (
 )
 
 func TestListSessionsTreatsNoServerAsEmpty(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	testutil.IsolatedTmux(t)
 	testutil.Tmux(t, "kill-server")
 	got, err := NewClient("tmux").ListSessions()
@@ -23,11 +24,18 @@ func TestListSessionsTreatsNoServerAsEmpty(t *testing.T) {
 	}
 }
 
+var (
+	errLinuxNoServer    = errors.New("no server running on /tmp/tmux-1000/default")
+	errMacMissingSocket = errors.New(
+		"error connecting to /private/tmp/tmux-501/default (No such file or directory)",
+	)
+)
+
 func TestNoServerErrorPlatformMessages(t *testing.T) {
 	t.Parallel()
-	for _, msg := range []string{"no server running on /tmp/tmux-1000/default", "error connecting to /private/tmp/tmux-501/default (No such file or directory)"} {
-		if !isNoServerError(errors.New(msg)) {
-			t.Errorf("not recognized: %s", msg)
+	for _, err := range []error{errLinuxNoServer, errMacMissingSocket} {
+		if !isNoServerError(err) {
+			t.Errorf("not recognized: %v", err)
 		}
 	}
 }
