@@ -267,7 +267,12 @@ func (a *App) NewWindow(session, name string) error {
 			return fmt.Errorf("create new window: %w", err)
 		}
 
-		return a.SaveSession(session)
+		err = a.SaveSession(session)
+		if err != nil {
+			return fmt.Errorf("window created; save warning: %w", err)
+		}
+
+		return nil
 	}
 
 	snap, err := a.store.LoadSession(session)
