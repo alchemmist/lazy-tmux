@@ -768,6 +768,10 @@ func (client *Client) captureSession(
 			"#{@antex_binding}"+fieldSep+"#{@lazy_tmux_pi_binding}",
 	)
 	if err != nil {
+		if !client.SessionExists(name) {
+			return snapshot.SessionSnapshot{}, errors.Join(ErrSessionNotFound, err)
+		}
+
 		return snapshot.SessionSnapshot{}, err
 	}
 
