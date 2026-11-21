@@ -91,13 +91,19 @@ func (a *App) pickerSessions(opts PickerSortOptions) ([]picker.Session, error) {
 	}
 	sessions := make([]picker.Session, 0, len(records))
 	for _, rec := range records {
-		snap, err := a.pickerSnapshot(rec)
+		_, restored := live[rec.SessionName]
+		var snap snapshot.SessionSnapshot
+		if restored {
+			snap, err = a.tmux.InspectSession(rec.SessionName)
+		} else {
+			snap, err = a.pickerSnapshot(rec)
+		}
 		if err != nil {
 			log.Printf("picker: skip session %s: %v", rec.SessionName, err)
 
 			continue
 		}
-		_, restored := live[rec.SessionName]
+		rec.Windows = len(snap.Windows)
 		sessions = append(sessions, picker.Session{
 			Record:   rec,
 			Windows:  snap.Windows,

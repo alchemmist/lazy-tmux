@@ -71,7 +71,15 @@ bind-key -n C-k new-window -n quick-switch 'lazy-tmux picker --sessions-only'`}<
         <CodeBlock>{`run-shell -b 'lazy-tmux daemon --interval 3m --scrollback --scrollback-lines 8000 > /tmp/lazy-tmux.log 2>&1 || tmux display-message "lazy-tmux daemon already running"'`}</CodeBlock>
 
         <p>Or remap saving shortcut:</p>
-        <CodeBlock>{`bind-key C-S run-shell 'lazy-tmux save --all --scrollback && tmux display-message "All sessions saved successfully!"'`}</CodeBlock>
+        <CodeBlock>{`bind-key C-s run-shell 'msg=$(lazy-tmux save --all --scrollback 2>&1); tmux display-message -l -- "$msg"'`}</CodeBlock>
+        <p>
+          If an agent cannot be resumed yet (for example, a new Pi pane before
+          its first message), save reports the affected pane and writes a layout
+          checkpoint under <code>recovery/layouts/</code> in the data directory.
+          This records window layouts and pane directories, not conversations.
+          The previous resumable snapshot is preserved and sleep is refused.
+          The picker reads running windows from tmux, not the last saved layout.
+        </p>
       </section>
     </>
   );

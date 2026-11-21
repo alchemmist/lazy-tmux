@@ -256,7 +256,7 @@ func (a *App) NewSession(name string) error {
 	return nil
 }
 
-func (a *App) NewWindow(session, name string) error { //nolint:funlen
+func (a *App) NewWindow(session, name string) error {
 	if strings.TrimSpace(session) == "" {
 		return errSessionNameEmpty
 	}
@@ -267,17 +267,7 @@ func (a *App) NewWindow(session, name string) error { //nolint:funlen
 			return fmt.Errorf("create new window: %w", err)
 		}
 
-		snap, err := a.tmux.CaptureSession(session)
-		if err != nil {
-			return fmt.Errorf("capture session: %w", err)
-		}
-
-		err = a.store.SaveSession(snap)
-		if err != nil {
-			return fmt.Errorf("save session: %w", err)
-		}
-
-		return nil
+		return a.SaveSession(session)
 	}
 
 	snap, err := a.store.LoadSession(session)

@@ -403,57 +403,12 @@ func (client *Client) NewWindow(session, name string) error {
 }
 
 func (client *Client) CaptureSession(name string) (snapshot.SessionSnapshot, error) {
-	if !client.SessionExists(name) {
-		return snapshot.SessionSnapshot{}, ErrSessionNotFound
-	}
+	return client.captureSession(name, true)
+}
 
-	paneOutput, err := client.Output(
-		"list-panes",
-		"-s",
-		"-t",
-		sessionTarget(name),
-		"-F",
-		"#{window_index}"+fieldSep+
-			"#{window_layout}"+fieldSep+
-			"#{window_active}"+fieldSep+
-			"#{window_name}"+fieldSep+
-			"#{pane_index}"+fieldSep+
-			"#{pane_active}"+fieldSep+
-			"#{pane_pid}"+fieldSep+
-			"#{pane_tty}"+fieldSep+
-			"#{pane_current_command}"+fieldSep+
-			"#{pane_current_path}"+fieldSep+
-			"#{pane_id}"+fieldSep+
-			"#{socket_path}"+fieldSep+
-			"#{@lazy_tmux_restore_pending}"+fieldSep+
-			"#{?@lazy_tmux_restore_ack,#{@lazy_tmux_restore_ack},#{@antex_restore_ack}}"+fieldSep+
-			"#{@lazy_tmux_agent_binding}"+fieldSep+
-			"#{@antex_binding}"+fieldSep+"#{@lazy_tmux_pi_binding}",
-	)
-	if err != nil {
-		return snapshot.SessionSnapshot{}, err
-	}
-
-	processes, err := loadProcessSnapshot()
-	if err != nil {
-		return snapshot.SessionSnapshot{}, err
-	}
-
-	windows := parseCapturedPanes(paneOutput, processes)
-	client.acknowledgeRestoredPanes(paneOutput, windows)
-
-	sort.Slice(windows, func(i, j int) bool { return windows[i].Index < windows[j].Index })
-
-	currentWin, currentPane := currentWindowPane(windows)
-
-	return snapshot.SessionSnapshot{
-		Version:     snapshot.FormatVersion,
-		SessionName: name,
-		CapturedAt:  nowUTC(),
-		CurrentWin:  currentWin,
-		CurrentPane: currentPane,
-		Windows:     windows,
-	}, nil
+// InspectSession reads live windows without acknowledging pending restores.
+func (client *Client) InspectSession(name string) (snapshot.SessionSnapshot, error) {
+	return client.captureSession(name, false)
 }
 
 //nolint:funlen
@@ -779,6 +734,65 @@ func (client *Client) CapturePane(target string) (snapshot.Pane, error) {
 	pane = processes.attachPiBinding(pane, parts[7])
 
 	return pane, nil
+}
+
+func (client *Client) captureSession(
+	name string,
+	acknowledge bool,
+) (snapshot.SessionSnapshot, error) {
+	if !client.SessionExists(name) {
+		return snapshot.SessionSnapshot{}, ErrSessionNotFound
+	}
+
+	paneOutput, err := client.Output(
+		"list-panes",
+		"-s",
+		"-t",
+		sessionTarget(name),
+		"-F",
+		"#{window_index}"+fieldSep+
+			"#{window_layout}"+fieldSep+
+			"#{window_active}"+fieldSep+
+			"#{window_name}"+fieldSep+
+			"#{pane_index}"+fieldSep+
+			"#{pane_active}"+fieldSep+
+			"#{pane_pid}"+fieldSep+
+			"#{pane_tty}"+fieldSep+
+			"#{pane_current_command}"+fieldSep+
+			"#{pane_current_path}"+fieldSep+
+			"#{pane_id}"+fieldSep+
+			"#{socket_path}"+fieldSep+
+			"#{@lazy_tmux_restore_pending}"+fieldSep+
+			"#{?@lazy_tmux_restore_ack,#{@lazy_tmux_restore_ack},#{@antex_restore_ack}}"+fieldSep+
+			"#{@lazy_tmux_agent_binding}"+fieldSep+
+			"#{@antex_binding}"+fieldSep+"#{@lazy_tmux_pi_binding}",
+	)
+	if err != nil {
+		return snapshot.SessionSnapshot{}, err
+	}
+
+	processes, err := loadProcessSnapshot()
+	if err != nil {
+		return snapshot.SessionSnapshot{}, err
+	}
+
+	windows := parseCapturedPanes(paneOutput, processes)
+	if acknowledge {
+		client.acknowledgeRestoredPanes(paneOutput, windows)
+	}
+
+	sort.Slice(windows, func(i, j int) bool { return windows[i].Index < windows[j].Index })
+
+	currentWin, currentPane := currentWindowPane(windows)
+
+	return snapshot.SessionSnapshot{
+		Version:     snapshot.FormatVersion,
+		SessionName: name,
+		CapturedAt:  nowUTC(),
+		CurrentWin:  currentWin,
+		CurrentPane: currentPane,
+		Windows:     windows,
+	}, nil
 }
 
 func (client *Client) createAndPopulateWindow(sessionName string, win snapshot.Window) error {
