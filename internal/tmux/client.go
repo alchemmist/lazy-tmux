@@ -350,6 +350,7 @@ func (client *Client) AttachSession(target string) error {
 
 	args := []string{bin, "attach-session", "-t", sessionTarget(target)}
 
+	//nolint:gosec // G204: run the locally configured tmux binary without a shell.
 	return syscall.Exec(bin, args, os.Environ())
 }
 

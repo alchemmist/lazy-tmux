@@ -458,7 +458,16 @@ func TestSynchronizeWindowSizeUsesAttachedClient(t *testing.T) {
 		t.Fatalf("synchronize window size: %v", err)
 	}
 
-	if local := testutil.Tmux(t, "show-options", "-w", "-t", "=restored:0", "window-size"); strings.TrimSpace(local) != "" {
+	if local := testutil.Tmux(
+		t,
+		"show-options",
+		"-w",
+		"-t",
+		"=restored:0",
+		"window-size",
+	); strings.TrimSpace(
+		local,
+	) != "" {
 		t.Fatalf("window-size override was not cleared: %s", local)
 	}
 
@@ -501,7 +510,8 @@ func TestAttachSessionWithoutTTY(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 	// A real attach to this target would fail. With piped stdout it must return success.
-	if out, err := exec.CommandContext(ctx, exe, "-test.run=^TestAttachSessionChild$").CombinedOutput(); err != nil {
+	if out, err := exec.CommandContext(ctx, exe, "-test.run=^TestAttachSessionChild$").
+		CombinedOutput(); err != nil {
 		t.Fatalf("noninteractive attach: %v: %s", err, out)
 	}
 }
@@ -516,7 +526,19 @@ func TestAttachSessionWithTTY(t *testing.T) {
 	testutil.Tmux(t, "new-session", "-d", "-s", "proj")
 	testutil.Tmux(t, "new-window", "-d", "-t", "proj:2")
 	// A second session supplies a real PTY without depending on the CI terminal.
-	testutil.Tmux(t, "new-session", "-d", "-s", "driver", "env", "-u", "TMUX", "LAZY_TMUX_TEST_ATTACH_TARGET=proj:2", exe, "-test.run=^TestAttachSessionChild$")
+	testutil.Tmux(
+		t,
+		"new-session",
+		"-d",
+		"-s",
+		"driver",
+		"env",
+		"-u",
+		"TMUX",
+		"LAZY_TMUX_TEST_ATTACH_TARGET=proj:2",
+		exe,
+		"-test.run=^TestAttachSessionChild$",
+	)
 	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
 		out := testutil.Tmux(t, "list-clients", "-F", "#{session_name}:#{window_index}")
 		if strings.TrimSpace(out) == "proj:2" {
