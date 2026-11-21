@@ -201,7 +201,16 @@ func TestCLIAntexForkRejectsBackgroundBinding(t *testing.T) {
 		t.Fatal(err)
 	}
 	testutil.Tmux(t, "set-option", "-p", "-t", pane, "@antex_binding", string(binding))
-	code, _, errOut := run(t, "antex-fork", "--pane", pane, "--tmux-bin", "tmux")
+	code, _, errOut := run(
+		t,
+		"antex-fork",
+		"--pane",
+		pane,
+		"--tmux-bin",
+		"tmux",
+		"--antex-bin",
+		"/custom/antex",
+	)
 	if code != 1 || !strings.Contains(errOut, "antex session not found") {
 		t.Fatalf("expected stale binding refusal, got %d: %s", code, errOut)
 	}
