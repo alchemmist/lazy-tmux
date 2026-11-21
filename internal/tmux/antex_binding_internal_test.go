@@ -3,11 +3,14 @@ package tmux
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/integration"
 	"github.com/alchemmist/lazy-tmux/internal/integration/antex"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
 
 func TestAntexBindingOwnership(t *testing.T) {
@@ -92,12 +95,14 @@ func TestAntexBindingOwnership(t *testing.T) {
 }
 
 func TestRestoreNeverLaunchesGuessedAntexConversation(t *testing.T) {
-	t.Parallel()
 	for _, source := range []string{"cwd", ""} {
 		t.Run(source, func(t *testing.T) {
-			t.Parallel()
-			runner := &recordingRunner{}
-			client := NewClientWithRunner("tmux", runner)
+			t.Setenv("HOME", t.TempDir())
+			t.Setenv("SHELL", "/bin/sh")
+			testutil.IsolatedTmux(t)
+			testutil.Tmux(t, "new-session", "-d", "-s", "work")
+			testutil.Tmux(t, "split-window", "-d", "-t", "=work:0")
+			client := NewClient("tmux")
 			client.SetRestoreResolver(integration.NewRegistry(antex.New(t.TempDir())))
 			pane := snapshot.Pane{
 				CurrentCmd: "antex",
@@ -112,15 +117,30 @@ func TestRestoreNeverLaunchesGuessedAntexConversation(t *testing.T) {
 			}
 			if err := client.restoreWindowCommands(
 				"work",
-				snapshot.Window{Panes: []snapshot.Pane{pane, {Index: 1, CurrentCmd: "vim"}}},
+				snapshot.Window{Panes: []snapshot.Pane{pane, {Index: 1, CurrentCmd: "cat"}}},
 				0,
 			); err != nil {
 				t.Fatal(err)
 			}
-			sent := sentKeys(runner.calls)
-			if len(sent) != 2 || sent[1] != "vim" {
-				t.Fatalf("other panes must restore: %v", sent)
+			for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
+				out := testutil.Tmux(t, "capture-pane", "-pJ", "-t", "=work:0.0")
+				sibling := strings.TrimSpace(
+					testutil.Tmux(
+						t,
+						"display-message",
+						"-p",
+						"-t",
+						"=work:0.1",
+						"#{pane_current_command}",
+					),
+				)
+				if strings.Contains(out, "lazy-tmux: automatic resume skipped") &&
+					sibling == "cat" {
+					return
+				}
+				time.Sleep(25 * time.Millisecond)
 			}
+			t.Fatal("missing refusal or sibling failed to start")
 		})
 	}
 }

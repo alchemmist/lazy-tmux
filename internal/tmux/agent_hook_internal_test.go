@@ -2,9 +2,12 @@ package tmux
 
 import (
 	"encoding/json"
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
 
 func TestHookLifecycleRejectsStaleAndForeignSessions(t *testing.T) {
@@ -236,28 +239,33 @@ func TestCompactionPreservesWorkingState(t *testing.T) {
 }
 
 func TestInvalidSessionStartCannotLeavePreviousIdentityTrusted(t *testing.T) {
-	t.Parallel()
-	runner := &recordingRunner{}
-	client := NewClientWithRunner("tmux", runner)
+	t.Setenv("HOME", t.TempDir())
+	testutil.IsolatedTmux(t)
+	paneID := strings.TrimSpace(testutil.Tmux(t, "new-session", "-d", "-P", "-F", "#{pane_id}"))
+	client := NewClient("tmux")
 	owner := LiveBinding{
 		Version:    1,
 		PID:        20,
-		PaneID:     "%1",
+		PaneID:     paneID,
 		StartedAt:  "start",
-		SocketPath: "/tmp/socket",
+		SocketPath: client.SocketPath(),
 	}
-	if err := client.invalidateHookBinding(owner, 4, errUnsupportedHookAgent); err == nil {
-		t.Fatal("hook failure was hidden")
+	if err := client.invalidateHookBinding(
+		owner,
+		4,
+		errUnsupportedHookAgent,
+	); !errors.Is(
+		err,
+		errUnsupportedHookAgent,
+	) {
+		t.Fatalf("lost hook cause: %v", err)
 	}
-	if len(runner.calls) != 1 {
-		t.Fatal("old binding was not invalidated")
-	}
-	call := runner.calls[0]
+	raw := testutil.Tmux(t, "show-options", "-pv", "-t", paneID, agentBindingOption)
 	var record LiveBinding
-	if err := json.Unmarshal([]byte(call[len(call)-1]), &record); err != nil {
+	if err := json.Unmarshal([]byte(raw), &record); err != nil {
 		t.Fatal(err)
 	}
-	if !record.Closed || record.Generation != 4 || record.PID != 20 {
+	if !record.Closed || record.Generation != 4 || record.PID != 20 || record.PaneID != paneID {
 		t.Fatalf("unexpected invalidation: %+v", record)
 	}
 }

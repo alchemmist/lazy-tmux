@@ -4,113 +4,63 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/alchemmist/lazy-tmux/internal/integration"
+	"github.com/alchemmist/lazy-tmux/internal/integration/antex"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
-
-type recordingRunner struct {
-	calls [][]string
-}
-
-func (r *recordingRunner) runCommand(args ...string) commandResult {
-	r.calls = append(r.calls, append([]string(nil), args...))
-
-	return commandResult{}
-}
-
-type fakeResolver struct {
-	matchCmd string
-	override string
-}
-
-func (f fakeResolver) Resolve(pane snapshot.Pane) string {
-	if pane.CurrentCmd == f.matchCmd {
-		return f.override
-	}
-
-	return ""
-}
-
-func sentKeys(calls [][]string) []string {
-	var out []string
-
-	for _, call := range calls {
-		if len(call) > 1 && call[1] == "send-keys" {
-			out = append(out, call[len(call)-2])
-		}
-	}
-
-	return out
-}
-
-func TestRestoreResolverOverridesCommand(t *testing.T) {
-	t.Parallel()
-
-	runner := &recordingRunner{}
-	client := NewClientWithRunner("tmux", runner)
-	client.SetRestoreResolver(fakeResolver{matchCmd: "claude", override: "claude --resume sess-1"})
-
-	window := snapshot.Window{
-		Index: 1,
-		Panes: []snapshot.Pane{
-			{Index: 0, CurrentCmd: "claude", RestoreCmd: "claude"},
-			{Index: 1, CurrentCmd: "vim", RestoreCmd: "vim main.go"},
-		},
-	}
-
-	if err := client.restoreWindowCommands("work", window, 1); err != nil {
-		t.Fatalf("restoreWindowCommands: %v", err)
-	}
-
-	sent := sentKeys(runner.calls)
-	if len(sent) != 2 {
-		t.Fatalf("expected 2 send-keys, got %v", sent)
-	}
-
-	if !strings.HasSuffix(sent[0], " claude --resume sess-1") {
-		t.Fatalf("claude pane should use the resolver override, got %q", sent[0])
-	}
-
-	if sent[1] != "vim main.go" {
-		t.Fatalf("non-matching pane keeps the default command, got %q", sent[1])
-	}
-}
 
 func TestEffectiveRestoreCommandFallsBack(t *testing.T) {
 	t.Parallel()
-
-	client := NewClientWithRunner("tmux", &recordingRunner{})
-
+	client := NewClient("tmux")
 	pane := snapshot.Pane{CurrentCmd: "vim", RestoreCmd: "vim main.go"}
-	if got := client.effectiveRestoreCommand(pane); got != "vim main.go" {
-		t.Fatalf("default path changed, got %q", got)
-	}
-
-	client.SetRestoreResolver(fakeResolver{matchCmd: "claude", override: "x"})
-	if got := client.effectiveRestoreCommand(pane); got != "vim main.go" {
-		t.Fatalf("empty override should fall back, got %q", got)
+	for _, reg := range []*integration.Registry{nil, integration.NewRegistry(antex.New(t.TempDir()))} {
+		client.SetRestoreResolver(reg)
+		if got := client.effectiveRestoreCommand(pane); got != "vim main.go" {
+			t.Fatalf("fallback: %q", got)
+		}
 	}
 }
 
 func TestRestoreResolverRespectsAllowlist(t *testing.T) {
-	t.Parallel()
-
-	runner := &recordingRunner{}
-	client := NewClientWithRunner("tmux", runner)
-	client.SetRestoreResolver(fakeResolver{matchCmd: "claude", override: "claude --resume s"})
-	client.SetRestoreAllowlist([]string{"vim"})
-
-	window := snapshot.Window{
-		Index: 1,
-		Panes: []snapshot.Pane{{Index: 0, CurrentCmd: "claude", RestoreCmd: "claude"}},
+	t.Setenv("HOME", t.TempDir())
+	testutil.IsolatedTmux(t)
+	testutil.Tmux(t, "new-session", "-d", "-s", "work")
+	client := NewClient("tmux")
+	client.SetRestoreResolver(integration.NewRegistry(antex.New(t.TempDir())))
+	const id = "01a09f96-a7d1-75f1-b8d8-6df25aaa7e6c"
+	pane := snapshot.Pane{
+		CurrentCmd: "antex",
+		RestoreCmd: "cat",
+		Meta: map[string]string{
+			"antex.session_id":        id,
+			"antex.session_id_source": "binding-v1",
+			"antex.home":              t.TempDir(),
+			"antex.resume_argv":       `["antex","resume","` + id + `"]`,
+		},
 	}
-
-	if err := client.restoreWindowCommands("work", window, 1); err != nil {
-		t.Fatalf("restoreWindowCommands: %v", err)
+	command, err := client.checkedRestoreCommand(pane)
+	if err != nil || !strings.Contains(command, "'antex' 'resume' '"+id+"'") {
+		t.Fatalf("resolved: %q %v", command, err)
 	}
-
-	for _, cmd := range sentKeys(runner.calls) {
-		if strings.Contains(cmd, "claude") {
-			t.Fatalf("allowlist must block the resolved claude command, sent %q", cmd)
-		}
+	client.SetRestoreAllowlist([]string{"^cat$"})
+	if err := client.restoreWindowCommands(
+		"work",
+		snapshot.Window{Panes: []snapshot.Pane{pane}},
+		0,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if raw := testutil.Tmux(
+		t,
+		"display-message",
+		"-p",
+		"-t",
+		"=work:0.0",
+		"#{"+pendingRestoreOption+"}",
+	); strings.TrimSpace(
+		raw,
+	) != "" {
+		t.Fatal("disallowed resume was staged")
 	}
 }

@@ -123,11 +123,14 @@ func TestAntexBindingRoundTripWithRealTmux(t *testing.T) {
 }
 
 func TestFailedBootstrapSurvivesRealTmuxCapture(t *testing.T) {
-	t.Setenv("LAZY_TMUX_BINDING_HELPER", "")
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("SHELL", "/bin/sh")
 	testutil.IsolatedTmux(t)
 	client := NewClient("tmux")
 	client.SetRestoreTimeout(0)
-	client.SetRestoreResolver(fakeResolver{matchCmd: "antex", override: "false"})
+	client.SetRestoreResolver(integration.NewRegistry(antex.New(t.TempDir())))
+	client.SetRestoreAllowlist([]string{"env .*'antex' 'resume' .*"})
+	testutil.Tmux(t, "set-environment", "-g", "PATH", "/nonexistent")
 	id := "01a09f96-a7d1-75f1-b8d8-6df25aaa7e6c"
 	original := snapshot.SessionSnapshot{
 		SessionName: "failed-bootstrap",
@@ -140,6 +143,8 @@ func TestFailedBootstrapSurvivesRealTmuxCapture(t *testing.T) {
 						Meta: map[string]string{
 							snapshot.AntexSessionIDMetaKey: id,
 							"antex.session_id_source":      "binding-v1",
+							"antex.home":                   t.TempDir(),
+							"antex.resume_argv":            `["antex","resume","` + id + `"]`,
 						},
 					},
 				},
