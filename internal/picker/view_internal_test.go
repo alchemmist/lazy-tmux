@@ -12,8 +12,7 @@ import (
 func TestViewFrameWidthInvariant(t *testing.T) {
 	t.Parallel()
 
-	rec := &recordingActions{}
-	m := newTestModel(t, rec,
+	m := newTestModel(t,
 		makeSession("alpha", false, "edit", "shell", "logs"),
 		makeSession("beta", true, "api"),
 	)
@@ -40,18 +39,16 @@ func TestViewFrameWidthInvariant(t *testing.T) {
 
 	withStatus := makeSession("live", true, "claude", "shell")
 	withStatus.Statuses = map[int]WindowStatus{1: StatusWorking, 2: StatusAwaitingDecision}
-	check("status", newTestModel(t, rec, withStatus))
+	check("status", newTestModel(t, withStatus))
 }
 
 func TestViewRendersStatusDot(t *testing.T) {
 	t.Parallel()
 
-	rec := &recordingActions{}
-
 	sess := makeSession("live", true, "claude")
 	sess.Statuses = map[int]WindowStatus{1: StatusWorking}
 
-	m := newTestModel(t, rec, sess)
+	m := newTestModel(t, sess)
 
 	if !strings.Contains(m.View().Content, workingSpinnerFrames[0]) {
 		t.Fatal("expected the working spinner glyph in the rendered view")
@@ -59,7 +56,7 @@ func TestViewRendersStatusDot(t *testing.T) {
 
 	plain := makeSession("plain", true, "vim")
 
-	if strings.Contains(newTestModel(t, rec, plain).View().Content, workingSpinnerFrames[0]) {
+	if strings.Contains(newTestModel(t, plain).View().Content, workingSpinnerFrames[0]) {
 		t.Fatal("window without a status must not render a glyph")
 	}
 }

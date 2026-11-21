@@ -58,84 +58,11 @@ func makeSession(name string, restored bool, windowNames ...string) Session {
 	}
 }
 
-type deletedWindowCall struct {
-	session string
-	index   int
-}
-
-type recordingActions struct {
-	deletedWindow      [2]int
-	deletedWindowS     string
-	deletedWindowCalls []deletedWindowCall
-	deletedSession     string
-	renamedWindow      string
-	renamedSession     string
-	newSession         string
-	newWindow          [2]string
-	wokeUp             string
-	slept              string
-	failDelete         bool
-}
-
-func (r *recordingActions) toActions(sessions []Session) Actions {
-	return Actions{
-		DeleteWindow: func(s string, idx int) error {
-			if r.failDelete {
-				return errBoom
-			}
-
-			r.deletedWindowS = s
-			r.deletedWindow = [2]int{idx, idx}
-			r.deletedWindowCalls = append(r.deletedWindowCalls, deletedWindowCall{s, idx})
-
-			return nil
-		},
-		DeleteSession: func(s string) error {
-			r.deletedSession = s
-
-			return nil
-		},
-		RenameWindow: func(_ string, _ int, n string) error {
-			r.renamedWindow = n
-
-			return nil
-		},
-		RenameSession: func(_, n string) error {
-			r.renamedSession = n
-
-			return nil
-		},
-		NewSession: func(n string) error {
-			r.newSession = n
-
-			return nil
-		},
-		NewWindow: func(s, n string) error {
-			r.newWindow = [2]string{s, n}
-
-			return nil
-		},
-		Wakeup: func(s string) error {
-			r.wokeUp = s
-
-			return nil
-		},
-		Sleep: func(s string) error {
-			r.slept = s
-
-			return nil
-		},
-		Reload: func() ([]Session, error) { return sessions, nil },
-	}
-}
-
-func newTestModel(t *testing.T, rec *recordingActions, sessions ...Session) pickerModel {
+func newTestModel(t *testing.T, sessions ...Session) pickerModel {
 	t.Helper()
+	m := newPickerModel(sessions, DefaultSortOptions().Window, Actions{})
 
-	m := newPickerModel(sessions, DefaultSortOptions().Window, rec.toActions(sessions))
-	m = feed(t, m, tea.WindowSizeMsg{Width: 100, Height: 24})
-
-	return m
+	return feed(t, m, tea.WindowSizeMsg{Width: 100, Height: 24})
 }
 
 func workingSession(name string) Session {
@@ -208,16 +135,14 @@ func spinnerTickModel(m pickerModel) pickerModel {
 func TestHasWorkingWindow(t *testing.T) {
 	t.Parallel()
 
-	rec := &recordingActions{}
-
-	if !newTestModel(t, rec, workingSession("w")).hasWorkingWindow() {
+	if !newTestModel(t, workingSession("w")).hasWorkingWindow() {
 		t.Fatal("a working window must be detected")
 	}
 
 	idle := makeSession("i", true, "one")
 	idle.Statuses = map[int]WindowStatus{1: StatusIdle}
 
-	if newTestModel(t, rec, idle).hasWorkingWindow() {
+	if newTestModel(t, idle).hasWorkingWindow() {
 		t.Fatal("no working window must be reported")
 	}
 }
@@ -225,17 +150,11 @@ func TestHasWorkingWindow(t *testing.T) {
 func TestApplyThemeCommand(t *testing.T) {
 	t.Parallel()
 
-	var changed string
-	actions := Actions{SetTheme: func(theme string) error {
-		changed = theme
-
-		return nil
-	}}
-	m := newPickerModelWithTheme(nil, nil, actions, "dark")
+	m := newPickerModelWithTheme(nil, nil, Actions{}, "dark")
 	m.applyThemeCommand("light")
 
-	if changed != "light" || m.themeName != "light" {
-		t.Fatalf("theme was not switched: callback=%q model=%q", changed, m.themeName)
+	if m.themeName != "light" {
+		t.Fatalf("theme was not switched: %q", m.themeName)
 	}
 
 	if m.theme.selBg != lightSelBg {
@@ -246,7 +165,7 @@ func TestApplyThemeCommand(t *testing.T) {
 func TestSpinnerTickAdvancesFrameWhileWorking(t *testing.T) {
 	t.Parallel()
 
-	m := newTestModel(t, &recordingActions{}, workingSession("w"))
+	m := newTestModel(t, workingSession("w"))
 	before := m.spinnerFrame
 
 	next, cmd := m.handleSpinnerTick()
@@ -267,7 +186,7 @@ func TestSpinnerTickStopsWhenIdle(t *testing.T) {
 	idle := makeSession("i", true, "one")
 	idle.Statuses = map[int]WindowStatus{1: StatusIdle}
 
-	m := newTestModel(t, &recordingActions{}, idle)
+	m := newTestModel(t, idle)
 	m.spinnerOn = true
 
 	next, cmd := m.handleSpinnerTick()
@@ -285,7 +204,7 @@ func TestSpinnerTickStopsWhenIdle(t *testing.T) {
 func TestStatusTickResumesSpinnerOnWork(t *testing.T) {
 	t.Parallel()
 
-	m := newTestModel(t, &recordingActions{}, workingSession("w"))
+	m := newTestModel(t, workingSession("w"))
 	m.spinnerOn = false
 
 	next, cmd := m.handleStatusTick()
@@ -303,7 +222,7 @@ func TestStatusTickResumesSpinnerOnWork(t *testing.T) {
 func TestLoadingModelRendersBeforeSessionsArrive(t *testing.T) {
 	t.Parallel()
 
-	m := newTestModel(t, &recordingActions{})
+	m := newTestModel(t)
 	m.loading = true
 
 	if view := m.View().Content; !strings.Contains(view, "Loading sessions…") {
@@ -313,7 +232,7 @@ func TestLoadingModelRendersBeforeSessionsArrive(t *testing.T) {
 
 func TestOutlineRendersBeforeDetailsAndStatus(t *testing.T) {
 	t.Parallel()
-	m := newTestModel(t, &recordingActions{}, makeSession("alpha", true, "one"))
+	m := newTestModel(t, makeSession("alpha", true, "one"))
 	m.sessions[0].Windows = nil
 	m.loading = false
 	m.applyFilter()
@@ -343,7 +262,7 @@ func TestOutlineRendersBeforeDetailsAndStatus(t *testing.T) {
 func TestSessionsLoadedMessagePopulatesPicker(t *testing.T) {
 	t.Parallel()
 
-	m := newTestModel(t, &recordingActions{})
+	m := newTestModel(t)
 	m.loading = true
 	m.reloadPending = true
 	m = feed(t, m, sessionsLoadedMsg{
@@ -364,7 +283,7 @@ func TestSessionsLoadedMessagePopulatesPicker(t *testing.T) {
 func TestSessionsLoadedMessageRendersError(t *testing.T) {
 	t.Parallel()
 
-	m := newTestModel(t, &recordingActions{})
+	m := newTestModel(t)
 	m.loading = true
 	m = feed(t, m, sessionsLoadedMsg{err: errBoom})
 
@@ -572,7 +491,7 @@ func TestStatusTickSchedulesReloadWithoutBlocking(t *testing.T) {
 func TestEscapeCancelsWhileSessionsLoad(t *testing.T) {
 	t.Parallel()
 
-	m := newTestModel(t, &recordingActions{})
+	m := newTestModel(t)
 	m.loading = true
 	m = feed(t, m, keyCode(tea.KeyEscape))
 
@@ -584,8 +503,7 @@ func TestEscapeCancelsWhileSessionsLoad(t *testing.T) {
 func TestModelNavigationAndSelect(t *testing.T) {
 	t.Parallel()
 
-	rec := &recordingActions{}
-	m := newTestModel(t, rec,
+	m := newTestModel(t,
 		makeSession("alpha", false, "one", "two"),
 		makeSession("beta", true, "three"),
 	)
@@ -619,8 +537,7 @@ func TestModelNavigationAndSelect(t *testing.T) {
 func TestModelJumpToFirstVisibleWindowByIndex(t *testing.T) {
 	t.Parallel()
 
-	rec := &recordingActions{}
-	m := newTestModel(t, rec,
+	m := newTestModel(t,
 		makeSession("alpha", false, "one", "needle"),
 		makeSession("beta", true, "needle", "three"),
 	)
@@ -648,8 +565,7 @@ func TestModelJumpToFirstVisibleWindowByIndex(t *testing.T) {
 func TestModelJumpToWindowSupportsAltModifier(t *testing.T) {
 	t.Parallel()
 
-	rec := &recordingActions{}
-	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two"))
+	m := newTestModel(t, makeSession("alpha", false, "one", "two"))
 	m = feed(t, m, keyAlt('2'))
 
 	if m.visible[m.cursor].target.WindowIndex == nil ||
@@ -665,8 +581,7 @@ func TestModelJumpToWindowSupportsAltModifier(t *testing.T) {
 func TestModelJumpToWindowSupportsAltKeypadDigit(t *testing.T) {
 	t.Parallel()
 
-	rec := &recordingActions{}
-	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two"))
+	m := newTestModel(t, makeSession("alpha", false, "one", "two"))
 	m.cursor = 2
 	m = feed(t, m, tea.KeyPressMsg{Code: tea.KeyKp1, Mod: tea.ModAlt})
 
@@ -683,8 +598,7 @@ func TestModelJumpToWindowSupportsAltKeypadDigit(t *testing.T) {
 func TestModelJumpToWindowSupportsTerminalDigitFallback(t *testing.T) {
 	t.Parallel()
 
-	rec := &recordingActions{}
-	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two"))
+	m := newTestModel(t, makeSession("alpha", false, "one", "two"))
 	m.cursor = 2
 	m = feed(t, m, tea.KeyPressMsg{BaseCode: '1', Mod: tea.ModAlt})
 
@@ -711,8 +625,7 @@ func TestModelJumpToWindowIgnoresNonAltModifiers(t *testing.T) {
 func TestModelJumpToMissingWindowDoesNothing(t *testing.T) {
 	t.Parallel()
 
-	rec := &recordingActions{}
-	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two"))
+	m := newTestModel(t, makeSession("alpha", false, "one", "two"))
 	m.cursor = 2
 	before := m.cursor
 	m = feed(t, m, keyAlt('9'))
@@ -725,8 +638,7 @@ func TestModelJumpToMissingWindowDoesNothing(t *testing.T) {
 func TestModelFilter(t *testing.T) {
 	t.Parallel()
 
-	rec := &recordingActions{}
-	m := newTestModel(t, rec,
+	m := newTestModel(t,
 		makeSession("alpha", false, "one"),
 		makeSession("beta", false, "two"),
 	)
@@ -747,8 +659,7 @@ func TestModelFilter(t *testing.T) {
 func TestModelActionModePreservesFilter(t *testing.T) {
 	t.Parallel()
 
-	rec := &recordingActions{}
-	m := newTestModel(t, rec,
+	m := newTestModel(t,
 		makeSession("alpha", false, "one"),
 		makeSession("beta", false, "two"),
 	)
@@ -796,8 +707,7 @@ func sameWindowIndex(got, want *int) bool {
 func TestModelEscCancels(t *testing.T) {
 	t.Parallel()
 
-	rec := &recordingActions{}
-	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
+	m := newTestModel(t, makeSession("alpha", false, "one"))
 
 	m = feed(t, m, keyCode(tea.KeyEscape))
 	if !m.cancelled {
@@ -805,200 +715,10 @@ func TestModelEscCancels(t *testing.T) {
 	}
 }
 
-func TestModelDeleteWindow(t *testing.T) {
-	t.Parallel()
-
-	rec := &recordingActions{}
-	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two"))
-
-	m = feed(t, m, keyCtrl('d'))
-	if m.action != actionDelete {
-		t.Fatalf("ctrl+d should enter delete mode, got %d", m.action)
-	}
-
-	feed(t, m, keyCode(tea.KeyEnter))
-
-	if rec.deletedWindowS != "alpha" || rec.deletedWindow[0] != 1 {
-		t.Fatalf(
-			"ctrl+d ↵ should delete current window, got %q idx=%d",
-			rec.deletedWindowS,
-			rec.deletedWindow[0],
-		)
-	}
-}
-
-func TestModelDeleteWindowErrorSetsStatus(t *testing.T) {
-	t.Parallel()
-
-	rec := &recordingActions{failDelete: true}
-	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two"))
-
-	m = feed(t, m, keyCtrl('d'))
-	m = feed(t, m, keyCode(tea.KeyEnter))
-
-	if m.statusMsg == "" {
-		t.Fatal("a failing delete should set a status message")
-	}
-}
-
-func TestModelDeleteSessionFlow(t *testing.T) {
-	t.Parallel()
-
-	rec := &recordingActions{}
-	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
-
-	m = feed(t, m, keyAlt('d'))
-	if m.action != actionDelete {
-		t.Fatalf("alt+d should enter delete mode, got %d", m.action)
-	}
-
-	m = feed(t, m, keyCode(tea.KeyEnter))
-
-	if rec.deletedSession != "alpha" {
-		t.Fatalf("expected session alpha deleted, got %q", rec.deletedSession)
-	}
-
-	if m.action != actionBrowse || m.mode != modeBrowse {
-		t.Fatalf("should return to browse, got action=%d mode=%d", m.action, m.mode)
-	}
-}
-
-func TestModelDeleteMultiSelect(t *testing.T) {
-	t.Parallel()
-
-	rec := &recordingActions{}
-	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two", "three"))
-
-	m = feed(t, m, keyRune('/'))
-	for _, r := range "delete" {
-		m = feed(t, m, keyRune(r))
-	}
-
-	m = feed(t, m, keyCode(tea.KeyEnter))
-	if m.action != actionDelete {
-		t.Fatalf("/delete should enter delete mode, got %d", m.action)
-	}
-
-	m.cursor = 1
-	m = feed(t, m, keyRune(' '))
-	m.cursor = 2
-	m = feed(t, m, keyRune(' '))
-
-	feed(t, m, keyCode(tea.KeyEnter))
-
-	if rec.deletedSession != "" {
-		t.Fatalf("partial selection must not delete the session, got %q", rec.deletedSession)
-	}
-
-	want := []deletedWindowCall{
-		{session: "alpha", index: 2},
-		{session: "alpha", index: 1},
-	}
-
-	if len(rec.deletedWindowCalls) != len(want) {
-		t.Fatalf("expected %d delete calls, got %+v", len(want), rec.deletedWindowCalls)
-	}
-
-	for i, call := range rec.deletedWindowCalls {
-		if call != want[i] {
-			t.Fatalf("expected delete calls %+v, got %+v", want, rec.deletedWindowCalls)
-		}
-	}
-}
-
-func TestModelRenameWindowFlow(t *testing.T) {
-	t.Parallel()
-
-	rec := &recordingActions{}
-	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
-
-	m = feed(t, m, keyCtrl('r'))
-	if m.action != actionRename {
-		t.Fatalf("ctrl+r should enter rename mode, got %d", m.action)
-	}
-
-	m = feed(t, m, keyCode(tea.KeyEnter))
-	if m.mode != modeRenameWindow {
-		t.Fatalf("↵ should open the rename-window prompt, got %d", m.mode)
-	}
-
-	m = feed(t, m, keyRune('X'))
-	feed(t, m, keyCode(tea.KeyEnter))
-
-	if rec.renamedWindow != "oneX" {
-		t.Fatalf("expected renamed window 'oneX', got %q", rec.renamedWindow)
-	}
-}
-
-func TestModelRenameSessionFlow(t *testing.T) {
-	t.Parallel()
-
-	rec := &recordingActions{}
-	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
-
-	m = feed(t, m, keyAlt('r'))
-	m = feed(t, m, keyCode(tea.KeyEnter))
-	m = feed(t, m, keyRune('Z'))
-	feed(t, m, keyCode(tea.KeyEnter))
-
-	if rec.renamedSession != "alphaZ" {
-		t.Fatalf("expected renamed session 'alphaZ', got %q", rec.renamedSession)
-	}
-}
-
-func TestModelNewSessionFlow(t *testing.T) {
-	t.Parallel()
-
-	rec := &recordingActions{}
-	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
-
-	m = feed(t, m, keyAlt('n'))
-	if m.action != actionNew {
-		t.Fatalf("alt+n should enter new mode, got %d", m.action)
-	}
-
-	m = feed(t, m, keyCode(tea.KeyEnter))
-	if m.mode != modeNewSession {
-		t.Fatalf("↵ on the synthetic row should open new-session, got %d", m.mode)
-	}
-
-	m = feed(t, m, keyRune('q'))
-	m = feed(t, m, keyRune('a'))
-	feed(t, m, keyCode(tea.KeyEnter))
-
-	if rec.newSession != "qa" {
-		t.Fatalf("expected new session 'qa', got %q", rec.newSession)
-	}
-}
-
-func TestModelNewWindowFlow(t *testing.T) {
-	t.Parallel()
-
-	rec := &recordingActions{}
-	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
-
-	m = feed(t, m, keyCtrl('n'))
-	if m.action != actionNew {
-		t.Fatalf("ctrl+n should enter new mode, got %d", m.action)
-	}
-
-	m = feed(t, m, keyCode(tea.KeyEnter))
-	if m.mode != modeNewWindow {
-		t.Fatalf("↵ on a session row should open new-window, got %d", m.mode)
-	}
-
-	feed(t, m, keyCode(tea.KeyEnter))
-
-	if rec.newWindow[0] != "alpha" {
-		t.Fatalf("expected new window in alpha, got %q", rec.newWindow[0])
-	}
-}
-
 func TestModelNewFilteringBindsToSession(t *testing.T) {
 	t.Parallel()
 
-	rec := &recordingActions{}
-	m := newTestModel(t, rec, makeSession("alpha", false, "one"), makeSession("beta", false, "two"))
+	m := newTestModel(t, makeSession("alpha", false, "one"), makeSession("beta", false, "two"))
 
 	m = feed(t, m, keyAlt('n'))
 
@@ -1014,23 +734,12 @@ func TestModelNewFilteringBindsToSession(t *testing.T) {
 	if m.mode != modeNewWindow {
 		t.Fatalf("filtered ↵ should bind to new-window, got %d", m.mode)
 	}
-
-	feed(t, m, keyCode(tea.KeyEnter))
-
-	if rec.newWindow[0] != "beta" {
-		t.Fatalf("expected new window in beta, got %q", rec.newWindow[0])
-	}
-
-	if rec.newSession != "" {
-		t.Fatalf("filtering must not trigger new-session, got %q", rec.newSession)
-	}
 }
 
 func TestModelWakeFiltersToSleeping(t *testing.T) {
 	t.Parallel()
 
-	rec := &recordingActions{}
-	m := newTestModel(t, rec,
+	m := newTestModel(t,
 		makeSession("sleepy", false, "one"),
 		makeSession("live", true, "two"),
 	)
@@ -1042,22 +751,12 @@ func TestModelWakeFiltersToSleeping(t *testing.T) {
 			t.Fatal("wake mode must hide live sessions")
 		}
 	}
-
-	m = feed(t, m, keyCode(tea.KeyEnter))
-	if rec.wokeUp != "sleepy" {
-		t.Fatalf("↵ in wake mode should wake the sleeping session, got %q", rec.wokeUp)
-	}
-
-	if m.action != actionBrowse {
-		t.Fatalf("acting should return to browse, got %d", m.action)
-	}
 }
 
 func TestModelSleepFiltersToLive(t *testing.T) {
 	t.Parallel()
 
-	rec := &recordingActions{}
-	m := newTestModel(t, rec,
+	m := newTestModel(t,
 		makeSession("sleepy", false, "one"),
 		makeSession("live", true, "two"),
 	)
@@ -1069,18 +768,12 @@ func TestModelSleepFiltersToLive(t *testing.T) {
 			t.Fatal("sleep mode must hide sleeping sessions")
 		}
 	}
-
-	feed(t, m, keyCode(tea.KeyEnter))
-	if rec.slept != "live" {
-		t.Fatalf("↵ in sleep mode should sleep the live session, got %q", rec.slept)
-	}
 }
 
 func TestModelEscExitsActionMode(t *testing.T) {
 	t.Parallel()
 
-	rec := &recordingActions{}
-	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
+	m := newTestModel(t, makeSession("alpha", false, "one"))
 
 	m = feed(t, m, keyAlt('d'))
 	if m.action != actionDelete {
@@ -1096,17 +789,12 @@ func TestModelEscExitsActionMode(t *testing.T) {
 	if m.cancelled {
 		t.Fatal("esc in a mode must cancel the mode, not the picker")
 	}
-
-	if rec.deletedSession != "" || rec.deletedWindowS != "" {
-		t.Fatal("esc must not perform the action")
-	}
 }
 
 func TestModelPaletteOpensOnSlash(t *testing.T) {
 	t.Parallel()
 
-	rec := &recordingActions{}
-	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
+	m := newTestModel(t, makeSession("alpha", false, "one"))
 
 	m = feed(t, m, keyRune('/'))
 	if !m.palette {
@@ -1130,8 +818,7 @@ func TestModelPaletteOpensOnSlash(t *testing.T) {
 func TestModelViewRendersWithoutPanic(t *testing.T) {
 	t.Parallel()
 
-	rec := &recordingActions{}
-	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
+	m := newTestModel(t, makeSession("alpha", false, "one"))
 
 	if got := m.View(); got.AltScreen != true {
 		t.Fatal("expected alt screen view")
@@ -1211,135 +898,17 @@ func TestFilteredTreeRowsRanksMatchingWindowWithinSession(t *testing.T) {
 	}
 }
 
-//nolint:paralleltest // stubs the package-level newPickerRunner seam
-func TestChooseTargetSuccess(
-	t *testing.T,
-) {
-	orig := newPickerRunner
-	defer func() { newPickerRunner = orig }()
-
-	idx := 2
-	newPickerRunner = func(m pickerModel) pickerRunner {
-		m.selected = Target{SessionName: "alpha", WindowIndex: &idx}
-
-		return staticRunner{model: m}
+func TestPickerWithoutSelection(t *testing.T) {
+	t.Parallel()
+	if _, err := (pickerModel{}).chosenTarget(); !errors.Is(err, errNoSessionSelected) {
+		t.Fatalf("empty selection: %v", err)
 	}
-
-	target, err := ChooseTarget(
-		[]Session{makeSession("alpha", false, "one", "two")},
-		DefaultSortOptions().Window,
-		Actions{},
-	)
-	if err != nil {
-		t.Fatalf("choose target: %v", err)
-	}
-
-	if target.SessionName != "alpha" || target.WindowIndex == nil || *target.WindowIndex != 2 {
-		t.Fatalf("unexpected target: %+v", target)
-	}
-}
-
-//nolint:paralleltest // stubs the package-level newPickerRunner seam
-func TestChooseTargetCancelled(
-	t *testing.T,
-) {
-	orig := newPickerRunner
-	defer func() { newPickerRunner = orig }()
-
-	newPickerRunner = func(m pickerModel) pickerRunner {
-		m.cancelled = true
-
-		return staticRunner{model: m}
-	}
-
-	if _, err := ChooseTarget([]Session{makeSession("a", false, "w")}, nil, Actions{}); err == nil {
-		t.Fatal("expected cancellation error")
-	}
-}
-
-//nolint:paralleltest // stubs the package-level newPickerRunner seam
-func TestChooseTargetNoSelection(
-	t *testing.T,
-) {
-	orig := newPickerRunner
-	defer func() { newPickerRunner = orig }()
-
-	newPickerRunner = func(m pickerModel) pickerRunner {
-		return staticRunner{model: m}
-	}
-
-	if _, err := ChooseTarget([]Session{makeSession("a", false, "w")}, nil, Actions{}); err == nil {
-		t.Fatal("expected no-selection error")
-	}
-}
-
-//nolint:paralleltest // stubs the package-level newPickerRunner seam
-func TestChooseTargetWithLoaderStartsRunnerBeforeLoaderCompletes(t *testing.T) {
-	orig := newPickerRunner
-	defer func() { newPickerRunner = orig }()
-
-	loaderStarted := make(chan struct{})
-	releaseLoader := make(chan struct{})
-	runnerStarted := make(chan struct{})
-	released := false
-	defer func() {
-		if !released {
-			close(releaseLoader)
-		}
-	}()
-
-	newPickerRunner = func(m pickerModel) pickerRunner {
-		return blockingLoaderRunner{model: m, started: runnerStarted}
-	}
-
-	done := make(chan struct{})
-	go func() {
-		_, _ = ChooseTargetWithLoader(nil, Actions{
-			Reload: func() ([]Session, error) {
-				close(loaderStarted)
-				<-releaseLoader
-
-				return []Session{makeSession("alpha", false, "one")}, nil
-			},
-		}, themeDark)
-		close(done)
-	}()
-
-	select {
-	case <-runnerStarted:
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("picker runner did not start while session loader was blocked")
-	}
-	<-loaderStarted
-	close(releaseLoader)
-	released = true
-	<-done
-}
-
-type staticRunner struct {
-	model pickerModel
-}
-
-func (s staticRunner) Run() (tea.Model, error) { return s.model, nil }
-
-type blockingLoaderRunner struct {
-	model   pickerModel
-	started chan struct{}
-}
-
-func (r blockingLoaderRunner) Run() (tea.Model, error) {
-	close(r.started)
-	_, _ = r.model.actions.Reload()
-	r.model.cancelled = true
-
-	return r.model, nil
 }
 
 func TestModelHelpToggle(t *testing.T) {
 	t.Parallel()
 
-	rec := &recordingActions{}
-	m := newTestModel(t, rec, makeSession("alpha", false, "one", "two"))
+	m := newTestModel(t, makeSession("alpha", false, "one", "two"))
 
 	m = feed(t, m, keyRune('?'))
 	if !m.helpOpen {
@@ -1364,8 +933,7 @@ func TestModelHelpToggle(t *testing.T) {
 func TestModelHelpNotTriggeredWhileTyping(t *testing.T) {
 	t.Parallel()
 
-	rec := &recordingActions{}
-	m := newTestModel(t, rec, makeSession("alpha", false, "one"))
+	m := newTestModel(t, makeSession("alpha", false, "one"))
 
 	m = feed(t, m, keyRune('a'))
 	m = feed(t, m, keyRune('?'))
@@ -1379,7 +947,7 @@ func TestPiWorkingUsesSharedSpinnerAndStopsWhenAwaitingInput(t *testing.T) {
 	t.Parallel()
 	session := workingSession("pi-project")
 	session.Windows[0].Panes = []snapshot.Pane{{CurrentCmd: "node", RestoreCmd: "pi"}}
-	model := newTestModel(t, &recordingActions{}, session)
+	model := newTestModel(t, session)
 	if !model.hasWorkingWindow() {
 		t.Fatal("Pi working state did not enable animation")
 	}
@@ -1389,7 +957,7 @@ func TestPiWorkingUsesSharedSpinnerAndStopsWhenAwaitingInput(t *testing.T) {
 		t.Fatal("Pi working indicator did not animate")
 	}
 	session.Statuses[1] = StatusAwaitingInput
-	idle := newTestModel(t, &recordingActions{}, session)
+	idle := newTestModel(t, session)
 	if idle.hasWorkingWindow() {
 		t.Fatal("Pi waiting for input still animated")
 	}

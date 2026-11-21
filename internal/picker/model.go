@@ -1278,15 +1278,6 @@ func (m *pickerModel) ensureCursorVisible() {
 	}
 }
 
-type pickerRunner interface {
-	Run() (tea.Model, error)
-}
-
-//nolint:gochecknoglobals // test seam: picker tests inject a fake tea runner
-var newPickerRunner = func(m pickerModel) pickerRunner {
-	return tea.NewProgram(m)
-}
-
 func ChooseTarget(sessions []Session, windowSort []WindowSortKey, actions Actions) (Target, error) {
 	return ChooseTargetWithTheme(sessions, windowSort, actions, themeDark)
 }
@@ -1332,9 +1323,7 @@ func ChooseTargetWithLoader(
 }
 
 func runPicker(m pickerModel) (Target, error) {
-	runner := newPickerRunner(m)
-
-	finalModel, err := runner.Run()
+	finalModel, err := tea.NewProgram(m).Run()
 	if err != nil {
 		return Target{}, fmt.Errorf("run picker: %w", err)
 	}
@@ -1344,6 +1333,10 @@ func runPicker(m pickerModel) (Target, error) {
 		return Target{}, errUnexpectedModel
 	}
 
+	return result.chosenTarget()
+}
+
+func (result pickerModel) chosenTarget() (Target, error) {
 	if result.cancelled {
 		return Target{}, errSelectionCanceled
 	}

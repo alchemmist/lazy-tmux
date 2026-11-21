@@ -350,11 +350,6 @@ func modifierSet(modifiers []string) map[string]struct{} {
 	return result
 }
 
-//nolint:gochecknoglobals
-var newQuickPickerRunner = func(m quickPickerModel) pickerRunner {
-	return tea.NewProgram(m)
-}
-
 func ChooseQuickSession(
 	sessions []QuickSession,
 	themeName string,
@@ -373,8 +368,7 @@ func ChooseQuickSession(
 		loadWorking,
 	)
 	model = model.moved(initialOffset)
-	runner := newQuickPickerRunner(model)
-	finalModel, err := runner.Run()
+	finalModel, err := tea.NewProgram(model).Run()
 	if err != nil {
 		return "", fmt.Errorf("run quick picker: %w", err)
 	}
