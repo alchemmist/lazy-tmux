@@ -3,6 +3,7 @@ package tmux
 import (
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -86,12 +87,22 @@ func checkHookRecord(t *testing.T, registry *integration.Registry, home, cwd, ki
 	pane := strings.TrimSpace(
 		testutil.Tmux(t, "new-session", "-d", "-P", "-F", "#{pane_id}", "-s", name),
 	)
+	pid, err := strconv.Atoi(
+		strings.TrimSpace(testutil.Tmux(t, "display-message", "-p", "-t", pane, "#{pane_pid}")),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	started := processStartTime(pid)
+	if started == "" {
+		t.Fatalf("cannot read start time for pane %s pid %d", pane, pid)
+	}
 	owner := LiveBinding{
 		Version:    1,
 		PaneID:     pane,
 		SocketPath: NewClient("tmux").SocketPath(),
-		PID:        20,
-		StartedAt:  "start",
+		PID:        pid,
+		StartedAt:  started,
 	}
 	event := AgentHookEvent{Event: sessionStartEvent, SessionID: id, CWD: cwd}
 	record, changed, err := reduceAgentHook(LiveBinding{}, owner, kind, home, event, 1)
@@ -161,6 +172,10 @@ func saveAndLoadHookSnapshot(
 	saved, err := storage.LoadSession(state.SessionName)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	if len(saved.Windows) != 1 || len(saved.Windows[0].Panes) != 1 {
+		t.Fatalf("expected one saved window and pane: %+v", saved.Windows)
 	}
 
 	return saved
