@@ -5,7 +5,7 @@ ENV ENABLE_INTEGRATION_TESTS=true
 ENV ENABLE_REAL_PI_TESTS=true
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends tmux fzf jq python3 nodejs npm lsof && \
+    apt-get install -y --no-install-recommends tmux fzf jq python3 nodejs npm lsof strace && \
     rm -rf /var/lib/apt/lists/*
 
 RUN npm install -g @mariozechner/pi-coding-agent@0.73.1
