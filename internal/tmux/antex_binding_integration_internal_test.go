@@ -27,15 +27,19 @@ func TestAntexBindingRoundTripWithRealTmux(t *testing.T) {
 	var err error
 	var captured snapshot.SessionSnapshot
 	deadline := time.Now().Add(10 * time.Second)
-	for time.Now().Before(deadline) {
+	for {
 		captured, err = client.CaptureSession("binding")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(captured.Windows) == 2 &&
+		if len(captured.Windows) == 2 && len(captured.Windows[0].Panes) > 0 &&
+			len(captured.Windows[1].Panes) > 0 &&
 			captured.Windows[0].Panes[0].Meta[snapshot.AntexSessionIDMetaKey] == ids[0] &&
 			captured.Windows[1].Panes[0].Meta[snapshot.AntexSessionIDMetaKey] == ids[1] {
 			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out capturing Antex owners %v: %+v", ids, captured.Windows)
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
