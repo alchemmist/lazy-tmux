@@ -37,7 +37,7 @@ func StartAntex(t *testing.T, home, cwd string, tmuxArgs ...string) (string, map
 		"sh",
 		"-c",
 		`exec env -i HOME="$HOME" TERM="$TERM" PATH="$PATH" TMUX="$TMUX" `+
-			`TMUX_PANE="$TMUX_PANE" ANTEX_HOME="$1" "$2" `+
+			`TMUX_PANE="$TMUX_PANE" ANTEX_HOME="$1" "$2" -c 'check_for_update_on_startup=false' `+
 			`-c 'model_provider="local"' -c 'model_providers.local.name="local"' `+
 			`-c 'model_providers.local.base_url="http://127.0.0.1:1/v1"' `+
 			`-c 'model_providers.local.wire_api="responses"' -c 'model="local"'`,
