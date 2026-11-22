@@ -24,9 +24,6 @@ var (
 	errAntexSessionNotFound    = errors.New("antex session not found for pane")
 )
 
-//nolint:gochecknoglobals // test seam: CLI tests stub process exit
-var exitFunc = os.Exit
-
 const (
 	cmdVersion      = "version"
 	cmdSave         = "save"
@@ -97,7 +94,7 @@ func helpFuncs() map[string]func(io.Writer) {
 }
 
 func main() {
-	exitFunc(runCLI(os.Args[1:], os.Stdout, os.Stderr))
+	os.Exit(runCLI(os.Args[1:], os.Stdout, os.Stderr))
 }
 
 func runCLI(args []string, stdout, stderr io.Writer) int {
