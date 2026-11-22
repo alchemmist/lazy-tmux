@@ -181,6 +181,16 @@ func populateHookArgs(
 	if err != nil {
 		return err
 	}
+
+	return setHookLaunchArgs(&next.Session, event, kind, argv)
+}
+
+func setHookLaunchArgs(
+	session *snapshot.AgentSession,
+	event AgentHookEvent,
+	kind string,
+	argv []string,
+) error {
 	if agent.LaunchKind(argv) != kind {
 		return errHookOwner
 	}
@@ -188,11 +198,11 @@ func populateHookArgs(
 	if err != nil {
 		return fmt.Errorf("capture launch arguments: %w", err)
 	}
-	next.Session.Argv = resume
+	session.Argv = resume
 	if kind == snapshot.AgentClaude {
 		configDir := os.Getenv("CLAUDE_CONFIG_DIR")
-		next.Session.ClaudeConfigDir = &configDir
-		err = agent.Valid(next.Session)
+		session.ClaudeConfigDir = &configDir
+		err = agent.Valid(*session)
 		if err != nil {
 			return fmt.Errorf("capture Claude config override: %w", err)
 		}
