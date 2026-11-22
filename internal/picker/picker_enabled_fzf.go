@@ -2,7 +2,13 @@
 
 package picker
 
-func ChooseQuickSession([]QuickSession, string, []string, int, func() map[string]bool) (string, error) {
+func ChooseQuickSession(
+	[]QuickSession,
+	string,
+	[]string,
+	int,
+	func() map[string]bool,
+) (string, error) {
 	return "", errTUIDisabled
 }
 

@@ -27,7 +27,7 @@ func TestPickerScreens(t *testing.T) {
 					sessions[i].Record.CapturedAt = time.Time{}
 				}
 			}
-			model := newTestModel(t, &recordingActions{}, sessions...)
+			model := newTestModel(t, sessions...)
 			if name == "sessions-46x12" {
 				model = feed(t, model, tea.WindowSizeMsg{Width: 46, Height: 12})
 			}
