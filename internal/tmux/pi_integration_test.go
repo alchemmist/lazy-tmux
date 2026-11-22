@@ -89,7 +89,8 @@ func TestRealPiRestoreUsesShellAssignmentBeforeCd(t *testing.T) {
 	testutil.Tmux(t, "new-session", "-d", "-s", name, "-c", cwd, "sh -c 'sleep 1000'")
 	client := tmux.NewClient("tmux")
 	client.SetRestoreTimeout(0)
-	client.SetRestoreResolver(integration.NewRegistry(pi.New(home, sessionDir)))
+	registry := integration.NewRegistry(pi.New(home, sessionDir))
+	client.SetRestoreResolver(registry)
 	pane := snapshot.Pane{
 		Index:       0,
 		CurrentPath: cwd,
@@ -121,6 +122,12 @@ func TestRealPiRestoreUsesShellAssignmentBeforeCd(t *testing.T) {
 	}
 	if !strings.Contains(command, "LAZY_TMUX_RESTORE_TOKEN=") || !strings.Contains(command, "cd ") {
 		t.Fatalf("restore command missing shell assignment/cd: %q", command)
+	}
+	if os.Getenv("ENABLE_REAL_PI_TESTS") == "true" {
+		waitForPiSnapshot(t, client, registry, name, sessionFile, "A")
+	}
+	if err := client.KillSession(name); err != nil {
+		t.Fatal(err)
 	}
 }
 

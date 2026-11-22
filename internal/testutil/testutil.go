@@ -48,6 +48,30 @@ func IsolatedTmux(t *testing.T) {
 		t.Fatalf("create tmux tmpdir: %v", err)
 	}
 
+	t.Cleanup(func() { _ = os.RemoveAll(base) })
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	for key, dir := range map[string]string{
+		"XDG_CONFIG_HOME":             "config",
+		"XDG_DATA_HOME":               "data",
+		"XDG_STATE_HOME":              "state",
+		"XDG_CACHE_HOME":              "cache",
+		"XDG_RUNTIME_DIR":             "run",
+		"CODEX_HOME":                  ".codex",
+		"ANTEX_HOME":                  ".antex",
+		"CLAUDE_CONFIG_DIR":           ".claude",
+		"PI_CODING_AGENT_DIR":         "pi",
+		"PI_CODING_AGENT_SESSION_DIR": "pi/sessions",
+		"LAZY_TMUX_DATA_DIR":          "data/lazy-tmux",
+	} {
+		path := filepath.Join(home, dir)
+		err := os.MkdirAll(path, 0o700)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv(key, path)
+	}
+	t.Setenv("LAZY_TMUX_CONFIG", filepath.Join(home, "config", "lazy-tmux.toml"))
 	t.Setenv("TMUX_TMPDIR", base)
 	t.Setenv("TMUX", "")
 
@@ -70,7 +94,6 @@ func IsolatedTmux(t *testing.T) {
 
 	t.Cleanup(func() {
 		_ = exec.CommandContext(context.Background(), "tmux", "kill-server").Run()
-		_ = os.RemoveAll(base)
 	})
 }
 
