@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/alchemmist/lazy-tmux/internal/app"
 	"github.com/alchemmist/lazy-tmux/internal/config"
@@ -57,7 +61,9 @@ func runDaemon(args []string, stdout, stderr io.Writer) int {
 
 	a := app.New(cfg)
 
-	err = a.RunDaemon(cfg.SaveInterval)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	err = a.RunDaemon(ctx, cfg.SaveInterval)
 	if err != nil {
 		writeErr(stderr, fmt.Errorf("run daemon: %w", err))
 

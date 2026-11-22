@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"hash/fnv"
 	"os"
@@ -9,25 +10,7 @@ import (
 	"time"
 )
 
-type daemonTicker interface {
-	Chan() <-chan time.Time
-	Stop()
-}
-
-type realDaemonTicker struct {
-	*time.Ticker
-}
-
-func (t *realDaemonTicker) Chan() <-chan time.Time { return t.C }
-
-func (t *realDaemonTicker) Stop() { t.Ticker.Stop() }
-
-//nolint:gochecknoglobals // test seam: daemon tests inject a fake ticker
-var newDaemonTicker = func(d time.Duration) daemonTicker {
-	return &realDaemonTicker{Ticker: time.NewTicker(d)}
-}
-
-func (a *App) RunDaemon(interval time.Duration) error {
+func (a *App) RunDaemon(ctx context.Context, interval time.Duration) error {
 	if interval <= 0 {
 		interval = a.cfg.SaveInterval
 	}
@@ -39,18 +22,18 @@ func (a *App) RunDaemon(interval time.Duration) error {
 
 	defer unlock()
 
-	ticker := newDaemonTicker(interval)
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	err = a.runDaemonSaveAll()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "lazy-tmux daemon save error: %v\n", err)
-	}
-
-	for range ticker.Chan() {
-		err := a.runDaemonSaveAll()
+	for ctx.Err() == nil {
+		_, err := a.SaveAll()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "lazy-tmux daemon save error: %v\n", err)
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
 		}
 	}
 
