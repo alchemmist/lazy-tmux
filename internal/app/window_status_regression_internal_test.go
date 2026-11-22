@@ -1,195 +1,174 @@
 package app
 
 import (
+	"encoding/json"
+	"fmt"
+	"maps"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/alchemmist/lazy-tmux/internal/integration"
+	"github.com/alchemmist/lazy-tmux/internal/integration/pi"
+	"github.com/alchemmist/lazy-tmux/internal/integration/setup"
 	"github.com/alchemmist/lazy-tmux/internal/picker"
 	"github.com/alchemmist/lazy-tmux/internal/snapshot"
+	"github.com/alchemmist/lazy-tmux/internal/testutil"
+	"github.com/alchemmist/lazy-tmux/internal/tmux"
 )
 
-type paneStatusFixture struct{}
-
-func (paneStatusFixture) Name() string { return "fixture" }
-
-func (paneStatusFixture) Matches(snapshot.Pane) bool { return true }
-
-func (paneStatusFixture) Capture(snapshot.Pane) (map[string]string, error) {
-	return map[string]string{}, nil
-}
-
-func (paneStatusFixture) RestoreCommand(snapshot.Pane, map[string]string) string { return "" }
-
-func (paneStatusFixture) Status(pane snapshot.Pane) (integration.Status, bool) {
-	states := map[string]integration.Status{
-		"working": integration.StatusWorking, "decision": integration.StatusAwaitingDecision,
-		"input": integration.StatusAwaitingInput, "idle": integration.StatusIdle,
-		"error": integration.StatusError, "unknown": integration.StatusUnknown,
-	}
-	status, ok := states[pane.Meta["fixture.status"]]
-
-	return status, ok
-}
-
-func (paneStatusFixture) SessionID(pane snapshot.Pane) (snapshot.AgentSession, bool) {
-	return snapshot.AgentSession{}, pane.Meta["fixture.verified"] == "1"
-}
-
-func TestWindowStatusesAggregatesEveryPaneInPriorityOrder(t *testing.T) {
-	t.Parallel()
-	registry := integration.NewRegistry(paneStatusFixture{})
-	// Increasing priority, independently specifying the expected ordering.
-	states := []struct {
-		name   string
-		pane   snapshot.Pane
-		status picker.WindowStatus
-	}{
-		{name: "shell", pane: snapshot.Pane{CurrentCmd: "zsh"}, status: picker.StatusNone},
-		{name: "idle", pane: statusPane("idle"), status: picker.StatusIdle},
-		{name: "input", pane: statusPane("input"), status: picker.StatusAwaitingInput},
-		{name: "working", pane: statusPane("working"), status: picker.StatusWorking},
-		{name: "setup", pane: snapshot.Pane{CurrentCmd: "claude"}, status: picker.StatusNeedsSetup},
-		{name: "error", pane: statusPane("error"), status: picker.StatusError},
-		{name: "decision", pane: statusPane("decision"), status: picker.StatusAwaitingDecision},
-		{
-			name:   "pending",
-			pane:   snapshot.Pane{Meta: map[string]string{"agent.restore_pending": "1"}},
-			status: picker.StatusRestorePending,
-		},
-	}
-	for firstIndex, first := range states {
-		for secondIndex, second := range states {
-			t.Run(first.name+"/"+second.name, func(t *testing.T) {
-				t.Parallel()
-				want := first.status
-				if secondIndex > firstIndex {
-					want = second.status
-				}
-				windows := []snapshot.Window{
-					{Index: 9, Panes: []snapshot.Pane{first.pane, second.pane}},
-				}
-				if got := windowStatuses(registry, windows)[9]; got != want {
-					t.Fatalf("got %v, want %v", got, want)
-				}
-			})
-		}
-	}
-	// Place the highest-priority pane at every offset among all other states.
-	for offset := range states {
-		panes := make([]snapshot.Pane, len(states))
-		for index := range states {
-			panes[index] = states[(index+offset)%len(states)].pane
-		}
-		windows := []snapshot.Window{{Index: 5, Panes: panes}}
-		if got := windowStatuses(registry, windows)[5]; got != picker.StatusRestorePending {
-			t.Fatalf("rotation %d: got %v, want pending", offset, got)
-		}
-	}
-}
-
-func TestWindowStatusesPendingOverridesPaneActivity(t *testing.T) {
-	t.Parallel()
-	registry := integration.NewRegistry(paneStatusFixture{})
-	for _, key := range []string{"agent.restore_pending", "antex.restore_pending"} {
-		for _, live := range []string{"working", "decision", "input", "idle", "error", "unknown", ""} {
-			pane := statusPane(live)
-			pane.Meta[key] = "1"
-			windows := []snapshot.Window{
-				{Index: 1, Panes: []snapshot.Pane{statusPane("idle"), pane}},
-			}
-			if got := windowStatuses(registry, windows)[1]; got != picker.StatusRestorePending {
-				t.Errorf("%s + %s: got %v, want pending", key, live, got)
-			}
-		}
-	}
-}
-
-func TestWindowStatusesUnknownStates(t *testing.T) {
-	t.Parallel()
-	registry := integration.NewRegistry(paneStatusFixture{})
-	tests := []struct {
-		name string
-		pane snapshot.Pane
-		want picker.WindowStatus
-	}{
-		{name: "unknown reporter", pane: statusPane("unknown"), want: picker.StatusNone},
-		{name: "no reporter", pane: snapshot.Pane{CurrentCmd: "zsh"}, want: picker.StatusNone},
-		{
-			name: "verified native without activity",
-			pane: snapshot.Pane{
-				CurrentCmd: "claude",
-				Meta:       map[string]string{"fixture.verified": "1"},
-			},
-			want: picker.StatusNone,
-		},
-		{
-			name: "unverified agent",
-			pane: snapshot.Pane{CurrentCmd: "claude"},
-			want: picker.StatusNeedsSetup,
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			windows := []snapshot.Window{{Index: 3, Panes: []snapshot.Pane{test.pane}}}
-			if got := windowStatuses(registry, windows)[3]; got != test.want {
-				t.Fatalf("got %v, want %v", got, test.want)
-			}
-			for _, other := range []snapshot.Pane{statusPane("idle"), statusPane("working"), statusPane("decision")} {
-				for _, panes := range [][]snapshot.Pane{{test.pane, other}, {other, test.pane}} {
-					want := toPickerStatusMust(t, other)
-					if test.want == picker.StatusNeedsSetup && want == picker.StatusIdle {
-						want = picker.StatusNeedsSetup
-					}
-					if test.want == picker.StatusNeedsSetup && want == picker.StatusWorking {
-						want = picker.StatusNeedsSetup
-					}
-					if got := windowStatuses(registry, []snapshot.Window{{Index: 3, Panes: panes}})[3]; got != want {
-						t.Fatalf("panes %v: got %v, want %v", panes, got, want)
-					}
-				}
-			}
-		})
-	}
-}
-
-func TestWindowStatusesKeepsWindowsIndependent(t *testing.T) {
-	t.Parallel()
-	windows := []snapshot.Window{
-		{Index: 1, Panes: []snapshot.Pane{statusPane("idle"), statusPane("working")}},
-		{Index: 7, Panes: []snapshot.Pane{statusPane("decision"), statusPane("idle")}},
-		{Index: 11, Panes: []snapshot.Pane{statusPane("idle"), statusPane("error")}},
-		{Index: 13, Panes: []snapshot.Pane{{CurrentCmd: "zsh"}}},
-		{Index: 15},
-	}
-	got := windowStatuses(integration.NewRegistry(paneStatusFixture{}), windows)
-	want := map[int]picker.WindowStatus{
-		1: picker.StatusWorking, 7: picker.StatusAwaitingDecision, 11: picker.StatusError,
-		13: picker.StatusNone, 15: picker.StatusNone,
-	}
-	for index, status := range want {
-		if got[index] != status {
-			t.Errorf("window %d: got %v, want %v", index, got[index], status)
-		}
-	}
-	if len(windowStatuses(nil, nil)) != 0 {
-		t.Fatal("empty windows produced statuses")
-	}
-	if got := windowStatuses(nil, windows)[1]; got != picker.StatusNone {
-		t.Fatalf("nil registry returned %v", got)
-	}
-}
-
-func statusPane(status string) snapshot.Pane {
-	return snapshot.Pane{CurrentCmd: "fixture", Meta: map[string]string{"fixture.status": status}}
-}
-
-func toPickerStatusMust(t *testing.T, pane snapshot.Pane) picker.WindowStatus {
+func startStatusPi(t *testing.T, name, dir string) (snapshot.Pane, string) {
 	t.Helper()
-	status, ok := (paneStatusFixture{}).Status(pane)
-	if !ok {
-		t.Fatalf("missing fixture status: %v", pane)
+	cwd := t.TempDir()
+	file := filepath.Join(cwd, name+".jsonl")
+	data, err := json.Marshal(
+		map[string]any{"version": 3, "type": "session", "cwd": cwd, "id": name},
+	)
+	if err != nil {
+		t.Fatal(err)
 	}
+	if err := os.WriteFile(file, append(data, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pane := strings.TrimSpace(
+		testutil.Tmux(
+			t,
+			"new-session",
+			"-d",
+			"-P",
+			"-F",
+			"#{pane_id}",
+			"-s",
+			name,
+			"-c",
+			cwd,
+			"env",
+			"PI_OFFLINE=1",
+			"PI_CODING_AGENT_DIR="+dir,
+			"PI_CODING_AGENT_SESSION_DIR="+cwd,
+			"pi",
+			"--no-tools",
+			"--session",
+			file,
+		),
+	)
+	client := tmux.NewClient("tmux")
+	for deadline := time.Now().Add(20 * time.Second); ; {
+		bound, err := client.CapturePane(pane)
+		if err == nil && bound.LiveStatusID == name {
+			bound.Meta["pi.session_id"] = name
 
-	return toPickerStatus(status)
+			return bound, pane
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf(
+				"Pi did not publish %q: %+v %v: %s",
+				name,
+				bound,
+				err,
+				testutil.Tmux(t, "show-options", "-pv", "-t", pane, "@lazy_tmux_pi_binding"),
+			)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+func setStatusInput(t *testing.T, pane, state string) {
+	t.Helper()
+	raw := testutil.Tmux(t, "show-options", "-pv", "-t", pane, "@lazy_tmux_pi_binding")
+	var binding map[string]any
+	if err := json.Unmarshal([]byte(raw), &binding); err != nil {
+		t.Fatal(err)
+	}
+	binding["state"] = state
+	data, err := json.Marshal(binding)
+	if err != nil {
+		t.Fatal(err)
+	}
+	testutil.Tmux(t, "set-option", "-p", "-t", pane, "@lazy_tmux_pi_binding", string(data))
+}
+
+func TestWindowStatusOrderingWithLiveBindings(t *testing.T) {
+	if os.Getenv("ENABLE_REAL_PI_TESTS") != "true" {
+		t.Skip("requires real Pi")
+	}
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("SHELL", "/bin/sh")
+	testutil.IsolatedTmux(t)
+	dir := t.TempDir()
+	if _, err := setup.EnsurePi(dir); err != nil {
+		t.Fatal(err)
+	}
+	reg := integration.NewRegistry(pi.New(dir, dir).WithStatusLoader(tmux.NewClient("tmux").CapturePiPanes)).
+		Scope()
+	statuses := []picker.WindowStatus{
+		picker.StatusNone,
+		picker.StatusIdle,
+		picker.StatusAwaitingInput,
+		picker.StatusWorking,
+		picker.StatusNeedsSetup,
+		picker.StatusError,
+		picker.StatusAwaitingDecision,
+		picker.StatusRestorePending,
+	}
+	panes := []snapshot.Pane{{CurrentCmd: "sh"}}
+	for i, state := range []string{"idle", "awaiting_input", "working", "setup", "error", "awaiting_decision"} {
+		if state == "setup" {
+			panes = append(panes, snapshot.Pane{CurrentCmd: "claude"})
+
+			continue
+		}
+		saved, pane := startStatusPi(t, fmt.Sprintf("pi-%d", i), dir)
+		setStatusInput(t, pane, state)
+		panes = append(panes, saved)
+	}
+	pending := panes[1]
+	pending.Meta = maps.Clone(pending.Meta)
+	pending.Meta["agent.restore_pending"] = "1"
+	panes = append(panes, pending)
+	for i, first := range panes {
+		for j, second := range panes {
+			got := windowStatuses(
+				reg,
+				[]snapshot.Window{
+					{Index: 3, Panes: []snapshot.Pane{first, second}},
+					{Index: 7, Panes: []snapshot.Pane{panes[1]}},
+				},
+			)
+			if got[3] != statuses[max(i, j)] || got[7] != picker.StatusIdle {
+				t.Fatalf("pair %d/%d: %v", i, j, got)
+			}
+		}
+	}
+	for _, key := range []string{"agent.restore_pending", "antex.restore_pending"} {
+		for _, verified := range panes {
+			waiting := verified
+			waiting.Meta = make(map[string]string, len(verified.Meta)+1)
+			maps.Copy(waiting.Meta, verified.Meta)
+			waiting.Meta[key] = "1"
+			if got := panePickerStatus(reg, waiting); got != picker.StatusRestorePending {
+				t.Fatalf("%s on %s: %v", key, verified.CurrentCmd, got)
+			}
+		}
+	}
+	for offset := range panes {
+		var rotated []snapshot.Pane
+		rotated = append(rotated, panes[offset:]...)
+		rotated = append(rotated, panes[:offset]...)
+		if windowStatuses(reg, []snapshot.Window{{Index: 1, Panes: rotated}})[1] != picker.StatusRestorePending {
+			t.Fatalf("rotation %d lost pending status", offset)
+		}
+	}
+}
+
+func TestWindowStatusesWithoutActivity(t *testing.T) {
+	t.Parallel()
+	windows := []snapshot.Window{{Index: 1, Panes: []snapshot.Pane{{CurrentCmd: "sh"}}}, {Index: 2}}
+	if len(windowStatuses(nil, nil)) != 0 || windowStatuses(nil, windows)[1] != picker.StatusNone ||
+		windowStatuses(integration.NewRegistry(), windows)[2] != picker.StatusNone ||
+		toPickerStatus(integration.StatusUnknown) != picker.StatusNone {
+		t.Fatal("empty inputs reported activity")
+	}
 }
