@@ -2,10 +2,6 @@ package tmux
 
 import (
 	"context"
-	"encoding/json"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -17,77 +13,33 @@ import (
 	"github.com/alchemmist/lazy-tmux/internal/testutil"
 )
 
-func TestAntexBindingHelper(t *testing.T) {
-	t.Parallel()
-	id := os.Getenv("LAZY_TMUX_BINDING_HELPER")
-	if id == "" {
-		return
-	}
-	socket, _, _ := strings.Cut(os.Getenv("TMUX"), ",")
-	binding := antexBinding{
-		Version:          1,
-		ThreadID:         id,
-		PID:              os.Getpid(),
-		ProcessStartedAt: processStartTime(os.Getpid()),
-		PaneID:           os.Getenv("TMUX_PANE"),
-		SocketPath:       socket,
-		Home:             "/tmp/antex-test",
-		ResumeArgv:       []string{"antex", "resume", id, "--profile", "test profile"},
-	}
-	body, err := json.Marshal(binding)
-	if err != nil {
-		t.Fatal(err)
-	}
-	command := exec.CommandContext(
-		context.Background(),
-		"tmux",
-		"-S",
-		socket,
-		"set-option",
-		"-p",
-		"-t",
-		binding.PaneID,
-		"@antex_binding",
-		string(body),
-	)
-	if out, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("publish: %s %v", out, err)
-	}
-	time.Sleep(time.Minute)
-}
-
 func TestAntexBindingRoundTripWithRealTmux(t *testing.T) {
-	t.Setenv("LAZY_TMUX_BINDING_HELPER", "")
+	t.Setenv("HOME", t.TempDir())
 	testutil.IsolatedTmux(t)
-	executable, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	helper := filepath.Join(t.TempDir(), "antex")
-	if err := os.Symlink(executable, helper); err != nil {
-		t.Fatal(err)
-	}
-	ids := []string{"01a0d3e1-d263-75c0-8189-c98bc7266f6c", "01a0cee1-2987-7b13-81cc-777ec4861be7"}
-	for idx, id := range ids {
-		command := "env LAZY_TMUX_BINDING_HELPER=" + id + " '" + helper + "' -test.run '^TestAntexBindingHelper$'"
-		if idx == 0 {
-			testutil.Tmux(t, "new-session", "-d", "-s", "binding", "-c", "/tmp", command)
-		} else {
-			testutil.Tmux(t, "new-window", "-t", "=binding:", "-c", "/tmp", command)
-		}
+	home, cwd := t.TempDir(), t.TempDir()
+	first, _ := testutil.StartAntex(t, home, cwd, "new-session", "-s", "binding")
+	second, _ := testutil.StartAntex(t, home, cwd, "new-window", "-t", "=binding:")
+	ids := []string{first, second}
+	if ids[0] == ids[1] {
+		t.Fatal("independent clients published the same identity")
 	}
 	client := NewClient("tmux")
+	var err error
 	var captured snapshot.SessionSnapshot
 	deadline := time.Now().Add(10 * time.Second)
-	for time.Now().Before(deadline) {
+	for {
 		captured, err = client.CaptureSession("binding")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(captured.Windows) == 2 &&
+		if len(captured.Windows) == 2 && len(captured.Windows[0].Panes) > 0 &&
+			len(captured.Windows[1].Panes) > 0 &&
 			captured.Windows[0].Panes[0].Meta[snapshot.AntexSessionIDMetaKey] == ids[0] &&
 			captured.Windows[1].Panes[0].Meta[snapshot.AntexSessionIDMetaKey] == ids[1] {
 			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out capturing Antex owners %v: %+v", ids, captured.Windows)
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
@@ -108,7 +60,7 @@ func TestAntexBindingRoundTripWithRealTmux(t *testing.T) {
 		}
 		command, err := registry.ResolveChecked(pane)
 		if err != nil || !strings.Contains(command, "'resume' '"+id+"'") ||
-			!strings.Contains(command, "'test profile'") {
+			!strings.Contains(command, `model_provider="local"`) {
 			t.Fatalf("window %d restore: %q %v", idx, command, err)
 		}
 	}
