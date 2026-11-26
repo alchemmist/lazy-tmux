@@ -4,10 +4,10 @@ go 1.26.10
 
 require (
 	charm.land/bubbles/v2 v2.2.2
-	charm.land/bubbletea/v2 v2.1.2
+	charm.land/bubbletea/v2 v2.2.0
 	charm.land/lipgloss/v2 v2.1.1
 	github.com/BurntSushi/toml v1.6.0
-	github.com/charmbracelet/x/ansi v0.11.10
+	github.com/charmbracelet/x/ansi v0.12.0
 	github.com/charmbracelet/x/term v0.2.2
 	golang.org/x/sys v0.50.0
 )
